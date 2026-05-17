@@ -612,6 +612,12 @@ def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
             return "geometria_medidas"
         return "matematica_geral"
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
+        if _contem(base, ["relacoes logico-discursivas", "relacao logico-discursiva", "logico-discursiva"]):
+            return "lp_relacoes_logico_discursivas"
+        if _contem(base, ["artigo de opiniao", "artigo de opini", "textos contemporaneos na construcao da opiniao", "textos contempor", "construcao da opini", "tese", "fato e opiniao", "fato", "ponto de vista", "estrutura argumentativa", "introducao", "desenvolvimento", "conclusao", "bibliotecas publicas"]):
+            return "lp_artigo_opiniao"
+        if _contem(base, ["conectivo", "conjuncao", "coesao", "coerencia", "adversativa", "concessiva", "concessao", "oposicao", "finalidade", "portanto", "embora", "porque", "todavia", "contudo", "no entanto"]):
+            return "lp_relacoes_logico_discursivas"
         if _contem(base, ["por dentro da cronica parte 2", "verbos que contam historias", "verbo", "modo", "subjuntivo", "indicativo", "imperativo", "tempo verbal", "concordancia", "ortografia", "pontuacao", "registro formal", "registro informal", "reescreva", "transforme"]):
             return "analise_linguistica"
         if _contem(base, ["producao", "producao textual", "produzir", "escrita", "escreva", "rascunho", "reescrita", "redacao", "paragrafo", "elabore", "crie um texto"]):
@@ -669,6 +675,8 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         "producao_textual": "produção e revisão de textos",
         "argumentacao": "argumentação e organização de opiniões",
         "leitura_interpretacao": "leitura, interpretação e registro de ideias",
+        "lp_artigo_opiniao": "artigo de opinião: estrutura, fato, opinião e conectivos",
+        "lp_relacoes_logico_discursivas": "relações lógico-discursivas e conectivos na argumentação",
         "genero_textual": "leitura e características do gênero textual",
         "analise_linguistica": "análise de recursos linguísticos em contexto",
         "vocabulario_inferencia": "vocabulário e inferência de sentidos pelo contexto",
@@ -685,6 +693,12 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         "investigacao_ciencias": "observação e explicação de fenômenos naturais",
     }
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
+        if _contem(base, ["relacoes logico-discursivas", "relacao logico-discursiva", "logico-discursiva"]):
+            return "relações lógico-discursivas e conectivos na argumentação"
+        if _contem(base, ["textos contemporaneos na construcao da opiniao", "textos contempor", "construcao da opini", "artigo de opiniao", "artigo de opini", "bibliotecas publicas"]):
+            return "artigo de opinião: estrutura, fato, opinião e conectivos"
+        if _contem(base, ["relacoes logico-discursivas", "conectivo", "conjuncao", "coesao", "adversativa", "concessiva"]):
+            return "relações lógico-discursivas e conectivos na argumentação"
         if _contem(base, ["por dentro da cronica parte 2", "modo subjuntivo", "subjuntivo"]):
             return "modo subjuntivo em textos literários"
         if _contem(base, ["por dentro da cronica parte 1", "por dentro da cronica"]):
@@ -723,6 +737,8 @@ def _exemplo_concreto_cdp(tipo: str) -> str:
         "geometria_poligonos": "identificação de figuras por lados, vértices e formas presentes no ambiente",
         "geometria_medidas": "medição de espaços, contornos e superfícies simples",
         "leitura_interpretacao": "leitura de texto impresso e identificação das informações principais",
+        "lp_artigo_opiniao": "identificação de tese, fato, opinião e argumentos em artigo de opinião",
+        "lp_relacoes_logico_discursivas": "uso de conectivos para ligar ideias de causa, oposição, concessão e conclusão",
         "producao_textual": "planejamento de respostas e pequenos textos com começo, desenvolvimento e fechamento",
         "argumentacao": "organização de uma opinião com justificativa clara",
         "genero_textual": "observação de características de um texto do cotidiano",
@@ -771,6 +787,16 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "usar o celular",
         "plataforma",
         "redes sociais",
+        "posts",
+        "stories",
+        "pnld",
+        "livro didático",
+        "livro didatico",
+        "assista ao vídeo",
+        "link para vídeo",
+        "resposta pessoal",
+        "você concorda",
+        "voce concorda",
         "veja no livro",
         "disponível em",
         "http",
@@ -837,6 +863,16 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
     }
 
     portugues = {
+        "lp_artigo_opiniao": [
+            f"O professor retoma brevemente o conceito de artigo de opinião, registrando no quadro a diferença entre fato e opinião. Em seguida, apresenta o tema do texto e realiza a leitura em voz alta, pausando para explicar vocabulário e trechos mais densos. Na lousa, organiza o esquema do artigo: tese, argumentos e conclusão. Os alunos respondem no caderno às atividades de identificação, e a correção coletiva retoma os trechos que comprovam cada resposta.",
+            f"O professor escreve no quadro uma pergunta objetiva: como distinguir uma informação verificável de um ponto de vista? A partir das respostas, apresenta {conceito_frase} e lê o artigo em voz alta, orientando os alunos a localizar tese, argumentos e conclusão. Depois, os alunos classificam trechos como fato ou opinião no caderno, com acompanhamento individual e correção coletiva na lousa.",
+            f"A aula começa com a retomada do conteúdo anterior sobre textos de opinião. O professor apresenta o foco da aula: reconhecer tese, argumentos, fatos, opiniões e conectivos que organizam o texto. Realiza a leitura orientada do artigo, registra exemplos no quadro e propõe atividade individual no caderno. O fechamento retoma os critérios usados para justificar as respostas com base no texto.",
+        ],
+        "lp_relacoes_logico_discursivas": [
+            f"O professor escreve na lousa duas frases com conectivos diferentes e pergunta oralmente que mudança de sentido ocorre entre elas. Em seguida, apresenta {conceito_frase}, organizando no quadro uma tabela simples com relações de adição, oposição, causa, finalidade, concessão e conclusão. Os alunos copiam os exemplos no caderno e associam trechos do texto às relações correspondentes, com correção coletiva ao final.",
+            f"O professor retoma o artigo lido e destaca no quadro conectivos presentes no texto. Explica como cada conectivo ajuda a organizar o argumento, diferenciando causa, oposição, concessão e conclusão. Os alunos realizam atividade de associação no caderno e, durante a correção coletiva, o professor esclarece os casos de maior dúvida, especialmente adversativa e concessiva.",
+            f"A aula inicia com exemplos curtos escritos no quadro para mostrar como uma palavra de ligação muda o sentido da frase. O professor apresenta os principais conectivos e suas funções no texto argumentativo. Em seguida, os alunos identificam relações lógico-discursivas em trechos do artigo, registram no caderno e revisam as respostas na correção coletiva.",
+        ],
         "leitura_interpretacao": [
             f"O professor escreve no quadro o título do texto e o conceito central da aula: {conceito_frase}. Em seguida, realiza a leitura em voz alta, pausando para explicar palavras que possam dificultar a compreensão. Os alunos respondem às questões no caderno, com orientação para localizar trechos que justifiquem as respostas, e a correção coletiva é feita no quadro.",
             f"O professor apresenta o texto impresso e lê em voz alta os trechos principais, verificando oralmente a compreensão da turma. Depois, orienta os alunos a responderem individualmente no caderno, retomando título, assunto e informações centrais. Ao final, corrige no quadro as questões, destacando as passagens do texto que fundamentam cada resposta.",
@@ -1008,6 +1044,18 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Verificar se as respostas escritas mantêm relação com o texto lido.",
             "☑ Acompanhar dificuldades de vocabulário e retomá-las durante a correção.",
         ],
+        "lp_artigo_opiniao": [
+            "☑ Verificar se o aluno identifica corretamente a tese do autor no artigo lido.",
+            "☑ Observar se distingue trechos de fato e trechos de opinião com justificativa.",
+            "☑ Acompanhar se reconhece introdução, desenvolvimento e conclusão na estrutura argumentativa.",
+            "☑ Conferir se responde às questões com base no texto, sem se limitar a opinião pessoal.",
+        ],
+        "lp_relacoes_logico_discursivas": [
+            "☑ Verificar se o aluno associa corretamente conectivos às relações de sentido.",
+            "☑ Observar se identifica a função dos conectivos na construção do argumento.",
+            "☑ Acompanhar se distingue relação adversativa de relação concessiva em contexto.",
+            "☑ Conferir se aplica conectivos adequados em frases próprias.",
+        ],
         "genero_textual": [
             "☑ Verificar se o aluno identifica corretamente as características do gênero estudado.",
             "☑ Observar se justifica as respostas com trechos do texto.",
@@ -1145,6 +1193,18 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Destaque no quadro das informações principais antes das respostas.",
             "☑ Possibilidade de resposta oral antes do registro escrito.",
             "☑ Apoio individual na localização de trechos do texto.",
+        ],
+        "lp_artigo_opiniao": [
+            "☑ Realizar a leitura do artigo em voz alta, pausando nos trechos mais densos.",
+            "☑ Retomar os conceitos de fato e opinião com exemplos simples antes da atividade.",
+            "☑ Oferecer um modelo de resposta na lousa para orientar o padrão esperado.",
+            "☑ Acompanhar individualmente alunos com dificuldade para localizar argumentos no texto.",
+        ],
+        "lp_relacoes_logico_discursivas": [
+            "☑ Apresentar uma tabela de conectivos na lousa antes das atividades.",
+            "☑ Trabalhar cada relação de sentido com frase curta antes de aplicar ao artigo.",
+            "☑ Reduzir a quantidade de relações para alunos com maior defasagem, priorizando adição, oposição e causa.",
+            "☑ Permitir consulta à tabela da lousa durante a realização das atividades.",
         ],
         "genero_textual": [
             "☑ Manter as características do gênero escritas no quadro durante a atividade.",
