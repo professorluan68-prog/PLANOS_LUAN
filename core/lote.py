@@ -631,6 +631,87 @@ def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
         if _contem(base, ["parte 2", "parte 3", "relembre", "retome", "aula anterior", "continuacao", "revisao"]):
             return "retomada_lp"
         return "leitura_interpretacao"
+    if perfil in {"ciencias_ef", "ciencias", "biologia", "quimica", "fisica"}:
+        if _contem(
+            base,
+            [
+                "cardapio",
+                "alimentacao balanceada",
+                "alimentacao saudavel",
+                "planejamento alimentar",
+                "planejar refeicoes",
+                "montar cardapio",
+                "montagem de cardapio",
+                "refeicao",
+                "refeicoes",
+                "nutricao",
+                "grupo alimentar",
+                "grupos alimentares",
+                "grupos de alimentos",
+                "classificar alimentos",
+                "in natura",
+                "minimamente processado",
+                "ultraprocessado",
+                "cafe da manha",
+                "almoco",
+                "lanche",
+                "jantar",
+            ],
+        ):
+            return "ciencias_alimentacao"
+        if _contem(
+            base,
+            [
+                "digestao",
+                "sistema digestorio",
+                "estomago",
+                "intestino",
+                "esofago",
+                "figado",
+                "pancreas",
+                "absorcao",
+                "enzima",
+                "suco gastrico",
+                "bolo alimentar",
+                "quimo",
+            ],
+        ):
+            return "ciencias_digestao"
+        if _contem(
+            base,
+            [
+                "sistema nervoso",
+                "sistema endocrino",
+                "hormonio",
+                "neuronio",
+                "cerebro",
+                "glandula",
+                "puberdade",
+                "adolescencia",
+                "desenvolvimento humano",
+                "morfologico",
+                "fisiologico",
+            ],
+        ):
+            return "ciencias_nervoso_endocrino"
+        if _contem(base, ["genetica", "hereditariedade", "dna", "gene", "cromossomo", "celula", "material genetico"]):
+            return "ciencias_genetica"
+        if _contem(
+            base,
+            [
+                "ecologia",
+                "ecossistema",
+                "cadeia alimentar",
+                "teia alimentar",
+                "relacao ecologica",
+                "seres vivos",
+                "ambiente",
+                "biodiversidade",
+            ],
+        ):
+            return "ciencias_ecologia"
+        if _contem(base, ["ciencia", "fenomeno natural", "observacao", "investigacao", "organismo", "saude"]):
+            return "ciencias_geral"
     if perfil == "historia":
         if _contem(base, ["fonte historica", "documento historico", "carta", "charge", "trecho de documento", "leia o trecho", "evidencia historica", "analise de fonte"]):
             return "historia_fonte"
@@ -690,6 +771,12 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         "historia_ideias": "ideias políticas e pensamento histórico do período estudado",
         "historia_fonte": "leitura e análise de fonte histórica",
         "historia_geral": "relações entre contexto, sujeitos e mudanças históricas",
+        "ciencias_alimentacao": "alimentação balanceada, grupos alimentares e montagem de cardápio",
+        "ciencias_digestao": "processo de digestão e aproveitamento dos nutrientes",
+        "ciencias_nervoso_endocrino": "sistemas nervoso e endócrino no desenvolvimento humano",
+        "ciencias_genetica": "hereditariedade, células e material genético",
+        "ciencias_ecologia": "relações ecológicas, seres vivos e ambiente",
+        "ciencias_geral": "observação e explicação de fenômenos naturais",
         "investigacao_ciencias": "observação e explicação de fenômenos naturais",
     }
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
@@ -752,6 +839,12 @@ def _exemplo_concreto_cdp(tipo: str) -> str:
         "historia_ideias": "ideias de liberdade, igualdade, soberania ou direitos em seu contexto histórico",
         "historia_fonte": "perguntas sobre quem produziu a fonte, quando, para quem e com qual objetivo",
         "historia_geral": "sequência de acontecimentos, causas e consequências do tema histórico",
+        "ciencias_alimentacao": "organização de alimentos como arroz, feijão, frutas, verduras, legumes, ovos e leite em refeições equilibradas",
+        "ciencias_digestao": "caminho dos alimentos pelo corpo e transformação em nutrientes aproveitados pelo organismo",
+        "ciencias_nervoso_endocrino": "respostas do corpo, hormônios, cérebro e mudanças do desenvolvimento humano",
+        "ciencias_genetica": "semelhanças familiares, células, genes e transmissão de características",
+        "ciencias_ecologia": "relações entre seres vivos, ambiente, alimentação e equilíbrio dos ecossistemas",
+        "ciencias_geral": "observação de situações naturais e explicação das causas e consequências envolvidas",
     }
     return exemplos.get(tipo, "situação concreta próxima da realidade dos estudantes")
 
@@ -798,6 +891,18 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "você concorda",
         "voce concorda",
         "veja no livro",
+        "caderno de exercícios",
+        "caderno de exercicios",
+        "simulador",
+        "simuladores",
+        "na escola",
+        "sua escola",
+        "colegas de escola",
+        "compartilhe com os seus colegas",
+        "compartilhe com seus colegas",
+        "use sua criatividade",
+        "sua história",
+        "sua historia",
         "disponível em",
         "http",
         "acesse",
@@ -941,6 +1046,33 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         ],
     }
 
+    ciencias = {
+        "ciencias_alimentacao": [
+            "O professor retoma na lousa os grupos alimentares, como cereais, proteínas, frutas, verduras, legumes e laticínios, usando exemplos acessíveis como arroz, feijão, ovo, leite e frutas comuns. Em seguida, explica o que caracteriza uma alimentação balanceada e registra no quadro os critérios de variedade, equilíbrio e presença de alimentos in natura ou minimamente processados. Os alunos recebem ou copiam uma tabela de cardápio e preenchem as refeições com base na lista apresentada, com acompanhamento individual e correção coletiva dos principais ajustes.",
+            "A aula começa com uma lista de alimentos escrita no quadro, organizada entre alimentos in natura, minimamente processados, processados e ultraprocessados. O professor explica cada categoria com linguagem simples e mostra como essa classificação ajuda a montar refeições mais equilibradas. Depois, os alunos classificam os alimentos no caderno e indicam quais escolhas fortalecem um cardápio saudável; a correção coletiva retoma os critérios usados, sem exigir relatos pessoais sobre alimentação.",
+            "O professor apresenta no quadro um cardápio com desequilíbrios propositais, como ausência de frutas e verduras, repetição excessiva de alimentos ou presença frequente de ultraprocessados. A turma analisa os problemas com mediação do professor e registra no caderno sugestões de melhoria. Em seguida, os alunos reorganizam uma refeição ou um dia de cardápio, considerando grupos alimentares, variedade e função dos nutrientes no organismo.",
+        ],
+        "ciencias_digestao": [
+            "O professor inicia registrando na lousa o caminho percorrido pelo alimento no corpo, destacando boca, esôfago, estômago e intestinos. Em seguida, explica o processo de digestão em etapas, relacionando transformação dos alimentos, absorção de nutrientes e saúde do organismo. Os alunos copiam um esquema simples, completam informações no caderno e participam da correção coletiva dos pontos principais.",
+            "A aula começa com uma pergunta objetiva no quadro: o que acontece com o alimento depois da mastigação? A partir das respostas, o professor organiza uma sequência do sistema digestório e explica cada etapa com exemplos simples. Os alunos completam um quadro com órgão, função e transformação realizada, com acompanhamento individual e fechamento coletivo.",
+        ],
+        "ciencias_nervoso_endocrino": [
+            "O professor apresenta na lousa a relação entre sistema nervoso, sistema endócrino e mudanças do desenvolvimento humano. Explica, em etapas, como cérebro, glândulas e hormônios participam de respostas do corpo e de transformações fisiológicas. Os alunos registram um esquema com palavras-chave e respondem a questões objetivas, com correção coletiva e retomada dos termos mais difíceis.",
+            "A aula inicia com exemplos neutros de respostas do corpo, como crescimento, sono, fome, emoções e mudanças corporais. O professor relaciona esses exemplos aos sistemas nervoso e endócrino, diferenciando comando nervoso e ação hormonal. Os alunos completam uma tabela simples no caderno e o fechamento retoma a função de cada sistema.",
+        ],
+        "ciencias_genetica": [
+            "O professor introduz o tema registrando na lousa palavras-chave como célula, gene, DNA, cromossomo e hereditariedade. Em seguida, explica como características podem ser transmitidas entre gerações, usando exemplos neutros e sem exposição pessoal. Os alunos copiam um esquema organizado, respondem a questões de identificação e participam da correção coletiva.",
+            "A aula começa com um esquema simples no quadro sobre célula e material genético. O professor explica a função dos genes e dos cromossomos, relacionando-os à hereditariedade. Depois, os alunos completam frases e classificam conceitos no caderno, com apoio individual e síntese final na lousa.",
+        ],
+        "ciencias_ecologia": [
+            "O professor registra no quadro seres vivos, ambiente e relações ecológicas, explicando como energia, alimentação e equilíbrio aparecem nos ecossistemas. Em seguida, apresenta exemplos simples de cadeia alimentar ou interação entre organismos. Os alunos organizam um esquema no caderno e respondem a uma questão de análise, com correção coletiva dos conceitos centrais.",
+            "A aula inicia com a observação orientada de uma situação ambiental descrita pelo professor no quadro. A partir dela, são identificados seres vivos, recursos do ambiente e relações de dependência. Os alunos completam uma tabela simples, registram conclusões e revisam coletivamente as relações entre causa, consequência e equilíbrio ambiental.",
+        ],
+        "ciencias_geral": [
+            f"O professor introduz {conceito_frase} por meio de uma situação concreta descrita na lousa. Em seguida, organiza as ideias principais em esquema, diferenciando observação, explicação e consequência. Os alunos registram no caderno os conceitos essenciais, resolvem atividades orientadas e participam da correção coletiva com retomada dos pontos de maior dificuldade.",
+        ],
+    }
+
     gerais = {
         "analise_geografica": f"O professor inicia com uma situação concreta ligada a {conceito_frase}, registrando no quadro palavras-chave do tema. Em seguida, apresenta exemplos simples e orienta a leitura de informações, imagens ou mapas impressos quando houver. Os alunos respondem às atividades no caderno, com retomada das dúvidas e correção coletiva.",
         "analise_historica": f"A aula começa com a retomada de uma questão central sobre {conceito_frase}. O professor apresenta o conteúdo no quadro, relacionando fatos, tempo e mudanças sociais com linguagem direta. Os alunos realizam registros e respondem às atividades, com correção coletiva dos pontos principais.",
@@ -954,6 +1086,8 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         opcoes = portugues.get(tipo_cdp, portugues["leitura_interpretacao"])
     elif perfil == "historia":
         opcoes = historicas.get(tipo_cdp, historicas["historia_geral"])
+    elif perfil in {"ciencias_ef", "ciencias", "biologia", "quimica", "fisica"}:
+        opcoes = ciencias.get(tipo_cdp, ciencias["ciencias_geral"])
     else:
         opcoes = [gerais.get(tipo_cdp, gerais["geral_cdp"])]
 
@@ -1121,6 +1255,42 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Conferir se relaciona a fonte com o conteúdo histórico estudado.",
             "☑ Acompanhar se utiliza evidências do texto para justificar as respostas.",
         ],
+        "ciencias_alimentacao": [
+            "☑ Verificar se o aluno identifica grupos alimentares a partir de exemplos concretos.",
+            "☑ Observar se distingue alimentos in natura, minimamente processados e ultraprocessados.",
+            "☑ Conferir se o cardápio ou a refeição organizada apresenta variedade e equilíbrio.",
+            "☑ Acompanhar se o aluno justifica escolhas alimentares com base nos critérios estudados.",
+        ],
+        "ciencias_digestao": [
+            "☑ Verificar se o aluno reconhece os principais órgãos do sistema digestório.",
+            "☑ Observar se compreende a transformação dos alimentos e a absorção de nutrientes.",
+            "☑ Acompanhar se registra a sequência da digestão de forma coerente.",
+            "☑ Retomar dúvidas sobre função dos órgãos durante a correção coletiva.",
+        ],
+        "ciencias_nervoso_endocrino": [
+            "☑ Verificar se o aluno diferencia sistema nervoso e sistema endócrino.",
+            "☑ Observar se relaciona hormônios, glândulas e respostas do corpo ao desenvolvimento humano.",
+            "☑ Acompanhar se utiliza corretamente os termos centrais no registro do caderno.",
+            "☑ Retomar conceitos abstratos por meio de exemplos simples durante a correção.",
+        ],
+        "ciencias_genetica": [
+            "☑ Verificar se o aluno identifica célula, gene, DNA e cromossomo como conceitos relacionados.",
+            "☑ Observar se compreende a ideia de hereditariedade sem recorrer a relatos pessoais.",
+            "☑ Acompanhar a organização dos conceitos no esquema do caderno.",
+            "☑ Retomar diferenças entre característica, gene e material genético quando necessário.",
+        ],
+        "ciencias_ecologia": [
+            "☑ Verificar se o aluno identifica seres vivos, ambiente e relações ecológicas no exemplo estudado.",
+            "☑ Observar se compreende relações de alimentação, dependência e equilíbrio ambiental.",
+            "☑ Acompanhar se organiza corretamente cadeia alimentar ou tabela de relações.",
+            "☑ Retomar causas e consequências quando houver confusão entre os elementos do ecossistema.",
+        ],
+        "ciencias_geral": [
+            "☑ Identificar se o aluno compreende o fenômeno natural ou conceito científico trabalhado.",
+            "☑ Observar se registra observações, explicações e consequências de forma organizada.",
+            "☑ Acompanhar dúvidas de vocabulário científico durante a correção coletiva.",
+            "☑ Verificar se relaciona o conteúdo aos exemplos apresentados na lousa.",
+        ],
     }
     padrao = [
         f"☑ Identificar se o aluno compreende as ideias principais relacionadas a {conceito_frase}.",
@@ -1271,6 +1441,42 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Apresentar perguntas de análise em ordem progressiva, do mais simples ao mais complexo.",
             "☑ Oferecer um roteiro de análise escrito no quadro para orientar as respostas.",
             "☑ Destacar no quadro autor, contexto, objetivo e ideia principal da fonte.",
+        ],
+        "ciencias_alimentacao": [
+            "☑ Apresentar os grupos alimentares com exemplos escritos no quadro.",
+            "☑ Oferecer lista de alimentos organizada por grupos para consulta durante a atividade.",
+            "☑ Disponibilizar tabela de cardápio impressa ou copiada na lousa, reduzindo a demanda de organização visual.",
+            "☑ Permitir que o aluno com maior dificuldade organize apenas uma refeição ou um dia de cardápio.",
+        ],
+        "ciencias_digestao": [
+            "☑ Usar esquema simples do sistema digestório na lousa, com setas indicando a sequência.",
+            "☑ Explicar cada órgão com frases curtas e exemplos objetivos.",
+            "☑ Manter a lista de órgãos e funções visível durante a atividade.",
+            "☑ Oferecer apoio individual para completar a sequência da digestão.",
+        ],
+        "ciencias_nervoso_endocrino": [
+            "☑ Apresentar uma tabela simples diferenciando sistema nervoso e sistema endócrino.",
+            "☑ Explicar hormônios, glândulas e respostas do corpo com linguagem direta.",
+            "☑ Reduzir a quantidade de termos científicos para alunos com maior defasagem.",
+            "☑ Permitir consulta ao esquema da lousa durante as respostas.",
+        ],
+        "ciencias_genetica": [
+            "☑ Apresentar os termos célula, gene, DNA e cromossomo em esquema progressivo.",
+            "☑ Evitar perguntas pessoais e trabalhar a hereditariedade por exemplos neutros.",
+            "☑ Oferecer frases-modelo para orientar registros curtos no caderno.",
+            "☑ Retomar oralmente cada conceito antes da correção coletiva.",
+        ],
+        "ciencias_ecologia": [
+            "☑ Organizar seres vivos, ambiente e relações em tabela ou esquema na lousa.",
+            "☑ Usar exemplos concretos antes de avançar para conceitos mais abstratos.",
+            "☑ Oferecer apoio individual na montagem de cadeia alimentar ou relação ecológica.",
+            "☑ Manter palavras-chave visíveis para consulta durante a atividade.",
+        ],
+        "ciencias_geral": [
+            "☑ Utilizar exemplos concretos e esquemas simples na lousa.",
+            "☑ Explicar vocabulário científico com linguagem simples antes da atividade.",
+            "☑ Dividir o registro em etapas menores para facilitar a cópia e a compreensão.",
+            "☑ Acompanhar individualmente os alunos com maior dificuldade de leitura ou escrita.",
         ],
     }
     padrao = [
