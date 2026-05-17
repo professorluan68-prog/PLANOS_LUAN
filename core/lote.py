@@ -625,6 +625,20 @@ def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
         if _contem(base, ["parte 2", "parte 3", "relembre", "retome", "aula anterior", "continuacao", "revisao"]):
             return "retomada_lp"
         return "leitura_interpretacao"
+    if perfil == "historia":
+        if _contem(base, ["fonte historica", "documento historico", "carta", "charge", "trecho de documento", "leia o trecho", "evidencia historica", "analise de fonte"]):
+            return "historia_fonte"
+        if _contem(base, ["monarquia", "rei", "governo", "poder", "centralizacao", "absolutismo", "parlamento", "czar", "imperio", "coroa", "estado", "soberano", "dinastia", "trono"]):
+            return "historia_poder_politico"
+        if _contem(base, ["classes sociais", "nobreza", "camponeses", "escravizados", "indigenas", "desigualdade", "hierarquia", "servos", "burguesia", "proletariado", "criollos", "peninsulares", "mestic", "estrutura social"]):
+            return "historia_sociedade_desigualdade"
+        if _contem(base, ["guerra", "batalha", "exercito", "conflito", "derrota", "vitoria", "tropas", "invasao", "soldados", "armamento", "combate", "alianca", "tratado"]):
+            return "historia_conflito"
+        if _contem(base, ["independencia", "independencias", "revolucao", "colonia", "metropole", "emancipacao", "revolta", "insurreicao", "separacao", "autonomia", "movimento revolucionario", "america espanhola"]):
+            return "historia_independencia_revolucao"
+        if _contem(base, ["iluminismo", "ideias", "pensadores", "liberdade", "igualdade", "soberania", "direitos", "contrato social", "razao", "filosofia", "nacionalismo", "republicanismo", "liberalismo", "socialismo"]):
+            return "historia_ideias"
+        return "historia_geral"
     if _contem(base, ["mapa", "territorio", "paisagem", "regiao", "cartografia"]):
         return "analise_geografica"
     if _contem(base, ["fonte historica", "tempo historico", "linha do tempo", "documento"]):
@@ -661,6 +675,13 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         "retomada_lp": "retomada e aprofundamento de leitura e linguagem",
         "analise_geografica": "leitura de paisagens, mapas e territórios",
         "analise_historica": "análise de fontes e relações de tempo histórico",
+        "historia_poder_politico": "organização do poder político no período estudado",
+        "historia_conflito": "causas, grupos envolvidos e consequências do conflito estudado",
+        "historia_independencia_revolucao": "processos de independência, revolução e mudança política",
+        "historia_sociedade_desigualdade": "organização social, hierarquias e desigualdades históricas",
+        "historia_ideias": "ideias políticas e pensamento histórico do período estudado",
+        "historia_fonte": "leitura e análise de fonte histórica",
+        "historia_geral": "relações entre contexto, sujeitos e mudanças históricas",
         "investigacao_ciencias": "observação e explicação de fenômenos naturais",
     }
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
@@ -708,6 +729,13 @@ def _exemplo_concreto_cdp(tipo: str) -> str:
         "analise_linguistica": "comparação de frases para perceber mudanças de sentido",
         "vocabulario_inferencia": "descoberta do sentido de palavras a partir do trecho lido",
         "retomada_lp": "ligação entre o texto já lido e o novo conceito da aula",
+        "historia_poder_politico": "quem governava, como mantinha o poder e quais grupos o apoiavam",
+        "historia_conflito": "oposição entre grupos, interesses e consequências de uma guerra ou conflito",
+        "historia_independencia_revolucao": "insatisfação social, liderança, mudança política e resultado do movimento",
+        "historia_sociedade_desigualdade": "posição de grupos sociais, direitos, obrigações e desigualdades",
+        "historia_ideias": "ideias de liberdade, igualdade, soberania ou direitos em seu contexto histórico",
+        "historia_fonte": "perguntas sobre quem produziu a fonte, quando, para quem e com qual objetivo",
+        "historia_geral": "sequência de acontecimentos, causas e consequências do tema histórico",
     }
     return exemplos.get(tipo, "situação concreta próxima da realidade dos estudantes")
 
@@ -726,7 +754,11 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "aplicativo",
         "internet",
         "vídeo",
+        "filme",
+        "youtube",
         "projetor",
+        "datashow",
+        "laboratório",
         "em duplas",
         "em grupos",
         "levante a mão",
@@ -739,6 +771,10 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "usar o celular",
         "plataforma",
         "redes sociais",
+        "veja no livro",
+        "disponível em",
+        "http",
+        "acesse",
     ]
     saida = str(texto or "")
     for termo in proibidos:
@@ -833,6 +869,42 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         ],
     }
 
+    historicas = {
+        "historia_poder_politico": [
+            f"O professor registra no quadro uma pergunta direta sobre {conceito_frase}: quem governava, como esse poder era mantido e quais grupos o apoiavam. Em seguida, apresenta o contexto histórico em etapas, usando linguagem simples e explicando os termos novos antes de avançar. Os alunos registram no caderno um esquema com os elementos centrais e respondem a uma questão escrita; a correção coletiva retoma os pontos principais na lousa.",
+            f"A aula começa com uma linha do tempo simples no quadro para situar o período estudado. O professor explica a organização do poder, destacando governantes, grupos sociais e formas de controle. Depois, os alunos completam um esquema no caderno e a correção coletiva compara as respostas, esclarecendo dúvidas sobre os conceitos históricos.",
+            f"O professor apresenta no quadro os grupos envolvidos no governo estudado e explica a função de cada um. Em seguida, contextualiza {conceito_frase}, mostrando causas, interesses e consequências políticas. Os alunos respondem a duas perguntas objetivas no caderno, com acompanhamento individual e correção coletiva ao final.",
+        ],
+        "historia_conflito": [
+            f"O professor apresenta no quadro os lados envolvidos no conflito, indicando quem eram, o que queriam e por que entraram em disputa. Explica as causas em sequência, usando setas para ligar acontecimentos e consequências. Os alunos registram um esquema de causas e resultados no caderno; depois, a correção coletiva retoma os grupos envolvidos e o impacto histórico.",
+            f"A aula começa com a descrição oral de uma cena do conflito, usando linguagem simples e direta. Em seguida, o professor organiza na lousa o contexto, os interesses em jogo e as principais consequências. Os alunos respondem a uma questão de interpretação no caderno e a correção no quadro destaca os pontos centrais.",
+            f"O professor registra no quadro os principais grupos do conflito e seus objetivos. Desenvolve o conteúdo em etapas numeradas, explicando início, desenvolvimento e resultado. Os alunos completam uma tabela simples no caderno e o professor verifica os registros antes da correção coletiva.",
+        ],
+        "historia_independencia_revolucao": [
+            f"O professor inicia registrando no quadro quem estava insatisfeito, por qual motivo e o que desejava mudar. Explica o processo histórico em etapas, destacando grupos sociais, lideranças, ideias e consequências. Os alunos registram a sequência no caderno e respondem a uma questão de análise; a correção coletiva retoma causas e resultados.",
+            f"A aula começa com a leitura em voz alta de um trecho curto ligado a {conceito_frase}. O professor explica o contexto e traduz termos desconhecidos antes de apresentar na lousa os elementos centrais do movimento. Os alunos respondem no caderno e a correção coletiva destaca a relação entre ideias, ações e mudanças políticas.",
+            f"O professor apresenta no quadro os grupos sociais envolvidos e seus interesses. Em seguida, explica como o movimento se desenvolveu, marcando momentos de tensão e resultados. Os alunos elaboram um resumo guiado no caderno, com acompanhamento individual e correção coletiva ao final.",
+        ],
+        "historia_sociedade_desigualdade": [
+            f"O professor inicia desenhando no quadro uma pirâmide social simples com os grupos da sociedade estudada. Explica quem estava em cada posição, quais eram seus direitos, obrigações e limitações. Os alunos registram a estrutura social no caderno e respondem a uma questão de análise; a correção coletiva destaca as desigualdades e suas causas.",
+            f"A aula começa com a descrição histórica do dia a dia de pessoas de diferentes grupos sociais, sem pedir relatos pessoais dos alunos. Em seguida, o professor organiza no quadro a hierarquia social e explica como ela influenciava os acontecimentos do período. Os alunos completam um esquema no caderno e a correção coletiva retoma as diferenças entre os grupos.",
+            f"O professor registra na lousa os principais grupos sociais e suas características. Explica como essa organização produzia desigualdades e influenciava conflitos ou mudanças históricas. Os alunos respondem a perguntas objetivas no caderno, com apoio individual e síntese coletiva no quadro.",
+        ],
+        "historia_ideias": [
+            f"O professor apresenta no quadro as ideias centrais do período estudado e explica cada uma com linguagem direta. Em seguida, conecta essas ideias aos acontecimentos históricos, mostrando quem as defendia e quais mudanças buscava. Os alunos registram uma lista comentada no caderno e respondem a uma questão de verificação, corrigida coletivamente.",
+            f"A aula começa com uma frase histórica ou ideia central escrita no quadro. O professor explica seu significado na época, quem a defendia e quem se opunha a ela. Depois, relaciona essas ideias aos eventos estudados. Os alunos completam um esquema no caderno e a correção coletiva retoma os conceitos.",
+            f"O professor registra no quadro ideias, defensores e consequências. Explica como essas ideias circularam e foram usadas para justificar ações políticas. Os alunos respondem a uma questão escrita, e o fechamento organiza no quadro a relação entre pensamento e mudança histórica.",
+        ],
+        "historia_fonte": [
+            f"O professor apresenta um trecho curto de fonte histórica na lousa ou no material impresso. Lê o trecho em voz alta, pausando para explicar termos e situar o contexto. Em seguida, propõe perguntas de análise: quem produziu, quando, para quem e com qual objetivo. Os alunos respondem no caderno e a correção coletiva destaca as evidências presentes no texto.",
+            f"A aula começa com a explicação simples do que é uma fonte histórica. O professor lê o documento em voz alta e registra no quadro o contexto de produção. Depois, orienta perguntas progressivas, começando pelo que o texto diz e avançando para o que o autor queria defender. A correção coletiva retoma a ideia principal da fonte.",
+            f"O professor apresenta a origem e a importância da fonte antes da leitura. Lê o trecho pausadamente e explica cada parte relevante. Os alunos respondem no caderno a uma questão de síntese sobre a ideia principal do documento, e o professor corrige coletivamente retomando contexto, autor e objetivo.",
+        ],
+        "historia_geral": [
+            f"O professor situa o tema no tempo e no espaço, registrando no quadro os acontecimentos principais. Em seguida, explica {conceito_frase} com linguagem direta, destacando causas, sujeitos históricos e consequências. Os alunos registram um esquema no caderno e respondem a uma questão de verificação, com correção coletiva no quadro.",
+        ],
+    }
+
     gerais = {
         "analise_geografica": f"O professor inicia com uma situação concreta ligada a {conceito_frase}, registrando no quadro palavras-chave do tema. Em seguida, apresenta exemplos simples e orienta a leitura de informações, imagens ou mapas impressos quando houver. Os alunos respondem às atividades no caderno, com retomada das dúvidas e correção coletiva.",
         "analise_historica": f"A aula começa com a retomada de uma questão central sobre {conceito_frase}. O professor apresenta o conteúdo no quadro, relacionando fatos, tempo e mudanças sociais com linguagem direta. Os alunos realizam registros e respondem às atividades, com correção coletiva dos pontos principais.",
@@ -844,6 +916,8 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         opcoes = matematicas.get(tipo_cdp, matematicas["matematica_geral"])
     elif perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
         opcoes = portugues.get(tipo_cdp, portugues["leitura_interpretacao"])
+    elif perfil == "historia":
+        opcoes = historicas.get(tipo_cdp, historicas["historia_geral"])
     else:
         opcoes = [gerais.get(tipo_cdp, gerais["geral_cdp"])]
 
@@ -963,6 +1037,42 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Registrar alunos que demonstram lacunas para retomada individual.",
             "☑ Acompanhar a participação durante a correção coletiva e a síntese no quadro.",
         ],
+        "historia_poder_politico": [
+            "☑ Verificar se o aluno identifica as características principais do governo estudado.",
+            "☑ Observar se compreende a relação entre poder político e grupos sociais.",
+            "☑ Analisar se consegue explicar como o poder era mantido no período estudado.",
+            "☑ Conferir se registra corretamente os conceitos históricos no esquema do caderno.",
+        ],
+        "historia_conflito": [
+            "☑ Verificar se o aluno identifica causas e consequências do conflito estudado.",
+            "☑ Observar se distingue os grupos envolvidos e seus interesses.",
+            "☑ Conferir se compreende o resultado do conflito e seu impacto histórico.",
+            "☑ Acompanhar a organização do esquema de causas e consequências no caderno.",
+        ],
+        "historia_independencia_revolucao": [
+            "☑ Verificar se o aluno identifica os grupos do movimento e suas motivações.",
+            "☑ Observar se compreende as etapas do processo histórico estudado.",
+            "☑ Analisar se relaciona ideias do período com ações políticas e mudanças históricas.",
+            "☑ Registrar dúvidas sobre causas e consequências para retomada posterior.",
+        ],
+        "historia_sociedade_desigualdade": [
+            "☑ Verificar se o aluno identifica grupos sociais e suas posições na hierarquia.",
+            "☑ Observar se compreende diferenças de direitos e obrigações entre os grupos.",
+            "☑ Conferir se relaciona a estrutura social aos eventos históricos do período.",
+            "☑ Acompanhar se o esquema no caderno representa corretamente a organização social.",
+        ],
+        "historia_ideias": [
+            "☑ Verificar se o aluno identifica as principais ideias do período e seus defensores.",
+            "☑ Observar se compreende como essas ideias influenciaram ações históricas.",
+            "☑ Analisar se explica a relação entre pensamento, política e mudança histórica.",
+            "☑ Acompanhar a compreensão de termos abstratos durante a correção coletiva.",
+        ],
+        "historia_fonte": [
+            "☑ Verificar se o aluno identifica origem, contexto e objetivo da fonte histórica.",
+            "☑ Observar se compreende a ideia principal do documento analisado.",
+            "☑ Conferir se relaciona a fonte com o conteúdo histórico estudado.",
+            "☑ Acompanhar se utiliza evidências do texto para justificar as respostas.",
+        ],
     }
     padrao = [
         f"☑ Identificar se o aluno compreende as ideias principais relacionadas a {conceito_frase}.",
@@ -1065,6 +1175,42 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Manter no quadro a ligação entre o que já foi estudado e o novo conceito.",
             "☑ Oferecer apoio individual para alunos que não acompanharam a aula anterior.",
             "☑ Ampliar o tempo de registro para completar a síntese no caderno.",
+        ],
+        "historia_poder_politico": [
+            "☑ Apresentar o esquema de poder em forma de pirâmide, tabela ou lista simples na lousa.",
+            "☑ Explicar termos como governo, centralização e absolutismo antes de usá-los na atividade.",
+            "☑ Oferecer apoio individual para alunos com dificuldade de leitura dos registros.",
+            "☑ Manter o esquema no quadro durante toda a resolução.",
+        ],
+        "historia_conflito": [
+            "☑ Apresentar as causas do conflito em lista numerada na lousa.",
+            "☑ Usar linguagem simples para descrever grupos, interesses e consequências.",
+            "☑ Oferecer tempo ampliado para alunos com dificuldade de escrita.",
+            "☑ Organizar no quadro uma tabela com causa, acontecimento e consequência.",
+        ],
+        "historia_independencia_revolucao": [
+            "☑ Apresentar as etapas do movimento em sequência numerada na lousa.",
+            "☑ Explicar termos históricos novos antes de utilizá-los no texto.",
+            "☑ Oferecer apoio individual para alunos com dificuldade de compreensão.",
+            "☑ Retomar oralmente a relação entre insatisfação, ação política e resultado.",
+        ],
+        "historia_sociedade_desigualdade": [
+            "☑ Apresentar a estrutura social em esquema visual simples na lousa.",
+            "☑ Explicar as diferenças entre os grupos com exemplos históricos concretos.",
+            "☑ Oferecer atividade com menor número de questões quando houver dificuldade de escrita.",
+            "☑ Evitar perguntas pessoais e manter a análise no contexto histórico estudado.",
+        ],
+        "historia_ideias": [
+            "☑ Apresentar as ideias em lista simples na lousa, com definições curtas.",
+            "☑ Usar exemplos concretos antes de apresentar conceitos mais abstratos.",
+            "☑ Oferecer apoio individual para alunos com dificuldade de abstração.",
+            "☑ Repetir os termos centrais com linguagem simples durante a correção.",
+        ],
+        "historia_fonte": [
+            "☑ Ler a fonte em voz alta, pausando para explicar cada parte.",
+            "☑ Apresentar perguntas de análise em ordem progressiva, do mais simples ao mais complexo.",
+            "☑ Oferecer um roteiro de análise escrito no quadro para orientar as respostas.",
+            "☑ Destacar no quadro autor, contexto, objetivo e ideia principal da fonte.",
         ],
     }
     padrao = [
