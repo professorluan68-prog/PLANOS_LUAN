@@ -712,6 +712,88 @@ def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
             return "ciencias_ecologia"
         if _contem(base, ["ciencia", "fenomeno natural", "observacao", "investigacao", "organismo", "saude"]):
             return "ciencias_geral"
+    if perfil == "geografia":
+        if _contem(
+            base,
+            [
+                "mapa tematico",
+                "cartografia tematica",
+                "mapa qualitativo",
+                "mapa quantitativo",
+                "valor de percepcao",
+                "valores de percepcao",
+                "gradacao de cor",
+                "simbolo proporcional",
+                "representacao cartografica",
+                "fenomeno geografico",
+                "titulo do mapa",
+                "legenda",
+                "simbologia",
+                "mapa-base",
+                "escala",
+            ],
+        ):
+            return "geografia_cartografia_tematica"
+        if _contem(
+            base,
+            [
+                "produzir mapa",
+                "elaborar mapa",
+                "construir mapa",
+                "mapa-base",
+                "titulo",
+                "legenda",
+                "simbologia",
+                "representar",
+                "recorte de area",
+                "correlacao entre mapas",
+            ],
+        ):
+            return "geografia_producao_cartografica"
+        if _contem(
+            base,
+            [
+                "tabela",
+                "grafico",
+                "dados",
+                "indice",
+                "porcentagem",
+                "valor",
+                "quantidade",
+                "concentracao",
+                "densidade demografica",
+                "pib",
+                "comparar",
+                "interpretar",
+                "analisar",
+            ],
+        ):
+            return "geografia_dados_espaciais"
+        if _contem(
+            base,
+            [
+                "fenomeno",
+                "distribuicao",
+                "distribuicao espacial",
+                "regional",
+                "territorio",
+                "espaco geografico",
+                "urbanizacao",
+                "populacao",
+                "clima",
+                "vegetacao",
+                "bioma",
+                "relevo",
+                "hidrografia",
+                "desigualdade",
+                "planejamento",
+                "politica publica",
+                "infraestrutura",
+            ],
+        ):
+            return "geografia_fenomenos"
+        if _contem(base, ["mapa", "territorio", "paisagem", "regiao", "cartografia"]):
+            return "geografia_geral"
     if perfil == "historia":
         if _contem(base, ["fonte historica", "documento historico", "carta", "charge", "trecho de documento", "leia o trecho", "evidencia historica", "analise de fonte"]):
             return "historia_fonte"
@@ -763,6 +845,11 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         "vocabulario_inferencia": "vocabulário e inferência de sentidos pelo contexto",
         "retomada_lp": "retomada e aprofundamento de leitura e linguagem",
         "analise_geografica": "leitura de paisagens, mapas e territórios",
+        "geografia_cartografia_tematica": "cartografia temática e diferenciação entre mapas qualitativos e quantitativos",
+        "geografia_fenomenos": "distribuição espacial de fenômenos geográficos",
+        "geografia_dados_espaciais": "leitura e interpretação de dados espaciais em mapas, tabelas e gráficos",
+        "geografia_producao_cartografica": "produção de mapa temático com título, legenda e simbologia",
+        "geografia_geral": "leitura do espaço geográfico por mapas, paisagens e territórios",
         "analise_historica": "análise de fontes e relações de tempo histórico",
         "historia_poder_politico": "organização do poder político no período estudado",
         "historia_conflito": "causas, grupos envolvidos e consequências do conflito estudado",
@@ -832,6 +919,11 @@ def _exemplo_concreto_cdp(tipo: str) -> str:
         "analise_linguistica": "comparação de frases para perceber mudanças de sentido",
         "vocabulario_inferencia": "descoberta do sentido de palavras a partir do trecho lido",
         "retomada_lp": "ligação entre o texto já lido e o novo conceito da aula",
+        "geografia_cartografia_tematica": "comparação entre mapas que mostram categorias, valores numéricos, legenda, cores e símbolos",
+        "geografia_fenomenos": "análise da distribuição de população, clima, vegetação, serviços ou infraestrutura no território",
+        "geografia_dados_espaciais": "leitura de mapas, tabelas ou gráficos para comparar valores entre regiões",
+        "geografia_producao_cartografica": "construção de mapa-base com título, legenda, cores e símbolos adequados",
+        "geografia_geral": "observação de mapas, paisagens e relações entre sociedade, natureza e território",
         "historia_poder_politico": "quem governava, como mantinha o poder e quais grupos o apoiavam",
         "historia_conflito": "oposição entre grupos, interesses e consequências de uma guerra ou conflito",
         "historia_independencia_revolucao": "insatisfação social, liderança, mudança política e resultado do movimento",
@@ -860,11 +952,16 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "De olho no modelo",
         "recurso digital",
         "tecnologia",
+        "tecnologias digitais",
         "aplicativo",
         "internet",
         "vídeo",
         "filme",
         "youtube",
+        "slide",
+        "slides",
+        "projete",
+        "projetar",
         "projetor",
         "datashow",
         "laboratório",
@@ -903,6 +1000,11 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
         "use sua criatividade",
         "sua história",
         "sua historia",
+        "encontre um colega",
+        "estimule a análise crítica",
+        "estimule a analise critica",
+        "provoque a turma",
+        "relacionadas ao tema",
         "disponível em",
         "http",
         "acesse",
@@ -1073,6 +1175,29 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         ],
     }
 
+    geografia = {
+        "geografia_cartografia_tematica": [
+            "O professor apresenta na lousa ou em material impresso um mapa temático do Brasil e solicita que os alunos observem título, cores, legenda e distribuição do fenômeno representado. Em seguida, escreve no quadro a diferença entre mapa qualitativo, que mostra categorias, e mapa quantitativo, que mostra valores numéricos. Os alunos registram um esquema comparativo no caderno, respondem a uma questão objetiva sobre legenda e representação cartográfica, e a correção coletiva retoma os elementos essenciais do mapa.",
+            "A aula começa com uma situação concreta: representar, em um mapa, quais estados ou regiões apresentam maior acesso a determinado serviço básico. O professor registra no quadro as respostas iniciais e explica que a cartografia temática serve para representar fenômenos específicos do espaço geográfico. Depois, compara exemplos de mapas qualitativos e quantitativos na lousa, orienta atividades de identificação no caderno e acompanha individualmente os alunos com maior dificuldade de leitura cartográfica.",
+            "O professor desenha na lousa um esboço simples de mapa com uma legenda de cores e pergunta oralmente o que aquela legenda indica. A partir das respostas, explica os valores de percepção cartográfica, como gradação de cor, símbolo proporcional e destaque de categorias. Os alunos registram os exemplos no caderno, classificam situações como qualitativas ou quantitativas e corrigem coletivamente as respostas no quadro.",
+        ],
+        "geografia_fenomenos": [
+            f"O professor apresenta no quadro um fenômeno geográfico relacionado a {conceito_frase} e orienta a turma a observar onde ele ocorre com maior ou menor intensidade. Em seguida, explica os fatores que influenciam essa distribuição espacial, como condições naturais, infraestrutura, população ou organização econômica. Os alunos registram um esquema no caderno, respondem a perguntas de interpretação e participam da correção coletiva.",
+            "A aula inicia com a descrição oral de um fenômeno geográfico brasileiro, como urbanização, vegetação, clima, acesso a serviços ou desigualdades regionais. O professor organiza no quadro causas, áreas de ocorrência e consequências. Depois, os alunos analisam um mapa, tabela ou texto curto em material impresso, registram conclusões no caderno e revisam coletivamente os pontos centrais.",
+        ],
+        "geografia_dados_espaciais": [
+            "O professor apresenta no quadro ou em material impresso dados espaciais organizados em mapa, tabela ou gráfico. Explica como comparar valores entre regiões, identificar concentração e interpretar diferenças numéricas. Os alunos respondem a questões no caderno, justificando as respostas com base nos dados apresentados, e a correção coletiva retoma os procedimentos de leitura.",
+            "A aula começa com dois dados simples sobre regiões brasileiras, registrados no quadro. O professor orienta a leitura dos valores, mostra como transformar números em interpretação geográfica e relaciona os dados ao território. Os alunos completam uma tabela de análise no caderno, com apoio individual e síntese final no quadro.",
+        ],
+        "geografia_producao_cartografica": [
+            "O professor apresenta na lousa os elementos essenciais de um mapa temático: título, legenda, simbologia, orientação e escala quando necessário. Em seguida, demonstra como construir uma representação simples a partir de um mapa-base, escolhendo um fenômeno e definindo cores ou símbolos. Os alunos produzem no caderno ou em material impresso um mapa com título e legenda, enquanto o professor acompanha individualmente e orienta correções.",
+            "A aula inicia com a análise de um mapa temático simples, destacando como título e legenda orientam a leitura. Depois, o professor propõe que os alunos representem um fenômeno geográfico em mapa-base impresso ou copiado da lousa. A atividade prioriza clareza da legenda, coerência dos símbolos e relação entre o fenômeno escolhido e o território representado.",
+        ],
+        "geografia_geral": [
+            f"O professor introduz {conceito_frase} por meio de um mapa, desenho na lousa ou descrição de uma situação geográfica concreta. Em seguida, organiza no quadro os conceitos centrais e orienta os alunos na leitura das informações espaciais. A turma registra as ideias no caderno, responde a atividades objetivas e participa da correção coletiva.",
+        ],
+    }
+
     gerais = {
         "analise_geografica": f"O professor inicia com uma situação concreta ligada a {conceito_frase}, registrando no quadro palavras-chave do tema. Em seguida, apresenta exemplos simples e orienta a leitura de informações, imagens ou mapas impressos quando houver. Os alunos respondem às atividades no caderno, com retomada das dúvidas e correção coletiva.",
         "analise_historica": f"A aula começa com a retomada de uma questão central sobre {conceito_frase}. O professor apresenta o conteúdo no quadro, relacionando fatos, tempo e mudanças sociais com linguagem direta. Os alunos realizam registros e respondem às atividades, com correção coletiva dos pontos principais.",
@@ -1088,6 +1213,8 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         opcoes = historicas.get(tipo_cdp, historicas["historia_geral"])
     elif perfil in {"ciencias_ef", "ciencias", "biologia", "quimica", "fisica"}:
         opcoes = ciencias.get(tipo_cdp, ciencias["ciencias_geral"])
+    elif perfil == "geografia":
+        opcoes = geografia.get(tipo_cdp, geografia["geografia_geral"])
     else:
         opcoes = [gerais.get(tipo_cdp, gerais["geral_cdp"])]
 
@@ -1254,6 +1381,36 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Observar se compreende a ideia principal do documento analisado.",
             "☑ Conferir se relaciona a fonte com o conteúdo histórico estudado.",
             "☑ Acompanhar se utiliza evidências do texto para justificar as respostas.",
+        ],
+        "geografia_cartografia_tematica": [
+            "☑ Verificar se o aluno diferencia mapa qualitativo de mapa quantitativo com exemplos.",
+            "☑ Observar se identifica título, legenda e simbologia em um mapa temático.",
+            "☑ Analisar se interpreta a legenda e relaciona as cores ou símbolos ao fenômeno representado.",
+            "☑ Conferir se reconhece quando um mapa mostra categorias ou valores numéricos.",
+        ],
+        "geografia_fenomenos": [
+            "☑ Identificar se o aluno reconhece onde o fenômeno geográfico ocorre com maior ou menor intensidade.",
+            "☑ Observar se relaciona o fenômeno estudado a fatores naturais, sociais ou econômicos.",
+            "☑ Verificar se interpreta corretamente informações apresentadas em mapas, tabelas ou textos.",
+            "☑ Acompanhar se registra causas e consequências de forma organizada no caderno.",
+        ],
+        "geografia_dados_espaciais": [
+            "☑ Verificar se o aluno compara valores entre regiões a partir de mapas, tabelas ou gráficos.",
+            "☑ Observar se identifica concentração, distribuição e diferenças numéricas nos dados.",
+            "☑ Conferir se justifica a resposta usando as informações apresentadas.",
+            "☑ Acompanhar dúvidas na leitura de porcentagens, índices e quantidades.",
+        ],
+        "geografia_producao_cartografica": [
+            "☑ Analisar se o mapa produzido contém título, legenda e simbologia adequados.",
+            "☑ Verificar se o aluno aplica corretamente representação qualitativa ou quantitativa ao fenômeno escolhido.",
+            "☑ Observar se consegue explicar oralmente o que seu mapa representa.",
+            "☑ Acompanhar o uso de cores, símbolos e organização visual durante a produção.",
+        ],
+        "geografia_geral": [
+            "☑ Verificar se o aluno compreende as informações geográficas apresentadas no mapa ou esquema.",
+            "☑ Observar se relaciona paisagem, território, região ou fenômeno ao conteúdo estudado.",
+            "☑ Acompanhar registros no caderno e participação durante a correção coletiva.",
+            "☑ Retomar conceitos básicos de leitura espacial quando houver dificuldade.",
         ],
         "ciencias_alimentacao": [
             "☑ Verificar se o aluno identifica grupos alimentares a partir de exemplos concretos.",
@@ -1441,6 +1598,36 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
             "☑ Apresentar perguntas de análise em ordem progressiva, do mais simples ao mais complexo.",
             "☑ Oferecer um roteiro de análise escrito no quadro para orientar as respostas.",
             "☑ Destacar no quadro autor, contexto, objetivo e ideia principal da fonte.",
+        ],
+        "geografia_cartografia_tematica": [
+            "☑ Retomar conceitos básicos de leitura de mapas, como título, legenda, cores e símbolos.",
+            "☑ Utilizar mapa impresso ampliado ou desenho simples na lousa para apoiar a observação.",
+            "☑ Explicar qualitativo e quantitativo com exemplos concretos antes das atividades.",
+            "☑ Permitir resposta oral quando houver dificuldade de escrita.",
+        ],
+        "geografia_fenomenos": [
+            "☑ Apresentar exemplos concretos de distribuição de população, serviços, clima ou vegetação.",
+            "☑ Organizar causas e consequências em lista simples no quadro.",
+            "☑ Oferecer material impresso com mapas ou textos curtos para facilitar a leitura.",
+            "☑ Realizar correção passo a passo, retomando o vocabulário geográfico necessário.",
+        ],
+        "geografia_dados_espaciais": [
+            "☑ Destacar no quadro os dados que precisam ser comparados antes da atividade.",
+            "☑ Explicar termos como índice, porcentagem, concentração e distribuição com exemplos simples.",
+            "☑ Reduzir a quantidade de dados para alunos com maior dificuldade de leitura.",
+            "☑ Permitir consulta ao esquema da lousa durante as respostas.",
+        ],
+        "geografia_producao_cartografica": [
+            "☑ Oferecer mapa-base impresso ou contorno desenhado na lousa para orientar a produção.",
+            "☑ Permitir uso de símbolos simples, como círculos, traços, cores e hachuras.",
+            "☑ Acompanhar individualmente a construção de título, legenda e simbologia.",
+            "☑ Valorizar clareza e organização do mapa sem exigir desenho elaborado.",
+        ],
+        "geografia_geral": [
+            "☑ Utilizar linguagem simples e direta, explicando termos geográficos antes da atividade.",
+            "☑ Trabalhar com mapas, esquemas ou descrições curtas que possam ser copiados no caderno.",
+            "☑ Oferecer apoio individual durante a leitura das informações espaciais.",
+            "☑ Realizar a correção das atividades passo a passo no quadro.",
         ],
         "ciencias_alimentacao": [
             "☑ Apresentar os grupos alimentares com exemplos escritos no quadro.",
