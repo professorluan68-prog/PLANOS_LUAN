@@ -1,0 +1,45 @@
+# Ambiente local
+.venv/
+.venv_*/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Segredos e chaves
+.env
+.env.*
+chaves.txt
+*chave*
+*secret*
+*token*
+
+# Banco e arquivos locais gerados pelo uso
+*.db
+*.sqlite
+*.sqlite3
+*.log
+saida_docx.txt
+update_app.py
+ler_docx.py
+test_cdp.py
+professores_PLANOS_LUAN_backup.json
+
+# Saidas, auditorias e artefatos temporarios
+Planos feitos/
+render_adriana_qa/
+_audit_streamlit.*
+_browser_check_streamlit.*
+_teste_*.docx
+
+# Backups compactados ou temporarios
+*.zip
+*.bak
+*.tmp
+~$*
+
+# Sistema operacional e editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
