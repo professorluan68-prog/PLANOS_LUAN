@@ -10,6 +10,7 @@ from core.lib.classificador import perfil_disciplina, detectar_tipo_aula, normal
 from core.lib.tecnicas import SeletorTecnicas
 from core.lib.progressao import ajustar_texto_por_posicao
 from core.lib.extrator_pdf import ExtratorPDF
+from core.qualidade_metodologica import naturalizar_texto_metodologico
 
 
 _seletor_tecnicas = SeletorTecnicas()
@@ -23,7 +24,7 @@ class ValidadorQualidade:
         validada = []
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
-                texto = etapa["texto"].strip()
+                texto = naturalizar_texto_metodologico(etapa["texto"].strip())
                 if not texto.endswith('.'):
                     texto += '.'
                 etapa["texto"] = texto
@@ -77,7 +78,7 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Foco no conteúdo", "foco"),
             ("Pause e responda", "pause"),
         ]
-        if tipo in {"credito_endividamento", "investimento_poupanca"}:
+        if tipo in {"credito_endividamento", "investimento_poupanca", "analise_percentuais_noticias"}:
             etapas.append(("Cálculos financeiros", "calculos"))
             etapas.append(("Na prática", "pratica"))
         elif tipo == "orcamento_planejamento":
@@ -251,12 +252,17 @@ def _frases_por_contexto(
         )
 
     elif perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+        conceito_norm = normalizar_texto(conceito)
+        conceito_seguro = tema if any(
+            marcador in conceito_norm
+            for marcador in ["questao essencial", "habilidade", "competencia", "competencias", "tema da aula", "conteudo da aula"]
+        ) or (conceito_norm.split()[-1:] and conceito_norm.split()[-1] in {"a", "as", "o", "os", "de", "da", "do", "e", "em", "com", "para", "por"}) else conceito
         base["para_comecar"] = (
             f"Abrir a aula com uma situação acolhedora relacionada a {tema}, sem exigir exposição pessoal. Propor "
             "troca em duplas ou roda de conversa breve, respeitando diferentes ritmos de participação."
         )
         base["foco"] = (
-            f"Construir o conceito de {conceito} por meio de exemplos escolares e cotidianos, ajudando a turma a "
+            f"Construir a reflexÃ£o sobre {conceito_seguro} por meio de exemplos escolares e cotidianos, ajudando a turma a "
             "relacionar sentir, pensar e agir de forma respeitosa."
         )
         base["pratica"] = (
@@ -276,6 +282,9 @@ def _frases_por_contexto(
             "investimento_poupanca": "uma situação de poupança ou reserva de emergência em que pequenos valores acumulados ajudam a lidar com imprevistos",
             "credito_endividamento": "uma compra parcelada ou oferta de crédito em que seja necessário comparar valor à vista, juros, parcelas e custo total",
             "empreendedorismo": "um pequeno projeto de venda, serviço ou solução para a comunidade escolar, analisando custos, preço e viabilidade",
+            "analise_percentuais_noticias": "uma noticia, manchete ou grafico em que a turma precise interpretar percentuais e relacionar os dados a uma situacao real",
+            "governo_economia": "uma situacao cotidiana sobre como a acao do governo influencia precos, servicos, impostos e a vida economica da populacao",
+            "impacto_decisoes_economicas": "uma situacao do cotidiano em que escolhas economicas afetam consumo, planejamento, prioridades e bem-estar",
             "cidadania_financeira": "uma situação de consumo que envolva direitos, responsabilidades, comprovantes, garantia ou uso seguro de serviços financeiros",
             "instituicoes_financeiras": "uma situação cotidiana sobre onde guardar, movimentar e proteger o dinheiro com segurança",
         }
@@ -346,6 +355,37 @@ def _frases_por_contexto(
                 "Relacionar a proposta a planejamento, responsabilidade e análise do contexto."
             )
             base["pratica"] = base["projeto"]
+        elif tipo == "analise_percentuais_noticias":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} por meio da leitura de noticias, manchetes, tabelas e graficos, ajudando a turma a interpretar percentuais, "
+                "comparar dados e perceber como os numeros influenciam a compreensao dos fatos."
+            )
+            base["calculos"] = (
+                "Orientar calculos de porcentagem e comparacao de variacoes com apoio do quadro, destacando o significado de cada dado antes do procedimento numerico. "
+                "Retomar passo a passo como localizar o valor de referencia, calcular percentuais e interpretar o resultado no contexto da noticia analisada."
+            )
+            base["pratica"] = (
+                "Propor leitura guiada de noticias ou situacoes semelhantes, seguida de registros no caderno com interpretacao dos percentuais, comparacao de informacoes "
+                "e justificativa sobre o que os dados revelam."
+            )
+        elif tipo == "governo_economia":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} relacionando arrecadacao, servicos publicos, regulacao e impactos economicos no cotidiano. "
+                "Conduzir a turma a perceber como decisoes do governo interferem em precos, circulacao de dinheiro e acesso a direitos."
+            )
+            base["pratica"] = (
+                "Orientar a analise de exemplos concretos, comparando situacoes em que a acao do governo influencia consumo, trabalho, precos ou servicos. "
+                "Solicitar registros curtos com explicacao das relacoes observadas."
+            )
+        elif tipo == "impacto_decisoes_economicas":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} por meio de escolhas economicas do cotidiano, relacionando recursos disponiveis, prioridades, consumo e consequencias de curto e longo prazo. "
+                "Estimular a turma a comparar alternativas com base em criterios claros e realistas."
+            )
+            base["pratica"] = (
+                "Propor situacoes-problema simples para que os estudantes comparem escolhas, antecipem impactos e justifiquem decisoes com base nos dados apresentados. "
+                "Retomar o vocabulario financeiro necessario sempre que surgirem duvidas."
+            )
         elif tipo == "cidadania_financeira":
             base["foco"] = (
                 f"Desenvolver {conceito_seguro} relacionando direitos do consumidor, responsabilidades, segurança, comprovantes, garantias e autonomia nas decisões financeiras. "
@@ -382,13 +422,74 @@ def _frases_por_contexto(
 
     elif perfil == "tecnologia_inovacao":
         base["para_comecar"] = (
-            f"Apresentar um problema real relacionado a {tema}, incentivando observação do contexto e levantamento "
-            "de necessidades antes da construção de soluções."
+            f"Ativar os conhecimentos previos da turma sobre {tema}, retomando exemplos do cotidiano escolar e digital que ajudem a dar sentido ao conteudo."
+        )
+        base["leitura"] = (
+            "Realizar leitura guiada dos slides, explicando vocabulario, comandos, funcoes e exemplos de forma pausada, com registro no quadro das ideias principais."
+        )
+        base["foco"] = (
+            f"Explorar {conceito} de forma concreta, relacionando o funcionamento da tecnologia, os usos no cotidiano e as escolhas dos estudantes durante a aula."
+        )
+        base["pause"] = (
+            "Promover perguntas rapidas para verificar a compreensao, retomar respostas da turma e corrigir coletivamente possiveis duvidas antes da atividade principal."
         )
         base["pratica"] = (
-            f"Orientar criação, programação, prototipagem ou teste de solução, exigindo {t_reg}, e acompanhando escolhas técnicas, "
-            "iterações e registros do processo."
+            f"Orientar a atividade pratica com {t_reg}, acompanhando leitura dos comandos, organizacao dos registros e execucao passo a passo."
         )
+        base["encerramento"] = (
+            f"Retomar os aprendizados sobre {tema}, socializar algumas respostas ou producoes da turma e finalizar com uma sintese simples sobre o que foi descoberto na aula."
+        )
+
+        if tipo == "dispositivos_entrada_saida":
+            base["para_comecar"] = (
+                f"Ativar os conhecimentos previos da turma sobre {tema}, convidando os estudantes a observar os equipamentos tecnologicos presentes na escola e a dizer para que servem."
+            )
+            base["foco"] = (
+                "Explorar a diferenca entre dispositivos de entrada e de saida, classificando coletivamente exemplos como teclado, mouse, microfone, camera, monitor, impressora, projetor e caixa de som."
+            )
+            base["pratica"] = (
+                f"Orientar a classificacao dos dispositivos em colunas ou esquemas com {t_reg}, acompanhando as justificativas dos estudantes sobre a funcao de cada equipamento."
+            )
+        elif tipo == "programacao_inicial":
+            base["para_comecar"] = (
+                f"Retomar situacoes em que o teclado, o mouse ou botoes de inicio sao usados para dar comandos, conectando o tema {tema} a experiencias proximas da turma."
+            )
+            base["foco"] = (
+                "Explicar o uso do teclado e dos comandos iniciais de programacao no StartLab, destacando teclas importantes, a bandeira verde, blocos de eventos e o bloco diga como formas de criar mensagens interativas."
+            )
+            base["pratica"] = (
+                f"Orientar a montagem de comandos simples no ambiente de programacao com {t_reg}, demonstrando uma etapa no quadro ou projetor e acompanhando a execucao individual ou em dupla."
+            )
+        elif tipo == "cultura_digital":
+            base["para_comecar"] = (
+                f"Ativar os conhecimentos previos sobre {tema}, comparando formas antigas e atuais de comunicacao e incentivando a turma a pensar sobre convivencia nos ambientes digitais."
+            )
+            base["foco"] = (
+                "Explorar atitudes respeitosas e inadequadas na internet, relacionando emocoes, convivencia online, responsabilidade e cuidado nas interacoes digitais."
+            )
+            base["pratica"] = (
+                f"Orientar a analise de situacoes do cotidiano digital com {t_reg}, acompanhando a construcao de regras, exemplos e propostas de convivencia respeitosa."
+            )
+        elif tipo == "comunicacao_digital":
+            base["para_comecar"] = (
+                f"Apresentar uma situacao de duvida ou mensagem pouco clara relacionada a {tema}, convidando a turma a identificar por que a comunicacao nao funcionou."
+            )
+            base["foco"] = (
+                "Explorar como fazer perguntas claras, objetivas, respeitosas e completas em ambientes digitais, mostrando quais informacoes ajudam a receber respostas mais precisas."
+            )
+            base["pratica"] = (
+                f"Orientar a reescrita de perguntas e mensagens com {t_reg}, usando modelos simples no quadro e acompanhando a organizacao das informacoes pelos estudantes."
+            )
+        elif tipo == "consumo_tecnologia":
+            base["para_comecar"] = (
+                f"Apresentar um exemplo do cotidiano relacionado a {tema}, como celular, fone, carregador ou televisao, para provocar a reflexao sobre durabilidade, descarte e consumo."
+            )
+            base["foco"] = (
+                "Explicar o conceito de obsolescencia programada e relaciona-lo ao lixo eletronico, ao consumo excessivo e a necessidade de escolhas mais conscientes no uso da tecnologia."
+            )
+            base["pratica"] = (
+                f"Orientar a producao de listas, cartazes, campanhas ou propostas de solucao com {t_reg}, acompanhando a formulacao de dicas viaveis de consumo consciente e descarte correto."
+            )
 
     elif perfil == "sociologia":
         base["para_comecar"] = (

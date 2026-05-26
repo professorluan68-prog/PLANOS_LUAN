@@ -1,8 +1,8 @@
 """
-Extrator de conteúdo estruturado de PDFs.
+Extrator de conteudo estruturado de PDFs.
 
-Centraliza a lógica de extração de habilidades BNCC, conceitos,
-atividades práticas e contexto de aula a partir do texto extraído.
+Centraliza a logica de extracao de habilidades BNCC, conceitos,
+atividades praticas e contexto de aula a partir do texto extraido.
 """
 
 import re
@@ -16,19 +16,39 @@ def _normalizar_texto(texto: str) -> str:
 
 
 def _limpar_trecho(texto: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip(" -:;•●")
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip(" -:;*")
     texto = re.sub(r"\.{2,}", ".", texto)
     return texto.strip()
 
 
 _TRECHOS_DESCARTAVEIS = (
-    "freepik", "seduc-sp", "produzido pela", "veja no livro",
-    "de olho no pnld", "link para", "disponivel em", "disponível em", "slide",
+    "freepik",
+    "seduc-sp",
+    "produzido pela",
+    "veja no livro",
+    "de olho no pnld",
+    "link para",
+    "disponivel em",
+    "slide",
 )
 
 _FINS_FRAGMENTADOS = {
-    "a", "as", "o", "os", "um", "uma", "de", "da", "das", "do", "dos",
-    "em", "e", "com", "para", "por",
+    "a",
+    "as",
+    "o",
+    "os",
+    "um",
+    "uma",
+    "de",
+    "da",
+    "das",
+    "do",
+    "dos",
+    "em",
+    "e",
+    "com",
+    "para",
+    "por",
 }
 
 
@@ -43,7 +63,11 @@ def _trecho_descartavel(texto: str) -> bool:
         return True
     if re.fullmatch(r"[A-Za-z0-9_*?&=.%/-]{18,}", texto) and not re.search(r"\s", texto):
         return True
-    if re.search(r"\b[A-Za-z0-9]{10,}\b", texto) and not re.search(r"\b(?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b", texto, flags=re.I):
+    if re.search(r"\b[A-Za-z0-9]{10,}\b", texto) and not re.search(
+        r"\b(?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b",
+        texto,
+        flags=re.I,
+    ):
         return True
     if any(seta in texto for seta in ["⬅", "←", "→"]):
         return True
@@ -54,7 +78,9 @@ def _trecho_descartavel(texto: str) -> bool:
         return True
     primeira = texto[:1]
     inicio = _normalizar_texto(texto)
-    if primeira.islower() and not inicio.startswith(("a ", "o ", "as ", "os ", "um ", "uma ", "essa ", "esse ", "esta ", "este ")):
+    if primeira.islower() and not inicio.startswith(
+        ("a ", "o ", "as ", "os ", "um ", "uma ", "essa ", "esse ", "esta ", "este ")
+    ):
         return True
     return False
 
@@ -69,76 +95,54 @@ def _trecho_seguro(texto: str, fallback: str, limite: int = 220) -> str:
     return recorte if not _trecho_descartavel(recorte) else fallback
 
 
-# Padrões de habilidades BNCC / AE
 _PADRAO_CODIGO_BNCC = re.compile(
-    r'\(?\b((?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?)\b\)?',
-    re.IGNORECASE
+    r"\(?\b((?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?)\b\)?",
+    re.IGNORECASE,
 )
 _PADRAO_HABILIDADE = re.compile(
-    r'(\(?\b(?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b\)?'
-    r'|\bAE\s*\d+\b\s*[-–]?\s*[^\n]{10,})',
-    re.IGNORECASE
+    r"(\(?\b(?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b\)?|\bAE\s*\d+\b\s*[-–]?\s*[^\n]{10,})",
+    re.IGNORECASE,
 )
 _PADRAO_HABILIDADE_TEXTO = re.compile(
-    r'(?:habilidade|aprendizagem essencial|competência)[:\s]*([^\n]{20,})',
-    re.IGNORECASE
+    r"(?:habilidade|aprendizagem essencial|competencia|competência)[:\s]*([^\n]{20,})",
+    re.IGNORECASE,
+)
+_PADRAO_ETAPA_METODOLOGICA = re.compile(
+    r"^(?:\d+\.\s+|trilha\b|pratica de linguagem\b|aula\s+\d+\b|sugestoes para conducao\b)",
+    re.IGNORECASE,
 )
 
 
 class ExtratorPDF:
-    """Extrai conteúdo estruturado de texto de PDF."""
+    """Extrai conteudo estruturado de texto de PDF."""
 
-    # Filtros para linhas de conceito/prática
     _FILTROS = [
-        "todo mundo escreve", "virem e conversem", "com suas palavras",
-        "hora da leitura", "de olho no modelo", "link para vídeo",
-        "um passo de cada vez", "slide", "aula", "veja no livro",
-        "freepik", "produzido pela", "seduc-sp", "de olho no pnld",
+        "todo mundo escreve",
+        "virem e conversem",
+        "com suas palavras",
+        "hora da leitura",
+        "de olho no modelo",
+        "link para video",
+        "um passo de cada vez",
+        "slide",
+        "aula",
+        "veja no livro",
+        "freepik",
+        "produzido pela",
+        "seduc-sp",
+        "de olho no pnld",
     ]
 
     def extrair(self, texto: str, tema: str) -> dict:
-        """
-        Extrai informações estruturadas do texto do PDF.
+        linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
 
-        Retorna dict com:
-            - conceito_extraido: conceito principal identificado
-            - atividade_extraida: atividade prática encontrada
-            - habilidade: habilidade BNCC/AE, se presente
-            - contexto_aula: pergunta ou situação de abertura
-            - palavras_chave: termos relevantes
-            - etapas_detectadas: seções do material (para começar, etc.)
-            - recursos_detectados: tipos de recursos (leitura, cálculo, etc.)
-        """
-        linhas = [linha.strip() for linha in texto.split('\n') if linha.strip()]
-
-        conceito = tema
-        atividade_pratica = ""
-        habilidade = ""
-        contexto_aula = ""
-        palavras_chave = []
-        etapas_detectadas = []
-
-        # 1. Extrair habilidade/BNCC
-        habilidade = self._extrair_habilidade(linhas)
-
-        # 2. Extrair conceito
         conceito = self._extrair_conceito(linhas, tema)
-
-        # 3. Extrair atividade prática
         atividade_pratica = self._extrair_pratica(linhas, tema)
-
-        # 4. Extrair contexto/abertura
         contexto_aula = self._extrair_contexto(linhas)
-
-        # 5. Palavras-chave
         palavras_chave = self._extrair_palavras_chave(linhas)
-
-        # 6. Etapas detectadas no material
         etapas_detectadas = self._detectar_etapas(linhas)
 
-        # 7. Recursos detectados
         from core.lib.classificador import detectar_recursos
-        recursos = detectar_recursos(texto, tema)
 
         return {
             "conceito_extraido": _trecho_seguro(conceito, tema, 220),
@@ -147,29 +151,28 @@ class ExtratorPDF:
                 f"atividades propostas no material, articuladas ao tema {tema}",
                 220,
             ),
-            "habilidade": habilidade,
+            "habilidade": self._extrair_habilidade(linhas),
             "contexto_aula": _trecho_seguro(contexto_aula, "", 160),
             "palavras_chave": palavras_chave,
             "etapas_detectadas": etapas_detectadas,
-            "recursos_detectados": recursos,
+            "recursos_detectados": detectar_recursos(texto, tema),
             "linhas": linhas,
         }
 
     def _linha_valida(self, linha: str) -> bool:
-        ll = linha.lower()
+        ll = _normalizar_texto(linha)
         return len(linha) > 10 and not any(
             ll.startswith(f) or ll == f or f in ll for f in self._FILTROS
         )
 
     def _extrair_habilidade(self, linhas: list[str]) -> str:
         for i, linha in enumerate(linhas):
-            m = _PADRAO_HABILIDADE.search(linha)
-            if m:
+            if _PADRAO_HABILIDADE.search(linha):
                 return self._montar_bloco_habilidade(linhas, i)
         for linha in linhas:
-            m = _PADRAO_HABILIDADE_TEXTO.search(linha)
-            if m:
-                return m.group(1).strip()
+            match = _PADRAO_HABILIDADE_TEXTO.search(linha)
+            if match:
+                return match.group(1).strip()
         return ""
 
     def _montar_bloco_habilidade(self, linhas: list[str], indice: int) -> str:
@@ -193,16 +196,23 @@ class ExtratorPDF:
                 and texto_parcial.endswith((".", ";"))
             ):
                 break
+
         texto = _limpar_trecho(" ".join(bloco))
         texto = re.sub(
-            r"^(?:habilidades?|aprendizagem essencial|competencia|competência|competÃªncia)\s*:\s*",
+            r"^(?:habilidades?\s+bncc\s+e\s+curriculo\s+paulista)\s*",
+            "",
+            texto,
+            flags=re.I,
+        )
+        texto = re.sub(
+            r"^(?:habilidades?|aprendizagem essencial|competencia|competência)\s*:\s*",
             "Habilidade: ",
             texto,
             flags=re.I,
         )
         if _PADRAO_CODIGO_BNCC.search(texto):
             texto = re.sub(
-                r"^(?:habilidade|aprendizagem essencial|competencia|competÃªncia)\s*:\s*",
+                r"^(?:habilidade|aprendizagem essencial|competencia|competência)\s*:\s*",
                 "Habilidade: ",
                 texto,
                 flags=re.I,
@@ -213,13 +223,30 @@ class ExtratorPDF:
         if _PADRAO_HABILIDADE.search(linha):
             return False
         normalizada = _normalizar_texto(linha).strip(" .:-")
+        if _PADRAO_ETAPA_METODOLOGICA.match(normalizada):
+            return True
         marcadores = {
-            "slide", "tempo", "dinamica", "dinamica de conducao",
-            "para comecar", "foco no conteudo", "na pratica",
-            "pause e responda", "encerramento", "sistematizacao",
-            "professor", "para professores", "recursos", "objetivo",
-            "objetivos", "objeto do conhecimento", "conteudo",
-            "conteudo principal", "tema", "titulo", "material",
+            "slide",
+            "tempo",
+            "dinamica",
+            "dinamica de conducao",
+            "para comecar",
+            "foco no conteudo",
+            "na pratica",
+            "pause e responda",
+            "encerramento",
+            "sistematizacao",
+            "professor",
+            "para professores",
+            "recursos",
+            "objetivo",
+            "objetivos",
+            "objeto do conhecimento",
+            "conteudo",
+            "conteudo principal",
+            "tema",
+            "titulo",
+            "material",
         }
         return (
             normalizada in marcadores
@@ -231,11 +258,18 @@ class ExtratorPDF:
 
     def _extrair_conceito(self, linhas: list[str], tema: str) -> str:
         marcadores = [
-            "o que é", "definição", "conceito", "é o uso de", "é uma estratégia",
-            "consiste em", "refere-se a", "trata-se de", "podemos definir",
+            "o que e",
+            "definicao",
+            "conceito",
+            "e o uso de",
+            "e uma estrategia",
+            "consiste em",
+            "refere-se a",
+            "trata-se de",
+            "podemos definir",
         ]
         for i, linha in enumerate(linhas):
-            linha_lower = linha.lower()
+            linha_lower = _normalizar_texto(linha)
             if any(m in linha_lower for m in marcadores):
                 bloco = []
                 if self._linha_valida(linha):
@@ -250,12 +284,20 @@ class ExtratorPDF:
 
     def _extrair_pratica(self, linhas: list[str], tema: str) -> str:
         marcadores = [
-            "atividade", "exercício", "na prática", "veja no livro",
-            "assistam", "leiam o texto", "analise", "compare",
-            "identifique", "reescreva", "produz",
+            "atividade",
+            "exercicio",
+            "na pratica",
+            "veja no livro",
+            "assistam",
+            "leiam o texto",
+            "analise",
+            "compare",
+            "identifique",
+            "reescreva",
+            "produz",
         ]
         for i, linha in enumerate(linhas):
-            linha_lower = linha.lower()
+            linha_lower = _normalizar_texto(linha)
             if any(m in linha_lower for m in marcadores) and len(linha) > 15:
                 bloco = []
                 if self._linha_valida(linha):
@@ -270,11 +312,16 @@ class ExtratorPDF:
 
     def _extrair_contexto(self, linhas: list[str]) -> str:
         marcadores = [
-            "você já", "pense em", "imagine", "o que as pessoas",
-            "qual é a importância", "como você", "nas últimas aulas",
+            "voce ja",
+            "pense em",
+            "imagine",
+            "o que as pessoas",
+            "qual e a importancia",
+            "como voce",
+            "nas ultimas aulas",
         ]
         for linha in linhas:
-            linha_lower = linha.lower()
+            linha_lower = _normalizar_texto(linha)
             if any(m in linha_lower for m in marcadores) and len(linha) > 20:
                 return _trecho_seguro(linha, "", 160)
         return ""
@@ -289,12 +336,19 @@ class ExtratorPDF:
         return palavras_chave
 
     def _detectar_etapas(self, linhas: list[str]) -> list[str]:
-        """Detecta quais seções metodológicas existem no material."""
         etapas_conhecidas = {
-            "para comecar", "relembre", "exploracao", "foco no conteudo",
-            "formalizacao", "pause e responda", "na pratica",
-            "encerramento", "sistematizacao", "contextualizacao",
-            "leitura analitica", "leitura e construcao do conteudo",
+            "para comecar",
+            "relembre",
+            "exploracao",
+            "foco no conteudo",
+            "formalizacao",
+            "pause e responda",
+            "na pratica",
+            "encerramento",
+            "sistematizacao",
+            "contextualizacao",
+            "leitura analitica",
+            "leitura e construcao do conteudo",
         }
         encontradas = []
         for linha in linhas:

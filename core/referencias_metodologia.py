@@ -3,6 +3,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
 
+REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA E REDAÇÃO.md"
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 PASTA_REFERENCIAS = BASE_DIR / "REFERENCIAS_METODOLOGIA"
@@ -24,6 +26,8 @@ REFERENCIA_PV_7_ANO = "ANÁLISE METODOLÓGICA - PROJETO DE VIDA 7º ANO.md"
 MAPA_REFERENCIAS = {
     "lingua portuguesa": REFERENCIA_PORTUGUES_GERAL,
     "portugues": REFERENCIA_PORTUGUES_GERAL,
+    "redacao e leitura": REFERENCIA_LEITURA_REDACAO,
+    "leitura e redacao": REFERENCIA_LEITURA_REDACAO,
     "ciencias": "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
     "ciencia": "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
     "arte": "ANÁLISE METODOLÓGICA - ARTE - ENSINO FUNDAMENTAL ANOS FINAIS.md",

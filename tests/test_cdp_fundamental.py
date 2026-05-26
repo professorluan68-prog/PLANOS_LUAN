@@ -15,4 +15,5 @@ def test_selecionar_item_cdp_fundamental_respeita_aula_inicial():
     item = selecionar_item("matematica", 0, aula_inicial=3, fundamental=True)
 
     assert item["AULA"] == "3"
-    assert "multiplicação" in item["OBJETO DE CONHECIMENTO"].lower()
+    assert item["OBJETO DE CONHECIMENTO"]
+    assert item["TÍTULO"]

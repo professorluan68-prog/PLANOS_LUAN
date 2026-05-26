@@ -1,10 +1,14 @@
 from io import BytesIO
-from datetime import date
+from copy import deepcopy
+from datetime import date, datetime, timedelta
 import re
 import unicodedata
 
 from docx import Document
+from docx.table import Table
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 from core.helpers import texto_lista
@@ -28,6 +32,9 @@ TITULOS_ETAPAS = {
     "Leitura analitica": "Leitura anal\u00edtica",
     "Leitura e construcao do conteudo": "Leitura e constru\u00e7\u00e3o do conte\u00fado",
     "Exploracao": "Explora\u00e7\u00e3o",
+    "Disparo inicial / contextualizacao": "Disparo inicial / contextualização",
+    "Leitura ou exploracao inicial": "Leitura ou exploração inicial",
+    "Analise guiada": "Análise guiada",
     "Foco no conteudo": "Foco no conte\u00fado",
     "Formalizacao": "Formaliza\u00e7\u00e3o",
     "Sistematizacao": "Sistematiza\u00e7\u00e3o",
@@ -38,7 +45,9 @@ TITULOS_ETAPAS = {
     "Calculos financeiros": "C\u00e1lculos financeiros",
     "Planejamento orcamentario": "Planejamento or\u00e7ament\u00e1rio",
     "Projeto empreendedor": "Projeto empreendedor",
+    "Producao textual": "Produção textual",
     "Revisao e reescrita": "Revis\u00e3o e reescrita",
+    "Revisao e fechamento": "Revisão e fechamento",
     "Relembre": "Relembre",
     "Encerramento": "Encerramento",
     "Para come\u00e7ar": "Para come\u00e7ar",
@@ -60,11 +69,11 @@ def _substituir_texto(paragraph, substituicoes: dict[str, str]) -> None:
     texto_original = paragraph.text
     texto_novo = texto_original
     for chave, valor in substituicoes.items():
-        texto_novo = texto_novo.replace(chave, valor)
+        texto_novo = texto_novo.replace(chave, _sanitizar_texto_xml(valor))
     if texto_novo == texto_original:
         return
     paragraph.clear()
-    paragraph.add_run(texto_novo)
+    paragraph.add_run(_sanitizar_texto_xml(texto_novo))
 
 
 def _substituir_em_tabela(tabela, substituicoes: dict[str, str]) -> None:
@@ -89,10 +98,21 @@ def _texto_metodologia(aula: dict) -> str:
     return "\n\n".join(blocos)
 
 
+def _texto_metodologia_lista(metodologia) -> str:
+    blocos = []
+    for item in metodologia or []:
+        if isinstance(item, dict):
+            blocos.append(f"{item.get('titulo', '')}\n{item.get('texto', '')}".strip())
+        else:
+            blocos.append(str(item))
+    return "\n\n".join(blocos)
+
+
 # ── Constantes de formatação ────────────────────────────────────────────────
 _FONTE_PADRAO = "Arial"
 _TAMANHO_PADRAO = Pt(10)
 _COR_VERMELHA = RGBColor(0xEE, 0x00, 0x00)
+_LARGURAS_TABELA_AULAS = [900, 2100, 2350, 6100, 1900, 2050]
 _PADRAO_BNCC = re.compile(r'(\([A-Z]{2}\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\))')
 _PADRAO_TURMA_METODOLOGIA = re.compile(
     r"\b(da turma|com a turma)\s+\d{1,2}\s*[º°oªa?]?\s*(?:ano|s[ée]rie|em|ef)?\s*[A-Z]?\b",
@@ -230,6 +250,91 @@ def _aplicar_fonte(run, nome=_FONTE_PADRAO, tamanho=_TAMANHO_PADRAO, bold=None, 
     return run
 
 
+def _elemento_filho(parent, tag: str):
+    filho = parent.find(qn(tag))
+    if filho is None:
+        filho = OxmlElement(tag)
+        parent.append(filho)
+    return filho
+
+
+def _remover_filhos(parent, tag: str) -> None:
+    for filho in list(parent.findall(qn(tag))):
+        parent.remove(filho)
+
+
+def _definir_largura_celula(celula, largura: int) -> None:
+    tc_pr = celula._tc.get_or_add_tcPr()
+    tc_w = tc_pr.tcW
+    if tc_w is None:
+        tc_w = OxmlElement("w:tcW")
+        tc_pr.append(tc_w)
+    tc_w.set(qn("w:w"), str(largura))
+    tc_w.set(qn("w:type"), "dxa")
+    _remover_filhos(tc_pr, "w:noWrap")
+
+
+def _definir_margens_celula(celula, margem: int = 90) -> None:
+    tc_pr = celula._tc.get_or_add_tcPr()
+    tc_mar = _elemento_filho(tc_pr, "w:tcMar")
+    for lado in ("top", "left", "bottom", "right"):
+        item = _elemento_filho(tc_mar, f"w:{lado}")
+        item.set(qn("w:w"), str(margem))
+        item.set(qn("w:type"), "dxa")
+
+
+def _remover_alturas_fixas(tabela) -> None:
+    for linha in tabela.rows:
+        tr_pr = linha._tr.get_or_add_trPr()
+        _remover_filhos(tr_pr, "w:trHeight")
+
+
+def _normalizar_layout_tabela_aulas(tabela) -> None:
+    tabela.autofit = False
+    tbl_pr = tabela._tbl.tblPr
+    tbl_w = _elemento_filho(tbl_pr, "w:tblW")
+    tbl_w.set(qn("w:w"), str(sum(_LARGURAS_TABELA_AULAS)))
+    tbl_w.set(qn("w:type"), "dxa")
+    layout = _elemento_filho(tbl_pr, "w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+
+    grid = tabela._tbl.tblGrid
+    if grid is None:
+        grid = OxmlElement("w:tblGrid")
+        tabela._tbl.insert(0, grid)
+    for col in list(grid):
+        grid.remove(col)
+    for largura in _LARGURAS_TABELA_AULAS:
+        col = OxmlElement("w:gridCol")
+        col.set(qn("w:w"), str(largura))
+        grid.append(col)
+
+    _remover_alturas_fixas(tabela)
+    for linha in tabela.rows:
+        celulas = _celulas_unicas(linha)
+        for indice, celula in enumerate(celulas[: len(_LARGURAS_TABELA_AULAS)]):
+            _definir_largura_celula(celula, _LARGURAS_TABELA_AULAS[indice])
+            _definir_margens_celula(celula)
+
+
+def _tamanho_por_texto(texto: str, padrao: float = 10.0, medio: float = 9.0, pequeno: float = 8.5) -> Pt:
+    tamanho = padrao
+    texto = str(texto or "")
+    if len(texto) > 520:
+        tamanho = pequeno
+    elif len(texto) > 160:
+        tamanho = medio
+    return Pt(tamanho)
+
+
+def _ajustar_fonte_celula(celula, tamanho: Pt) -> None:
+    for paragrafo in celula.paragraphs:
+        paragrafo.paragraph_format.space_before = Pt(0)
+        paragrafo.paragraph_format.space_after = Pt(0)
+        for run in paragrafo.runs:
+            run.font.size = tamanho
+
+
 def _limpar_celula(celula) -> None:
     celula.text = ""
 
@@ -255,8 +360,17 @@ def _capitalizar_como(original: str, corrigido: str) -> str:
     return corrigido
 
 
+def _sanitizar_texto_xml(texto: str) -> str:
+    texto = str(texto or "")
+    return "".join(
+        ch
+        for ch in texto
+        if ch in ("\t", "\n", "\r") or 0x20 <= ord(ch) <= 0xD7FF or 0xE000 <= ord(ch) <= 0xFFFD
+    )
+
+
 def _polir_texto_docx(texto: str) -> str:
-    texto_final = _PADRAO_TURMA_METODOLOGIA.sub(lambda m: m.group(1), str(texto or ""))
+    texto_final = _PADRAO_TURMA_METODOLOGIA.sub(lambda m: m.group(1), _sanitizar_texto_xml(texto))
     texto_final = "\n".join(
         re.sub(r"[ \t\r\f\v]+", " ", linha).strip()
         for linha in texto_final.splitlines()
@@ -302,7 +416,39 @@ def _preencher_celula_centralizada(celula, texto: str, bold: bool = False, color
     paragrafo = _paragrafo_base(celula)
     paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = paragrafo.add_run(_polir_texto_docx(str(texto or "")))
-    _aplicar_fonte(run, bold=bold, color=color)
+    _aplicar_fonte(run, tamanho=_tamanho_por_texto(texto), bold=bold, color=color)
+
+
+def _preencher_celula_tema_material(celula, texto: str) -> None:
+    bruto = str(texto or "").strip()
+    if not bruto:
+        _limpar_celula(celula)
+        return
+    if not _polir_texto_docx(bruto).upper().startswith("TEMA:"):
+        _preencher_celula_centralizada(celula, bruto, bold=True, color=_COR_VERMELHA)
+        return
+
+    linhas = [linha.strip() for linha in bruto.splitlines() if linha.strip()]
+    rotulo = linhas[0] if linhas else "TEMA:"
+    titulo = " ".join(linhas[1:]).strip() if len(linhas) > 1 else ""
+
+    _limpar_celula(celula)
+    primeiro = _paragrafo_base(celula)
+    primeiro.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    primeiro.paragraph_format.space_before = Pt(0)
+    primeiro.paragraph_format.space_after = Pt(0)
+    _aplicar_fonte(primeiro.add_run(_polir_texto_docx(rotulo)), tamanho=Pt(9), bold=True, color=_COR_VERMELHA)
+
+    if titulo:
+        paragrafo_titulo = celula.add_paragraph()
+        paragrafo_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragrafo_titulo.paragraph_format.space_before = Pt(0)
+        paragrafo_titulo.paragraph_format.space_after = Pt(0)
+        _aplicar_fonte(
+            paragrafo_titulo.add_run(_polir_texto_docx(titulo)),
+            tamanho=_tamanho_por_texto(titulo, medio=9.0, pequeno=8.5),
+            bold=True,
+        )
 
 
 def _preencher_celula_data_horario(celula, texto: str) -> None:
@@ -318,7 +464,7 @@ def _preencher_celula_data_horario(celula, texto: str) -> None:
         paragrafo.paragraph_format.space_before = Pt(0)
         paragrafo.paragraph_format.space_after = Pt(0)
         run = paragrafo.add_run(_polir_texto_docx(linha))
-        _aplicar_fonte(run, bold=False, color=_COR_VERMELHA)
+        _aplicar_fonte(run, tamanho=Pt(9), bold=False, color=_COR_VERMELHA)
 
 
 def _preencher_celula_lista(celula, itens) -> None:
@@ -327,6 +473,7 @@ def _preencher_celula_lista(celula, itens) -> None:
     if not itens_lista:
         return
 
+    tamanho = _tamanho_por_texto(" ".join(str(item or "") for item in itens_lista), medio=8.8, pequeno=8.2)
     primeiro = _paragrafo_base(celula)
     for indice, item in enumerate(itens_lista):
         paragrafo = primeiro if indice == 0 else celula.add_paragraph()
@@ -335,25 +482,25 @@ def _preencher_celula_lista(celula, itens) -> None:
         texto_item = _polir_texto_docx(texto_item)
         run_check = paragrafo.add_run("\u2611 ")
         run_check.font.name = "Segoe UI Symbol"
-        run_check.font.size = _TAMANHO_PADRAO
-        _adicionar_texto_com_destaques_formatado(paragrafo, texto_item)
+        run_check.font.size = tamanho
+        _adicionar_texto_com_destaques_formatado(paragrafo, texto_item, tamanho=tamanho)
 
 
-def _adicionar_texto_com_destaques_formatado(paragrafo, texto: str) -> None:
+def _adicionar_texto_com_destaques_formatado(paragrafo, texto: str, tamanho=_TAMANHO_PADRAO) -> None:
     """Igual a _adicionar_texto_com_destaques mas aplica Arial 10pt a cada run."""
     restante = _normalizar_destaques(texto)
     if not restante:
         return
     padrao = "|".join(re.escape(valor) for valor in DESTAQUES_TEXTO.values())
     if not padrao:
-        _aplicar_fonte(paragrafo.add_run(restante))
+        _aplicar_fonte(paragrafo.add_run(restante), tamanho=tamanho)
         return
     partes = re.split(f"({padrao})", restante)
     for parte in partes:
         if not parte:
             continue
         run = paragrafo.add_run(parte)
-        _aplicar_fonte(run, bold=True if parte in DESTAQUES_TEXTO.values() else None)
+        _aplicar_fonte(run, tamanho=tamanho, bold=True if parte in DESTAQUES_TEXTO.values() else None)
 
 
 def _preencher_celula_aprendizagem(celula, texto: str) -> None:
@@ -364,6 +511,7 @@ def _preencher_celula_aprendizagem(celula, texto: str) -> None:
     texto = _polir_texto_docx(str(texto or "").strip())
     if not texto:
         return
+    tamanho = _tamanho_por_texto(texto, medio=9.0, pequeno=8.5)
     # Tenta separar o código BNCC do texto descritivo
     match = _PADRAO_BNCC.search(texto)
     if match:
@@ -372,12 +520,79 @@ def _preencher_celula_aprendizagem(celula, texto: str) -> None:
         antes = texto[:pos].strip()
         depois = texto[pos + len(codigo):].strip()
         if antes:
-            _aplicar_fonte(paragrafo.add_run(antes + " "), bold=True)
-        _aplicar_fonte(paragrafo.add_run(codigo + " "), bold=True, color=_COR_VERMELHA)
+            _aplicar_fonte(paragrafo.add_run(antes + " "), tamanho=tamanho, bold=True)
+        _aplicar_fonte(paragrafo.add_run(codigo + " "), tamanho=tamanho, bold=True, color=_COR_VERMELHA)
         if depois:
-            _aplicar_fonte(paragrafo.add_run(depois), bold=True)
+            _aplicar_fonte(paragrafo.add_run(depois), tamanho=tamanho, bold=True)
     else:
-        _aplicar_fonte(paragrafo.add_run(texto), bold=True)
+        _aplicar_fonte(paragrafo.add_run(texto), tamanho=tamanho, bold=True)
+
+
+_TITULOS_METODOLOGIA_INLINE = [
+    "Para comecar",
+    "Disparo inicial / contextualizacao",
+    "Abertura",
+    "Abertura e contextualizacao",
+    "Contextualizacao",
+    "Leitura ou exploracao inicial",
+    "Analise guiada",
+    "Foco no conteudo",
+    "Conceituacao",
+    "Exploracao conceitual",
+    "Desenvolvimento guiado",
+    "Esclarecimento de conceitos",
+    "Atividade",
+    "Atividade principal",
+    "Atividade em grupo",
+    "Atividade pratica",
+    "Atividade de legendar",
+    "Classificacao",
+    "Discussao",
+    "Discussao em duplas",
+    "Discussao em grupo",
+    "Aplicacao",
+    "Aprofundamento",
+    "Producao textual",
+    "Socializacao",
+    "Socializacao e correcao",
+    "Socializacao/correcao",
+    "Socializacao das descobertas",
+    "Socializacao de resultados",
+    "Correcao",
+    "Revisao e fechamento",
+    "Conclusao",
+    "Sintese e fechamento",
+    "Fechamento",
+    "Fechamento reflexivo",
+    "Fechamento e reflexao",
+]
+
+
+def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
+    texto_base = _polir_texto_docx(texto)
+    if not texto_base:
+        return []
+
+    partes = [linha.strip() for linha in texto_base.splitlines() if linha.strip()]
+    padroes = sorted({_titulo_exibicao(t) for t in _TITULOS_METODOLOGIA_INLINE}, key=len, reverse=True)
+
+    linhas: list[str] = []
+    for parte in partes:
+        trecho = parte
+        for titulo in padroes:
+            trecho = re.sub(
+                rf"(?<!^)\s+({re.escape(titulo)}:)",
+                r"\n\1",
+                trecho,
+                flags=re.I,
+            )
+        linhas.extend(linha.strip() for linha in trecho.splitlines() if linha.strip())
+    return linhas
+
+
+def _texto_ja_comeca_com_etapa(texto: str) -> bool:
+    primeira_linha = next((linha for linha in _quebrar_texto_metodologia_em_linhas(texto) if linha.strip()), "")
+    return bool(re.match(r"^[^:]{2,40}:\s*", primeira_linha))
 
 
 def _preencher_celula_metodologia(celula, metodologia) -> None:
@@ -389,21 +604,20 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
     primeiro = _paragrafo_base(celula)
     primeiro.text = ""
     paragrafo_atual = primeiro
+    tamanho = _tamanho_por_texto(_texto_metodologia_lista(metodologia), medio=9.2, pequeno=8.8)
 
     for indice, item in enumerate(itens):
         if isinstance(item, dict):
             titulo = str(item.get("titulo") or "").strip()
             texto = str(item.get("texto") or "").strip()
-            if titulo:
+            if titulo and not _texto_ja_comeca_com_etapa(texto):
                 texto_item = f"{_titulo_exibicao(_normalizar_destaques(titulo))}: {texto}"
             else:
                 texto_item = texto
         else:
             texto_item = str(item).strip()
-        texto_item = _polir_texto_docx(texto_item)
 
-        # Separar por quebras de linha para lidar com o texto vindo da UI
-        linhas = [l.strip() for l in texto_item.split('\n') if l.strip()]
+        linhas = _quebrar_texto_metodologia_em_linhas(texto_item)
         for linha in linhas:
             if not linha:
                 continue
@@ -416,10 +630,10 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
             if match:
                 titulo_bold = match.group(1) + ":"
                 resto_texto = " " + match.group(2)
-                _aplicar_fonte(paragrafo_atual.add_run(titulo_bold), bold=True)
-                _adicionar_texto_com_destaques_formatado(paragrafo_atual, resto_texto)
+                _aplicar_fonte(paragrafo_atual.add_run(titulo_bold), tamanho=tamanho, bold=True)
+                _adicionar_texto_com_destaques_formatado(paragrafo_atual, resto_texto, tamanho=tamanho)
             else:
-                _adicionar_texto_com_destaques_formatado(paragrafo_atual, linha)
+                _adicionar_texto_com_destaques_formatado(paragrafo_atual, linha, tamanho=tamanho)
 
 
 def _texto_tabela(tabela) -> str:
@@ -449,7 +663,7 @@ def _celulas_unicas(linha):
 
 
 def _definir_texto(celula, texto: str) -> None:
-    celula.text = str(texto or "")
+    celula.text = _sanitizar_texto_xml(texto)
 
 
 def _limpar_linha(linha) -> None:
@@ -460,6 +674,23 @@ def _limpar_linha(linha) -> None:
 def _remover_tabela(tabela) -> None:
     elemento = tabela._element
     elemento.getparent().remove(elemento)
+
+
+def _remover_linha(linha) -> None:
+    elemento = linha._tr
+    elemento.getparent().remove(elemento)
+
+
+def _clonar_par_semana(pares: list[tuple]) -> tuple:
+    cabecalho_ref, tabela_ref = pares[-1]
+    novo_cabecalho_xml = deepcopy(cabecalho_ref._element)
+    nova_tabela_xml = deepcopy(tabela_ref._element)
+    tabela_ref._element.addnext(novo_cabecalho_xml)
+    novo_cabecalho_xml.addnext(nova_tabela_xml)
+    return (
+        Table(novo_cabecalho_xml, cabecalho_ref._parent),
+        Table(nova_tabela_xml, tabela_ref._parent),
+    )
 
 
 def _formatar_horario_modelo(texto: str) -> str:
@@ -475,7 +706,13 @@ def _formatar_horario_modelo(texto: str) -> str:
 
 
 def _formatar_data_horario(aula: dict) -> str:
-    data = str(aula.get("data") or "").strip()
+    data_bruta = aula.get("data")
+    if isinstance(data_bruta, datetime):
+        data = data_bruta.strftime("%d/%m")
+    elif isinstance(data_bruta, date):
+        data = data_bruta.strftime("%d/%m")
+    else:
+        data = str(data_bruta or "").strip()
     horario = str(aula.get("horario") or "").strip()
     partes = [parte.strip() for parte in horario.splitlines() if parte.strip()]
 
@@ -487,13 +724,35 @@ def _formatar_data_horario(aula: dict) -> str:
 
 
 def _data_ddmm(texto: str):
+    if isinstance(texto, datetime):
+        return date(2000, texto.month, texto.day)
+    if isinstance(texto, date):
+        return date(2000, texto.month, texto.day)
     partes = str(texto or "").strip().split("/")
-    if len(partes) < 2:
-        return None
-    try:
-        return date(2000, int(partes[1]), int(partes[0]))
-    except ValueError:
-        return None
+    if len(partes) >= 2:
+        try:
+            return date(2000, int(partes[1]), int(partes[0]))
+        except ValueError:
+            return None
+
+    partes_iso = str(texto or "").strip().split("-")
+    if len(partes_iso) == 3:
+        try:
+            return date(2000, int(partes_iso[1]), int(partes_iso[2]))
+        except ValueError:
+            return None
+    return None
+
+
+def _data_para_semana(data_bruta):
+    if isinstance(data_bruta, datetime):
+        return data_bruta.date()
+    if isinstance(data_bruta, date):
+        return data_bruta
+    data_parseada = _data_ddmm(data_bruta)
+    if data_parseada:
+        return date(date.today().year, data_parseada.month, data_parseada.day)
+    return None
 
 
 def _intervalo_cabecalho(tabela):
@@ -516,6 +775,53 @@ def _aula_pertence_ao_intervalo(aula: dict, intervalo) -> bool:
         return False
     inicio, fim = intervalo
     return inicio <= data_aula <= fim
+
+
+def _semana_automatica_por_aulas(aulas_da_semana) -> str:
+    datas = []
+    for _, aula in aulas_da_semana or []:
+        data_aula = aula.get("data") if isinstance(aula, dict) else None
+        data_semana = _data_para_semana(data_aula)
+        if data_semana:
+            datas.append(data_semana)
+
+    if not datas:
+        return ""
+
+    referencia = min(datas)
+    inicio = referencia - timedelta(days=referencia.weekday())
+    fim = inicio + timedelta(days=4)
+    return f"{inicio.strftime('%d/%m')} a {fim.strftime('%d/%m')}"
+
+
+def _inicio_semana_aula(aula: dict):
+    data_aula = aula.get("data") if isinstance(aula, dict) else None
+    data_semana = _data_para_semana(data_aula)
+    if data_semana:
+        return data_semana - timedelta(days=data_semana.weekday())
+    return None
+
+
+def _agrupar_sobras_por_semana(sobras):
+    grupos = []
+    sem_data = []
+    indices_por_semana = {}
+    for numero, aula in sobras:
+        inicio = _inicio_semana_aula(aula)
+        if inicio is None:
+            sem_data.append((numero, aula))
+            continue
+        if inicio not in indices_por_semana:
+            indices_por_semana[inicio] = len(grupos)
+            grupos.append([])
+        grupos[indices_por_semana[inicio]].append((numero, aula))
+    return grupos, sem_data
+
+
+def _semana_atual_cabecalho(tabela) -> str:
+    if len(tabela.rows) < 4 or len(tabela.rows[3].cells) < 2:
+        return ""
+    return str(tabela.rows[3].cells[1].text or "").strip()
 
 
 def _titulo_aula(aula: dict, numero: int) -> str:
@@ -634,7 +940,7 @@ def _preencher_linha_aula(linha, aula: dict, numero: int, cabecalho=None) -> Non
     # Col 0: Data/Horário — vermelho, centralizado, Arial 10
     _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
     # Col 1: Título — vermelho + bold, centralizado, Arial 10
-    _preencher_celula_centralizada(celulas[indices["material"]], _titulo_aula(aula, numero), bold=True, color=_COR_VERMELHA)
+    _preencher_celula_tema_material(celulas[indices["material"]], _titulo_aula(aula, numero))
     # Col 2: Aprendizagem — código BNCC vermelho, texto bold preto, centralizado
     _preencher_celula_aprendizagem(celulas[indices["aprendizagem"]], aula.get("aprendizagem", ""))
     # Col 3: Metodologia — título bold, texto normal, Arial 10
@@ -682,6 +988,19 @@ def _preencher_tabelas_modelo(
                 break
 
     sobras = [(indice + 1, aula) for indice, aula in enumerate(aulas) if indice not in usadas]
+    grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
+    for grupo in grupos_sobra_por_semana:
+        par_livre = next(
+            (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
+            None,
+        )
+        if par_livre is None:
+            novo_par = _clonar_par_semana(pares)
+            pares.append(novo_par)
+            aulas_por_par.append(grupo)
+        else:
+            aulas_por_par[par_livre] = grupo
+
     for par_indice, (_, tabela_aulas) in enumerate(pares):
         vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
         if vagas and sobras:
@@ -701,9 +1020,15 @@ def _preencher_tabelas_modelo(
         aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
 
     for par_indice, (cabecalho, tabela_aulas) in enumerate(pares):
+        _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
         aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
         aulas_previstas = str(aulas_previstas_manual or len([a for a in aulas_da_semana if a])).strip()
+        semana_cabecalho = (
+            _semana_automatica_por_aulas(aulas_da_semana)
+            or _semana_atual_cabecalho(cabecalho)
+            or semana
+        )
 
         _preencher_cabecalho(
             cabecalho,
@@ -713,7 +1038,7 @@ def _preencher_tabelas_modelo(
             turma,
             mes,
             bimestre,
-            semana,
+            semana_cabecalho,
             observacao,
             aulas_previstas,
         )
@@ -724,6 +1049,10 @@ def _preencher_tabelas_modelo(
         cabecalho_aulas = tabela_aulas.rows[0] if tabela_aulas.rows else None
         for linha, (numero, aula) in zip(linhas_conteudo, aulas_da_semana):
             _preencher_linha_aula(linha, aula, numero, cabecalho_aulas)
+
+        for linha in linhas_conteudo[len(aulas_da_semana) :]:
+            _remover_linha(linha)
+        _normalizar_layout_tabela_aulas(tabela_aulas)
 
     return True
 

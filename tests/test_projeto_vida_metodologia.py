@@ -1,5 +1,7 @@
-from core.lote import _montar_etapas_metodologia
+from core.ia import _normalizar_saida_ia
+from core.lote import _montar_etapas_metodologia, _sanitizar_aprendizagem
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+from core.qualidade_metodologica import sanitizar_texto_metodologico
 
 
 def test_projeto_vida_nao_usa_marcador_como_conceito():
@@ -48,3 +50,51 @@ def test_projeto_vida_nao_usa_apoios_matematicos_na_acessibilidade():
     assert "tabuada" not in texto
     assert "calculadora" not in texto
     assert "ambiente acolhedor" in texto
+
+
+def test_projeto_vida_aprendizagem_nao_fica_generica():
+    aprendizagem = _sanitizar_aprendizagem(
+        "Desenvolver habilidades relacionadas ao tema da aula, com foco em o tema da aula.",
+        tema="Como saber se postar vale a pena?",
+        perfil="projeto_de_vida",
+    )
+
+    texto = aprendizagem.lower()
+    assert "tema da aula" not in texto
+    assert "ambiente digital" in texto
+    assert "responsabilidade" in texto
+
+
+def test_projeto_vida_sanitiza_tecnicas_lemov_na_metodologia():
+    texto = sanitizar_texto_metodologico(
+        'Aplicar a tecnica VIREM E CONVERSEM para discutir o tema. Utilizar a tecnica TODO MUNDO ESCREVE para registro individual.',
+        perfil="projeto_de_vida",
+        tema="Deu ruim, e agora?",
+    )
+
+    texto_norm = texto.lower()
+    assert "virem e conversem" not in texto_norm
+    assert "todo mundo escreve" not in texto_norm
+
+
+def test_projeto_vida_ia_fallback_gera_aprendizagem_especifica():
+    saida = _normalizar_saida_ia(
+        {
+            "tema": "Antes que vire print: mostra de HQs.",
+            "aprendizagem": "Desenvolver habilidades relacionadas ao tema da aula, com foco em o tema da aula.",
+            "metodologia": [
+                {"titulo": "Para começar", "texto": "Abrir a aula com situacao acolhedora sobre publicacoes e compartilhamentos."},
+                {"titulo": "Foco no conteúdo", "texto": "Discutir exposicao, respeito e consequencias no ambiente digital."},
+                {"titulo": "Encerramento", "texto": "Retomar cuidados antes de postar ou compartilhar."},
+            ],
+        },
+        texto_pdf="Projeto de Vida\nAntes que vire print: mostra de HQs.\nExposicao e responsabilidade digital.",
+        disciplina="Projeto de Vida",
+        turma="8º ano A",
+    )
+
+    aprendizagem = saida["aprendizagem"].lower()
+    metodologia = " ".join(etapa["texto"].lower() for etapa in saida["metodologia"])
+    assert "tema da aula" not in aprendizagem
+    assert "ambiente digital" in aprendizagem
+    assert "virem e conversem" not in metodologia

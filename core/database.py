@@ -11,6 +11,27 @@ def get_connection():
     return sqlite3.connect(DB_PATH)
 
 
+def _normalizar_campo(valor):
+    return str(valor or "").strip()
+
+
+def _obter_ou_criar_professor(cursor, nome: str) -> int:
+    nome = _normalizar_campo(nome).upper()
+    cursor.execute("INSERT OR IGNORE INTO professores (nome) VALUES (?)", (nome,))
+    cursor.execute("SELECT id FROM professores WHERE nome = ?", (nome,))
+    row = cursor.fetchone()
+    if not row:
+        raise ValueError("Nao foi possivel localizar ou criar o professor.")
+    return int(row[0])
+
+
+def _remover_professor_sem_turmas(cursor, professor_id: int) -> None:
+    cursor.execute("SELECT COUNT(*) FROM professor_turmas WHERE professor_id = ?", (professor_id,))
+    total = int(cursor.fetchone()[0] or 0)
+    if total == 0:
+        cursor.execute("DELETE FROM professores WHERE id = ?", (professor_id,))
+
+
 def init_db():
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -35,6 +56,7 @@ def init_db():
                 horario TEXT,
                 aulas_semana TEXT,
                 arquivo_modelo TEXT,
+                template_id TEXT,
                 componente_curricular TEXT,
                 FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
             )
@@ -44,6 +66,8 @@ def init_db():
         colunas_prof_turmas = {row[1] for row in cursor.fetchall()}
         if "arquivo_modelo" not in colunas_prof_turmas:
             cursor.execute("ALTER TABLE professor_turmas ADD COLUMN arquivo_modelo TEXT")
+        if "template_id" not in colunas_prof_turmas:
+            cursor.execute("ALTER TABLE professor_turmas ADD COLUMN template_id TEXT")
         if "componente_curricular" not in colunas_prof_turmas:
             cursor.execute("ALTER TABLE professor_turmas ADD COLUMN componente_curricular TEXT")
 
@@ -100,8 +124,8 @@ def migrar_json_para_sqlite():
                         cursor.execute(
                             """
                             INSERT INTO professor_turmas
-                            (professor_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, componente_curricular)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            (professor_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 prof_id,
@@ -111,6 +135,7 @@ def migrar_json_para_sqlite():
                                 d.get("horario"),
                                 d.get("aulas_semana"),
                                 d.get("arquivo_modelo") or d.get("arquivo") or "",
+                                d.get("template_id") or "",
                                 d.get("componente_curricular") or "",
                             ),
                         )
@@ -126,7 +151,7 @@ def obter_professores_db():
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT p.nome, t.disciplina, t.turma, t.dia_semana, t.horario, t.aulas_semana, t.arquivo_modelo, t.componente_curricular
+            SELECT p.nome, t.disciplina, t.turma, t.dia_semana, t.horario, t.aulas_semana, t.arquivo_modelo, t.template_id, t.componente_curricular
             FROM professores p
             LEFT JOIN professor_turmas t ON p.id = t.professor_id
             ORDER BY
@@ -156,19 +181,29 @@ def obter_professores_db():
                         "horario": row[4] or "",
                         "aulas_semana": row[5] or "",
                         "arquivo": row[6] or "",
-                        "componente_curricular": row[7] or "",
+                        "arquivo_modelo": row[6] or "",
+                        "template_id": row[7] or "",
+                        "componente_curricular": row[8] or "",
                         "origem": "banco",
                     }
                 )
         return resultado
 
 
-def salvar_professor_turma(nome, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo="", componente_curricular=""):
+def salvar_professor_turma(
+    nome,
+    disciplina,
+    turma,
+    dia_semana,
+    horario,
+    aulas_semana,
+    arquivo_modelo="",
+    componente_curricular="",
+    template_id="",
+):
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT OR IGNORE INTO professores (nome) VALUES (?)", (nome,))
-        cursor.execute("SELECT id FROM professores WHERE nome = ?", (nome,))
-        prof_id = cursor.fetchone()[0]
+        prof_id = _obter_ou_criar_professor(cursor, nome)
 
         cursor.execute(
             """
@@ -185,21 +220,225 @@ def salvar_professor_turma(nome, disciplina, turma, dia_semana, horario, aulas_s
             cursor.execute(
                 """
                 UPDATE professor_turmas
-                SET dia_semana = ?, horario = ?, aulas_semana = ?, arquivo_modelo = ?, componente_curricular = ?
+                SET dia_semana = ?, horario = ?, aulas_semana = ?, arquivo_modelo = ?, template_id = ?, componente_curricular = ?
                 WHERE id = ?
                 """,
-                (dia_semana, horario, aulas_semana, arquivo_modelo, componente_curricular, existente[0]),
+                (dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular, existente[0]),
             )
         else:
             cursor.execute(
                 """
                 INSERT INTO professor_turmas
-                (professor_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, componente_curricular)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (professor_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (prof_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, componente_curricular),
+                (prof_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular),
             )
         conn.commit()
+
+
+def listar_vinculos_professores():
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                t.id,
+                p.id,
+                p.nome,
+                t.disciplina,
+                t.turma,
+                t.dia_semana,
+                t.horario,
+                t.aulas_semana,
+                t.arquivo_modelo,
+                t.template_id,
+                t.componente_curricular
+            FROM professor_turmas t
+            JOIN professores p ON p.id = t.professor_id
+            ORDER BY p.nome, t.disciplina, t.turma, t.id
+            """
+        )
+        return [
+            {
+                "id": row[0],
+                "professor_id": row[1],
+                "professor": row[2] or "",
+                "disciplina": row[3] or "",
+                "turma": row[4] or "",
+                "dia_semana": row[5] or "",
+                "horario": row[6] or "",
+                "aulas_semana": row[7] or "",
+                "arquivo": row[8] or "",
+                "arquivo_modelo": row[8] or "",
+                "template_id": row[9] or "",
+                "componente_curricular": row[10] or "",
+                "origem": "banco",
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+def obter_vinculo_professor(vinculo_id):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                t.id,
+                p.id,
+                p.nome,
+                t.disciplina,
+                t.turma,
+                t.dia_semana,
+                t.horario,
+                t.aulas_semana,
+                t.arquivo_modelo,
+                t.template_id,
+                t.componente_curricular
+            FROM professor_turmas t
+            JOIN professores p ON p.id = t.professor_id
+            WHERE t.id = ?
+            """,
+            (vinculo_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "professor_id": row[1],
+            "professor": row[2] or "",
+            "disciplina": row[3] or "",
+            "turma": row[4] or "",
+            "dia_semana": row[5] or "",
+            "horario": row[6] or "",
+            "aulas_semana": row[7] or "",
+            "arquivo": row[8] or "",
+            "arquivo_modelo": row[8] or "",
+            "template_id": row[9] or "",
+            "componente_curricular": row[10] or "",
+            "origem": "banco",
+        }
+
+
+def atualizar_vinculo_professor(
+    vinculo_id,
+    nome,
+    disciplina,
+    turma,
+    dia_semana,
+    horario,
+    aulas_semana,
+    arquivo_modelo="",
+    componente_curricular="",
+    template_id="",
+):
+    nome = _normalizar_campo(nome).upper()
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    if not nome or not disciplina or not turma:
+        raise ValueError("Professor, disciplina e turma sao obrigatorios.")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT professor_id FROM professor_turmas WHERE id = ?", (vinculo_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Cadastro nao encontrado.")
+        professor_antigo_id = int(row[0])
+        professor_id = _obter_ou_criar_professor(cursor, nome)
+        cursor.execute(
+            """
+            UPDATE professor_turmas
+            SET professor_id = ?,
+                disciplina = ?,
+                turma = ?,
+                dia_semana = ?,
+                horario = ?,
+                aulas_semana = ?,
+                arquivo_modelo = ?,
+                template_id = ?,
+                componente_curricular = ?
+            WHERE id = ?
+            """,
+            (
+                professor_id,
+                disciplina,
+                turma,
+                _normalizar_campo(dia_semana),
+                _normalizar_campo(horario),
+                _normalizar_campo(aulas_semana),
+                _normalizar_campo(arquivo_modelo),
+                _normalizar_campo(template_id),
+                _normalizar_campo(componente_curricular),
+                vinculo_id,
+            ),
+        )
+        if professor_antigo_id != professor_id:
+            _remover_professor_sem_turmas(cursor, professor_antigo_id)
+        conn.commit()
+    return obter_vinculo_professor(vinculo_id)
+
+
+def excluir_vinculo_professor(vinculo_id) -> bool:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT professor_id FROM professor_turmas WHERE id = ?", (vinculo_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        professor_id = int(row[0])
+        cursor.execute("DELETE FROM professor_turmas WHERE id = ?", (vinculo_id,))
+        _remover_professor_sem_turmas(cursor, professor_id)
+        conn.commit()
+    return True
+
+
+def duplicar_vinculo_professor(
+    vinculo_id,
+    nome=None,
+    disciplina=None,
+    turma=None,
+    dia_semana=None,
+    horario=None,
+    aulas_semana=None,
+    arquivo_modelo=None,
+    componente_curricular=None,
+    template_id=None,
+) -> int:
+    original = obter_vinculo_professor(vinculo_id)
+    if not original:
+        raise ValueError("Cadastro original nao encontrado.")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        professor_id = _obter_ou_criar_professor(cursor, nome or original["professor"])
+        cursor.execute(
+            """
+            INSERT INTO professor_turmas
+            (professor_id, disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                professor_id,
+                _normalizar_campo(disciplina if disciplina is not None else original["disciplina"]),
+                _normalizar_campo(turma if turma is not None else original["turma"]),
+                _normalizar_campo(dia_semana if dia_semana is not None else original["dia_semana"]),
+                _normalizar_campo(horario if horario is not None else original["horario"]),
+                _normalizar_campo(aulas_semana if aulas_semana is not None else original["aulas_semana"]),
+                _normalizar_campo(arquivo_modelo if arquivo_modelo is not None else original["arquivo_modelo"]),
+                _normalizar_campo(template_id if template_id is not None else original["template_id"]),
+                _normalizar_campo(
+                    componente_curricular
+                    if componente_curricular is not None
+                    else original["componente_curricular"]
+                ),
+            ),
+        )
+        novo_id = int(cursor.lastrowid)
+        conn.commit()
+    return novo_id
 
 
 def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes):

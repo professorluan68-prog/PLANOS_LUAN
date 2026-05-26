@@ -12,12 +12,15 @@ from core.cdp import (
     selecionar_item,
     titulo_item_cdp,
 )
+from core.ia import processar_item_cdp_ia
 from docx_generator.preencher import (
     _eh_cabecalho_plano,
     _preencher_cabecalho,
     _preencher_celula_aprendizagem,
+    _preencher_celula_data_horario,
     _preencher_celula_lista,
     _preencher_celula_metodologia,
+    _preencher_celula_tema_material,
 )
 
 
@@ -76,6 +79,27 @@ def _disciplina_exibicao(disciplina: str) -> str:
     return nomes.get(disciplina, disciplina.upper())
 
 
+def _formatar_data_aula_cdp(aula: dict) -> str:
+    data_bruta = aula.get("data")
+    if hasattr(data_bruta, "strftime"):
+        data = data_bruta.strftime("%d/%m")
+    else:
+        data = str(data_bruta or "").strip()
+    aula_texto = str(aula.get("aula") or "").strip()
+    horario_bruto = aula.get("horario")
+    if isinstance(horario_bruto, (tuple, list)):
+        horario_texto = str(horario_bruto[1] if len(horario_bruto) > 1 else horario_bruto[0]).strip()
+    else:
+        horario_texto = str(horario_bruto or "").strip()
+
+    partes = [parte.strip() for parte in aula_texto.splitlines() if parte.strip()]
+    if not partes and horario_texto:
+        partes = [parte.strip() for parte in horario_texto.splitlines() if parte.strip()]
+    if not partes:
+        return data
+    return "\n".join([data, partes[-1]]).strip()
+
+
 def _habilidade(item: Dict[str, str]) -> str:
     habilidade = habilidade_item_cdp(item)
     return f"HABILIDADE:\n{habilidade}" if habilidade else ""
@@ -83,7 +107,7 @@ def _habilidade(item: Dict[str, str]) -> str:
 
 def _material(disciplina: str, item: Dict[str, str]) -> str:
     titulo = titulo_item_cdp(item)
-    return f"{_disciplina_exibicao(disciplina)}\nTema: {titulo}"
+    return f"TEMA:\n{titulo}"
 
 
 def _metodologia_dict(texto: str):
@@ -131,6 +155,10 @@ def preencher_documento_cdp(
     serie_cdp: str = "",
     componente_cdp: str = "",
     item_cdp: Dict[str, str] | None = None,
+    usar_ia: bool = False,
+    provedor_ia: str = "",
+    modelo_ia: str = "",
+    datas_horarios: list[dict] | None = None,
     semana: str = "",
     observacao: str = "",
     aulas_previstas_manual: str = "",
@@ -151,6 +179,7 @@ def preencher_documento_cdp(
     )
 
     contadores: Dict[str, int] = {}
+    indice_data_horario = 0
     for table in doc.tables:
         for row in table.rows:
             if not _linha_de_aula_cdp(row):
@@ -158,6 +187,7 @@ def preencher_documento_cdp(
 
             idxs = _indices_cdp(row)
             disciplina = disciplina_da_linha(row.cells[idxs["material"]].text)
+            turma_selecao = serie_cdp or turma
 
             if item_cdp and contadores.get(disciplina, 0) == 0:
                 item = item_cdp
@@ -166,7 +196,7 @@ def preencher_documento_cdp(
                 item = selecionar_item(
                     disciplina,
                     contador,
-                    turma=serie_cdp if multisseriada and serie_cdp else turma,
+                    turma=turma_selecao,
                     bimestre=bimestre,
                     aula_inicial=aula_inicial,
                     fundamental=fundamental,
@@ -178,22 +208,48 @@ def preencher_documento_cdp(
             if not item:
                 continue
 
-            _preencher_celula_aprendizagem(row.cells[idxs["aprendizagem"]], _habilidade(item))
+            if datas_horarios and indice_data_horario < len(datas_horarios):
+                _preencher_celula_data_horario(
+                    row.cells[0],
+                    _formatar_data_aula_cdp(datas_horarios[indice_data_horario]),
+                )
+            indice_data_horario += 1
+
+            aprendizagem = _habilidade(item)
+            metodologia = montar_metodologia_cdp(disciplina, item, fundamental=fundamental)
+            acompanhamento = montar_acompanhamento_cdp(disciplina, item, fundamental=fundamental)
+            acessibilidade = montar_acessibilidade_cdp(disciplina, item, fundamental=fundamental)
+
+            if usar_ia and provedor_ia:
+                try:
+                    plano_ia = processar_item_cdp_ia(item, disciplina, turma_selecao, provedor_ia, modelo_ia)
+                    if plano_ia.get("aprendizagem"):
+                        aprendizagem = f"HABILIDADE:\n{plano_ia['aprendizagem']}"
+                    if plano_ia.get("metodologia"):
+                        metodologia = "\n\n".join(
+                            f"{etapa.get('titulo', '').strip()}: {etapa.get('texto', '').strip()}".strip(": ")
+                            for etapa in plano_ia["metodologia"]
+                            if etapa.get("texto")
+                        ) or metodologia
+                except Exception:
+                    pass
+
+            _preencher_celula_aprendizagem(row.cells[idxs["aprendizagem"]], aprendizagem)
             _preencher_celula_metodologia(
                 row.cells[idxs["desenvolvimento"]],
-                _metodologia_dict(montar_metodologia_cdp(disciplina, item, fundamental=fundamental)),
+                _metodologia_dict(metodologia),
             )
-            row.cells[idxs["material"]].text = _material(disciplina, item)
+            _preencher_celula_tema_material(row.cells[idxs["material"]], _material(disciplina, item))
 
             if idxs["acompanhamento"] is not None:
                 _preencher_celula_lista(
                     row.cells[idxs["acompanhamento"]],
-                    montar_acompanhamento_cdp(disciplina, item, fundamental=fundamental),
+                    acompanhamento,
                 )
             if idxs["acessibilidade"] is not None:
                 _preencher_celula_lista(
                     row.cells[idxs["acessibilidade"]],
-                    montar_acessibilidade_cdp(disciplina, item, fundamental=fundamental),
+                    acessibilidade,
                 )
 
     out = BytesIO()

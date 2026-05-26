@@ -37,6 +37,8 @@ _teste_*.docx
 *.bak
 *.tmp
 ~$*
+PACOTE_REVISAO_METODOLOGICA_*/
+_BACKUP_ANTES_*/
 
 # Sistema operacional e editor
 .DS_Store

@@ -168,6 +168,21 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
             "{v_ver} se os estudantes justificam decisões do projeto com base em planejamento, responsabilidade e análise do contexto.",
             "{v_acomp} se os registros mostram articulação entre ideia, necessidade, produto ou serviço e organização financeira.",
         ],
+        "analise_percentuais_noticias": [
+            "{v_obs} se os estudantes identificam percentuais, valores de referencia e comparacoes presentes nas noticias analisadas.",
+            "{v_ver} se os estudantes interpretam tabelas, graficos ou manchetes numericas sem se limitar a localizar dados soltos.",
+            "{v_acomp} se os registros mostram relacao entre o calculo realizado e o sentido da informacao apresentada na noticia.",
+        ],
+        "governo_economia": [
+            "{v_obs} se os estudantes reconhecem situacoes em que a acao do governo interfere em precos, servicos ou circulacao de recursos.",
+            "{v_ver} se os estudantes relacionam exemplos discutidos em aula a ideias de arrecadacao, regulacao e impacto coletivo.",
+            "{v_acomp} se os registros mostram compreensao progressiva sobre a relacao entre economia, direitos e organizacao da vida social.",
+        ],
+        "impacto_decisoes_economicas": [
+            "{v_obs} se os estudantes analisam como escolhas economicas afetam consumo, prioridades e planejamento do cotidiano.",
+            "{v_ver} se os estudantes comparam alternativas e justificam decisões com base em consequencias e criterios objetivos.",
+            "{v_acomp} se os registros mostram relacao entre recursos disponiveis, metas e impactos das escolhas feitas.",
+        ],
         "cidadania_financeira": [
             "{v_obs} se os estudantes reconhecem direitos, responsabilidades e formas de proteção em situações de consumo.",
             "{v_ver} se os estudantes analisam comprovantes, garantias, segurança e critérios de escolha em serviços ou compras.",
@@ -185,10 +200,35 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
         ],
     },
     "tecnologia_inovacao": {
+        "dispositivos_entrada_saida": [
+            "{v_ver} se os estudantes diferenciam dispositivos de entrada e de saida, classificando corretamente os equipamentos apresentados.",
+            "{v_obs} se conseguem justificar a funcao de teclado, mouse, camera, microfone, monitor, impressora, projetor e caixa de som nas atividades propostas.",
+            "{v_acomp} os registros produzidos em esquemas, colunas, listas ou respostas orais, considerando clareza e compreensao do funcionamento dos dispositivos.",
+        ],
+        "programacao_inicial": [
+            "{v_ver} se os estudantes reconhecem as principais teclas e comandos utilizados na atividade digital proposta.",
+            "{v_obs} se seguem a sequencia de blocos, eventos ou instrucoes com autonomia progressiva durante a construcao da atividade.",
+            "{v_acomp} se os registros e producoes evidenciam compreensao sobre teclado, bandeira verde, bloco diga e organizacao dos comandos no ambiente de programacao.",
+        ],
+        "cultura_digital": [
+            "{v_ver} se os estudantes identificam comportamentos respeitosos e inadequados nas interacoes digitais analisadas.",
+            "{v_obs} a participacao nas discussoes sobre respeito, etica, emocoes e convivencia online, considerando a capacidade de justificar as respostas.",
+            "{v_acomp} se os registros e propostas de regras demonstram compreensao sobre responsabilidade digital, empatia e cuidado nas interacoes virtuais.",
+        ],
+        "comunicacao_digital": [
+            "{v_ver} se os estudantes reconhecem perguntas confusas, incompletas ou pouco objetivas em mensagens e foruns.",
+            "{v_obs} se reescrevem mensagens com clareza, respeito e informacoes suficientes para solicitar ajuda ou explicar um problema.",
+            "{v_acomp} os registros produzidos, considerando organizacao das ideias, objetividade e uso adequado das estrategias de comunicacao trabalhadas na aula.",
+        ],
+        "consumo_tecnologia": [
+            "{v_ver} se os estudantes compreendem o conceito de obsolescencia programada e relacionam o tema ao descarte e ao consumo de tecnologia.",
+            "{v_obs} se conectam consumo excessivo, lixo eletronico e impactos ambientais nas discussoes e atividades realizadas.",
+            "{v_acomp} as propostas de campanha, listas ou orientacoes produzidas pela turma, considerando viabilidade, consciencia ambiental e clareza das ideias.",
+        ],
         "_default": [
-            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de análise, discussão e registro.",
-            "{v_ver} se os estudantes articulam o tema estudado a situações do cotidiano, contextos sociais ou usos práticos do conhecimento.",
-            "{v_acomp} os registros produzidos, considerando clareza de ideias, argumentação e autonomia crescente nas respostas.",
+            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de an?lise, discuss?o e registro.",
+            "{v_ver} se articulam o tema estudado a situa??es do cotidiano, usos da tecnologia e formas de resolver problemas ou se comunicar melhor.",
+            "{v_acomp} os registros produzidos, considerando clareza de ideias, autonomia crescente e aplica??o pr?tica do conhecimento trabalhado.",
         ],
     },
     "sociologia": {
@@ -306,6 +346,149 @@ class CompositorAcompanhamento:
 _compositor = CompositorAcompanhamento()
 
 
+def _tem_marcador_visao(base: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:olho|retina|cornea|pupila|cristalino|sistema visual|formacao da imagem|caminho da luz|visao)\b",
+            base,
+            flags=re.I,
+        )
+    )
+
+
+def _tem_marcador_audicao(base: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:audicao|ouvido|decibel|decibeis|poluicao sonora|caminho do som|sistema auditivo)\b",
+            base,
+            flags=re.I,
+        )
+    )
+
+
+def _acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    if _tem_marcador_visao(base):
+        return [
+            "Verificar se os estudantes identificam corretamente as estruturas do olho no esquema proposto.",
+            "Observar se explicam, com linguagem científica, o caminho da luz até a formação da imagem.",
+            "Conferir se os registros (legenda ou síntese) mantêm correspondência entre estrutura e função.",
+        ]
+    if _tem_marcador_audicao(base):
+        return [
+            "Verificar se os estudantes descrevem o caminho do som e relacionam partes do sistema auditivo às funções.",
+            "Observar se conectam nível de decibéis, riscos à audição e impactos da poluição sonora.",
+            "Conferir se o resumo final apresenta medidas coerentes de prevenção e proteção auditiva.",
+        ]
+    if any(k in base for k in ["sistema respiratorio", "hematose", "ventilacao pulmonar", "pulmao"]):
+        return [
+            "Verificar se os estudantes classificam os órgãos do sistema respiratório por localização e função.",
+            "Observar se explicam ventilação pulmonar e hematose com sequência lógica.",
+            "Conferir se os registros em tabela ou síntese usam os conceitos centrais da aula.",
+        ]
+    if "tabela" in base:
+        return [
+            "Verificar se os estudantes preenchem a tabela com informações corretas e completas.",
+            "Observar se relacionam os dados da tabela aos conceitos discutidos na aula.",
+            "Conferir se justificam oralmente ou por escrito as escolhas registradas na atividade.",
+        ]
+    return []
+
+
+def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    if any(k in base for k in ["trilha", "alice no pais das maravilhas", "pequeno principe", "peter pan", "leitura compartilhada", "predicao guiada"]):
+        return [
+            "Observar se os estudantes participam das discussões e compartilham impressões sobre a narrativa lida.",
+            "Verificar a compreensão dos acontecimentos, personagens e conflitos presentes no trecho trabalhado.",
+            "Acompanhar os registros orais e escritos produzidos durante as atividades de leitura e interpretação.",
+        ]
+
+    if any(k in base for k in ["versao final", "redacao paulista", "revisao orientada", "reescrita", "rascunho"]):
+        return [
+            "Verificar se os estudantes revisam e reorganizam o texto considerando clareza, sequência das ideias e adequação ao gênero trabalhado.",
+            "Observar a participação durante os momentos de revisão, correção e reescrita da produção textual.",
+            "Acompanhar se os estudantes conseguem identificar ajustes necessários antes da versão final e do envio da atividade.",
+        ]
+
+    if "verbo haver" in base or re.search(r"\bhaver\b", base):
+        return [
+            "Verificar se os estudantes identificam o uso do verbo haver nas situações propostas.",
+            "Observar a aplicação correta das regras discutidas durante as atividades.",
+            "Acompanhar a participação nas correções coletivas e nas atividades em dupla.",
+        ]
+
+    if "tirinha" in base and any(k in base for k in ["humor", "critica", "conflito", "linguagem mista"]):
+        return [
+            "Observar se os estudantes identificam elementos de humor, crítica e conflito nas tirinhas trabalhadas.",
+            "Verificar a participação nas discussões e a capacidade de explicar sentidos da linguagem verbal e não verbal.",
+            "Acompanhar os registros produzidos durante as atividades e retomadas coletivas.",
+        ]
+
+    if any(k in base for k in ["figura de linguagem", "figuras de linguagem", "imperativo"]) and any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario"]):
+        return [
+            "Observar se os estudantes reconhecem figuras de linguagem e estratégias persuasivas nos anúncios.",
+            "Verificar a compreensão sobre o uso do imperativo na publicidade.",
+            "Acompanhar os registros individuais produzidos durante as análises.",
+        ]
+
+    if any(k in base for k in ["metafora", "metaforas"]) and any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario"]):
+        return [
+            "Verificar se os estudantes identificam metáforas visuais e verbais nos anúncios.",
+            "Observar como relacionam imagens, palavras e sentidos produzidos na publicidade.",
+            "Acompanhar a participação nas atividades em grupo e socialização das respostas.",
+        ]
+
+    if any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario", "propaganda", "slogan"]):
+        return [
+            "Observar se os estudantes reconhecem elementos verbais e visuais dos anúncios.",
+            "Verificar a participação nas análises e discussões sobre estratégias publicitárias.",
+            "Acompanhar os registros produzidos nas atividades de interpretação.",
+        ]
+
+    if any(k in base for k in ["carta de reclamacao", "reclamar por escrito", "texto reivindicatorio", "reivindicatorios"]):
+        return [
+            "Observar se os estudantes reconhecem a finalidade, a estrutura e os argumentos da carta de reclamação.",
+            "Verificar a participação na leitura, na análise dos trechos e nas discussões sobre reivindicação.",
+            "Acompanhar os registros produzidos nas atividades de interpretação e organização das ideias.",
+        ]
+
+    if any(k in base for k in ["conjuncao", "conjuncoes", "locucao conjuntiva", "locucoes conjuntivas"]):
+        return [
+            "Verificar se os estudantes identificam conjunções e relações de sentido entre as orações.",
+            "Observar a aplicação dos conceitos nas atividades de leitura e análise dos textos.",
+            "Acompanhar a participação nas correções coletivas e os registros produzidos no caderno.",
+        ]
+
+    if any(k in base for k in ["texto multissemiótico", "texto multissemiótico", "multissemiotico", "linguagem verbal", "linguagem nao verbal"]):
+        return [
+            "Observar se os estudantes relacionam linguagem verbal e não verbal na construção dos sentidos do texto.",
+            "Verificar a participação nas leituras, análises e discussões sobre os recursos utilizados.",
+            "Acompanhar os registros produzidos durante as atividades e retomadas coletivas.",
+        ]
+
+    return [
+        "Observar se os estudantes compreendem o gênero, o tema e os recursos linguísticos trabalhados na aula.",
+        "Verificar a participação nas leituras, análises, discussões e correções coletivas.",
+        "Acompanhar os registros produzidos durante as atividades, considerando clareza e relação com o conteúdo estudado.",
+    ]
+
+
+def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
+    saida = []
+    for texto in itens or []:
+        txt = re.sub(r"\s+", " ", str(texto or "")).strip()
+        if not txt:
+            continue
+        if len(txt) > 220:
+            txt = txt[:217].rstrip(" ,;:-") + "."
+        saida.append(txt)
+        if len(saida) >= maximo:
+            break
+    return saida[:maximo] if len(saida) >= minimo else saida
+
+
 def gerar_acompanhamento_aprimorado(
     tema: str,
     aprendizagem: str = "",
@@ -329,7 +512,18 @@ def gerar_acompanhamento_aprimorado(
     if not tipo:
         tipo = detectar_tipo_aula(desenvolvimento, tema, disciplina)
 
-    return _compositor.compor(
+    especifico = _acompanhamento_especifico_por_aula(tema, aprendizagem, desenvolvimento)
+    if especifico:
+        return _limitar_itens(especifico, minimo=2, maximo=3)
+
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return _limitar_itens(
+            _acompanhamento_lingua_portuguesa(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    return _limitar_itens(_compositor.compor(
         perfil=perfil,
         tipo=tipo,
         tema=tema,
@@ -339,4 +533,4 @@ def gerar_acompanhamento_aprimorado(
         disciplina=disciplina,
         aprendizagem=aprendizagem,
         desenvolvimento=desenvolvimento,
-    )
+    ), minimo=2, maximo=3)

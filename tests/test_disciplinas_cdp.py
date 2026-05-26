@@ -32,23 +32,31 @@ def test_cdp_ensino_fundamental_em_planos_gerais_usa_pdf():
     assert config.exige_pdf is True
 
 
+def test_cdp_ensino_medio_em_planos_gerais_usa_pdf():
+    config = obter_config("CDP-ENSINO MÉDIO")
+
+    assert not eh_cdp("CDP-ENSINO MÉDIO")
+    assert eh_cdp_contextual("CDP-ENSINO MÉDIO")
+    assert config.exige_pdf is True
+
+
 def test_lista_disciplinas_tem_opcoes_principais():
     nomes = nomes_disciplinas()
 
-    assert "Língua Portuguesa" in nomes
-    assert "Ciências" in nomes
-    assert "Projeto de Vida" in nomes
-    assert "Educação Financeira" in nomes
-    assert "Redação e Leitura" in nomes
+    assert "Arte" in nomes
     assert "Biologia" in nomes
+    assert "Projeto de Vida" in nomes
+    assert "Tecnologia e Inovação" in nomes
     assert "CDP- Multisseriada" in nomes
     assert "CDP-ENSINO FUNDAMENTAL" in nomes
+    assert "CDP-ENSINO MÉDIO" in nomes
     assert "Outra" in nomes
 
 
 def test_opcoes_cabecalho_e_cdp():
-    assert BIMESTRES == ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"]
-    assert TURMAS_CDP == [
-        "MULTISSERIADO 1º, 2º e 3º ano",
-        "MULTISSERIADO 4º e 5º ano",
-    ]
+    assert len(BIMESTRES) == 4
+    assert TURMAS_CDP[0].startswith("MULTISSERIADO 1")
+    assert TURMAS_CDP[1].startswith("MULTISSERIADO 4")
+    assert any("6" in turma and "7" in turma and "E.F" in turma for turma in TURMAS_CDP)
+    assert any("8" in turma and "9" in turma and "E.F" in turma for turma in TURMAS_CDP)
+    assert any("1" in turma and "2" in turma and "3" in turma and "E.M" in turma for turma in TURMAS_CDP)

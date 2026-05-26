@@ -8,7 +8,9 @@ import pdfplumber
 
 from config import PDF_TEXTO_LIMITE_CHARS
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
+from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
+from core.qualidade_metodologica import detectar_contexto_metodologico, naturalizar_metodologia_professor, revisar_metodologia
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
 
 
@@ -49,7 +51,7 @@ def _linha_periodo_ensino(texto: str) -> bool:
 
 
 def _limpar_titulo_material(linha: str, disciplina: str) -> str:
-    titulo = re.sub(r"\s+", " ", linha or "").strip(" -–—:")
+    titulo = re.sub(r"\s+", " ", linha or "").strip(" -–—")
     disciplina_norm = _normalizar(disciplina)
     titulo_norm = _normalizar(titulo)
 
@@ -67,7 +69,7 @@ def _limpar_titulo_material(linha: str, disciplina: str) -> str:
     titulo = re.sub(r"\s+anos?\s+(?:iniciais|finais)\b.*$", "", titulo, flags=re.I)
     if _linha_periodo_ensino(titulo):
         return ""
-    return titulo.strip(" -–—:")
+    return titulo.strip(" -–—")
 
 
 def _linha_generica(linha: str, disciplina: str) -> bool:
@@ -90,6 +92,25 @@ def _linha_generica(linha: str, disciplina: str) -> bool:
     return bool(re.fullmatch(r"(?:[1-4][oº°]?\s*)?bimestre", texto))
 
 
+def _linha_rotulo_aula(normalizada: str) -> bool:
+    return bool(re.match(r"^aula\s*(?:n[.o]?\s*)?\d{1,3}\b", normalizada or ""))
+
+
+def _titulo_em_linha_aula(linha: str) -> str:
+    texto = re.sub(r"\s+", " ", str(linha or "")).strip(" -:–—")
+    match = re.match(r"^aula\s*(?:n[.o]?\s*)?\d{1,3}\s*(?:[|:-]|–|—)?\s*(.+)$", texto, flags=re.I)
+    if not match:
+        return ""
+    titulo = match.group(1).strip(" -:–—")
+    if not titulo:
+        return ""
+    if _linha_generica(titulo, ""):
+        return ""
+    if _normalizar(titulo).startswith(("ensino fundamental", "ensino medio", "bimestre")):
+        return ""
+    return titulo
+
+
 def _linhas_relevantes(texto: str, disciplina: str, tema: str) -> list[str]:
     relevantes = []
     vistos = set()
@@ -100,7 +121,7 @@ def _linhas_relevantes(texto: str, disciplina: str, tema: str) -> list[str]:
             continue
         if _linha_generica(linha, disciplina) or _normalizar(tema) == normalizada:
             continue
-        if normalizada.startswith(("aula ", "slide ", "pagina ", "página ")):
+        if _linha_rotulo_aula(normalizada) or normalizada.startswith(("slide ", "pagina ", "página ")):
             continue
         vistos.add(normalizada)
         relevantes.append(linha)
@@ -117,12 +138,12 @@ def _extrair_titulo_multilinha(texto: str, disciplina: str) -> str:
             continue
         if any(token in normalizada for token in ["bimestre", "ensino medio", "ensino fundamental"]):
             break
-        if normalizada.startswith(("aula ", "slide ", "pagina ", "página ")):
+        if _linha_rotulo_aula(normalizada) or normalizada.startswith(("slide ", "pagina ", "página ")):
             if partes:
                 break
             continue
         partes.append(titulo)
-        if len(partes) >= 2:
+        if len(partes) >= 4:
             break
 
     if not partes:
@@ -131,10 +152,63 @@ def _extrair_titulo_multilinha(texto: str, disciplina: str) -> str:
     if len(partes) == 1:
         return _limpar_titulo_material(partes[0], disciplina)
 
-    primeira = partes[0].rstrip(" -:")
-    if primeira.lower().endswith((" de", " da", " do", " das", " dos", " e")) or len(primeira) <= 28:
-        return _limpar_titulo_material(f"{primeira} {partes[1].lstrip('-: ')}".strip(), disciplina)
-    return _limpar_titulo_material(primeira, disciplina)
+    return _limpar_titulo_material(_juntar_partes_titulo(partes), disciplina)
+
+
+def _titulo_deve_juntar_continuacao(primeira: str, segunda: str = "") -> bool:
+    primeira_limpa = re.sub(r"\s+", " ", str(primeira or "")).strip(" -:")
+    segunda_limpa = re.sub(r"\s+", " ", str(segunda or "")).strip(" -:")
+    primeira_norm = _normalizar(primeira_limpa)
+    segunda_norm = _normalizar(segunda_limpa)
+    if not primeira_norm:
+        return False
+    finais_pendentes = (
+        " a",
+        " as",
+        " o",
+        " os",
+        " um",
+        " uma",
+        " de",
+        " da",
+        " do",
+        " das",
+        " dos",
+        " e",
+        " em",
+        " para",
+        " por",
+        " com",
+        " sem",
+        " sobre",
+    )
+    if primeira_norm.endswith(finais_pendentes):
+        return True
+    if segunda_norm.startswith(("por ", "para ", "com ", "sem ", "em ", "e ", "ou ", "que ", "da ", "de ", "do ")):
+        return True
+    return False
+
+
+def _juntar_partes_titulo(partes: list[str]) -> str:
+    if not partes:
+        return ""
+    titulo = str(partes[0] or "").rstrip(" -:")
+    for proxima in partes[1:]:
+        proxima_limpa = str(proxima or "").lstrip("-: ").strip()
+        if not proxima_limpa:
+            continue
+        titulo_limpo = titulo.rstrip()
+        if (
+            _titulo_deve_juntar_continuacao(titulo_limpo, proxima_limpa)
+            or len(titulo_limpo) <= 28
+            or (proxima_limpa[:1].islower() and len(titulo_limpo) <= 70)
+            or titulo_limpo.endswith((":", ";", "-", "–", "—"))
+        ):
+            separador = " - " if _normalizar(proxima_limpa).startswith("parte ") else " "
+            titulo = f"{titulo_limpo}{separador}{proxima_limpa}".strip()
+            continue
+        break
+    return titulo
 
 
 def _contem(base: str, termos: list[str]) -> bool:
@@ -161,6 +235,237 @@ def _detectar_tecnicas_matematica(texto: str, tema: str) -> set[str]:
         if _contem(base, termos):
             tecnicas.add(tecnica)
     return tecnicas
+
+
+def _detectar_tecnicas_lemov(texto: str, tema: str = "") -> list[str]:
+    base = _normalizar(f"{tema} {texto}")
+    mapa = [
+        ("VIREM E CONVERSEM", ["virem e conversem"]),
+        ("TODO MUNDO ESCREVE", ["todo mundo escreve"]),
+        ("COM SUAS PALAVRAS", ["com suas palavras"]),
+        ("HORA DA LEITURA", ["hora da leitura"]),
+        ("DE OLHO NO MODELO", ["de olho no modelo"]),
+        ("PAUSE E RESPONDA", ["pause e responda"]),
+        ("UM PASSO DE CADA VEZ", ["um passo de cada vez"]),
+    ]
+    tecnicas = []
+    for nome, termos in mapa:
+        if any(termo in base for termo in termos):
+            tecnicas.append(nome)
+    return tecnicas
+
+
+def _perfil_suporta_eja(perfil: str) -> bool:
+    return perfil in {"biologia", "ingles"}
+
+
+def _texto_tecnica_eja(tecnica: str, perfil: str, destino: str = "") -> str:
+    tecnica_norm = _normalizar(tecnica)
+    if "virem e conversem" in tecnica_norm:
+        return "Aplicar a tecnica VIREM E CONVERSEM, incentivando os estudantes da EJA a compartilhar ideias, experiencias e hipoteses relacionadas ao tema."
+    if "todo mundo escreve" in tecnica_norm:
+        return "Utilizar a tecnica TODO MUNDO ESCREVE para garantir registro individual, participacao de todos e retomada das respostas durante a correcao."
+    if "pause e responda" in tecnica_norm:
+        return "Realizar perguntas rapidas no momento PAUSE E RESPONDA, verificando a compreensao e retomando pontos que apresentarem maior dificuldade."
+    if "com suas palavras" in tecnica_norm:
+        return "Aplicar a tecnica COM SUAS PALAVRAS para que os estudantes expliquem o conceito com linguagem propria e exemplos do cotidiano."
+    if "de olho no modelo" in tecnica_norm:
+        return "Utilizar a tecnica DE OLHO NO MODELO, apresentando um exemplo comentado antes da atividade individual."
+    if "hora da leitura" in tecnica_norm:
+        return "Conduzir a tecnica HORA DA LEITURA com pausas para vocabulario, compreensao e relacao com situacoes cotidianas."
+    if perfil == "ingles" and ("listen and repeat" in tecnica_norm or "write and share" in tecnica_norm or "say it in english" in tecnica_norm):
+        return f"Utilizar a tecnica {tecnica.upper()} com comandos curtos, repeticao orientada e participacao segura dos estudantes da EJA."
+    return f"Incorporar a tecnica {tecnica.upper()} de forma contextualizada e acessivel para a turma da EJA."
+
+
+def _adaptar_metodologia_eja(metodologia, perfil: str, tema: str, texto_pdf: str, tecnicas_pdf: list[str] | None = None):
+    if not _perfil_suporta_eja(perfil):
+        return metodologia
+
+    tecnicas_pdf = [tecnica for tecnica in list(tecnicas_pdf or []) if _normalizar(tecnica) != "relembre"]
+    tem_video = "video" in _normalizar(texto_pdf)
+    adaptada = []
+    texto_existente = _normalizar(
+        " ".join(str(item.get("texto", "") if isinstance(item, dict) else item) for item in metodologia or [])
+    )
+    usados = {tecnica for tecnica in tecnicas_pdf if _normalizar(tecnica) in texto_existente}
+
+    for item in metodologia or []:
+        if not isinstance(item, dict):
+            adaptada.append(item)
+            continue
+
+        novo = dict(item)
+        titulo = _normalizar(novo.get("titulo", ""))
+        texto = re.sub(r"\s+", " ", str(novo.get("texto", "") or "")).strip()
+
+        if titulo in {"para comecar", "relembre", "abertura", "contextualizacao"}:
+            complemento = (
+                f" Retomar conhecimentos previos sobre {tema} por meio de perguntas simples e contextualizadas, "
+                "valorizando experiencias dos estudantes jovens e adultos sem infantilizar a abordagem."
+            )
+            for tecnica in tecnicas_pdf:
+                if _normalizar(tecnica) in {"virem e conversem", "com suas palavras"} and tecnica not in usados:
+                    complemento += " " + _texto_tecnica_eja(tecnica, perfil)
+                    usados.add(tecnica)
+                    break
+            texto = _anexar_orientacao_unica(texto, complemento)
+
+        elif titulo in {"foco no conteudo", "conceituacao", "desenvolvimento", "leitura e construcao do conteudo", "leitura"}:
+            if perfil == "ingles":
+                complemento = (
+                    " Explorar vocabulario e estruturas em ingles com exemplos funcionais do cotidiano, "
+                    "pronuncia orientada e apoio visual, respeitando diferentes ritmos de leitura e fala da EJA."
+                )
+            else:
+                complemento = (
+                    " Explicar o conceito com linguagem acessivel e adulta, de forma pausada e dialogada, "
+                    "relacionando o conteudo a situacoes praticas do cotidiano, saude, trabalho, tecnologia ou comunidade."
+                )
+            if tem_video:
+                complemento += " Exibir o video indicado no material e orientar o registro das principais informacoes observadas."
+            texto = _anexar_orientacao_unica(texto, complemento)
+
+        elif titulo in {"pause e responda", "na pratica", "atividade", "atividade principal"}:
+            complemento = (
+                " Realizar perguntas rapidas para verificar a compreensao, promover correcao coletiva e retomar os pontos "
+                "que apresentarem maior dificuldade."
+            )
+            for tecnica in tecnicas_pdf:
+                if _normalizar(tecnica) in {"todo mundo escreve", "pause e responda", "write and share"} and tecnica not in usados:
+                    complemento += " " + _texto_tecnica_eja(tecnica, perfil)
+                    usados.add(tecnica)
+                    break
+            texto = _anexar_orientacao_unica(texto, complemento)
+
+        elif titulo in {"encerramento", "fechamento", "sistematizacao"}:
+            if perfil == "ingles":
+                complemento = (
+                    " Encerrar retomando expressoes essenciais em ingles e relacionando o uso da lingua a situacoes reais "
+                    "de comunicacao, trabalho, servicos, tecnologia ou convivio social."
+                )
+            else:
+                complemento = (
+                    f" Encerrar relacionando {tema} a aplicacoes praticas, tecnologias, saude, ambiente ou situacoes do cotidiano, "
+                    "reforcando a relevancia do conteudo para a vida adulta e para a participacao social."
+                )
+            texto = _anexar_orientacao_unica(texto, complemento)
+
+        novo["texto"] = texto
+        adaptada.append(novo)
+
+    adaptada = _garantir_tecnicas_lemov_na_metodologia(adaptada, [tecnica for tecnica in tecnicas_pdf if tecnica not in usados])
+    return _consolidar_blocos_eja(adaptada)
+
+
+def _consolidar_blocos_eja(metodologia):
+    grupos = [
+        ("Para comecar", {"para comecar", "relembre", "abertura", "contextualizacao"}),
+        ("Foco no conteudo", {"foco no conteudo", "leitura", "leitura e construcao do conteudo", "conceituacao", "desenvolvimento"}),
+        ("Pause e responda", {"pause e responda", "na pratica", "atividade", "atividade principal", "socializacao", "socializacao e correcao"}),
+        ("Encerramento", {"encerramento", "fechamento", "sistematizacao"}),
+    ]
+    saida = {titulo: [] for titulo, _ in grupos}
+    extras = []
+
+    for item in metodologia or []:
+        if not isinstance(item, dict):
+            extras.append(str(item))
+            continue
+        titulo_norm = _normalizar(item.get("titulo", ""))
+        texto = re.sub(r"\s+", " ", str(item.get("texto", "") or "")).strip()
+        if not texto:
+            continue
+        encaixado = False
+        for titulo, aliases in grupos:
+            if titulo_norm in aliases:
+                saida[titulo].append(texto)
+                encaixado = True
+                break
+        if not encaixado:
+            extras.append(texto)
+
+    if extras:
+        saida["Foco no conteudo"].extend(extras)
+
+    consolidada = []
+    for titulo, _ in grupos:
+        textos = saida[titulo]
+        if textos:
+            consolidada.append({"titulo": titulo, "texto": " ".join(textos)})
+    return consolidada
+
+
+def _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str]):
+    if not metodologia or not tecnicas_pdf:
+        return metodologia
+
+    metodologia_ajustada = []
+    textos_norm = []
+    for item in metodologia:
+        if isinstance(item, dict):
+            textos_norm.append(_normalizar(item.get("texto", "")))
+        else:
+            textos_norm.append(_normalizar(str(item)))
+
+    faltantes = [tecnica for tecnica in tecnicas_pdf if not any(_normalizar(tecnica) in texto for texto in textos_norm)]
+    if not faltantes:
+        return metodologia
+
+    for indice, item in enumerate(metodologia):
+        if not isinstance(item, dict):
+            metodologia_ajustada.append(item)
+            continue
+
+        novo_item = dict(item)
+        titulo = _normalizar(novo_item.get("titulo", ""))
+        texto = str(novo_item.get("texto", "")).strip()
+
+        if faltantes and titulo in {"para comecar", "primeiro momento", "abertura", "relembre"}:
+            tecnica = faltantes.pop(0)
+            if tecnica == "VIREM E CONVERSEM":
+                acrescimo = " Aplicar a tecnica VIREM E CONVERSEM para que os estudantes compartilhem percepcoes, levantem hipoteses e retomem conhecimentos previos."
+            elif tecnica == "TODO MUNDO ESCREVE":
+                acrescimo = " Utilizar a tecnica TODO MUNDO ESCREVE para garantir o registro individual de hipoteses, ideias centrais ou respostas iniciais."
+            elif tecnica == "HORA DA LEITURA":
+                acrescimo = " Utilizar a tecnica HORA DA LEITURA para conduzir a leitura orientada do material, com pausas para destacar informacoes importantes."
+            elif tecnica == "DE OLHO NO MODELO":
+                acrescimo = " Aplicar a tecnica DE OLHO NO MODELO, apresentando um exemplo comentado antes da atividade individual."
+            elif tecnica == "PAUSE E RESPONDA":
+                acrescimo = " Realizar o momento PAUSE E RESPONDA para checar a compreensao, retomar respostas da turma e esclarecer duvidas antes de avancar."
+            elif tecnica == "UM PASSO DE CADA VEZ":
+                acrescimo = " Utilizar a tecnica UM PASSO DE CADA VEZ para organizar a explicacao em etapas curtas antes de avancar."
+            elif tecnica == "COM SUAS PALAVRAS":
+                acrescimo = " Aplicar a tecnica COM SUAS PALAVRAS para que os estudantes expliquem oralmente ou por escrito o que compreenderam."
+            else:
+                acrescimo = f" Incorporar a tecnica {tecnica} ao desenvolvimento da aula, articulando-a aos exemplos, registros e intervencoes do professor."
+            if _normalizar(acrescimo) not in _normalizar(texto):
+                novo_item["texto"] = f"{texto}{acrescimo}".strip()
+
+        metodologia_ajustada.append(novo_item)
+
+    if faltantes:
+        for item in metodologia_ajustada:
+            if not isinstance(item, dict):
+                continue
+            titulo = _normalizar(item.get("titulo", ""))
+            texto = str(item.get("texto", "")).strip()
+            if titulo in {"na pratica", "foco no conteudo", "desenvolvimento", "encerramento", "segundo momento"}:
+                tecnica = faltantes.pop(0)
+                if tecnica == "TODO MUNDO ESCREVE":
+                    acrescimo = " Utilizar a tecnica TODO MUNDO ESCREVE para que cada estudante organize por escrito a resolucao ou as ideias centrais da aula."
+                elif tecnica == "COM SUAS PALAVRAS":
+                    acrescimo = " Aplicar a tecnica COM SUAS PALAVRAS para que os estudantes retomem os pontos principais trabalhados."
+                elif tecnica == "PAUSE E RESPONDA":
+                    acrescimo = " Realizar o momento PAUSE E RESPONDA para conferir a compreensao da turma antes de avancar."
+                else:
+                    acrescimo = f" Incorporar a tecnica {tecnica} ao desenvolvimento da aula, articulando-a aos exemplos, registros e intervencoes do professor."
+                if _normalizar(acrescimo) not in _normalizar(texto):
+                    item["texto"] = f"{texto}{acrescimo}".strip()
+                if not faltantes:
+                    break
+
+    return metodologia_ajustada
 
 
 def _linhas_secao_matematica(texto: str, marcador: str) -> list[str]:
@@ -404,7 +709,12 @@ def _perfil_disciplina(disciplina: str) -> str:
 
 def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
     base = _normalizar(disciplina).replace(" ", "")
-    return base in {"cdp-ensinofundamental", "cdpensinofundamental"}
+    return base in {
+        "cdp-ensinofundamental",
+        "cdpensinofundamental",
+        "cdp-ensinomedio",
+        "cdpensinomedio",
+    }
 
 
 def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = "") -> str:
@@ -429,6 +739,8 @@ def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = ""
 
 def _limpar_tema_cdp_contextual(tema: str, disciplina_base: str) -> str:
     texto = re.sub(r"\s+", " ", str(tema or "")).strip(" -:.")
+    texto = re.sub(r"^\s*AULA\s*\d+\s*[-:–—]?\s*", "", texto, flags=re.I)
+    texto = re.sub(r"^\s*TEMA\s*:\s*", "", texto, flags=re.I)
     for termo in [
         disciplina_base,
         "Matemática",
@@ -445,6 +757,12 @@ def _limpar_tema_cdp_contextual(tema: str, disciplina_base: str) -> str:
         if termo:
             texto = re.sub(rf"^\s*{re.escape(termo)}\s*[-:–]?\s*", "", texto, flags=re.I)
     return texto or str(tema or "conteúdo da aula").strip() or "conteúdo da aula"
+
+
+def _formatar_material_cdp_contextual(tema: str, disciplina_base: str = "") -> str:
+    titulo = _limpar_tema_cdp_contextual(tema, disciplina_base).strip()
+    titulo = re.sub(r"\s+", " ", titulo).strip(" -:.")
+    return f"TEMA:\n{titulo}" if titulo else "TEMA:\nConteúdo da aula"
 
 
 def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str) -> list[str]:
@@ -544,6 +862,104 @@ def _tema_truncado_cdp(texto: str) -> bool:
 def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
     base = _normalizar(f"{tema} {conceito}")
     if perfil == "matematica":
+        if _contem(base, ["reta numerica", "reta numerica", "localizacao na reta", "localizacao de racionais na reta"]):
+            return "reta_numerica_racionais"
+        if _contem(base, ["simetricos no plano cartesiano", "simetria no plano cartesiano"]):
+            return "simetria_plano_cartesiano"
+        if _contem(base, ["poligonos no plano cartesiano"]):
+            return "poligonos_plano_cartesiano"
+        if _contem(base, ["pontos no plano cartesiano", "pares ordenados", "localizacao de pontos no plano"]):
+            return "pontos_plano_cartesiano"
+        if _contem(base, ["malha quadriculada", "areas na malha"]):
+            return "area_malha_quadriculada"
+        if _contem(base, ["numeros racionais", "numeros decimais"]):
+            return "operacoes_racionais"
+        if _contem(base, ["representacao algebrica", "grandezas representacao algebrica"]):
+            return "relacao_grandezas_algebrica"
+        if _contem(base, ["representacao grafica", "grandezas representacao grafica"]):
+            return "relacao_grandezas_grafica"
+        if _contem(base, ["funcao logaritmica", "logaritmica", "logaritmo"]):
+            return "funcao_logaritmica"
+        if _contem(base, ["aula de verificacao", "verificacao", "avaliacao diagnostica"]) and _contem(base, ["funcao"]):
+            return "verificacao_funcao"
+        if _contem(base, ["aula de revisao", "revisao geral", "retomada geral"]) and _contem(base, ["funcao"]):
+            return "revisao_funcao"
+        if _contem(base, ["representacao de funcoes", "representacoes de funcoes", "tabela expressao grafico"]):
+            return "representacao_funcoes"
+        if _contem(base, ["relacao de dependencia entre duas grandezas", "dependencia entre duas grandezas"]):
+            return "dependencia_grandezas"
+        if _contem(base, ["conceito de funcao", "o conceito de funcao", "ideia de funcao"]):
+            return "conceito_funcao"
+        if _contem(
+            base,
+            [
+                "valor numerico",
+                "substituicao de valores",
+                "substituir a letra",
+                "calculo do valor numerico",
+            ],
+        ):
+            return "algebra_valor_numerico"
+        if _contem(
+            base,
+            [
+                "variavel",
+                "expressao algebrica",
+                "linguagem algebrica",
+                "uso de letras",
+                "letras para representar numeros",
+                "quantidade variavel",
+            ],
+        ):
+            return "algebra_variavel"
+        if _contem(base, ["igualdade", "balanca", "equilibrio"]):
+            return "equacao_igualdade"
+        if _contem(
+            base,
+            [
+                "sistema de equacoes",
+                "sistemas de equacoes",
+                "metodo da substituicao",
+                "metodo da adicao",
+                "duas equacoes",
+            ],
+        ):
+            return "sistema_equacoes"
+        if _contem(
+            base,
+            [
+                "duas incognitas",
+                "par ordenado",
+                "pares ordenados",
+                "plano cartesiano",
+                "malha quadriculada",
+                "reta no plano",
+            ],
+        ):
+            return "equacao_duas_incognitas"
+        if _contem(
+            base,
+            [
+                "equacao do 1 grau",
+                "equacoes do 1 grau",
+                "equacao de primeiro grau",
+                "equacoes de primeiro grau",
+            ],
+        ):
+            return "equacao_1_grau"
+        if _contem(
+            base,
+            [
+                "semelhanca de triangulos",
+                "triangulos semelhantes",
+                "lados correspondentes",
+                "ampliacao e reducao",
+                "proporcionalidade nos triangulos",
+            ],
+        ):
+            return "semelhanca_triangulos"
+        if _contem(base, ["teorema de pitagoras", "pitagoras", "hipotenusa", "cateto"]):
+            return "teorema_pitagoras"
         if _contem(base, ["adicao e subtracao", "somar frac", "subtrair frac"]):
             return "fracao_adicao_subtracao"
         if _contem(
@@ -823,6 +1239,28 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
     base = _normalizar(f"{tema_limpo} {conceito_limpo}")
     tipo = _tipo_conteudo_cdp(perfil, tema_limpo, conceito_limpo)
     conceitos = {
+        "reta_numerica_racionais": "números racionais e sua localização na reta numérica",
+        "operacoes_racionais": "números racionais, decimais e resolução de operações e problemas",
+        "pontos_plano_cartesiano": "localização de pontos e pares ordenados no plano cartesiano",
+        "poligonos_plano_cartesiano": "polígonos no plano cartesiano e leitura de coordenadas",
+        "simetria_plano_cartesiano": "simetria e localização de pontos no plano cartesiano",
+        "area_malha_quadriculada": "área e contagem de unidades em malha quadriculada",
+        "relacao_grandezas_algebrica": "relação entre grandezas e representação algébrica",
+        "relacao_grandezas_grafica": "relação entre grandezas e representação gráfica",
+        "conceito_funcao": "conceito de função e dependência entre grandezas",
+        "representacao_funcoes": "representações numérica, algébrica e gráfica de funções",
+        "dependencia_grandezas": "função como relação de dependência entre duas grandezas",
+        "verificacao_funcao": "verificação formativa dos conceitos centrais de função",
+        "revisao_funcao": "revisão dos conceitos centrais de função",
+        "funcao_logaritmica": "função logarítmica e relação entre potência e logaritmo",
+        "algebra_variavel": "letras, variaveis e expressoes algebricas",
+        "algebra_valor_numerico": "substituicao de letras e calculo do valor numerico",
+        "equacao_igualdade": "igualdade e ideia de equilibrio na resolucao de equacoes",
+        "equacao_1_grau": "equacoes do 1o grau e operacoes inversas",
+        "equacao_duas_incognitas": "equacoes com duas incognitas, tabela de valores e plano cartesiano",
+        "sistema_equacoes": "sistemas de equacoes e comparacao de duas condicoes ao mesmo tempo",
+        "semelhanca_triangulos": "semelhanca de triangulos e proporcionalidade entre lados correspondentes",
+        "teorema_pitagoras": "teorema de Pitagoras em triangulos retangulos",
         "fracao_adicao_subtracao": "adição e subtração de frações",
         "fracao_mult_div": "multiplicação e divisão de frações",
         "fracao_comparacao": "comparação, ordenação e simplificação de frações",
@@ -898,6 +1336,28 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
 
 def _exemplo_concreto_cdp(tipo: str) -> str:
     exemplos = {
+        "reta_numerica_racionais": "marcação de inteiros, frações e decimais em uma mesma reta numérica",
+        "operacoes_racionais": "adição, subtração, multiplicação e divisão com frações e números decimais em situações práticas",
+        "pontos_plano_cartesiano": "leitura de pares ordenados e localização de pontos em eixos desenhados no quadro",
+        "poligonos_plano_cartesiano": "identificação de vértices e construção de figuras simples a partir de coordenadas",
+        "simetria_plano_cartesiano": "observação de pontos simétricos em relação aos eixos no plano cartesiano",
+        "area_malha_quadriculada": "contagem de quadradinhos e comparação de áreas em desenhos simples na malha",
+        "relacao_grandezas_algebrica": "valor pago por quantidade de produtos, distância percorrida e produção ao longo do tempo",
+        "relacao_grandezas_grafica": "organização de tabelas simples, pares ordenados e leitura de pontos no plano cartesiano",
+        "conceito_funcao": "situações em que um valor de entrada gera um valor de saída, como preço e quantidade ou tempo e distância",
+        "representacao_funcoes": "comparação entre tabela, expressão algébrica e gráfico para descrever a mesma relação",
+        "dependencia_grandezas": "situações reais em que uma grandeza depende da outra, como salário por dias trabalhados ou consumo por quantidade",
+        "verificacao_funcao": "retomada diagnóstica de relação entre grandezas, tabela, expressão e gráfico",
+        "revisao_funcao": "síntese de tabela, expressão algébrica, gráfico e dependência entre variáveis",
+        "funcao_logaritmica": "pH, intensidade de abalos sísmicos e outras variações em escala ligadas à ideia de potência",
+        "algebra_variavel": "preco por unidade, dobro, triplo, metade e quantidades que podem variar",
+        "algebra_valor_numerico": "substituicao de letras por numeros em expressoes simples",
+        "equacao_igualdade": "balanca em equilibrio e comparacao entre dois lados de uma igualdade",
+        "equacao_1_grau": "descoberta de um valor desconhecido por meio de operacoes inversas",
+        "equacao_duas_incognitas": "organizacao de pares de valores em tabela e localizacao em malha quadriculada",
+        "sistema_equacoes": "problemas com duas informacoes que precisam ser atendidas ao mesmo tempo",
+        "semelhanca_triangulos": "comparacao entre rampas, sombras, paredes e objetos em tamanhos diferentes",
+        "teorema_pitagoras": "escada apoiada na parede, diagonal e caminho mais curto entre dois pontos",
         "fracao_conceito": "divisão de alimentos, porções ou folhas em partes iguais",
         "fracao_quantidade": "cálculo de partes de uma quantidade total, como metade ou um quarto de objetos",
         "fracao_adicao_subtracao": "junção e retirada de partes de uma mesma quantidade",
@@ -1015,10 +1475,396 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
     return re.sub(r"\s+", " ", saida).strip()
 
 
+def _tipos_matematica_eja_cdp() -> set[str]:
+    return {
+        "reta_numerica_racionais",
+        "operacoes_racionais",
+        "pontos_plano_cartesiano",
+        "poligonos_plano_cartesiano",
+        "simetria_plano_cartesiano",
+        "area_malha_quadriculada",
+        "relacao_grandezas_algebrica",
+        "relacao_grandezas_grafica",
+        "conceito_funcao",
+        "representacao_funcoes",
+        "dependencia_grandezas",
+        "verificacao_funcao",
+        "revisao_funcao",
+        "funcao_logaritmica",
+        "algebra_variavel",
+        "algebra_valor_numerico",
+        "equacao_igualdade",
+        "equacao_1_grau",
+        "equacao_duas_incognitas",
+        "sistema_equacoes",
+        "semelhanca_triangulos",
+        "teorema_pitagoras",
+    }
+
+
+def _metodologia_matematica_eja_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
+    aberturas = {
+        "reta_numerica_racionais": [
+            "A proposta da aula parte da observação de uma reta numérica simples no quadro, retomando primeiro a posição dos números inteiros mais conhecidos.",
+            "Como ponto de partida, desenhar no quadro uma reta numérica e convidar a turma a localizar valores como 0, 1, 2, 1/2 e 0,5.",
+        ],
+        "operacoes_racionais": [
+            "A retomada inicial deve considerar situações em que frações e decimais aparecem em medidas, divisões e valores do cotidiano, aproximando o conteúdo da experiência dos estudantes.",
+            "O trabalho pode ser iniciado com exemplos simples de números racionais escritos no quadro, mostrando como eles aparecem em contas do dia a dia e em problemas de medida.",
+        ],
+        "pontos_plano_cartesiano": [
+            "A aula se organiza a partir do desenho dos eixos no quadro, com marcações amplas que permitam visualizar a posição de cada ponto com clareza.",
+            "No primeiro momento, registrar no quadro um plano cartesiano simples e retomar com a turma a leitura da horizontal e da vertical antes de marcar os pontos.",
+        ],
+        "poligonos_plano_cartesiano": [
+            "A atividade começa com a marcação de alguns pontos no plano cartesiano e a discussão de como eles podem ser ligados para formar figuras conhecidas.",
+            "A abordagem inicial consiste em apresentar coordenadas simples no quadro e mostrar como a união entre vértices pode gerar diferentes polígonos.",
+        ],
+        "simetria_plano_cartesiano": [
+            "A construção do conceito parte da observação de pontos em lados opostos de um eixo, para que a turma perceba o que muda e o que permanece em uma situação de simetria.",
+            "Para introduzir o tema, utilizar um plano cartesiano no quadro e marcar alguns pontos, comparando suas posições em relação aos eixos para explorar a ideia de simetria.",
+        ],
+        "area_malha_quadriculada": [
+            "A proposta da aula parte de desenhos simples em malha quadriculada, permitindo que a turma observe a área por contagem de unidades antes de formalizar procedimentos.",
+            "O percurso da aula começa pela observação de figuras desenhadas em quadradinhos, favorecendo a compreensão visual da ideia de área.",
+        ],
+        "relacao_grandezas_algebrica": [
+            "A proposta da aula parte de uma situação simples relacionada ao cotidiano dos estudantes, permitindo observar como duas grandezas podem se relacionar ao longo de uma tabela de valores.",
+            "O trabalho pode ser iniciado com um exemplo em que uma quantidade depende de outra, como valor pago por produtos, distância percorrida ou produção em determinado tempo.",
+        ],
+        "relacao_grandezas_grafica": [
+            "Como ponto de partida, apresentar no quadro uma tabela com valores simples e discutir com a turma como cada par de números pode ser representado no plano cartesiano.",
+            "A aula se organiza a partir de uma tabela já conhecida pela turma, mostrando que os dados podem ser transformados em pares ordenados e visualizados em gráfico.",
+        ],
+        "conceito_funcao": [
+            "A construção do conceito de função pode partir de exemplos em que uma quantidade depende da outra, como preço e quantidade, tempo e distância ou número de unidades e valor total.",
+            "Para introduzir o tema, utilizar situações cotidianas em que um valor de entrada gera um valor de saída, organizando os exemplos no quadro com linguagem direta.",
+        ],
+        "representacao_funcoes": [
+            "A atividade se desenvolve com a observação de uma mesma situação representada de três maneiras: por tabela, por expressão algébrica e por gráfico.",
+            "O percurso da aula começa pela comparação entre registros numéricos, algébricos e gráficos, mostrando que eles descrevem a mesma relação entre grandezas.",
+        ],
+        "dependencia_grandezas": [
+            "A retomada inicial deve considerar uma situação cotidiana, como o valor de uma compra dependendo da quantidade adquirida ou o salário variando conforme os dias trabalhados.",
+            "A abordagem inicial consiste em registrar no quadro duas grandezas ligadas entre si e conduzir a turma a perceber qual delas varia e qual depende da outra.",
+        ],
+        "verificacao_funcao": [
+            "A aula pode ser conduzida como uma verificação formativa dos conceitos trabalhados sobre função, retomando no quadro as ideias centrais antes das atividades.",
+            "No primeiro momento, registrar no quadro os conceitos principais de função e organizar uma revisão curta para que a turma relembre os procedimentos já estudados.",
+        ],
+        "revisao_funcao": [
+            "A revisão parte da organização, no quadro, dos principais pontos já estudados sobre função: relação entre grandezas, variável dependente e independente, tabela, expressão e gráfico.",
+            "A proposta da aula começa pela retomada dos exemplos já trabalhados, reunindo em um mesmo esquema as diferentes formas de representar uma função.",
+        ],
+        "funcao_logaritmica": [
+            "A abordagem inicial deve relacionar a função logarítmica a situações em que a variação acontece em escala, como pH, intensidade de abalos sísmicos ou crescimento de valores em determinados contextos.",
+            "Como ponto de partida, retomar no quadro a ideia de potência e, a partir dela, apresentar o logaritmo como forma de descobrir o expoente em uma igualdade simples.",
+        ],
+        "algebra_variavel": [
+            "A proposta da aula parte de situacoes simples em que uma quantidade pode mudar, como o preco de varias unidades de um mesmo produto, o dobro de uma medida ou a metade de um valor.",
+            "Como ponto de partida, registrar no quadro exemplos em que letras representam numeros que variam, aproximando a linguagem algebrica de situacoes que os estudantes conseguem visualizar com facilidade.",
+        ],
+        "algebra_valor_numerico": [
+            "Na retomada inicial, registrar no quadro uma expressao algebrica curta e substituir a letra por um numero conhecido, mostrando cada etapa do calculo com calma.",
+            "O trabalho comeca pela leitura de expressoes simples no quadro, destacando o que muda quando a letra recebe valores diferentes e como isso altera o resultado final.",
+        ],
+        "equacao_igualdade": [
+            "A aula se organiza a partir da ideia de equilibrio, comparando a igualdade a uma balanca em que os dois lados precisam permanecer com o mesmo valor.",
+            "Para introduzir o tema, desenhar no quadro uma situacao de balanca em equilibrio e relacionar essa imagem ao sentido matematico de igualdade.",
+        ],
+        "equacao_1_grau": [
+            "A abordagem inicial consiste em apresentar no quadro um problema curto com valor desconhecido, transformando a situacao em equacao e resolvendo uma etapa por vez.",
+            "O conteudo pode ser apresentado por meio de exemplos diretos em que o estudante precisa descobrir um numero escondido, organizando a resolucao com operacoes inversas.",
+        ],
+        "equacao_duas_incognitas": [
+            "A primeira etapa da aula propoe observar duas quantidades que variam juntas, registrando no quadro pares de valores e organizando uma tabela simples antes da representacao no plano.",
+            "A construcao do conceito acontece a partir de uma tabela de valores feita no quadro, mostrando como duas grandezas podem ser relacionadas e localizadas em malha quadriculada.",
+        ],
+        "sistema_equacoes": [
+            "A situacao inicial deve envolver um problema com duas informacoes ao mesmo tempo, para que a turma perceba a necessidade de trabalhar duas equacoes ligadas ao mesmo contexto.",
+            "O professor pode abrir a aula com um problema em que duas pistas precisam ser analisadas juntas, organizando no quadro as informacoes antes de escolher o procedimento de resolucao.",
+        ],
+        "semelhanca_triangulos": [
+            "A turma e convidada a observar no quadro dois triangulos desenhados em tamanhos diferentes, identificando o que permanece proporcional entre eles.",
+            "A explicacao deve partir de um exemplo simples de ampliacao e reducao, como sombras, rampas ou paredes, para aproximar a semelhanca de triangulos de situacoes concretas.",
+        ],
+        "teorema_pitagoras": [
+            "No primeiro momento, registrar no quadro um triangulo retangulo ligado a uma situacao concreta, como uma escada apoiada na parede ou a diagonal de um espaco.",
+            "A proposta da aula parte de um triangulo retangulo desenhado no quadro, com identificacao clara de catetos e hipotenusa antes da apresentacao da relacao a2 + b2 = c2.",
+        ],
+    }
+    desenvolvimentos = {
+        "reta_numerica_racionais": "O professor retoma com a turma que os números racionais podem aparecer entre os inteiros e organiza exemplos com frações e decimais de fácil visualização, como 1/2, 0,5, 1/4 e 0,25. Em seguida, os estudantes realizam atividades graduais no caderno: primeiro localizando pontos já indicados e depois completando a reta com novos valores. Para a sala multisseriada, alguns alunos permanecem na leitura e marcação de números mais simples, enquanto outros avançam para comparações e ordenação. A correção coletiva retoma a posição dos números e a distância entre eles sem expor individualmente os erros.",
+        "operacoes_racionais": "No quadro, o professor organiza a resolução passo a passo, destacando a leitura do enunciado, a escolha da operação e a escrita dos cálculos de forma ordenada no caderno. Durante a prática, os estudantes resolvem atividades em níveis: uma parte da turma trabalha com contas mais diretas e outra avança para problemas que exigem interpretação e combinação de procedimentos. O acompanhamento é próximo, com retomada de dúvidas básicas, e a correção coletiva destaca os procedimentos corretos e os erros mais frequentes na organização dos cálculos.",
+        "pontos_plano_cartesiano": "A explicação avança com a leitura dos pares ordenados, mostrando qual valor deve ser observado primeiro e como localizar cada ponto sem inverter as coordenadas. Na atividade escrita, alguns estudantes trabalham com marcações já orientadas, enquanto outros registram novos pontos e interpretam sua posição no plano. O professor acompanha a prática individualmente e o fechamento acontece com correção coletiva, retomando a ordem dos pares e a leitura dos eixos.",
+        "poligonos_plano_cartesiano": "Na sequência, o professor mostra como localizar os vértices, unir os pontos e reconhecer figuras a partir de suas coordenadas, sempre com desenhos grandes e claros no quadro. Os estudantes registram os pontos no caderno e realizam atividades graduais: alguns identificam vértices e ligam figuras já sugeridas, enquanto outros constroem polígonos a partir de coordenadas dadas. A correção coletiva retoma a leitura das coordenadas e as características das figuras formadas.",
+        "simetria_plano_cartesiano": "O professor conduz a leitura dos pontos, mostra como identificar a posição simétrica em relação aos eixos e resolve exemplos curtos antes da atividade individual. Durante a prática, parte da turma trabalha com pontos já marcados e observação visual da simetria, enquanto outra parte avança para o registro de coordenadas e comparação entre posições. A correção coletiva destaca o eixo de referência, a mudança de sinal quando necessário e os cuidados com a leitura dos pares ordenados.",
+        "area_malha_quadriculada": "No quadro, o professor orienta a contagem das unidades de área e mostra como comparar figuras simples desenhadas em quadradinhos, evitando formalismo excessivo antes da compreensão visual. Na prática, os estudantes resolvem atividades graduais no caderno: alguns contam quadradinhos inteiros e reconhecem áreas equivalentes, enquanto outros avançam para composições um pouco mais complexas. O acompanhamento acontece durante a contagem e a correção coletiva retoma estratégias de organização e comparação das figuras.",
+        "relacao_grandezas_algebrica": "No quadro, o professor organiza os dados em uma tabela simples, conduz a turma na identificação do padrão e mostra como representar essa relação por meio de uma expressão algébrica, resolvendo um exemplo passo a passo. Durante a prática, os estudantes completam tabelas, observam regularidades e escrevem a regra que relaciona as grandezas. Para atender à turma multisseriada, alguns alunos realizam exercícios de retomada com padrões mais diretos, enquanto outros avançam para situações que exigem generalização. A correção coletiva destaca a passagem da tabela para a expressão algébrica e retoma os erros mais comuns.",
+        "relacao_grandezas_grafica": "O professor desenha os eixos, localiza os pontos com a participação dos estudantes e mostra como o gráfico ajuda a visualizar a relação entre as grandezas. Em seguida, os alunos constroem gráficos no caderno a partir de tabelas fornecidas. Para a sala multisseriada, a atividade pode ser organizada em níveis: localização de pontos para quem precisa retomar a base e interpretação do comportamento do gráfico para quem já demonstra maior domínio. No fechamento, a correção coletiva retoma a ordem dos pares ordenados, a marcação dos pontos e a leitura do gráfico.",
+        "conceito_funcao": "No quadro, o professor organiza uma pequena tabela, identifica os valores de entrada e saída e explica, com linguagem simples, que uma função relaciona duas grandezas de forma organizada. Durante a prática, os estudantes analisam situações e indicam qual grandeza depende da outra. As atividades são graduadas: primeiro com leitura de tabelas simples e depois com identificação da regra de formação. A correção coletiva retoma a diferença entre variável independente e dependente, garantindo que todos acompanhem o raciocínio.",
+        "representacao_funcoes": "No quadro, o professor mostra como os dados da tabela podem gerar uma expressão e como os pares ordenados podem ser marcados no plano cartesiano, reforçando que todas essas formas descrevem a mesma relação. Na sequência, os estudantes resolvem atividades no caderno, relacionando tabelas, expressões e gráficos simples. Para atender aos diferentes níveis da turma, alguns realizam a identificação direta das representações, enquanto outros interpretam o significado dos valores em situações-problema. A correção coletiva destaca as conexões entre as formas de representação e retoma as dúvidas mais recorrentes.",
+        "dependencia_grandezas": "A partir desse exemplo, o professor registra no quadro as duas grandezas envolvidas e orienta a turma a perceber qual delas depende da outra. Depois da explicação, os estudantes resolvem situações semelhantes no caderno, identificando as grandezas, montando tabelas e registrando a regra da relação quando possível. A proposta prevê atividades de retomada para quem apresenta dificuldade na identificação das grandezas e desafios de interpretação para os alunos que avançarem com mais segurança. A correção coletiva retoma a ideia central de dependência entre variáveis.",
+        "verificacao_funcao": "Em seguida, o professor propõe uma sequência curta de atividades para que os estudantes demonstrem o que compreenderam sobre relação entre grandezas, tabela, expressão algébrica, gráfico e dependência entre variáveis. Durante a resolução, acompanha individualmente os registros, observa as dificuldades e orienta os alunos sem antecipar todas as respostas. Ao final, a correção coletiva é feita de forma comentada, retomando os pontos que apresentaram maior dificuldade e reorganizando no quadro os procedimentos corretos.",
+        "revisao_funcao": "A turma participa retomando exemplos já trabalhados e identificando onde cada representação aparece. Em seguida, os estudantes resolvem uma sequência de exercícios mistos, com questões de leitura, preenchimento de tabela, identificação da regra e interpretação de gráfico. As atividades são organizadas em níveis para contemplar a turma multisseriada, com retomada para quem precisa consolidar a base e desafios para quem já acompanha com mais autonomia. O fechamento ocorre com correção coletiva e síntese dos cuidados mais importantes.",
+        "funcao_logaritmica": "No quadro, o professor retoma a ideia de potência e apresenta o logaritmo como uma forma de descobrir o expoente em uma igualdade simples, utilizando exemplos numéricos acessíveis e sem excesso de formalismo. Na prática, os estudantes analisam situações guiadas e resolvem exercícios básicos de interpretação. Para a turma multisseriada, alguns alunos retomam potências simples e leitura de valores, enquanto outros avançam para problemas que envolvem a variação das grandezas. A correção coletiva reforça a relação entre potência e logaritmo e esclarece as dúvidas mais comuns.",
+        "algebra_variavel": "A explicacao avanca com exemplos no quadro que diferenciam letra como valor desconhecido e letra como quantidade variavel, sempre com linguagem direta e registros curtos no caderno. Na pratica, os estudantes resolvem atividades graduais: alguns identificam o que a letra representa e escrevem expressoes mais diretas, enquanto outros avancam para situacoes em que precisam calcular dobro, triplo, metade ou montar pequenas expressoes. Durante a resolucao, o professor acompanha de perto, retoma duvidas sem exposicao individual e encerra com correcao coletiva, destacando os erros mais comuns na leitura e na escrita da linguagem algebrica.",
+        "algebra_valor_numerico": "Depois da demonstracao inicial, a turma acompanha no quadro a substituicao de letras por numeros e a organizacao das operacoes em ordem clara, evitando saltos de raciocinio. Os exercicios no caderno sao distribuidos em niveis: uma parte da turma trabalha com substituicoes diretas e contas mais curtas, enquanto outra resolve expressoes com duas ou mais operacoes. O professor circula entre os estudantes, orienta a organizacao das etapas e finaliza com correcao coletiva, retomando especialmente erros de substituicao e de ordem de calculo.",
+        "equacao_igualdade": "Com base nessa comparacao, o professor mostra no quadro que tudo o que e feito de um lado precisa ser feito do outro, resolvendo exemplos curtos com uma operacao por vez. Na atividade escrita, alguns estudantes trabalham com igualdades mais diretas para consolidar a ideia de equilibrio, enquanto outros avancam para sentencas que exigem mais passos. O acompanhamento acontece durante a pratica e a correcao coletiva retoma os procedimentos, valorizando a organizacao do raciocinio sem expor individualmente quem errou.",
+        "equacao_1_grau": "A resolucao guiada destaca a organizacao dos dados, a identificacao da incognita e o uso das operacoes inversas para isolar o valor procurado. Na sequencia, os alunos resolvem atividades no caderno com niveis diferentes: uns trabalham com equacoes mais diretas e outros transformam pequenos problemas em linguagem matematica antes de resolver. O professor acompanha os registros, ajuda na montagem da sentenca matematica e fecha a aula com correcao coletiva e verificacao do resultado encontrado.",
+        "equacao_duas_incognitas": "Em seguida, o professor completa com a turma alguns pares de valores, explica como localizar os pontos na malha e relaciona a tabela com a representacao grafica. Para atender ao ritmo multisseriado, uma parte dos estudantes permanece na leitura da tabela e na montagem de pares ordenados, enquanto outra avanca para a observacao da reta e da relacao entre a equacao e o grafico. A pratica e acompanhada de perto, com apoio individual quando necessario, e o fechamento ocorre por meio de correcao coletiva dos registros mais importantes.",
+        "sistema_equacoes": "A partir desse ponto, o professor organiza as informacoes no quadro, nomeia as incognitas e resolve o sistema gradualmente, por substituicao ou adicao, conforme o nivel da turma. Na atividade no caderno, alguns estudantes resolvem casos mais diretos com bastante apoio na leitura dos dados, enquanto outros avancam para problemas em que precisam interpretar melhor o contexto e justificar o resultado. O acompanhamento valoriza a organizacao das etapas e a correcao coletiva retoma os erros mais comuns na comparacao das duas condicoes.",
+        "semelhanca_triangulos": "Ao longo da explicacao, o professor destaca lados correspondentes, proporcao e relacao entre ampliacao e reducao, usando desenhos grandes no quadro e exemplos que possam ser copiados com clareza no caderno. Os exercicios sao organizados em dois niveis: alguns estudantes identificam pares de lados e reconhecem figuras semelhantes, enquanto outros resolvem problemas de proporcionalidade em contextos como sombras, paredes e rampas. Durante a pratica, o professor acompanha a montagem das razoes e encerra com correcao coletiva, retomando a importancia de comparar lados correspondentes.",
+        "teorema_pitagoras": "Na explicacao, o professor apresenta a relacao a2 + b2 = c2, identifica cada lado do triangulo e resolve um exemplo simples em etapas curtas, deixando visivel no quadro onde entra cada valor. Depois, a turma realiza atividades graduais no caderno: alguns estudantes apenas identificam catetos e hipotenusa e aplicam a formula em casos diretos, enquanto outros avancam para problemas de aplicacao com escada, deslocamento e diagonal. O fechamento acontece com correcao coletiva e retomada dos erros mais comuns, principalmente a troca entre cateto e hipotenusa e a organizacao dos quadrados dos numeros.",
+    }
+    opcoes = aberturas.get(tipo_cdp)
+    if not opcoes or tipo_cdp not in desenvolvimentos:
+        return ""
+    inicio = opcoes[indice_aula % len(opcoes)]
+    return f"{inicio} {desenvolvimentos[tipo_cdp]}"
+
+
+def _acompanhamento_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
+    bancos = {
+        "reta_numerica_racionais": [
+            "☑ Verificar se o aluno localiza frações e decimais na reta numérica sem inverter a posição dos valores.",
+            "☑ Observar se compara corretamente números racionais a partir da posição ocupada na reta.",
+            "☑ Acompanhar se registra no caderno a relação entre fração, decimal e ponto marcado.",
+        ],
+        "operacoes_racionais": [
+            "☑ Verificar se o aluno identifica a operação necessária antes de iniciar o cálculo.",
+            "☑ Observar se organiza as etapas da conta no caderno sem saltar procedimentos.",
+            "☑ Acompanhar se interpreta o resultado de forma coerente com o problema resolvido.",
+        ],
+        "pontos_plano_cartesiano": [
+            "☑ Verificar se o aluno lê os pares ordenados na sequência correta.",
+            "☑ Observar se localiza os pontos no plano cartesiano sem trocar os eixos.",
+            "☑ Acompanhar se registra com clareza a posição de cada ponto no caderno.",
+        ],
+        "poligonos_plano_cartesiano": [
+            "☑ Verificar se o aluno localiza corretamente os vértices indicados pelas coordenadas.",
+            "☑ Observar se reconhece o polígono formado após unir os pontos.",
+            "☑ Acompanhar se relaciona coordenadas e características da figura construída.",
+        ],
+        "simetria_plano_cartesiano": [
+            "☑ Verificar se o aluno identifica o eixo de referência na situação de simetria.",
+            "☑ Observar se reconhece a posição simétrica de pontos no plano cartesiano.",
+            "☑ Acompanhar se registra corretamente as coordenadas após a reflexão do ponto.",
+        ],
+        "area_malha_quadriculada": [
+            "☑ Verificar se o aluno conta corretamente as unidades de área na malha quadriculada.",
+            "☑ Observar se compara figuras simples identificando áreas equivalentes ou diferentes.",
+            "☑ Acompanhar se organiza a contagem no caderno sem perder unidades da figura.",
+        ],
+        "relacao_grandezas_algebrica": [
+            "☑ Verificar se o aluno identifica as duas grandezas envolvidas na situação proposta.",
+            "☑ Observar se reconhece o padrão apresentado na tabela de valores.",
+            "☑ Acompanhar se consegue representar a relação por meio de expressão algébrica simples.",
+        ],
+        "relacao_grandezas_grafica": [
+            "☑ Verificar se o aluno organiza corretamente os pares ordenados.",
+            "☑ Observar se localiza os pontos no plano cartesiano com apoio da tabela.",
+            "☑ Acompanhar se interpreta o gráfico como representação da relação entre as grandezas.",
+        ],
+        "conceito_funcao": [
+            "☑ Identificar se o aluno diferencia variável dependente e independente.",
+            "☑ Observar se reconhece quando uma grandeza depende da outra.",
+            "☑ Verificar se relaciona tabela, expressão ou gráfico à ideia de função.",
+        ],
+        "representacao_funcoes": [
+            "☑ Verificar se o aluno relaciona tabela, expressão algébrica e gráfico como formas de representar a mesma situação.",
+            "☑ Observar se interpreta o significado dos valores em cada forma de representação.",
+            "☑ Acompanhar se organiza os registros no caderno sem perder a correspondência entre as representações.",
+        ],
+        "dependencia_grandezas": [
+            "☑ Verificar se o aluno identifica qual grandeza varia e qual depende da outra.",
+            "☑ Observar se monta tabela simples com base na situação apresentada.",
+            "☑ Acompanhar se registra a regra da relação quando isso for possível na atividade proposta.",
+        ],
+        "verificacao_funcao": [
+            "☑ Identificar quais conceitos de função o aluno já consegue retomar com autonomia.",
+            "☑ Observar se relaciona tabela, expressão algébrica e gráfico durante a verificação.",
+            "☑ Registrar as principais dúvidas para retomada nas próximas aulas.",
+        ],
+        "revisao_funcao": [
+            "☑ Verificar se o aluno retoma os conceitos centrais de função sem depender apenas da cópia do quadro.",
+            "☑ Observar se relaciona tabela, expressão, gráfico e dependência entre variáveis.",
+            "☑ Acompanhar se identifica procedimentos que ainda precisam de reforço antes do avanço do conteúdo.",
+        ],
+        "funcao_logaritmica": [
+            "☑ Verificar se o aluno relaciona logaritmo à ideia de potência.",
+            "☑ Observar se interpreta situações simples envolvendo escalas de variação.",
+            "☑ Acompanhar se resolve exercícios básicos com apoio dos exemplos do quadro.",
+        ],
+        "algebra_variavel": [
+            "☑ Verificar se o aluno identifica o que a letra representa em cada exemplo apresentado.",
+            "☑ Observar se diferencia quantidade variavel de valor desconhecido durante os registros no caderno.",
+            "☑ Acompanhar se escreve expressoes simples com dobro, triplo, metade ou preco por unidade sem perder o sentido da situacao.",
+        ],
+        "algebra_valor_numerico": [
+            "☑ Verificar se o aluno substitui corretamente o valor da letra na expressao proposta.",
+            "☑ Observar se organiza as etapas do calculo antes de apresentar o resultado final.",
+            "☑ Acompanhar se respeita a ordem das operacoes nos exemplos resolvidos no caderno.",
+        ],
+        "equacao_igualdade": [
+            "☑ Verificar se o aluno compreende a igualdade como relacao de equilibrio entre dois lados.",
+            "☑ Observar se registra no caderno as transformacoes feitas dos dois lados da sentenca.",
+            "☑ Acompanhar se identifica erros e corrige o procedimento com apoio durante a correcao coletiva.",
+        ],
+        "equacao_1_grau": [
+            "☑ Verificar se o aluno organiza os dados do problema antes de montar a equacao.",
+            "☑ Observar se aplica operacoes inversas de forma adequada para encontrar a incognita.",
+            "☑ Acompanhar se registra as etapas da resolucao e confere o resultado encontrado.",
+        ],
+        "equacao_duas_incognitas": [
+            "☑ Verificar se o aluno monta pares de valores coerentes com a relacao apresentada.",
+            "☑ Observar se localiza corretamente os pontos na malha ou no plano cartesiano.",
+            "☑ Acompanhar se relaciona a tabela de valores com a representacao grafica produzida.",
+        ],
+        "sistema_equacoes": [
+            "☑ Verificar se o aluno identifica as duas informacoes centrais do problema antes de resolver.",
+            "☑ Observar se organiza as incognitas e as equacoes sem misturar os dados das duas condicoes.",
+            "☑ Acompanhar se justifica o resultado final com base no contexto do problema resolvido.",
+        ],
+        "semelhanca_triangulos": [
+            "☑ Verificar se o aluno identifica lados correspondentes nas figuras comparadas.",
+            "☑ Observar se monta proporcoes coerentes ao resolver os exemplos no caderno.",
+            "☑ Acompanhar se reconhece quando os triangulos sao semelhantes e explica o criterio usado.",
+        ],
+        "teorema_pitagoras": [
+            "☑ Verificar se o aluno diferencia catetos e hipotenusa no triangulo retangulo apresentado.",
+            "☑ Observar se aplica a relacao a2 + b2 = c2 sem trocar os valores de cada lado.",
+            "☑ Acompanhar se registra as etapas do calculo e confere o resultado no final da resolucao.",
+        ],
+    }
+    return bancos.get(tipo_cdp, [])
+
+
+def _acessibilidade_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
+    bancos = {
+        "reta_numerica_racionais": [
+            "☑ Reta numérica desenhada em tamanho ampliado no quadro para facilitar a visualização das marcações.",
+            "☑ Retomada da relação entre fração e decimal antes da localização dos pontos.",
+            "☑ Tempo ampliado para copiar a reta, marcar os valores e revisar os registros.",
+        ],
+        "operacoes_racionais": [
+            "☑ Leitura coletiva dos enunciados antes do início dos cálculos.",
+            "☑ Organização das operações em linhas curtas e bem visíveis no quadro.",
+            "☑ Atividades graduais, com exemplos mais diretos antes das situações-problema.",
+        ],
+        "pontos_plano_cartesiano": [
+            "☑ Plano cartesiano desenhado de forma ampliada no quadro para facilitar a leitura dos eixos.",
+            "☑ Marcação guiada dos primeiros pares ordenados antes da atividade individual.",
+            "☑ Apoio individual para estudantes com dificuldade na leitura da horizontal e da vertical.",
+        ],
+        "poligonos_plano_cartesiano": [
+            "☑ Vértices e coordenadas destacados no quadro antes da construção das figuras.",
+            "☑ Atividade em etapas: primeiro localizar pontos, depois unir vértices e por fim identificar a figura.",
+            "☑ Tempo ampliado para copiar o plano e concluir a construção dos polígonos no caderno.",
+        ],
+        "simetria_plano_cartesiano": [
+            "☑ Uso de exemplos simples com poucos pontos antes de avançar para situações mais completas.",
+            "☑ Destaque visual do eixo de simetria no quadro durante toda a atividade.",
+            "☑ Correção coletiva sem exposição individual, retomando a leitura das coordenadas quando necessário.",
+        ],
+        "area_malha_quadriculada": [
+            "☑ Figuras desenhadas de forma clara e ampliada para facilitar a contagem dos quadradinhos.",
+            "☑ Retomada da ideia de unidade de área antes da comparação entre as figuras.",
+            "☑ Flexibilização do registro, permitindo anotar contagens parciais para organizar o raciocínio.",
+        ],
+        "relacao_grandezas_algebrica": [
+            "☑ Uso de tabelas simples para facilitar a identificação de padrões.",
+            "☑ Retomada da ideia de variável antes da escrita da expressão algébrica.",
+            "☑ Atividades graduais, com exemplos diretos antes das situações-problema.",
+        ],
+        "relacao_grandezas_grafica": [
+            "☑ Plano cartesiano desenhado em tamanho ampliado no quadro.",
+            "☑ Marcação guiada dos primeiros pontos antes da atividade individual.",
+            "☑ Tempo ampliado para copiar a tabela e construir o gráfico.",
+        ],
+        "conceito_funcao": [
+            "☑ Explicação com exemplos próximos do cotidiano dos estudantes.",
+            "☑ Organização dos dados em entrada e saída para facilitar a compreensão.",
+            "☑ Apoio individual para diferenciar grandeza dependente e independente.",
+        ],
+        "representacao_funcoes": [
+            "☑ Comparação guiada entre tabela, expressão e gráfico com um exemplo já resolvido no quadro.",
+            "☑ Organização visual das três formas de representação para facilitar a leitura.",
+            "☑ Flexibilização do registro, permitindo completar primeiro a tabela antes de avançar para a expressão ou o gráfico.",
+        ],
+        "dependencia_grandezas": [
+            "☑ Leitura coletiva dos enunciados para destacar as duas grandezas envolvidas.",
+            "☑ Tabelas curtas e exemplos concretos antes da generalização da regra.",
+            "☑ Apoio individual para estudantes com dificuldade na identificação da variável dependente.",
+        ],
+        "verificacao_funcao": [
+            "☑ Atividades em níveis, contemplando retomada e aprofundamento.",
+            "☑ Correção coletiva sem exposição individual dos erros.",
+            "☑ Flexibilização do registro para alunos com maior dificuldade de escrita ou organização.",
+        ],
+        "revisao_funcao": [
+            "☑ Retomada dos conceitos básicos antes dos exercícios mistos de revisão.",
+            "☑ Organização visual no quadro com tabela, expressão e gráfico do mesmo exemplo.",
+            "☑ Atividades graduais para contemplar diferentes ritmos da turma multisseriada.",
+        ],
+        "funcao_logaritmica": [
+            "☑ Retomada de potências simples antes da introdução do logaritmo.",
+            "☑ Uso de exemplos interpretativos, evitando excesso de formalismo.",
+            "☑ Resolução em etapas curtas, com apoio do quadro durante os cálculos.",
+        ],
+        "algebra_variavel": [
+            "☑ Explicacao com exemplos simples no quadro antes das atividades autonomas.",
+            "☑ Atividades graduais, com exercicios de retomada para quem ainda consolida a base e propostas de avancar para quem ja demonstra maior dominio.",
+            "☑ Correcao coletiva sem exposicao individual, retomando o significado das letras em cada situacao.",
+        ],
+        "algebra_valor_numerico": [
+            "☑ Organizacao do calculo em etapas curtas no quadro para facilitar a substituicao da letra por numeros.",
+            "☑ Retomada da ordem das operacoes sempre que necessario durante a pratica.",
+            "☑ Apoio individual para estudantes com dificuldade em registrar o passo a passo no caderno.",
+        ],
+        "equacao_igualdade": [
+            "☑ Uso de desenho simples de balanca no quadro para apoiar a compreensao da igualdade.",
+            "☑ Resolucao em etapas curtas, mantendo visivel o que foi feito em cada lado da sentenca.",
+            "☑ Tempo ampliado para copiar, testar procedimentos e corrigir os registros com apoio.",
+        ],
+        "equacao_1_grau": [
+            "☑ Retomada das operacoes inversas antes da resolucao dos exercicios.",
+            "☑ Organizacao da equacao em etapas curtas no quadro, com um exemplo completo como referencia.",
+            "☑ Apoio individual para estudantes com dificuldade na montagem da sentenca matematica.",
+        ],
+        "equacao_duas_incognitas": [
+            "☑ Tabela simples desenhada no quadro para apoiar a leitura dos pares de valores.",
+            "☑ Malha ou esquema amplo para facilitar a localizacao dos pontos e a visualizacao da reta.",
+            "☑ Possibilidade de permanecer primeiro na tabela antes de avancar para o plano cartesiano, conforme o ritmo de cada estudante.",
+        ],
+        "sistema_equacoes": [
+            "☑ Separacao visual das duas equacoes no quadro para evitar mistura de informacoes.",
+            "☑ Leitura coletiva do problema, destacando cada condicao antes da resolucao algebrica.",
+            "☑ Apoio individual na escolha e na organizacao do metodo de resolucao mais acessivel para o estudante.",
+        ],
+        "semelhanca_triangulos": [
+            "☑ Desenhos grandes e bem espacos no quadro para facilitar a visualizacao dos lados correspondentes.",
+            "☑ Marcacoes simples para indicar quais lados devem ser comparados em cada triangulo.",
+            "☑ Tempo ampliado para copiar as figuras e concluir os registros de proporcionalidade.",
+        ],
+        "teorema_pitagoras": [
+            "☑ Identificacao visual de catetos e hipotenusa com marcacoes claras no quadro.",
+            "☑ Aplicacao da formula em exemplos curtos antes de avancar para problemas mais completos.",
+            "☑ Apoio individual para estudantes com dificuldade na organizacao dos quadrados e das etapas do calculo.",
+        ],
+    }
+    return bancos.get(tipo_cdp, [])
+
+
 def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str, indice_aula: int = 0) -> list[str]:
     conceito_frase = _conceito_cdp_contextual(perfil, tema, conceito)
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
     exemplo = _exemplo_concreto_cdp(tipo_cdp)
+
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
+        texto_especifico = _metodologia_matematica_eja_cdp(tipo_cdp, indice_aula)
+        if texto_especifico:
+            return [_limpar_texto_cdp_contextual(texto_especifico)]
 
     matematicas = {
         "fracao_conceito": [
@@ -1219,7 +2065,103 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         opcoes = [gerais.get(tipo_cdp, gerais["geral_cdp"])]
 
     texto = opcoes[indice_aula % len(opcoes)]
+    texto = _expandir_metodologia_cdp_contextual(
+        perfil=perfil,
+        tipo_cdp=tipo_cdp,
+        conceito_frase=conceito_frase,
+        exemplo=exemplo,
+        texto=texto,
+    )
     return [_limpar_texto_cdp_contextual(texto)]
+
+
+def _expandir_metodologia_cdp_contextual(
+    perfil: str,
+    tipo_cdp: str,
+    conceito_frase: str,
+    exemplo: str,
+    texto: str,
+) -> str:
+    base = str(texto or "").strip()
+    if not base:
+        return base
+
+    if perfil == "matematica":
+        complementos = {
+            "fracao_adicao_subtracao": (
+                " Em seguida, introduz situacoes com denominadores diferentes, explicando a necessidade "
+                "de encontrar fracoes equivalentes antes de realizar as operacoes e organizando os "
+                "calculos em etapas visiveis no quadro. Ao final, os alunos registram os procedimentos "
+                "no caderno e acompanham a correcao coletiva, com destaque para os erros mais comuns "
+                "ligados a equivalencia, simplificacao e organizacao do calculo."
+            ),
+            "fracao_comparacao": (
+                " Depois, o professor registra no quadro os criterios usados para comparar as fracoes, "
+                "mostrando como observar equivalencia, ordenacao e relacao entre numerador e denominador. "
+                "Os alunos anotam os exemplos no caderno e acompanham a correcao coletiva, retomando os "
+                "procedimentos que ajudam a justificar qual fracao representa maior ou menor quantidade."
+            ),
+            "fracao_mult_div": (
+                " Em seguida, organiza no quadro cada etapa do procedimento, reforcando quando simplificar, "
+                "como identificar o inverso e quais cuidados evitam trocas indevidas nas operacoes. "
+                "Os alunos registram os passos no caderno, resolvem novas atividades e acompanham a "
+                "correcao coletiva com retomada dos erros mais frequentes."
+            ),
+            "fracao_conceito": (
+                " Depois, retoma no quadro a relacao entre representacao, leitura e escrita das fracoes, "
+                "explorando novos exemplos simples para consolidar a ideia de parte e todo. "
+                "Os alunos registram os esquemas no caderno e acompanham a correcao coletiva das "
+                "atividades, com revisao dos erros mais recorrentes."
+            ),
+            "fracao_quantidade": (
+                " Em seguida, mostra como organizar os dados do problema no quadro, identificando total, "
+                "parte pedida e operacao necessaria para chegar ao resultado. Os alunos registram os "
+                "procedimentos no caderno e acompanham a correcao coletiva, com retomada das estrategias "
+                "que ajudam a interpretar cada situacao."
+            ),
+            "forma_mista": (
+                " Depois, registra no quadro novas situacoes de conversao para que a turma observe o que "
+                "permanece e o que muda entre fracao impropria e numero misto. Os alunos anotam os passos "
+                "no caderno e acompanham a correcao coletiva, retomando a leitura correta e a organizacao "
+                "dos calculos."
+            ),
+            "geometria_angulos": (
+                " Em seguida, organiza no quadro exemplos com diferentes aberturas e reforca a relacao "
+                "entre giro, inclinacao e classificacao. Os alunos registram os criterios no caderno e "
+                "acompanham a correcao coletiva, retomando as duvidas sobre identificacao e nomeacao "
+                "dos angulos."
+            ),
+            "geometria_poligonos": (
+                " Depois, retoma no quadro os criterios de classificacao, destacando numero de lados, "
+                "vertices e diferencas entre figuras semelhantes. Os alunos organizam os registros no "
+                "caderno e acompanham a correcao coletiva, com revisao das justificativas apresentadas."
+            ),
+            "matematica_geral": (
+                " Em seguida, organiza no quadro os dados do problema e os passos de resolucao, "
+                "destacando o raciocinio necessario em cada etapa. Os alunos registram os procedimentos "
+                "no caderno e acompanham a correcao coletiva, retomando as duvidas e os erros mais comuns."
+            ),
+        }
+        extra = complementos.get(tipo_cdp)
+        if extra and _normalizar(extra.strip()) not in _normalizar(base):
+            return f"{base}{extra}"
+
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        if "correcao coletiva" not in _normalizar(base):
+            return (
+                f"{base} Ao final, os alunos registram as respostas no caderno e acompanham a correcao "
+                "coletiva, com retomada dos trechos do texto e esclarecimento das duvidas mais frequentes."
+            )
+
+    if perfil in {"historia", "geografia", "ciencias_ef", "ciencias", "biologia", "quimica", "fisica"}:
+        if "correcao coletiva" not in _normalizar(base) and "fechamento coletivo" not in _normalizar(base):
+            return (
+                f"{base} Ao final, os alunos registram as ideias principais no caderno e acompanham um "
+                "fechamento coletivo, com retomada dos conceitos centrais e esclarecimento das duvidas "
+                "mais recorrentes."
+            )
+
+    return base
 
 
 def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int = 3) -> list[str]:
@@ -1239,6 +2181,10 @@ def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int 
 def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     conceito_frase = _conceito_cdp_contextual(perfil, tema, conceito)
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
+        itens = _acompanhamento_matematica_eja_cdp(tipo_cdp)
+        if itens:
+            return itens[:3]
     bancos = {
         "fracao_conceito": [
             "☑ Verificar se o aluno identifica numerador, denominador e a ideia de parte do todo.",
@@ -1460,6 +2406,10 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
 
 def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
+        itens = _acessibilidade_matematica_eja_cdp(tipo_cdp)
+        if itens:
+            return itens[:3]
     bancos = {
         "fracao_conceito": [
             "☑ Uso de desenhos simples no quadro para representar partes iguais.",
@@ -1678,8 +2628,40 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
 def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     base = _normalizar(f"{disciplina} {tema} {texto}")
     perfil = _perfil_disciplina(disciplina)
+    tema_base = _normalizar(tema)
 
     if perfil == "educacao_financeira":
+        mapa_tema = [
+            ("instituicoes_financeiras", ["onde guardamos o dinheiro", "guardar dinheiro", "onde guardar o dinheiro", "guardamos o dinheiro"]),
+            ("investimento_poupanca", ["por que poupamos", "porque poupamos", "reserva de emergencia", "poupamos"]),
+            ("orcamento_planejamento", ["objetivos em familia ou em grupo", "objetivos em familia", "objetivos em grupo", "planejamento financeiro"]),
+            ("analise_percentuais_noticias", ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias"]),
+            ("governo_economia", ["papel do governo na economia", "governo na economia"]),
+            ("impacto_decisoes_economicas", ["impacto das decisoes economicas", "decisoes economicas em nossas vidas"]),
+        ]
+        for tipo, termos in mapa_tema:
+            if _contem(tema_base, termos):
+                return tipo
+        if _contem(tema_base, ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]):
+            return "credito_endividamento"
+        if _contem(tema_base, ["empreendedorismo", "empreendedor", "negocio", "empresa", "produto", "servico", "mercado", "lucro", "viabilidade"]):
+            return "empreendedorismo"
+        if _contem(tema_base, ["direito do consumidor", "direitos do consumidor", "consumidor", "reclamacao", "garantia", "nota fiscal", "cidadania financeira"]):
+            return "cidadania_financeira"
+        if _contem(tema_base, ["instituicao financeira", "instituicoes financeiras", "banco", "conta digital", "guardar dinheiro", "onde guardamos", "movimentar dinheiro"]):
+            return "instituicoes_financeiras"
+        if _contem(tema_base, ["investimento", "poupanca", "rendimento", "juros", "aplicacao", "reserva", "patrimonio", "rentabilidade", "reserva de emergencia"]):
+            return "investimento_poupanca"
+        if _contem(tema_base, ["orcamento", "planejamento", "receita", "despesa", "gasto", "renda", "controle", "organizacao financeira"]):
+            return "orcamento_planejamento"
+        if _contem(tema_base, ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias", "manchetes", "noticias", "percentual", "porcentagem"]):
+            return "analise_percentuais_noticias"
+        if _contem(tema_base, ["papel do governo na economia", "governo na economia", "estado na economia", "politicas publicas", "impostos", "arrecadacao"]):
+            return "governo_economia"
+        if _contem(tema_base, ["impacto das decisoes economicas", "decisoes economicas em nossas vidas", "impacto das escolhas economicas", "escolhas economicas"]):
+            return "impacto_decisoes_economicas"
+        if _contem(tema_base, ["consumo", "compra", "decisao", "necessidade", "desejo", "prioridade", "escolha", "custo-beneficio", "consumo consciente"]):
+            return "consumo_consciente"
         if _contem(base, ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]):
             return "credito_endividamento"
         if _contem(base, ["empreendedorismo", "empreendedor", "negocio", "empresa", "produto", "servico", "mercado", "lucro", "viabilidade"]):
@@ -1697,7 +2679,6 @@ def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return "decisao_financeira"
 
     if perfil == "matematica":
-        tema_base = _normalizar(tema)
         if _contem(
             base,
             [
@@ -2240,12 +3221,13 @@ def _frases_por_contexto(perfil: str, tipo: str, tema: str, conceito: str, turma
         )
 
     elif perfil == "projeto_de_vida" or perfil == "projeto_vida":
+        conceito_seguro = tema if _conceito_generico_ou_quebrado_projeto_vida(conceito) else conceito
         base["para_comecar"] = (
             f"Abrir a aula com uma situacao acolhedora relacionada a {tema}, sem exigir exposicao pessoal. Propor "
             "troca em duplas ou roda de conversa breve, respeitando diferentes ritmos de participacao."
         )
         base["foco"] = (
-            f"Construir o conceito de {conceito} por meio de exemplos escolares e cotidianos, ajudando a turma a "
+            f"Construir a reflexao sobre {conceito_seguro} por meio de exemplos escolares e cotidianos, ajudando a turma a "
             "relacionar sentir, pensar e agir de forma respeitosa."
         )
         base["pratica"] = (
@@ -2266,6 +3248,9 @@ def _frases_por_contexto(perfil: str, tipo: str, tema: str, conceito: str, turma
             "investimento_poupanca": "uma situacao de poupanca ou reserva de emergencia em que pequenos valores acumulados ajudam a lidar com imprevistos",
             "credito_endividamento": "uma compra parcelada ou oferta de credito em que seja necessario comparar valor a vista, juros, parcelas e custo total",
             "empreendedorismo": "um pequeno projeto de venda, servico ou solucao para a comunidade escolar, analisando custos, preco e viabilidade",
+            "analise_percentuais_noticias": "uma noticia, manchete ou grafico em que a turma precise interpretar percentuais e relacionar os dados a uma situacao real",
+            "governo_economia": "uma situacao cotidiana sobre como a acao do governo influencia precos, servicos, impostos e a vida economica da populacao",
+            "impacto_decisoes_economicas": "uma situacao do cotidiano em que escolhas economicas afetam consumo, planejamento, prioridades e bem-estar",
             "cidadania_financeira": "uma situacao de consumo que envolva direitos, responsabilidades, comprovantes, garantia ou uso seguro de servicos financeiros",
             "instituicoes_financeiras": "uma situacao cotidiana sobre onde guardar, movimentar e proteger o dinheiro com seguranca",
         }
@@ -2337,6 +3322,37 @@ def _frases_por_contexto(perfil: str, tipo: str, tema: str, conceito: str, turma
                 "Relacionar a proposta a planejamento, responsabilidade e analise do contexto."
             )
             base["pratica"] = base["projeto"]
+        elif tipo == "analise_percentuais_noticias":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} por meio da leitura de noticias, manchetes, tabelas e graficos, ajudando a turma a interpretar percentuais, "
+                "comparar dados e perceber como os numeros influenciam a compreensao dos fatos."
+            )
+            base["calculos"] = (
+                "Orientar calculos de porcentagem e comparacao de variacoes com apoio do quadro, destacando o significado de cada dado antes do procedimento numerico. "
+                "Retomar passo a passo como localizar o valor de referencia, calcular percentuais e interpretar o resultado no contexto da noticia analisada."
+            )
+            base["pratica"] = (
+                "Propor leitura guiada de noticias ou situacoes semelhantes, seguida de registros no caderno com interpretacao dos percentuais, comparacao de informacoes "
+                "e justificativa sobre o que os dados revelam."
+            )
+        elif tipo == "governo_economia":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} relacionando arrecadacao, servicos publicos, regulacao e impactos economicos no cotidiano. "
+                "Conduzir a turma a perceber como decisoes do governo interferem em precos, circulacao de dinheiro e acesso a direitos."
+            )
+            base["pratica"] = (
+                "Orientar a analise de exemplos concretos, comparando situacoes em que a acao do governo influencia consumo, trabalho, precos ou servicos. "
+                "Solicitar registros curtos com explicacao das relacoes observadas."
+            )
+        elif tipo == "impacto_decisoes_economicas":
+            base["foco"] = (
+                f"Desenvolver {conceito_seguro} por meio de escolhas economicas do cotidiano, relacionando recursos disponiveis, prioridades, consumo e consequencias de curto e longo prazo. "
+                "Estimular a turma a comparar alternativas com base em criterios claros e realistas."
+            )
+            base["pratica"] = (
+                "Propor situacoes-problema simples para que os estudantes comparem escolhas, antecipem impactos e justifiquem decisoes com base nos dados apresentados. "
+                "Retomar o vocabulario financeiro necessario sempre que surgirem duvidas."
+            )
         elif tipo == "cidadania_financeira":
             base["foco"] = (
                 f"Desenvolver {conceito_seguro} relacionando direitos do consumidor, responsabilidades, seguranca, comprovantes, garantias e autonomia nas decisoes financeiras. "
@@ -2509,6 +3525,291 @@ def _frases_por_contexto(perfil: str, tipo: str, tema: str, conceito: str, turma
     return base
 
 
+def _obra_literaria_redacao(tema: str, texto_base: str = "") -> str:
+    fonte = " ".join([str(tema or ""), str(texto_base or "")[:800]])
+    match = re.search(r"[\"“”']([^\"“”']{3,80})[\"“”']", fonte)
+    if match:
+        return match.group(1).strip()
+    texto = re.sub(r"^\s*aula\s*\d+\s*[-:–—]?\s*", "", str(tema or ""), flags=re.I).strip(" -:–—")
+    texto = re.sub(r"^trilha\s*", "", texto, flags=re.I).strip(" -:–—")
+    return texto or "a obra literaria em estudo"
+
+
+def _eh_producao_final_redacao(texto_base: str, tema: str = "") -> bool:
+    base = _normalizar(f"{tema} {texto_base}")
+    if "pratica de linguagem" in base and "leitura" in base and not any(
+        termo in base
+        for termo in [
+            "producao de textos",
+            "versao final",
+            "revisao orientada",
+            "redacao paulista",
+            "submissao",
+            "reescrita",
+            "rascunho",
+        ]
+    ):
+        return False
+    return any(
+        termo in base
+        for termo in [
+            "producao de textos",
+            "versao final",
+            "revisao orientada",
+            "redacao paulista",
+            "submissao",
+            "reescrita",
+            "rascunho",
+        ]
+    )
+
+
+def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict]:
+    if _eh_producao_final_redacao(texto_base, tema):
+        return [
+            {
+                "titulo": "Para comecar",
+                "texto": (
+                    "Explicar aos estudantes que a aula sera dedicada a finalizacao da producao textual, destacando a importancia "
+                    "da revisao e da passagem do rascunho para a versao final. Retomar o percurso de escrita realizado nas aulas "
+                    "anteriores e apresentar o roteiro da aula no quadro: revisao final, escrita da versao final e envio na plataforma Redacao Paulista."
+                ),
+            },
+            {
+                "titulo": "Revisao orientada",
+                "texto": (
+                    "Orientar os estudantes a relerem seus textos com atencao, observando organizacao das ideias, sequencia dos "
+                    "acontecimentos, clareza das informacoes e adequacao ao genero trabalhado. Utilizar um checklist simples para "
+                    "auxiliar na revisao da estrutura do texto, pontuacao, conectivos e linguagem utilizada."
+                ),
+            },
+            {
+                "titulo": "Escrita da versao final",
+                "texto": (
+                    "Solicitar que os estudantes produzam a versao final do texto, incorporando as melhorias identificadas durante "
+                    "a revisao. Incentivar a atencao a organizacao dos paragrafos, a clareza das ideias e a apresentacao do texto antes da entrega final."
+                ),
+            },
+            {
+                "titulo": "Submissao e socializacao",
+                "texto": (
+                    "Orientar os estudantes no envio da producao textual para a plataforma Redacao Paulista, oferecendo suporte sempre que necessario. "
+                    "Apos o envio, promover um breve momento de socializacao sobre as dificuldades e avancos percebidos durante o processo de escrita e revisao."
+                ),
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": (
+                    "Finalizar a aula valorizando o percurso de escrita desenvolvido pelos estudantes, reforcando a importancia da revisao textual "
+                    "para melhorar a clareza, organizacao e qualidade da producao escrita."
+                ),
+            },
+        ]
+
+    obra = _obra_literaria_redacao(tema, texto_base)
+    return [
+        {
+            "titulo": "Para comecar",
+            "texto": (
+                f"Retomar os acontecimentos ja lidos da obra {obra}, incentivando os estudantes a relembrarem personagens, "
+                "situacoes marcantes, momentos engraçados ou acontecimentos inesperados da narrativa. Promover o compartilhamento "
+                "de lembrancas e opinioes para ampliar o envolvimento da turma com a leitura."
+            ),
+        },
+        {
+            "titulo": "Predicao guiada",
+            "texto": (
+                f"Conduzir uma conversa sobre os pensamentos das personagens e as situacoes apresentadas em {obra}, incentivando "
+                "os estudantes a levantarem hipoteses sobre os proximos acontecimentos da historia. Estimular comentarios pessoais "
+                "e afetivos sobre atitudes, desafios e possiveis mudancas no percurso narrativo."
+            ),
+        },
+        {
+            "titulo": "Leitura compartilhada ou individual",
+            "texto": (
+                "Realizar a leitura do trecho selecionado de forma compartilhada ou individual, orientando os estudantes a identificarem "
+                "personagens, espaco e acontecimentos principais. Durante a leitura, promover pausas para comentarios e impressoes sobre "
+                "a narrativa, incentivando a participacao da turma e a expressao de opinioes despertadas pelo texto."
+            ),
+        },
+        {
+            "titulo": "Conexao com a producao textual",
+            "texto": (
+                "Destacar que as historias literarias possuem sequencia de acontecimentos e organizacao narrativa. Orientar os estudantes "
+                "a perceberem como os fatos se conectam na historia para apoiar futuras producoes textuais criativas, com começo, desenvolvimento e desfecho."
+            ),
+        },
+    ]
+
+
+def _genero_textual_redacao(texto_base: str, tema: str = "") -> str:
+    base = _normalizar(f"{tema} {texto_base}")
+    if "resenha" in base:
+        return "resenha"
+    if "cronica" in base or "crônica" in base:
+        return "cronica"
+    if "sinopse" in base:
+        return "sinopse"
+    if _eh_producao_final_redacao(texto_base, tema):
+        return "producao textual"
+    return "narrativa"
+
+
+def _objetivo_pedagogico_redacao(texto_base: str, tema: str, genero: str) -> str:
+    base = _normalizar(f"{tema} {texto_base}")
+    habilidade = "interpretar, analisar e produzir textos"
+    if genero == "producao textual" or "revis" in base:
+        habilidade = "planejar, revisar, reescrever e aprimorar textos"
+    elif genero == "resenha":
+        habilidade = "analisar, argumentar e sustentar opinioes sobre uma obra"
+
+    finalidade = "compartilhar leitura, impressoes e posicionamentos com clareza"
+    if genero == "resenha":
+        finalidade = "recomendar ou nao a obra a leitores da escola, justificando a opiniao"
+    elif genero == "cronica":
+        finalidade = "relatar uma situacao do cotidiano para provocar identificacao e reflexao"
+    elif genero == "sinopse":
+        finalidade = "apresentar a obra a leitores da escola de forma objetiva e convidativa"
+    elif genero == "producao textual":
+        finalidade = "produzir a versao final do texto para circulacao escolar ou envio na plataforma"
+
+    return (
+        f"Desenvolver a capacidade de {habilidade}, considerando o genero {genero}, "
+        f"escrevendo para os colegas da turma com o objetivo de {finalidade}."
+    )
+
+
+def _perguntas_analise_redacao(genero: str, tema: str) -> list[str]:
+    if genero == "resenha":
+        return [
+            "O que a obra apresentada mostra de mais importante ao leitor?",
+            "Que opiniao sobre a obra aparece no texto e como ela foi justificada?",
+            "Que elementos fazem esse texto convencer ou nao o leitor a buscar a obra?",
+        ]
+    if genero == "cronica":
+        return [
+            "Que situacao cotidiana aparece no texto e como ela se desenvolve?",
+            "Como o narrador apresenta o conflito ou desafio vivido?",
+            "Que reflexao sobre o cotidiano o texto provoca no leitor?",
+        ]
+    return [
+        f"Quais acontecimentos, informacoes ou ideias centrais aparecem em {tema}?",
+        "Como as escolhas de linguagem ajudam o leitor a compreender o texto e seus sentidos?",
+        "Que reflexoes, opinioes ou relacoes com o cotidiano essa leitura desperta?",
+    ]
+
+
+def _sistematizacao_redacao(genero: str) -> str:
+    if genero == "resenha":
+        return (
+            "Organizar coletivamente uma lista com os elementos essenciais da resenha: apresentacao da obra, tipo de historia, "
+            "opiniao fundamentada, pontos positivos e/ou negativos e recomendacao final."
+        )
+    if genero == "cronica":
+        return (
+            "Registrar em esquema os elementos da cronica: narrador, situacao cotidiana, conflito ou desafio, desenvolvimento da narrativa e reflexao final."
+        )
+    if genero == "sinopse":
+        return (
+            "Retomar em passo a passo os elementos da sinopse: apresentacao da obra, personagens ou situacao central, tema principal e convite para a leitura."
+        )
+    return (
+        "Organizar coletivamente um esquema com genero textual, finalidade, leitor previsto, estrutura basica e recursos de linguagem que poderao apoiar a escrita."
+    )
+
+
+def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict]:
+    genero = _genero_textual_redacao(texto_base, tema)
+    objetivo = _objetivo_pedagogico_redacao(texto_base, tema, genero)
+    perguntas = _perguntas_analise_redacao(genero, tema)
+
+    if _eh_producao_final_redacao(texto_base, tema):
+        return [
+            {
+                "titulo": "Disparo inicial / contextualizacao",
+                "texto": (
+                    f"Apresentar o tema da aula e explicar que o trabalho sera voltado a finalizacao da producao textual. "
+                    f"Retomar o percurso ja vivido pela turma e explicitar o objetivo da aula: {objetivo}"
+                ),
+            },
+            {
+                "titulo": "Leitura ou exploracao inicial",
+                "texto": (
+                    "Orientar releitura guiada do proprio rascunho, com instrucoes claras para observar tema, organizacao das ideias, "
+                    "clareza das informacoes, adequacao ao genero textual e dialogo com o leitor."
+                ),
+            },
+            {
+                "titulo": "Analise guiada",
+                "texto": (
+                    "Conduzir perguntas orientadoras para revisar o texto: 1) O texto comunica com clareza a ideia principal? "
+                    "2) A organizacao das partes ajuda o leitor a acompanhar a escrita? 3) O que pode ser melhorado para tornar a producao mais completa e adequada ao genero?"
+                ),
+            },
+            {
+                "titulo": "Sistematizacao",
+                "texto": (
+                    "Organizar no quadro um checklist de revisao com criterios obrigatorios: atendimento ao tema, estrutura do genero, paragrafos organizados, pontuacao, conectivos, ortografia e efeito pretendido no leitor."
+                ),
+            },
+            {
+                "titulo": "Producao textual",
+                "texto": (
+                    "Solicitar a escrita da versao final do texto em contexto real de circulacao, como mural da escola, pasta da turma ou plataforma Redacao Paulista. "
+                    "Explicar o que escrever, para quem escrever e com qual objetivo, orientando os estudantes a incorporar as melhorias feitas durante a revisao."
+                ),
+            },
+            {
+                "titulo": "Revisao e fechamento",
+                "texto": (
+                    "Finalizar com revisao final em dupla ou individual, retomando o checklist e incentivando ajustes antes da entrega. "
+                    "Encerrar com reflexao sobre o que melhorou do rascunho para a versao final e por que revisar faz parte do processo de escrita."
+                ),
+            },
+        ]
+
+    obra = _obra_literaria_redacao(tema, texto_base)
+    return [
+        {
+            "titulo": "Disparo inicial / contextualizacao",
+            "texto": (
+                f"Apresentar a aula a partir da obra {obra}, conectando o tema ao cotidiano, as experiencias leitoras da turma e o repertorio dos estudantes. "
+                f"Explicar o proposito da atividade e explicitar o objetivo pedagogico: {objetivo}"
+            ),
+        },
+        {
+            "titulo": "Leitura ou exploracao inicial",
+            "texto": (
+                f"Propor leitura guiada ou exploracao inicial de trechos de {obra}, com foco no genero {genero}, nas personagens, nos acontecimentos e na forma como o texto busca envolver o leitor."
+            ),
+        },
+        {
+            "titulo": "Analise guiada",
+            "texto": (
+                f"Conduzir perguntas interpretativas e reflexivas: 1) {perguntas[0]} 2) {perguntas[1]} 3) {perguntas[2]}"
+            ),
+        },
+        {
+            "titulo": "Sistematizacao",
+            "texto": _sistematizacao_redacao(genero),
+        },
+        {
+            "titulo": "Producao textual",
+            "texto": (
+                f"Propor uma atividade de escrita em contexto real, como recomendacao para colegas, texto para mural da escola, diario de leitura ou publicacao da turma. "
+                f"Explicar o que escrever, para quem escrever e com qual objetivo, garantindo integracao entre leitura e escrita, incentivando producoes textuais criativas e deixando claros os criterios obrigatorios do genero {genero}."
+            ),
+        },
+        {
+            "titulo": "Revisao e fechamento",
+            "texto": (
+                "Orientar revisao com checklist de clareza, organizacao, adequacao ao genero, justificativa das opinioes e efeito no leitor. "
+                "Encerrar com socializacao breve e reflexao sobre como a leitura ajudou a produzir um texto mais consciente e melhor elaborado."
+            ),
+        },
+    ]
+
+
 def _etapas_por_perfil(perfil: str, tipo: str, texto_base: str = "", tema: str = "") -> list[tuple[str, str]]:
     if perfil == "matematica":
         formato = _detectar_formato_aula_matematica(texto_base, tema)
@@ -2568,7 +3869,7 @@ def _etapas_por_perfil(perfil: str, tipo: str, texto_base: str = "", tema: str =
             ("Pause e responda", "pause"),
         ]
         base = _normalizar(f"{texto_base} {tema}")
-        if tipo in {"credito_endividamento", "investimento_poupanca"} or _contem(base, ["juros", "porcentagem", "parcela", "rendimento", "calculo"]):
+        if tipo in {"credito_endividamento", "investimento_poupanca", "analise_percentuais_noticias"} or _contem(base, ["juros", "porcentagem", "parcela", "rendimento", "calculo"]):
             etapas.append(("Calculos financeiros", "calculos"))
         if tipo == "orcamento_planejamento":
             etapas.append(("Planejamento orcamentario", "planejamento"))
@@ -2633,21 +3934,49 @@ def _ajustar_texto_por_sequencia(
     if chave == "para_comecar" and not primeira:
         resto = _remover_abertura_generica(texto)
         if ultima:
-            abertura = (
-                f"Retomar o percurso das aulas anteriores sobre {tema}, destacando os registros, "
-                "duvidas e estrategias ja construidos pela turma."
-            )
+            opcoes_abertura = [
+                (
+                    f"Retomar o percurso das aulas anteriores sobre {tema}, destacando os registros, "
+                    "duvidas e estrategias ja construidos pela turma."
+                ),
+                (
+                    f"Revisitar o percurso das aulas anteriores sobre {tema}, retomando os registros, "
+                    "duvidas e estrategias construidos ate aqui."
+                ),
+                (
+                    f"Dar continuidade ao estudo de {tema}, recuperando o percurso das aulas anteriores "
+                    "e os registros produzidos pela turma."
+                ),
+            ]
         else:
-            abertura = (
-                f"Retomar a aula anterior sobre {tema} e conectar os registros ja produzidos "
-                "ao novo foco do dia."
-            )
+            opcoes_abertura = [
+                (
+                    f"Retomar a aula anterior sobre {tema} e conectar os registros ja produzidos "
+                    "ao novo foco do dia."
+                ),
+                (
+                    f"Recuperar aprendizagens da aula anterior sobre {tema}, articulando os registros "
+                    "ja produzidos ao novo foco do dia."
+                ),
+                (
+                    f"Revisitar os registros da aula anterior sobre {tema} e relacionar essas anotacoes "
+                    "ao encaminhamento do dia."
+                ),
+                (
+                    f"Dar continuidade ao estudo de {tema}, retomando o que foi registrado anteriormente "
+                    "e conectando ao foco da aula."
+                ),
+                (
+                    f"Reativar os conhecimentos construidos na aula anterior sobre {tema}, conectando "
+                    "os registros ja produzidos ao novo foco do dia."
+                ),
+            ]
+        abertura = _escolher_variacao(opcoes_abertura, [tema, chave, str(indice_aula), str(total_aulas), resto[:120]])
         return f"{abertura} {resto}".strip()
 
     if chave in {"leitura", "contextualizacao", "leitura_analitica", "foco"} and not primeira:
         orientacao = (
-            "Relacionar a explicacao aos registros anteriores para que a turma perceba continuidade, "
-            "aprofundamento e novos desafios."
+            "Retomar registros anteriores quando necessario, ajudando a turma a perceber a continuidade do estudo."
         )
         return _anexar_orientacao_unica(texto, orientacao)
 
@@ -2743,6 +4072,8 @@ def _montar_etapas_metodologia(
     if perfil == "matematica" and _normalizar(conceito) in {"matematica", "matemática"}:
         conceito = tema
     tipo = _detectar_tipo_aula(texto, tema, disciplina)
+    if perfil == "leitura_redacao":
+        return _metodologia_leitura_redacao_modelo(texto, tema)
     frases = _frases_por_contexto(perfil, tipo, tema, conceito, turma, texto)
     etapas = []
     for titulo, chave in _etapas_por_perfil(perfil, tipo, texto, tema):
@@ -2779,6 +4110,11 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
         return str(titulo or "").strip()
 
     linhas = _limpar_linhas(texto)
+    for linha in linhas[:12]:
+        titulo_aula = limpar_prefixo_disciplina(_limpar_titulo_material(_titulo_em_linha_aula(linha), disciplina))
+        if len(titulo_aula) >= 6:
+            return titulo_aula[:120]
+
     candidatos = []
     disciplina_norm = _normalizar(disciplina)
     disciplina_base = disciplina_norm.split()[0] if disciplina_norm else ""
@@ -2796,22 +4132,16 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
             break
         if _linha_generica(titulo, disciplina):
             continue
-        if normalizada.startswith(("aula ", "slide ", "pagina ", "página ")):
+        if _linha_rotulo_aula(normalizada) or normalizada.startswith(("slide ", "pagina ", "página ")):
             if candidatos:
                 break
             continue
         candidatos.append(titulo)
-        if len(candidatos) >= 2:
+        if len(candidatos) >= 4:
             break
 
     if candidatos:
-        titulo = candidatos[0]
-        if len(candidatos) > 1 and (
-            titulo.lower().endswith((" de", " da", " do", " das", " dos", " e")) or len(titulo) <= 28
-        ):
-            complemento = candidatos[1].lstrip("-: ").strip()
-            separador = " - " if _normalizar(complemento).startswith("parte ") else " "
-            titulo = f"{titulo.rstrip(' -:')}{separador}{complemento}".strip()
+        titulo = _juntar_partes_titulo(candidatos)
         titulo = limpar_prefixo_disciplina(titulo)
         if len(titulo) >= 6:
             return titulo[:120]
@@ -2821,7 +4151,8 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
         return titulo_multilinha[:120]
     for linha in _limpar_linhas(texto):
         titulo = limpar_prefixo_disciplina(_limpar_titulo_material(linha, disciplina))
-        if len(titulo) >= 6 and not _linha_generica(titulo, disciplina) and not _normalizar(titulo).startswith(("aula ", "slide ")):
+        titulo_norm = _normalizar(titulo)
+        if len(titulo) >= 6 and not _linha_generica(titulo, disciplina) and not (_linha_rotulo_aula(titulo_norm) or titulo_norm.startswith("slide ")):
             return titulo[:120]
     return Path(caminho_pdf).stem.replace("_", " ").replace("-", " ").title()
 
@@ -2851,10 +4182,75 @@ def _texto_metodologia(metodologia) -> str:
     blocos = []
     for item in metodologia or []:
         if isinstance(item, dict):
-            blocos.append(f"{item.get('titulo', '')}\n{item.get('texto', '')}".strip())
+            titulo = str(item.get("titulo", "") or "").strip()
+            texto = str(item.get("texto", "") or "").strip()
+            blocos.append(f"{titulo}:\n{texto}".strip() if titulo else texto)
         else:
             blocos.append(str(item))
     return "\n\n".join(blocos)
+
+
+def _metodologia_em_blocos_por_texto(texto: str) -> list[dict]:
+    titulos_validos = {
+        "para comecar",
+        "disparo inicial / contextualizacao",
+        "disparo inicial / contextualização",
+        "leitura ou exploracao inicial",
+        "leitura ou exploração inicial",
+        "leitura compartilhada ou individual",
+        "predicao guiada",
+        "predição guiada",
+        "analise guiada",
+        "análise guiada",
+        "sistematizacao",
+        "sistematização",
+        "foco no conteudo",
+        "foco no conteúdo",
+        "pause e responda",
+        "na pratica",
+        "na prática",
+        "producao textual",
+        "produção textual",
+        "revisao orientada",
+        "revisão orientada",
+        "escrita da versao final",
+        "escrita da versão final",
+        "submissao e socializacao",
+        "submissão e socialização",
+        "revisao e fechamento",
+        "revisão e fechamento",
+        "encerramento",
+    }
+    linhas = [linha.rstrip() for linha in str(texto or "").splitlines()]
+    blocos = []
+    atual = None
+
+    for linha in linhas:
+        limpa = linha.strip()
+        if not limpa:
+            continue
+
+        match = re.match(r"^([^:]{2,90}):\s*(.*)$", limpa)
+        titulo_chave = _normalizar(match.group(1)) if match else ""
+        if match and titulo_chave in {_normalizar(t) for t in titulos_validos}:
+            titulo = match.group(1).strip()
+            corpo = match.group(2).strip()
+            if atual:
+                atual["texto"] = " ".join(atual["texto"]).strip()
+                blocos.append(atual)
+            atual = {"titulo": titulo, "texto": [corpo] if corpo else []}
+            continue
+
+        if atual:
+            atual["texto"].append(limpa)
+        else:
+            atual = {"titulo": "Desenvolvimento", "texto": [limpa]}
+
+    if atual:
+        atual["texto"] = " ".join(atual["texto"]).strip()
+        blocos.append(atual)
+
+    return [bloco for bloco in blocos if bloco.get("texto")]
 
 
 _PADRAO_CODIGO_APRENDIZAGEM = re.compile(r"\(?((?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?)\)?", flags=re.I)
@@ -2883,6 +4279,78 @@ _FINS_INCOMPLETOS_APRENDIZAGEM = {
 }
 
 
+_MARCADORES_INCOMPATIVEIS_TEMA = {
+    "parasitoses": {
+        "tema": [
+            "esquistossomose",
+            "platelminto",
+            "platelmintos",
+            "nematodeo",
+            "nematodeos",
+            "lombriga",
+            "amarelao",
+            "ascaris",
+            "ancylostoma",
+            "schistosoma",
+            "parasita",
+            "parasitos",
+            "parasitologia",
+        ],
+        "bloqueados": [
+            "audicao",
+            "auditivo",
+            "decibeis",
+            "poluicao sonora",
+            "som",
+            "sistema visual",
+            "visao",
+            "olho humano",
+            "retina",
+        ],
+    },
+    "virologia": {
+        "tema": ["virus", "viral", "virais", "virologia", "vacina", "vacinal"],
+        "bloqueados": [
+            "audicao",
+            "auditivo",
+            "decibeis",
+            "poluicao sonora",
+            "platelminto",
+            "nematodeo",
+            "lombriga",
+            "esquistossomose",
+        ],
+    },
+    "genetica_biotecnologia": {
+        "tema": [
+            "hereditariedade",
+            "heredograma",
+            "mendel",
+            "dna",
+            "gene",
+            "genes",
+            "genetica",
+            "genetico",
+            "biotecnologia",
+            "clonagem",
+            "bioetica",
+            "biosseguranca",
+        ],
+        "bloqueados": [
+            "audicao",
+            "auditivo",
+            "decibeis",
+            "poluicao sonora",
+            "caminho do som",
+            "sistema digestorio",
+            "digestao",
+            "grupos alimentares",
+            "cardapio",
+        ],
+    },
+}
+
+
 def _trecho_incompleto_aprendizagem(texto: str) -> bool:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
     if not texto:
@@ -2904,6 +4372,100 @@ def _trecho_incompleto_aprendizagem(texto: str) -> bool:
     return len(texto) > 700
 
 
+def _texto_incompativel_com_tema(texto: str, tema: str, conceito: str = "") -> bool:
+    base_tema = _normalizar(f"{tema} {conceito}")
+    base_texto = _normalizar(texto)
+    if not base_texto or not base_tema:
+        return False
+    if _texto_tem_dominio_visao(base_texto) and not _tema_permite_dominio_visao(base_tema):
+        return True
+    if _texto_tem_dominio_audicao(base_texto) and not _tema_permite_dominio_audicao(base_tema):
+        return True
+    if _texto_tem_anatomia_especifica(base_texto) and not _tema_permite_anatomia_especifica(base_tema):
+        return True
+    if _tema_virus_celulas(base_tema) and _texto_tem_vacinacao(base_texto):
+        return True
+    for regra in _MARCADORES_INCOMPATIVEIS_TEMA.values():
+        if any(marcador in base_tema for marcador in regra["tema"]):
+            return any(marcador in base_texto for marcador in regra["bloqueados"])
+    return False
+
+
+def _texto_tem_dominio_visao(texto_normalizado: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:olho|olhos|retina|cornea|pupila|cristalino|sistema visual|caminho da luz|formacao da imagem|estruturas do olho|visao)\b",
+            texto_normalizado,
+            flags=re.I,
+        )
+    )
+
+
+def _tema_permite_dominio_visao(tema_normalizado: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:olho|olhos|retina|cornea|pupila|cristalino|sistema visual|caminho da luz|formacao da imagem|visao)\b",
+            tema_normalizado,
+            flags=re.I,
+        )
+    )
+
+
+def _texto_tem_dominio_audicao(texto_normalizado: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:audicao|ouvido|ouvidos|decibel|decibeis|poluicao sonora|caminho do som|sistema auditivo|protecao auditiva)\b",
+            texto_normalizado,
+            flags=re.I,
+        )
+    )
+
+
+def _tema_permite_dominio_audicao(tema_normalizado: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:audicao|ouvido|ouvidos|decibel|decibeis|poluicao sonora|som|sistema auditivo|auditiva)\b",
+            tema_normalizado,
+            flags=re.I,
+        )
+    )
+
+
+def _texto_tem_anatomia_especifica(texto_normalizado: str) -> bool:
+    return any(
+        marcador in texto_normalizado
+        for marcador in [
+            "esquema anatomico",
+            "nomear oralmente cada estrutura",
+            "nomes das estruturas",
+            "legenda",
+        ]
+    )
+
+
+def _tema_permite_anatomia_especifica(tema_normalizado: str) -> bool:
+    return bool(
+        _tema_permite_dominio_visao(tema_normalizado)
+        or _tema_permite_dominio_audicao(tema_normalizado)
+        or re.search(
+            r"\b(?:sistema respiratorio|pulmao|pulmoes|hematose|ventilacao pulmonar|sistema digestorio|corpo humano|anatomia|fisiologico|fisiologicos)\b",
+            tema_normalizado,
+            flags=re.I,
+        )
+    )
+
+
+def _tema_virus_celulas(tema_normalizado: str) -> bool:
+    return "virus" in tema_normalizado and any(
+        termo in tema_normalizado
+        for termo in ["celula", "celulas", "capsideo", "metabolismo", "intracelular", "bacteriofago"]
+    )
+
+
+def _texto_tem_vacinacao(texto_normalizado: str) -> bool:
+    return any(termo in texto_normalizado for termo in ["vacinacao", "vacina", "vacinal", "cobertura vacinal", "mutacao"])
+
+
 def _foco_limpo_aprendizagem(tema: str, conceito: str = "") -> str:
     for candidato in [tema, conceito, "o tema da aula"]:
         texto = re.sub(r"\s+", " ", str(candidato or "")).strip(" .:-")
@@ -2912,10 +4474,69 @@ def _foco_limpo_aprendizagem(tema: str, conceito: str = "") -> str:
     return "o tema da aula"
 
 
-def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "") -> str:
-    texto = re.sub(r"\s+", " ", str(aprendizagem or "")).strip()
+def _conceito_generico_ou_quebrado_projeto_vida(conceito: str) -> bool:
+    base = _normalizar(conceito)
+    if not base:
+        return True
+    if any(
+        marcador in base
+        for marcador in [
+            "questao essencial",
+            "habilidade",
+            "competencia",
+            "competencias",
+            "tema da aula",
+            "conteudo da aula",
+        ]
+    ):
+        return True
+    ultimo = base.split()[-1]
+    return ultimo in {"a", "as", "o", "os", "de", "da", "do", "e", "em", "com", "para", "por"}
+
+
+def _aprendizagem_padrao_projeto_vida(tema: str) -> str:
+    foco = _foco_limpo_aprendizagem(tema, tema)
+    if _normalizar(foco) == "o tema da aula":
+        foco = re.sub(r"\s+", " ", str(tema or "")).strip(" .:-") or "o ambiente digital"
+    base = _normalizar(foco)
+    if any(termo in base for termo in ["post", "postar", "public", "print", "rede", "digital", "internet", "online"]):
+        return (
+            f"Refletir sobre {foco}, analisando escolhas, exposicao, respeito, responsabilidade e "
+            "consequencias das acoes no ambiente digital."
+        )
+    return (
+        f"Refletir sobre {foco}, relacionando o tema a escolhas, atitudes, convivencia respeitosa, "
+        "autoconhecimento e tomada de decisao responsavel."
+    )
+
+
+def _remover_residuos_aprendizagem(texto: str) -> str:
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    padroes_corte = [
+        r"\bTrilha\b",
+        r"\bPr[aá]tica de linguagem\b",
+        r"\bSUGEST[OÕ]ES PARA CONDU[ÇC][AÃ]O\b",
+        r"\bAULA\s+\d+\b",
+        r"\b\d+\.\s+(?:Disparo inicial|Leitura|Formula[çc][aã]o|An[aá]lise|Sistematiza[çc][aã]o|Produ[çc][aã]o|Revis[aã]o)\b",
+        r"\s[●•]\s",
+    ]
+    for padrao in padroes_corte:
+        match = re.search(padrao, texto, flags=re.I)
+        if match and match.start() > 20:
+            return texto[:match.start()].strip(" .;:-")
+    return texto
+
+
+def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "", perfil: str = "") -> str:
+    texto = _remover_residuos_aprendizagem(aprendizagem)
     texto = re.sub(
-        r"^(?:C\d+\s*:\s*)?(?:Habilidades?|Aprendizagem essencial|Compet[eê]ncia)\s*:\s*",
+        r"^(?:C\d+\s*:\s*)?(?:Habilidades?\s+BNCC\s+e\s+Curr[ií]culo\s+Paulista|Habilidades?|Aprendizagem essencial|Compet[eê]ncia)\s*:\s*",
+        "",
+        texto,
+        flags=re.I,
+    ).strip()
+    texto = re.sub(
+        r"^(?:Habilidades?\s+BNCC\s+e\s+Curr[ií]culo\s+Paulista)\s*",
         "",
         texto,
         flags=re.I,
@@ -2924,7 +4545,19 @@ def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "") ->
     match = _PADRAO_CODIGO_APRENDIZAGEM.search(texto)
     codigo = f"({match.group(1).upper()})" if match else ""
 
-    if _trecho_incompleto_aprendizagem(texto):
+    if (
+        perfil in {"projeto_de_vida", "lideranca_oratoria"}
+        and (
+            _trecho_incompleto_aprendizagem(texto)
+            or _texto_incompativel_com_tema(texto, tema, conceito)
+            or "desenvolver habilidades relacionadas ao tema da aula" in _normalizar(texto)
+        )
+    ):
+        if codigo:
+            return f"Habilidade: {codigo} {_aprendizagem_padrao_projeto_vida(tema)}"
+        return _aprendizagem_padrao_projeto_vida(tema)
+
+    if _trecho_incompleto_aprendizagem(texto) or _texto_incompativel_com_tema(texto, tema, conceito):
         foco = _foco_limpo_aprendizagem(tema, conceito)
         if codigo:
             return f"Habilidade: {codigo} Desenvolver habilidades relacionadas ao tema da aula, com foco em {foco}."
@@ -2933,6 +4566,120 @@ def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "") ->
     if codigo and not texto.lower().startswith("habilidade:"):
         texto = f"Habilidade: {texto}"
     return texto
+
+
+def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
+    base = _normalizar(tema)
+    if any(termo in base for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]):
+        return [
+            "☑ Verificar se os estudantes identificam agente causador, ciclo de vida, formas de transmissão e principais sintomas da parasitose estudada.",
+            "☑ Observar se relacionam saneamento básico, prevenção e promoção da saúde às medidas de controle da doença.",
+            "☑ Conferir se os registros utilizam vocabulário científico adequado e organizam relações entre hospedeiro, ambiente e profilaxia.",
+        ]
+    if _tema_virus_celulas(base):
+        return [
+            "☑ Verificar se os estudantes comparam vírus e células, identificando capsídeo, material genético, organelas e metabolismo.",
+            "☑ Observar se interpretam imagens, esquemas ou tabelas para diferenciar seres vivos, células e vírus.",
+            "☑ Conferir se os registros justificam por que os vírus dependem de células para se multiplicar.",
+        ]
+    if any(termo in base for termo in ["virus", "viral", "virais", "virologia", "vacina", "vacinal"]):
+        return [
+            "☑ Verificar se os estudantes relacionam vírus, mutações, vacinação e prevenção com base nos exemplos discutidos.",
+            "☑ Observar se interpretam imagens, dados ou situações-problema para explicar a importância da cobertura vacinal.",
+            "☑ Conferir se os registros usam vocabulário científico adequado e justificam relações entre saúde individual e coletiva.",
+        ]
+    if any(termo in base for termo in ["hereditariedade", "heredograma", "mendel", "dna", "gene", "genes", "genetica", "biotecnologia", "clonagem", "bioetica", "biosseguranca"]):
+        return [
+            f"â˜‘ Verificar se os estudantes relacionam {tema} aos conceitos de hereditariedade, variabilidade genÃ©tica ou biotecnologia trabalhados na aula.",
+            "â˜‘ Observar se utilizam evidÃªncias, esquemas, cruzamentos ou dados do material para justificar as respostas.",
+            "â˜‘ Conferir se os registros apresentam vocabulÃ¡rio cientÃ­fico adequado e conexÃµes coerentes entre conceito, exemplo e conclusÃ£o.",
+        ]
+    if perfil in {"biologia", "ciencias_ef"}:
+        return [
+            f"☑ Verificar se os estudantes compreendem os conceitos biológicos relacionados a {tema}.",
+            "☑ Observar participação, registros, interpretação de imagens ou esquemas e uso de evidências durante a aula.",
+            "☑ Conferir se as respostas apresentam vocabulário científico e medidas coerentes de prevenção, cuidado ou análise.",
+        ]
+    return [
+        f"☑ Verificar se os estudantes compreendem os conceitos centrais relacionados a {tema}.",
+        "☑ Observar a participação, os registros e a forma como justificam respostas durante as atividades propostas.",
+        "☑ Conferir se as produções finais retomam o tema da aula com clareza, coerência e autonomia progressiva.",
+    ]
+
+
+def _fallback_acessibilidade_tema(tema: str, perfil: str) -> list[str]:
+    base = _normalizar(tema)
+    if any(termo in base for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]):
+        return [
+            "☑ Utilizar esquema ampliado do ciclo de vida do parasita, destacando agente causador, hospedeiro, transmissão e prevenção.",
+            "☑ Disponibilizar banco de palavras com termos como saneamento, profilaxia, hospedeiro, contaminação e tratamento.",
+            "☑ Conduzir leitura guiada das imagens e comandos, permitindo registro por tópicos, setas ou desenho esquemático.",
+        ]
+    if _tema_virus_celulas(base):
+        return [
+            "☑ Ampliar esquemas comparativos entre vírus e células, destacando capsídeo, material genético, organelas e metabolismo.",
+            "☑ Disponibilizar banco de palavras com termos como vírus, célula, capsídeo, material genético, organela e metabolismo.",
+            "☑ Organizar a comparação em tabela ou tópicos, com leitura mediada dos comandos e retomada coletiva das diferenças.",
+        ]
+    if any(termo in base for termo in ["virus", "viral", "virais", "virologia", "vacina", "vacinal"]):
+        return [
+            "☑ Apresentar imagens e esquemas simples sobre vírus, mutações e vacinação antes da atividade individual.",
+            "☑ Disponibilizar banco de palavras com termos como vírus, vacina, mutação, imunização e cobertura vacinal.",
+            "☑ Organizar as respostas em etapas curtas, com leitura mediada dos comandos e síntese coletiva no quadro.",
+        ]
+    if any(termo in base for termo in ["hereditariedade", "heredograma", "mendel", "dna", "gene", "genes", "genetica", "biotecnologia", "clonagem", "bioetica", "biosseguranca"]):
+        return [
+            "â˜‘ Disponibilizar esquemas ampliados, quadros de cruzamento ou roteiros visuais para apoiar a leitura dos conceitos genÃ©ticos.",
+            "â˜‘ Oferecer banco de palavras com termos como DNA, gene, alelo, heredograma, hereditariedade, biotecnologia e evidÃªncia.",
+            "â˜‘ Permitir registro por desenho, tabela, setas ou frases curtas, com mediaÃ§Ã£o na interpretaÃ§Ã£o dos comandos.",
+        ]
+    if perfil in {"biologia", "ciencias_ef"}:
+        return [
+            "☑ Utilizar imagens, esquemas e exemplos do cotidiano para apoiar a compreensão dos conceitos científicos.",
+            "☑ Destacar palavras-chave no quadro e orientar registros por tópicos, setas ou frases curtas.",
+            "☑ Oferecer mediação individual e retomada coletiva dos comandos antes da atividade principal.",
+        ]
+    return [
+        "☑ Disponibilizar roteiro, palavras-chave ou perguntas orientadoras para apoiar a compreensão da atividade.",
+        "☑ Permitir diferentes formas de registro, como tópicos, frases curtas, esquema, desenho ou resposta oral mediada.",
+        "☑ Realizar retomadas coletivas dos comandos e oferecer mediação individual conforme as necessidades observadas.",
+    ]
+
+
+def _normalizar_itens_contextuais(
+    acompanhamento: list[str],
+    acessibilidade: list[str],
+    tema: str,
+    perfil: str,
+) -> tuple[list[str], list[str]]:
+    acomp = list(acompanhamento or [])
+    acess = list(acessibilidade or [])
+    base_tema = _normalizar(tema)
+    tema_parasitologia = any(
+        termo in base_tema
+        for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]
+    )
+    termos_parasitologia = ["parasita", "parasit", "saneamento", "profilax", "hospedeiro", "transmissao", "doenca"]
+    if any(_texto_incompativel_com_tema(item, tema) for item in acomp):
+        fallback = _fallback_acompanhamento_tema(tema, perfil)
+        if fallback:
+            acomp = fallback
+    if any(_texto_incompativel_com_tema(item, tema) for item in acess):
+        fallback = _fallback_acessibilidade_tema(tema, perfil)
+        if fallback:
+            acess = fallback
+    if tema_parasitologia:
+        texto_acomp = _normalizar(" ".join(acomp))
+        texto_acess = _normalizar(" ".join(acess))
+        if texto_acomp and not any(termo in texto_acomp for termo in termos_parasitologia):
+            fallback = _fallback_acompanhamento_tema(tema, perfil)
+            if fallback:
+                acomp = fallback
+        if texto_acess and not any(termo in texto_acess for termo in termos_parasitologia):
+            fallback = _fallback_acessibilidade_tema(tema, perfil)
+            if fallback:
+                acess = fallback
+    return acomp, acess
 
 
 def _remover_turma_metodologia(texto: str) -> str:
@@ -3137,6 +4884,7 @@ def _variar_linguagem_metodologia(metodologia, disciplina: str, turma: str, tema
         )
         texto_variado = _remover_turma_metodologia(texto_variado)
         texto_variado = _colocar_aspas_no_titulo(texto_variado, tema)
+        texto_variado = ajustar_verbos_para_infinitivo(texto_variado)
         novo_item = dict(item)
         novo_item["texto"] = texto_variado
         variadas.append(novo_item)
@@ -3252,6 +5000,7 @@ def _aula_por_pdf(
     modelo_ia: str = "",
     indice_aula: int = 0,
     total_aulas: int = 1,
+    modalidade_eja: bool = False,
 ) -> dict:
     texto = _extrair_texto_pdf(caminho_pdf)
     tema = _tema_por_texto(texto, caminho_pdf, disciplina)
@@ -3261,6 +5010,8 @@ def _aula_por_pdf(
     disciplina_base = _disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
     perfil = _perfil_disciplina(disciplina_base)
     tipo = _detectar_tipo_aula(texto, tema, disciplina_base)
+    modalidade_eja_ativa = bool(modalidade_eja and _perfil_suporta_eja(perfil))
+    contexto_metodologico = "eja_regular" if modalidade_eja_ativa else detectar_contexto_metodologico(texto, caminho_pdf, disciplina_base, turma)
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
     aprendizagem_pv = montar_aprendizagem_projeto_vida(escopo_pv) if escopo_pv else ""
     if escopo_pv.get("titulo"):
@@ -3281,9 +5032,9 @@ def _aula_por_pdf(
             aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resoluções com apoio do professor."
         return {
             "tema": tema,
-            "material": material_digital,
+            "material": _formatar_material_cdp_contextual(tema, disciplina_base),
             "numero_aula": numero_aula,
-            "aprendizagem": _sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp),
+            "aprendizagem": _sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil),
             "metodologia": _metodologia_cdp_contextual(perfil, tipo, tema, conceito_cdp, indice_aula),
             "acompanhamento": _acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
             "acessibilidade": _acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
@@ -3299,24 +5050,61 @@ def _aula_por_pdf(
     if usar_ia:
         try:
             from core.ia import processar_plano_ia
-            plano_ia = processar_plano_ia(texto, disciplina, turma, provedor_ia, modelo_ia)
+            plano_ia = processar_plano_ia(texto, disciplina, turma, provedor_ia, modelo_ia, modalidade_eja=modalidade_eja_ativa)
             tema = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
-            aprendizagem = aprendizagem_pv or plano_ia.get("aprendizagem", "")
+            extracao = _extrator_lib.extrair(texto, tema)
+            habilidade_pdf = extracao.get("habilidade", "")
+            if aprendizagem_pv:
+                aprendizagem = aprendizagem_pv
+            elif habilidade_pdf and len(habilidade_pdf) > 15:
+                aprendizagem = habilidade_pdf
+            else:
+                aprendizagem = plano_ia.get("aprendizagem", "")
             metodologia = plano_ia.get("metodologia", [])
+            tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+            if perfil == "leitura_redacao":
+                metodologia = _metodologia_leitura_redacao_modelo(texto, tema)
+            if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+                metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
             metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
-            metodologia = _ajustar_metodologia_por_sequencia(
+            if perfil != "leitura_redacao":
+                metodologia = _ajustar_metodologia_por_sequencia(
+                    metodologia,
+                    indice_aula=indice_aula,
+                    total_aulas=total_aulas,
+                    tema=tema,
+                )
+            metodologia, _ = revisar_metodologia(
                 metodologia,
-                indice_aula=indice_aula,
-                total_aulas=total_aulas,
+                perfil=perfil,
                 tema=tema,
+                contexto=contexto_metodologico,
             )
-            aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema)
+            metodologia = naturalizar_metodologia_professor(metodologia)
+            metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
+            aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, perfil=perfil)
             
             desenvolvimento = _texto_metodologia(metodologia)
             
             # Extrair etapas e dados para acompanhamento enriquecido
             etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
-            extracao = _extrator_lib.extrair(texto, tema)
+            acompanhamento = gerar_acompanhamento_aprimorado(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                habilidade=habilidade_pdf,
+                etapas_metodologia=etapas_titulos,
+            )
+            acessibilidade = gerar_acessibilidade_aprimorada(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                recursos_detectados=extracao.get("recursos_detectados"),
+            )
+            acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+                acompanhamento,
+                acessibilidade,
+                tema,
+                perfil,
+            )
             
             return {
                 "tema": tema,
@@ -3324,17 +5112,8 @@ def _aula_por_pdf(
                 "numero_aula": numero_aula,
                 "aprendizagem": aprendizagem,
                 "metodologia": metodologia,
-                "acompanhamento": gerar_acompanhamento_aprimorado(
-                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-                    habilidade=extracao.get("habilidade", ""),
-                    etapas_metodologia=etapas_titulos,
-                ),
-                "acessibilidade": gerar_acessibilidade_aprimorada(
-                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-                    recursos_detectados=extracao.get("recursos_detectados"),
-                ),
+                "acompanhamento": acompanhamento,
+                "acessibilidade": acessibilidade,
                 "ia_usada": True,
                 "ia_provedor": provedor_ia,
                 "ia_erro": "",
@@ -3352,8 +5131,19 @@ def _aula_por_pdf(
         indice_aula=indice_aula,
         total_aulas=total_aulas,
     )
+    tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+    if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+        metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
     metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
-    
+    metodologia, _ = revisar_metodologia(
+        metodologia,
+        perfil=perfil,
+        tema=tema,
+        contexto=contexto_metodologico,
+    )
+    metodologia = naturalizar_metodologia_professor(metodologia)
+    metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
+
     # Extrair dados estruturados do PDF
     extracao = _extrator_lib.extrair(texto, tema)
     conceito = extracao.get("conceito_extraido", tema)
@@ -3370,10 +5160,26 @@ def _aula_por_pdf(
         verbo = "Aplicar atividades e compreender" if tipo == "pratica" else "Compreender e analisar"
         conceito_aprendizagem = _foco_limpo_aprendizagem(tema, conceito)
         aprendizagem = f"{verbo} os conceitos relacionados a: {conceito_aprendizagem}."
-    aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, conceito)
+    aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, conceito, perfil=perfil)
     
     desenvolvimento = _texto_metodologia(metodologia)
     etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+    acompanhamento = gerar_acompanhamento_aprimorado(
+        tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+        disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+        habilidade=habilidade, etapas_metodologia=etapas_titulos,
+    )
+    acessibilidade = gerar_acessibilidade_aprimorada(
+        tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+        disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+        recursos_detectados=recursos,
+    )
+    acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+        acompanhamento,
+        acessibilidade,
+        tema,
+        perfil,
+    )
     
     return {
         "tema": tema,
@@ -3381,16 +5187,8 @@ def _aula_por_pdf(
         "numero_aula": numero_aula,
         "aprendizagem": aprendizagem,
         "metodologia": metodologia,
-        "acompanhamento": gerar_acompanhamento_aprimorado(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            habilidade=habilidade, etapas_metodologia=etapas_titulos,
-        ),
-        "acessibilidade": gerar_acessibilidade_aprimorada(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            recursos_detectados=recursos,
-        ),
+        "acompanhamento": acompanhamento,
+        "acessibilidade": acessibilidade,
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
@@ -3406,6 +5204,7 @@ def processar_varios_pdfs(
     provedor_ia: str = "",
     modelo_ia: str = "",
     dividir_metodologia: bool = False,
+    modalidade_eja: bool = False,
 ) -> list[dict]:
     aulas = []
     total_aulas = len(caminhos_pdf or [])
@@ -3420,16 +5219,19 @@ def processar_varios_pdfs(
             modelo_ia,
             indice_aula=idx,
             total_aulas=total_aulas,
+            modalidade_eja=modalidade_eja,
         )
         if dividir_metodologia:
             texto = _texto_metodologia(aula["metodologia"])
             parte1, parte2 = processar_pdf_e_dividir_metodologia(texto)
-            if idx % 2 == 0:
-                aula["metodologia"] = [{"titulo": "Primeiro momento", "texto": parte1}]
-            else:
-                aula["tema"] = f"{aula['tema']} - continuidade"
-                aula["metodologia"] = [{"titulo": "Segundo momento", "texto": parte2}]
-            aulas.append(aula)
+            aula_primeiro = dict(aula)
+            aula_primeiro["metodologia"] = _metodologia_em_blocos_por_texto(parte1)
+
+            aula_segundo = dict(aula)
+            aula_segundo["tema"] = f"{aula['tema']} - continuidade"
+            aula_segundo["metodologia"] = _metodologia_em_blocos_por_texto(parte2)
+
+            aulas.extend([aula_primeiro, aula_segundo])
         else:
             aulas.append(aula)
     return aulas

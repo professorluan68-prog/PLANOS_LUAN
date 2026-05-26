@@ -1,9 +1,10 @@
-import os
 import json
-import traceback
+import os
+import re
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-# Fallback para as dependências
 try:
     from openai import OpenAI
 except ImportError:
@@ -16,74 +17,533 @@ except ImportError:
     genai = None
 
 from config import IA_TIMEOUT_SEGUNDOS
+from core.lib.classificador import perfil_disciplina
+from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
+from core.qualidade_metodologica import (
+    detectar_contexto_metodologico,
+    detectar_nivel_ensino,
+    extrair_conceito_central,
+    naturalizar_metodologia_professor,
+    regras_consolidadas_para_prompt,
+    revisar_metodologia,
+    titulo_esta_truncado,
+)
+from core.referencias_metodologia import carregar_referencia_metodologica
+
 
 class EtapaMetodologia(BaseModel):
-    titulo: str = Field(description="Título da etapa, ex: 'Para começar', 'Foco no conteúdo', 'Na prática'")
-    texto: str = Field(description="Texto descritivo com a ação do professor e os recursos utilizados.")
+    titulo: str = Field(description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.")
+    texto: str = Field(description="Texto descritivo com a acao do professor e os recursos utilizados.")
+
 
 class PlanoAulaIA(BaseModel):
-    tema: str = Field(description="O título principal ou tema da aula (ex: 'AULA 1 - Anuncie aqui! – Parte 1').")
-    aprendizagem: str = Field(description="A aprendizagem essencial e/ou código da BNCC exato encontrado no slide.")
-    metodologia: list[EtapaMetodologia] = Field(description="As etapas de desenvolvimento da aula.")
+    tema: str = Field(description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.")
+    aprendizagem: str = Field(description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.")
+    metodologia: list[EtapaMetodologia] = Field(description="Etapas de desenvolvimento da aula.")
 
-def processar_plano_ia(texto_pdf: str, disciplina: str, turma: str, provedor: str, modelo: str) -> dict:
-    prompt = f"""Você é um especialista em planejamento pedagógico. Extraia as informações do slide abaixo.
+
+_FRASES_PROIBIDAS = (
+    "Relacionar a explicação aos registros anteriores para que a turma perceba continuidade, aprofundamento e novos desafios.",
+    "O docente apresenta",
+    "Conduzir uma discussão final onde",
+    "Ressalte a importância",
+    "Foco no conteúdo",
+)
+
+_CORRECOES_PONTUAIS = {
+    "proxima": "próxima",
+    "sequencia": "sequência",
+    "conducao": "condução",
+    "visiveis": "visíveis",
+    "mantem": "mantém",
+    "avancos": "avanços",
+}
+
+_FINS_INCOMPLETOS_APRENDIZAGEM_IA = {
+    "a", "as", "o", "os", "um", "uma", "de", "da", "das", "do", "dos",
+    "em", "e", "com", "para", "por", "que",
+}
+
+
+def _aprendizagem_padrao_projeto_vida(tema: str) -> str:
+    foco = extrair_conceito_central(tema) or "o tema da aula"
+    if re.sub(r"\s+", " ", foco.lower()).strip() == "o tema da aula":
+        foco = re.sub(r"\s+", " ", str(tema or "")).strip(" .:-") or "o ambiente digital"
+    base = re.sub(r"\s+", " ", foco.lower()).strip()
+    if any(termo in base for termo in ["post", "postar", "public", "print", "rede", "digital", "internet", "online"]):
+        return (
+            f"Refletir sobre {foco}, analisando escolhas, exposicao, respeito, responsabilidade e "
+            "consequencias das acoes no ambiente digital."
+        )
+    return (
+        f"Refletir sobre {foco}, relacionando o tema a escolhas, atitudes, convivencia respeitosa, "
+        "autoconhecimento e tomada de decisao responsavel."
+    )
+
+
+def _serializar_modelo(objeto: Any) -> dict:
+    if hasattr(objeto, "model_dump"):
+        return objeto.model_dump()
+    if hasattr(objeto, "dict"):
+        return objeto.dict()
+    return dict(objeto)
+
+
+def _extrair_json_openai(response) -> dict:
+    mensagem = response.choices[0].message
+    parsed = getattr(mensagem, "parsed", None)
+    if parsed is not None:
+        return _serializar_modelo(parsed)
+    return json.loads(mensagem.content or "{}")
+
+
+def _montar_prompt(
+    texto_pdf: str,
+    disciplina: str,
+    turma: str,
+    modalidade_eja: bool = False,
+    permitir_tecnicas_explicitamente: bool = True,
+) -> str:
+    perfil = perfil_disciplina(f"{disciplina} {turma}")
+    contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
+    nivel = detectar_nivel_ensino(turma=turma, disciplina=disciplina, texto_pdf=texto_pdf)
+    orientacao = get_orientacao_disciplina(disciplina, turma=turma)
+    referencia = carregar_referencia_metodologica(disciplina, turma)
+    bloco_referencia = f"\n\nREFERENCIA METODOLOGICA DA DISCIPLINA:\n{referencia[:4200]}" if referencia else ""
+    bloco_eja = ""
+    if modalidade_eja:
+        bloco_eja = """
+
+MODALIDADE EJA:
+- Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, objetiva e respeitosa.
+- Contextualize os conceitos em situacoes de vida, trabalho, saude, tecnologia, comunidade e cotidiano.
+- Explique de forma pausada e dialogada, retomando vocabulario essencial sem infantilizar os estudantes.
+- Em Biologia e Ingles, mantenha os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- Preserve tecnicas explicitas do PDF quando isso fizer parte do modelo da disciplina.
+"""
+
+    bloco_leitura_redacao = ""
+    if False and perfil == "leitura_redacao":
+        bloco_leitura_redacao = """
+
+MODELO ESPECIFICO DE REDACAO E LEITURA:
+- Para aulas de trilha literaria/leitura de obra, use estes blocos: "Para comecar", "Predicao guiada", "Leitura compartilhada ou individual" e "Conexao com a producao textual".
+- Para aula de producao textual/finalizacao, use estes blocos: "Para comecar", "Revisao orientada", "Escrita da versao final", "Submissao e socializacao" e "Encerramento".
+- Mantenha linguagem de plano docente, articulando leitura literaria, impressões dos estudantes, personagens, acontecimentos, hipotese/predicao e conexao com producao textual.
+"""
+
+    if False and perfil == "leitura_redacao":
+        bloco_leitura_redacao += """
+- Priorize genero textual, objetivo pedagogico e funcao social da escrita.
+- Reestruture a aula em 6 etapas fixas: "Disparo inicial / contextualizacao", "Leitura ou exploracao inicial", "Analise guiada", "Sistematizacao", "Producao textual" e "Revisao e fechamento".
+- Na analise guiada, inclua ao menos tres perguntas orientadoras: compreensao, interpretacao e reflexao.
+- Na producao textual, explicite sempre o que escrever, para quem escrever e com qual objetivo.
+- Para resenha, incluir apresentacao da obra, tipo de historia, opiniao, pontos positivos/negativos e recomendacao final.
+- Para cronica, incluir narrador em primeira pessoa, situacao cotidiana, conflito/desafio e reflexao final.
+- Nunca entregar apenas resumo; integrar leitura e escrita com linguagem clara, didatica e aplicavel em sala.
+"""
+
+    if perfil == "leitura_redacao":
+        bloco_leitura_redacao = """
+
+MODELO ESPECIFICO DE REDACAO E LEITURA:
+- Priorize genero textual, objetivo pedagogico e funcao social da escrita.
+- Use sempre 6 etapas fixas, nesta ordem: "Disparo inicial / contextualizacao", "Leitura ou exploracao inicial", "Analise guiada", "Sistematizacao", "Producao textual" e "Revisao e fechamento".
+- Para trilha literaria/leitura de obra, articule leitura literaria, impressoes dos estudantes, personagens, acontecimentos, hipotese/predicao e conexao com producao textual.
+- Para aula de producao textual/finalizacao, mantenha a mesma estrutura de 6 etapas, mas direcione a exploracao inicial para releitura do rascunho, a sistematizacao para checklist de revisao e a producao textual para versao final/submissao.
+- Na analise guiada, inclua ao menos tres perguntas orientadoras: compreensao, interpretacao e reflexao.
+- Na producao textual, explicite sempre o que escrever, para quem escrever e com qual objetivo.
+- Para resenha, incluir apresentacao da obra, tipo de historia, opiniao, pontos positivos/negativos e recomendacao final.
+- Para cronica, incluir narrador em primeira pessoa, situacao cotidiana, conflito/desafio e reflexao final.
+- Nunca entregar apenas resumo; integrar leitura e escrita com linguagem clara, didatica e aplicavel em sala.
+"""
+
+    regra_tecnicas = ""
+    if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+        regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas naturais, acolhedoras e coerentes com Projeto de Vida."
+    elif permitir_tecnicas_explicitamente:
+        regra_tecnicas = '5. Se o slide trouxer tecnicas pedagogicas explicitas, especialmente tecnicas LEMOV como "VIREM E CONVERSEM", "TODO MUNDO ESCREVE", "COM SUAS PALAVRAS", "HORA DA LEITURA", "DE OLHO NO MODELO", "PAUSE E RESPONDA" ou "UM PASSO DE CADA VEZ", cite o nome da tecnica em maiusculas dentro da acao docente. Ex.: "Aplicar a tecnica VIREM E CONVERSEM para que os estudantes levantem hipoteses iniciais" e "Utilizar a tecnica TODO MUNDO ESCREVE para garantir o registro individual".'
+    else:
+        regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas genericas e naturais."
+
+    return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
+PERFIL METODOLOGICO: {perfil}
+CONTEXTO: {contexto}
+NIVEL: {nivel}
+{bloco_eja}
+{bloco_leitura_redacao}
+
+{orientacao}
+
+{regras_consolidadas_para_prompt(perfil, contexto, nivel)}
 
 REGRAS:
-1. Extraia o TEMA exato da aula.
-2. Identifique o código da BNCC (ex: EM13LP44A) e a descrição da 'Aprendizagem Essencial' se houver.
-3. Elabore a metodologia dividindo em etapas claras (ex: Relembre, Foco no Conteúdo, Na Prática, Encerramento), detalhando o que o professor fará.
-4. Varie os inícios das frases entre as etapas e entre aulas diferentes. Evite repetir sempre fórmulas como "Retomar a importância", "Promover discussão" ou "Orientar a resolução", mantendo linguagem natural, objetiva e pedagógica.
-Devolva APENAS JSON válido seguindo a estrutura solicitada.
+1. Extraia o conceito central da aula. Nao devolva rotulos como "AULA 1", "2o bimestre", "Ensino Fundamental" ou "Parte 1" como tema principal.
+2. Identifique o codigo da BNCC e a descricao da aprendizagem essencial se houver.
+3. Elabore a metodologia em 4 a 6 etapas curtas e objetivas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
+3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico.
+3.2. Limite o desenvolvimento total a cerca de 900 caracteres.
+3.3. Preserve o produto real da atividade do material (ex.: texto-sintese, tabela, legenda de figura, resumo, respostas no livro). Nao troque o produto por outro formato.
+4. Varie os inicios das frases entre as etapas e entre aulas diferentes, mantendo linguagem natural, objetiva e pedagogica.
+{regra_tecnicas}
+6. Devolva APENAS JSON valido seguindo a estrutura solicitada.
+7. Evite frases genericas/repetitivas e trechos incompletos.
+{bloco_referencia}
 
-CONTEÚDO DO SLIDE:
+CONTEUDO DO SLIDE:
 {texto_pdf[:6000]}
 """
 
+
+def _detectar_produto_atividade(texto_pdf: str) -> str:
+    base = re.sub(r"\s+", " ", str(texto_pdf or "")).lower()
+    padroes = [
+        (r"texto[-\s]?s[ií]ntese|s[ií]ntese individual", "texto-síntese"),
+        (r"\btabela\b", "tabela"),
+        (r"legend[ae]r?|legenda(?:r)? (?:a )?(?:figura|imagem|esquema)", "legenda de figura"),
+        (r"\bresumo\b", "resumo"),
+        (r"todo mundo escreve|na pr[aá]tica|veja no livro|pause e responda|hora da leitura", "atividade do material"),
+    ]
+    for padrao, rotulo in padroes:
+        if re.search(padrao, base, flags=re.I):
+            return rotulo
+    return ""
+
+
+def _limpar_texto_curto(texto: str) -> str:
+    saida = re.sub(r"\s+", " ", str(texto or "")).strip()
+    saida = re.sub(r"\b(?:por|de|com|para)\s*\.$", ".", saida, flags=re.I)
+    saida = re.sub(r"esta atividade deve durar cerca de\.?", "", saida, flags=re.I).strip(" .")
+    for errado, certo in _CORRECOES_PONTUAIS.items():
+        saida = re.sub(rf"\b{errado}\b", certo, saida, flags=re.I)
+    padroes_bloqueio = [
+        r"relacionar a explica.*?continuidade,\s*aprofundamento e novos desafios\.?",
+        r"o docente apresenta",
+        r"conduzir uma discuss.*?final onde",
+        r"ressalte a import[aâ]ncia",
+        r"foco no conte[uú]do",
+    ]
+    for padrao in padroes_bloqueio:
+        saida = re.sub(padrao, "", saida, flags=re.I)
+    return re.sub(r"\s+", " ", saida).strip(" .")
+
+
+def _aprendizagem_ia_invalida(texto: str, tema: str) -> bool:
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    if not texto:
+        return True
+    normalizado = re.sub(r"\s+", " ", texto.lower()).strip()
+    if texto.endswith((",", ";", ":", "/", "-")):
+        return True
+    if texto.count("?") >= 2 or re.match(r"^(?:o que|como|por que|qual)\b", normalizado):
+        return True
+    palavras = re.findall(r"[A-Za-zÀ-ÿ]+", texto)
+    if palavras and palavras[-1].lower() in _FINS_INCOMPLETOS_APRENDIZAGEM_IA:
+        return True
+    tema_norm = extrair_conceito_central(tema).lower()
+    marcadores_genericos = (
+        "desenvolver habilidades relacionadas ao tema",
+        "compreender o tema da aula",
+        "conteudo da aula",
+    )
+    return len(texto) > 700 or (len(texto) < 28 and not tema_norm) or any(m in normalizado for m in marcadores_genericos)
+
+
+_FINS_INCOMPLETOS_METODOLOGIA_IA = {
+    "a",
+    "as",
+    "o",
+    "os",
+    "um",
+    "uma",
+    "uns",
+    "umas",
+    "de",
+    "da",
+    "das",
+    "do",
+    "dos",
+    "e",
+    "em",
+    "para",
+    "por",
+    "com",
+    "sem",
+    "sobre",
+    "entre",
+    "como",
+    "que",
+    "onde",
+    "quando",
+    "qual",
+    "quais",
+    "ao",
+    "aos",
+    "no",
+    "na",
+    "nos",
+    "nas",
+    "pelo",
+    "pela",
+    "pelos",
+    "pelas",
+    "seu",
+    "sua",
+    "seus",
+    "suas",
+}
+
+
+def _termina_com_trecho_incompleto(texto: str) -> bool:
+    texto_limpo = re.sub(r"\s+", " ", str(texto or "")).strip(" .,:;!?-")
+    if not texto_limpo:
+        return True
+    palavras = re.findall(r"[A-Za-zÀ-ÿ]+", texto_limpo)
+    if not palavras:
+        return True
+    ultimas = [p.lower() for p in palavras[-4:]]
+    if ultimas[-1] in _FINS_INCOMPLETOS_METODOLOGIA_IA:
+        return True
+    final = " ".join(ultimas)
+    if re.search(
+        r"\b(?:onde|quando|que|para|com|sobre)\s+(?:(?:o|a|os|as|um|uma)\s+)?(?:alunos|estudantes)?$",
+        final,
+    ):
+        return True
+    if len(ultimas) >= 2 and re.search(r"(?:ando|endo|indo)$", ultimas[-2]):
+        return True
+    return False
+
+
+def _finalizar_trecho_metodologia(texto: str) -> str:
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip(" ,;:-")
+    if not texto or _termina_com_trecho_incompleto(texto):
+        return ""
+    if texto.endswith((".", "!", "?")):
+        return texto
+    return texto + "."
+
+
+def _cortar_sem_quebrar_frase(texto: str, limite: int) -> str:
+    texto = _limpar_texto_curto(texto)
+    if not texto or limite <= 0:
+        return ""
+    if len(texto) <= limite:
+        return _finalizar_trecho_metodologia(texto)
+
+    recorte = texto[:limite].rstrip()
+    fim_frase = max(recorte.rfind("."), recorte.rfind("!"), recorte.rfind("?"))
+    if fim_frase >= max(45, int(limite * 0.45)):
+        return _finalizar_trecho_metodologia(recorte[: fim_frase + 1])
+
+    fim_oracao = max(recorte.rfind(";"), recorte.rfind(":"))
+    if fim_oracao >= max(45, int(limite * 0.55)):
+        return _finalizar_trecho_metodologia(recorte[:fim_oracao])
+
+    fim_virgula = recorte.rfind(",")
+    if fim_virgula >= max(60, int(limite * 0.65)):
+        return _finalizar_trecho_metodologia(recorte[:fim_virgula])
+    return ""
+
+
+def _compactar_metodologia(metodologia: list[dict], texto_pdf: str) -> list[dict[str, str]]:
+    produto = _detectar_produto_atividade(texto_pdf)
+    itens: list[dict[str, str]] = []
+    vistos: set[str] = set()
+
+    for item in metodologia or []:
+        titulo = str(item.get("titulo", "")).strip() or "Etapa"
+        texto = _limpar_texto_curto(item.get("texto", ""))
+        if not texto:
+            continue
+        norm = re.sub(r"[^a-z0-9]+", " ", texto.lower()).strip()
+        if norm in vistos:
+            continue
+        vistos.add(norm)
+        itens.append({"titulo": titulo, "texto": texto})
+
+    if not itens:
+        itens = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
+
+    if produto:
+        corpo = " ".join(i["texto"].lower() for i in itens)
+        if produto not in corpo:
+            itens.insert(
+                min(2, len(itens)),
+                {
+                    "titulo": "Atividade",
+                    "texto": f"Orientar a atividade principal do material para que os estudantes produzam {produto}, acompanhando registros, duvidas e socializacao das respostas.",
+                },
+            )
+
+    itens = itens[:6]
+    while len(itens) < 4:
+        itens.append(
+            {
+                "titulo": f"Etapa {len(itens)+1}",
+                "texto": "Realizar socialização breve das respostas e finalizar com síntese dos conceitos principais.",
+            }
+        )
+
+    total = 0
+    saida: list[dict[str, str]] = []
+    for idx, item in enumerate(itens):
+        restante = 1200 - total
+        if restante <= 40:
+            break
+        limite_item = min(320, restante)
+        texto = _cortar_sem_quebrar_frase(item["texto"], limite_item)
+        if not texto:
+            continue
+        saida.append({"titulo": item["titulo"], "texto": texto})
+        total += len(texto)
+        if idx >= 5:
+            break
+    return saida[:6]
+
+
+def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str) -> dict:
+    perfil = perfil_disciplina(f"{disciplina} {turma}")
+    contexto = detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
+    tema = extrair_conceito_central(data.get("tema", ""))
+    if not tema or titulo_esta_truncado(tema):
+        tema = extrair_conceito_central(data.get("tema", "")) or "Tema da aula"
+
+    metodologia, relatorio = revisar_metodologia(
+        data.get("metodologia", []),
+        perfil=perfil,
+        tema=tema,
+        contexto=contexto,
+    )
+    metodologia = _compactar_metodologia(metodologia, texto_pdf)
+    metodologia = naturalizar_metodologia_professor(metodologia)
+    if not metodologia:
+        raise ValueError("A IA nao devolveu metodologia utilizavel.")
+    if not relatorio.get("aceita") and relatorio.get("score", 0) < 40:
+        raise ValueError("A metodologia da IA nao passou nos criterios minimos de qualidade.")
+
+    aprendizagem = str(data.get("aprendizagem", "") or "").strip()
+    if _aprendizagem_ia_invalida(aprendizagem, tema):
+        if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+            aprendizagem = _aprendizagem_padrao_projeto_vida(tema)
+        else:
+            aprendizagem = f"Desenvolver habilidades relacionadas ao tema da aula, com foco em {tema}."
+
+    return {
+        "tema": tema,
+        "aprendizagem": aprendizagem,
+        "metodologia": metodologia,
+    }
+
+
+def processar_item_cdp_ia(item: dict, disciplina: str, turma: str, provedor: str, modelo: str) -> dict:
+    from core.cdp import habilidade_item_cdp, objeto_item_cdp, titulo_item_cdp
+
+    titulo = titulo_item_cdp(item) or objeto_item_cdp(item) or "Conteudo proposto"
+    habilidade = habilidade_item_cdp(item)
+    objeto = objeto_item_cdp(item)
+    texto_base = (
+        f"DISCIPLINA: {disciplina}\n"
+        f"TURMA: {turma}\n"
+        f"TEMA: {titulo}\n"
+        f"OBJETO/CONTEUDO: {objeto}\n"
+        f"HABILIDADE: {habilidade}\n\n"
+        "Elabore um plano para CDP/EJA com linguagem clara, adulta, contextualizada e sem citar tecnologias digitais. "
+        "Amplie um pouco a metodologia, mantendo quatro blocos: Abertura, Desenvolvimento, Atividade e Fechamento. "
+        "Use exemplos cotidianos, mediação do professor, registro no caderno e socialização final quando fizer sentido."
+    )
+    saida = processar_plano_ia(
+        texto_base,
+        disciplina,
+        turma,
+        provedor,
+        modelo,
+        modalidade_eja=True,
+        permitir_tecnicas_explicitamente=False,
+    )
+    saida["tema"] = titulo
+    if habilidade:
+        saida["aprendizagem"] = habilidade
+    termos_bloqueados = [
+        "VIREM E CONVERSEM",
+        "TODO MUNDO ESCREVE",
+        "COM SUAS PALAVRAS",
+        "HORA DA LEITURA",
+        "DE OLHO NO MODELO",
+        "PAUSE E RESPONDA",
+        "UM PASSO DE CADA VEZ",
+    ]
+    for etapa in saida.get("metodologia", []) or []:
+        texto = str(etapa.get("texto", ""))
+        for termo in termos_bloqueados:
+            texto = texto.replace(termo, "")
+        etapa["texto"] = re.sub(r"\s{2,}", " ", texto).strip(" ,;:-")
+    return saida
+
+
+def processar_plano_ia(
+    texto_pdf: str,
+    disciplina: str,
+    turma: str,
+    provedor: str,
+    modelo: str,
+    modalidade_eja: bool = False,
+    permitir_tecnicas_explicitamente: bool = True,
+) -> dict:
+    prompt = _montar_prompt(
+        texto_pdf,
+        disciplina,
+        turma,
+        modalidade_eja=modalidade_eja,
+        permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
+    )
+    system_prompt = get_system_prompt(disciplina)
+
     if provedor.lower() == "openai":
         if not OpenAI or not os.getenv("OPENAI_API_KEY"):
-            raise Exception("Chave OPENAI_API_KEY não configurada ou biblioteca ausente.")
+            raise Exception("Chave OPENAI_API_KEY nao configurada ou biblioteca ausente.")
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.beta.chat.completions.parse(
             model=modelo or "gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
             response_format=PlanoAulaIA,
-            timeout=IA_TIMEOUT_SEGUNDOS
+            timeout=IA_TIMEOUT_SEGUNDOS,
         )
-        data = json.loads(response.choices[0].message.content)
-        return {
-            "tema": data["tema"],
-            "aprendizagem": data["aprendizagem"],
-            "metodologia": [{"titulo": m["titulo"], "texto": m["texto"]} for m in data["metodologia"]]
-        }
+        data = _extrair_json_openai(response)
+        return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
 
-    elif provedor.lower() == "gemini":
+    if provedor.lower() == "gemini":
         if not genai or not os.getenv("GEMINI_API_KEY"):
-            raise Exception("Chave GEMINI_API_KEY não configurada ou biblioteca ausente.")
-        
+            raise Exception("Chave GEMINI_API_KEY nao configurada ou biblioteca ausente.")
+
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        prompt_json = prompt + "\nRESPONDA EXATAMENTE NO SEGUINTE FORMATO JSON: {\"tema\": \"...\", \"aprendizagem\": \"...\", \"metodologia\": [{\"titulo\": \"...\", \"texto\": \"...\"}]}"
-        
+        prompt_json = (
+            system_prompt
+            + "\n\n"
+            + prompt
+            + '\nRESPONDA EXATAMENTE NO SEGUINTE FORMATO JSON: {"tema": "...", "aprendizagem": "...", "metodologia": [{"titulo": "...", "texto": "..."}]}'
+        )
+
         response = client.models.generate_content(
             model=modelo or "gemini-2.5-flash",
             contents=prompt_json,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-            )
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        
+
         text = response.text.strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
-        
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+
         data = json.loads(text.strip())
-        return {
-            "tema": data.get("tema", ""),
-            "aprendizagem": data.get("aprendizagem", ""),
-            "metodologia": data.get("metodologia", [])
-        }
-    
+        return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+
     raise Exception(f"Provedor {provedor} desconhecido.")

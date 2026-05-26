@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 
 from docx import Document
@@ -104,16 +105,26 @@ def _partes_data_horario(texto: str) -> dict[str, object] | None:
     linhas = [_norm(linha) for linha in str(texto or "").splitlines() if _norm(linha)]
     if not linhas:
         return None
-    data_aula = _data_por_ddmm(linhas[0])
+    primeira_linha = linhas[0]
+    data_aula = _data_por_ddmm(primeira_linha)
     if not data_aula:
         return None
+    partes_restantes = []
+    match_primeira = re.match(r"^\s*\d{1,2}/\d{1,2}\s*(.*)$", primeira_linha)
+    if match_primeira:
+        restante = _norm(match_primeira.group(1))
+        if restante:
+            partes_restantes.append(restante)
+    for linha in linhas[1:]:
+        partes_restantes.append(linha)
+    texto_restante = _norm(" ".join(parte for parte in partes_restantes if parte))
     aula = ""
     horario = ""
-    for linha in linhas[1:]:
-        if "aula" in linha.lower() and not aula:
-            aula = linha
-        elif re.search(r"\d{1,2}h", linha, flags=re.I) and not horario:
-            horario = linha
+    if texto_restante:
+        if re.search(r"\d{1,2}h", texto_restante, flags=re.I):
+            horario = texto_restante
+        else:
+            aula = texto_restante
     return {"data": data_aula, "aula": aula, "horario": horario}
 
 
@@ -125,6 +136,16 @@ def _extrair_datas_horarios(tabela) -> list[dict[str, object]]:
         item = _partes_data_horario(linha.cells[0].text)
         if item:
             itens.append(item)
+    return itens
+
+
+def extrair_datas_horarios_de_bytes(docx_bytes: bytes) -> list[dict[str, object]]:
+    if not docx_bytes:
+        return []
+    doc = Document(BytesIO(docx_bytes))
+    itens: list[dict[str, object]] = []
+    for tabela in doc.tables:
+        itens.extend(_extrair_datas_horarios(tabela))
     return itens
 
 
@@ -196,6 +217,19 @@ def carregar_professores_dos_planos(base_dir: Path = PASTA_PLANOS_PROFESSORES) -
     return resultado
 
 
+def _arquivos_modelo_vinculados() -> list[Path]:
+    try:
+        from core.database import listar_vinculos_professores
+    except Exception:
+        return []
+    caminhos = []
+    for vinculo in listar_vinculos_professores():
+        arquivo = str(vinculo.get("arquivo_modelo") or vinculo.get("arquivo") or "").strip()
+        if arquivo:
+            caminhos.append(Path(arquivo))
+    return caminhos
+
+
 def diagnosticar_modelos_professores(base_dir: Path = PASTA_PLANOS_PROFESSORES) -> dict[str, object]:
     diagnostico: dict[str, object] = {
         "base_dir": str(base_dir),
@@ -207,48 +241,55 @@ def diagnosticar_modelos_professores(base_dir: Path = PASTA_PLANOS_PROFESSORES) 
         "sem_datas_horarios": [],
         "duplicidades": [],
     }
-    if not base_dir.exists():
-        diagnostico["erro_base"] = "Pasta de modelos nao encontrada."
-        return diagnostico
+    arquivos_para_ler = sorted(dict.fromkeys(_arquivos_modelo_vinculados()))
+    diagnostico["base_dir"] = "Modelos vinculados no banco"
 
     chaves: dict[tuple[str, str, str], list[str]] = {}
-    pastas = sorted(p for p in base_dir.iterdir() if p.is_dir() and not p.name.startswith("_"))
-    diagnostico["professores_pasta"] = len(pastas)
+    diagnostico["professores_pasta"] = len({caminho.parent for caminho in arquivos_para_ler})
 
-    for pasta_professor in pastas:
-        for caminho in sorted(pasta_professor.glob("*.docx")):
-            diagnostico["total_docx"] = int(diagnostico["total_docx"]) + 1
-            try:
-                info = extrair_info_plano(caminho, pasta_professor.name)
-            except Exception as exc:
-                diagnostico["erros_leitura"].append(
-                    {
-                        "professor": pasta_professor.name,
-                        "arquivo": caminho.name,
-                        "erro": str(exc),
-                    }
-                )
-                continue
+    for caminho in arquivos_para_ler:
+        pasta_professor = caminho.parent
+        diagnostico["total_docx"] = int(diagnostico["total_docx"]) + 1
+        if not caminho.exists():
+            diagnostico["erros_leitura"].append(
+                {
+                    "professor": pasta_professor.name,
+                    "arquivo": str(caminho),
+                    "erro": "Arquivo vinculado nao encontrado.",
+                }
+            )
+            continue
+        try:
+            info = extrair_info_plano(caminho, pasta_professor.name)
+        except Exception as exc:
+            diagnostico["erros_leitura"].append(
+                {
+                    "professor": pasta_professor.name,
+                    "arquivo": caminho.name,
+                    "erro": str(exc),
+                }
+            )
+            continue
 
-            diagnostico["lidos_ok"] = int(diagnostico["lidos_ok"]) + 1
-            professor = str(info.get("professor") or pasta_professor.name).strip()
-            disciplina = str(info.get("disciplina") or "").strip()
-            turma = str(info.get("turma") or "").strip()
-            registro = {
-                "professor": professor or pasta_professor.name,
-                "disciplina": disciplina,
-                "turma": turma,
-                "arquivo": str(caminho),
-            }
+        diagnostico["lidos_ok"] = int(diagnostico["lidos_ok"]) + 1
+        professor = str(info.get("professor") or pasta_professor.name).strip()
+        disciplina = str(info.get("disciplina") or "").strip()
+        turma = str(info.get("turma") or "").strip()
+        registro = {
+            "professor": professor or pasta_professor.name,
+            "disciplina": disciplina,
+            "turma": turma,
+            "arquivo": str(caminho),
+        }
 
-            if not disciplina or not turma:
-                diagnostico["sem_disciplina_turma"].append(registro)
-                continue
+        if not disciplina or not turma:
+            diagnostico["sem_disciplina_turma"].append(registro)
+            continue
 
-            if not info.get("datas_horarios"):
-                diagnostico["sem_datas_horarios"].append(registro)
+        if not info.get("datas_horarios"):
+            diagnostico["sem_datas_horarios"].append(registro)
 
-            chaves.setdefault((professor, disciplina, turma), []).append(str(caminho))
+        chaves.setdefault((professor, disciplina, turma), []).append(str(caminho))
 
     diagnostico["duplicidades"] = [
         {
@@ -269,6 +310,7 @@ def criar_ou_atualizar_modelo_professor(
     turma: str,
     origem: str = "",
     aulas_semana: str = "",
+    componente_curricular: str = "",
     base_dir: Path = PASTA_PLANOS_PROFESSORES,
 ) -> str:
     pasta_professor = base_dir / _safe_filename_part(professor)
@@ -296,11 +338,43 @@ def criar_ou_atualizar_modelo_professor(
         dados = tabela.rows[2].cells
         if len(dados) >= 9:
             dados[2].text = professor
-            dados[3].text = disciplina
+            dados[3].text = componente_curricular or disciplina
             dados[6].text = turma
         semana = tabela.rows[3].cells
         if aulas_semana and len(semana) >= 4:
             semana[3].text = str(aulas_semana)
+    doc.save(destino)
+    return str(destino)
+
+
+def atualizar_cabecalho_modelo_professor(
+    caminho: str,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    aulas_semana: str = "",
+    componente_curricular: str = "",
+) -> str:
+    destino = Path(caminho)
+    if not destino.exists():
+        raise FileNotFoundError("Modelo DOCX nao encontrado.")
+
+    doc = Document(destino)
+    atualizou = False
+    for tabela in doc.tables:
+        if not _eh_cabecalho_plano(tabela):
+            continue
+        dados = tabela.rows[2].cells
+        if len(dados) >= 9:
+            dados[2].text = professor
+            dados[3].text = componente_curricular or disciplina
+            dados[6].text = turma
+            atualizou = True
+        semana = tabela.rows[3].cells
+        if aulas_semana and len(semana) >= 4:
+            semana[3].text = str(aulas_semana)
+    if not atualizou:
+        raise ValueError("O DOCX nao possui cabecalho de plano reconhecido.")
     doc.save(destino)
     return str(destino)
 

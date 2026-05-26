@@ -1,13 +1,15 @@
 from pathlib import Path
 
 
-# Configurações centralizadas do projeto
+# Configuracoes centralizadas do projeto
 
 BASE_DIR = Path(__file__).resolve().parent
 PDFS_ORGANIZADOS_DIR = BASE_DIR / "PDFs_Organizados"
 MODELOS_DOCX_DIR = BASE_DIR / "modelos_docx"
+TEMPLATES_DOCX_DIR = BASE_DIR / "templates"
 LEGACY_PLANOS_FEITOS_DIR = BASE_DIR / "Planos feitos"
 PASTA_PLANOS_PROFESSORES = Path(r"D:\PLANOS DE JUNHO")
+MODELOS_LEGADOS_QUARENTENA_DIR = PASTA_PLANOS_PROFESSORES / "_MODELOS_LEGADOS_PARA_EXCLUIR"
 PLANOS_FINALIZADOS_DIR = Path(r"D:\PLANOS-FINALIZADOS")
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequência 2026 (1).ods"
 
@@ -18,13 +20,13 @@ REDACAO_TITULOS_XLSX = REDACAO_DIR / "TÍTULO.xlsx"
 
 FORMATO_REFERENCIA_DOCX = MODELOS_DOCX_DIR / "modelo.docx"
 
-# ── IA ────────────────────────────────────────────────────────────────────────
+# IA
 MODELO_OPENAI_PADRAO = "gpt-4o-mini"
 MODELO_GEMINI_PADRAO = "gemini-2.0-flash"
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/chat/completions"
 IA_TIMEOUT_SEGUNDOS = 45
 
-# ── Limites de caracteres no DOCX ─────────────────────────────────────────────
+# Limites de caracteres no DOCX
 MAX_CELL_CHARS = 8000
 
 MAX_DESENVOLVIMENTO_CHARS: dict[str, int] = {
@@ -46,7 +48,7 @@ MAX_LISTA_TOTAL_CHARS: dict[str, int] = {
     "lingua portuguesa": 1800,
 }
 
-# ── PDF ───────────────────────────────────────────────────────────────────────
+# PDF
 PDF_MAX_PAGINAS = 400
 PDF_OCR_DPI = 200
 PDF_OCR_LANG = "por"

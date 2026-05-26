@@ -100,13 +100,20 @@ def normalizar(texto: str = "") -> str:
     texto = (texto or "").strip().lower()
     for origem, destino in {
         "á": "a", "à": "a", "â": "a", "ã": "a",
+        "Ã¡": "a", "Ã ": "a", "Ã¢": "a", "Ã£": "a",
         "é": "e", "ê": "e",
+        "Ã©": "e", "Ãª": "e",
         "í": "i",
+        "Ã­": "i",
         "ó": "o", "ô": "o", "õ": "o",
+        "Ã³": "o", "Ã´": "o", "Ãµ": "o",
         "ú": "u",
+        "Ãº": "u",
         "ç": "c",
-        "ę": "e",
+        "Ã§": "c",
+        "Ä™": "e",
         "°": "º",
+        "Â°": "Âº",
     }.items():
         texto = texto.replace(origem, destino)
     return texto
@@ -243,6 +250,35 @@ def _nome_sheet_multisseriada(componente: str, dados: Dict[str, List[Dict[str, s
     return componente
 
 
+def _nome_sheet_cdp(disciplina: str, dados: Dict[str, List[Dict[str, str]]]) -> str:
+    disciplina_norm = normalizar(disciplina)
+    mapa = {
+        "lingua portuguesa": "portugues",
+        "portugues": "portugues",
+        "matematica": "matematica",
+        "historia": "historia",
+        "geografia": "geografia",
+        "ciencias": "ciencias",
+        "ciencia": "ciencias",
+        "arte": "arte",
+        "artes": "arte",
+    }
+    alvo = mapa.get(disciplina_norm, disciplina_norm)
+    for nome in dados:
+        nome_norm = normalizar(nome)
+        if alvo == nome_norm or alvo in nome_norm or nome_norm in alvo:
+            return nome
+    return disciplina
+
+
+def _linhas_cdp_por_disciplina(disciplina: str) -> List[Dict[str, str]]:
+    dados = carregar_planilha_cdp()
+    if not dados:
+        return []
+    sheet = _nome_sheet_cdp(disciplina, dados)
+    return dados.get(sheet, [])
+
+
 def _linhas_multisseriada_por_componente(componente: str) -> List[Dict[str, str]]:
     dados = carregar_planilha_cdp_multisseriada()
     if not dados:
@@ -322,6 +358,24 @@ def _filtrar_linhas_multisseriadas(
     linhas_validas = [linha for linha in linhas if _linha_multisseriada_tem_conteudo(linha)]
     por_turma = [linha for linha in linhas_validas if _linha_pertence_turma_multisseriada(linha, turma)]
     base = por_turma if por_turma else []
+    por_bimestre = [linha for linha in base if _linha_pertence_bimestre(linha, bimestre)]
+    return por_bimestre or base
+
+
+def _filtrar_linhas_cdp(
+        linhas: List[Dict[str, str]],
+        turma: str = "",
+        bimestre: str = "",
+) -> List[Dict[str, str]]:
+    if not linhas:
+        return []
+
+    anos_alvo = {normalizar(ano) for ano in anos_da_turma(turma)} if turma else set()
+    por_turma = [
+        linha for linha in linhas
+        if not anos_alvo or normalizar(linha.get("ANO", "")) in anos_alvo
+    ]
+    base = por_turma or linhas
     por_bimestre = [linha for linha in base if _linha_pertence_bimestre(linha, bimestre)]
     return por_bimestre or base
 
@@ -439,25 +493,12 @@ def listar_habilidades_cdp(disciplina: str, turma: str = "", bimestre: str = "1�
     Retorna lista de dicts com 'codigo' (ex: EF15LP01) e 'descricao' (ex: tema + conteúdo).
     Filtra por turma (se multisseriada) e bimestre (se especificado).
     """
-    dados = carregar_planilha_cdp()
-    linhas = dados.get(disciplina, [])
+    linhas = _linhas_cdp_por_disciplina(disciplina)
 
     if not linhas:
         return []
 
-    # Filtrar por turma (multisseriada 1-3 ou 4-5)
-    anos = [normalizar(a) for a in anos_da_turma(turma)]
-    filtradas = [
-        linha for linha in linhas
-        if normalizar(linha.get("ANO", "")) in anos
-           and (not bimestre or normalizar(linha.get("BIMESTRE", "")) == normalizar(bimestre))
-    ]
-
-    if not filtradas:
-        filtradas = [linha for linha in linhas if normalizar(linha.get("ANO", "")) in anos]
-
-    if not filtradas:
-        filtradas = linhas
+    filtradas = _filtrar_linhas_cdp(linhas, turma, bimestre)
 
     # Montar lista de habilidades para exibição
     habilidades = []
@@ -558,7 +599,7 @@ def titulo_item_cdp(item: Dict[str, str]) -> str:
 
 
 def habilidade_item_cdp(item: Dict[str, str]) -> str:
-    return limpar_texto_cdp(_primeiro_valor(
+    return _primeira_habilidade_cdp(limpar_texto_cdp(_primeiro_valor(
         item,
         "HABILIDADES",
         "Habilidades Específicas",
@@ -566,7 +607,30 @@ def habilidade_item_cdp(item: Dict[str, str]) -> str:
         "Habilidades",
         "Habilidade/Conteúdo",
         "Conteúdos Considerados Relevantes",
-    ))
+    )))
+
+
+def _primeira_habilidade_cdp(texto: str) -> str:
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    if not texto:
+        return ""
+
+    texto = re.sub(r"^\.\s*", "", texto).strip()
+    padroes = [
+        r"^\((?:EF|GO)[^)]+\)\s.*?(?=\s+\((?:EF|GO)[^)]+\)\s|$)",
+        r"^(?:EF|GO|EI|EM|EFCDP)[A-Z0-9\-]+\s*[–-]\s.*?(?=\s+(?:EF|GO|EI|EM|EFCDP)[A-Z0-9\-]+\s*[–-]\s|$)",
+    ]
+    for padrao in padroes:
+        match = re.search(padrao, texto, flags=re.I)
+        if match:
+            return match.group(0).strip(" .;")
+
+    partes = re.split(r"\s*(?:;|\s{2,}|\.\s+(?=[A-Z(]))", texto)
+    for parte in partes:
+        parte = parte.strip(" .;")
+        if parte:
+            return parte
+    return texto.strip(" .;")
 
 
 def objeto_item_cdp(item: Dict[str, str]) -> str:
@@ -658,25 +722,12 @@ def buscar_item_por_habilidade(disciplina: str, habilidade_codigo: str, turma: s
     Busca o item (linha) da planilha que corresponde à habilidade selecionada.
     Retorna o dicionário completo com todos os campos.
     """
-    dados = carregar_planilha_cdp()
-    linhas = dados.get(disciplina, [])
+    linhas = _linhas_cdp_por_disciplina(disciplina)
 
     if not linhas:
         return {}
 
-    # Filtrar por turma e bimestre
-    anos = [normalizar(a) for a in anos_da_turma(turma)]
-    filtradas = [
-        linha for linha in linhas
-        if normalizar(linha.get("ANO", "")) in anos
-           and (not bimestre or normalizar(linha.get("BIMESTRE", "")) == normalizar(bimestre))
-    ]
-
-    if not filtradas:
-        filtradas = [linha for linha in linhas if normalizar(linha.get("ANO", "")) in anos]
-
-    if not filtradas:
-        filtradas = linhas
+    filtradas = _filtrar_linhas_cdp(linhas, turma, bimestre)
 
     # Encontrar a linha com a habilidade correspondente
     for linha in filtradas:
@@ -723,6 +774,9 @@ def selecionar_item(
         componente_cdp: str = "",
 ) -> Dict[str, str]:
     if fundamental:
+        linhas = _filtrar_linhas_cdp(_linhas_cdp_por_disciplina(disciplina), turma, bimestre)
+        if linhas:
+            return _selecionar_por_contador(linhas, contador, aula_inicial)
         dados_fundamental = carregar_habilidades_cdp_fundamental()
         return _selecionar_por_contador(dados_fundamental.get(disciplina, []), contador, aula_inicial)
 
@@ -732,18 +786,8 @@ def selecionar_item(
         linhas = _filtrar_linhas_multisseriadas(linhas, turma, bimestre)
         return _selecionar_por_contador(linhas, contador, aula_inicial)
 
-    dados = carregar_planilha_cdp()
-    linhas = dados.get(disciplina, [])
-    anos = [normalizar(a) for a in anos_da_turma(turma)]
-    filtradas = [
-        linha for linha in linhas
-        if normalizar(linha.get("ANO", "")) in anos
-           and (not bimestre or normalizar(linha.get("BIMESTRE", "")) == normalizar(bimestre))
-    ]
-    if not filtradas:
-        filtradas = [linha for linha in linhas if normalizar(linha.get("ANO", "")) in anos]
-    if not filtradas:
-        filtradas = linhas
+    linhas = _linhas_cdp_por_disciplina(disciplina)
+    filtradas = _filtrar_linhas_cdp(linhas, turma, bimestre)
     if not filtradas:
         return {}
 
@@ -824,6 +868,72 @@ def _metodologia_cdp_por_modelo(disciplina: str, tema: str, objeto: str) -> str:
         "2. Desenvolvimento: apresentar o conteúdo com linguagem simples, exemplos próximos da realidade da turma e registros no quadro.\n\n"
         "3. Atividade: orientar exercícios ou registros no caderno, acompanhando a realização das tarefas e apoiando quem precisar.\n\n"
         "4. Fechamento: realizar correção coletiva e retomar os principais pontos trabalhados."
+    )
+
+
+def _metodologia_cdp_por_modelo(disciplina: str, tema: str, objeto: str) -> str:
+    disciplina_norm = normalizar(disciplina)
+    tema_frase = _titulo_para_frase(tema or objeto or "conteudo proposto")
+
+    if "portugues" in disciplina_norm or "lingua" in disciplina_norm:
+        return (
+            f"1. Abertura (acolhimento e ativacao de saberes previos): iniciar com uma conversa simples e acolhedora sobre o tema {tema_frase}, "
+            "valorizando os conhecimentos de vida dos alunos e registrando no quadro palavras, ideias ou exemplos citados pela turma.\n\n"
+            "2. Desenvolvimento (leitura mediada e exploracao do texto): apresentar leitura em voz alta, pausada e expressiva, explicando vocabulario, "
+            "informacoes principais, sentidos e exemplos do material. Retomar oralmente trechos importantes e fazer perguntas curtas para verificar a compreensao.\n\n"
+            "3. Atividade (pratica orientada e registro): orientar os estudantes na realizacao das atividades de leitura, escrita ou interpretacao no caderno, "
+            "com apoio do professor, retomada coletiva dos comandos e acompanhamento mais proximo de quem apresentar dificuldade.\n\n"
+            "4. Fechamento (socializacao e sintese): corrigir coletivamente as respostas, convidar alguns alunos a compartilharem seus registros e finalizar com uma sintese simples do que foi estudado."
+        )
+
+    if "matematica" in disciplina_norm:
+        return (
+            f"1. Abertura (contextualizacao e conexao com a realidade): iniciar com uma situacao do cotidiano relacionada ao tema {tema_frase}, "
+            "como contagens, medidas, compras, horarios, formas ou organizacao de quantidades, mobilizando exemplos concretos conhecidos pelos alunos.\n\n"
+            "2. Desenvolvimento (exploracao guiada do conteudo): explicar o conteudo no quadro com exemplos simples e resolucao passo a passo, mostrando como "
+            "organizar calculos, desenhos, esquemas, tabelas ou registros necessarios para compreender a proposta.\n\n"
+            "3. Atividade (pratica com mediacao docente): propor exercicios no caderno, permitir que os alunos resolvam com apoio do professor e comparar estrategias "
+            "durante a correcao, retomando oralmente o procedimento quando houver duvidas.\n\n"
+            "4. Fechamento (correcao e sistematizacao): conferir os resultados coletivamente, destacar os passos mais importantes e registrar uma sintese do procedimento principal da aula."
+        )
+
+    if "historia" in disciplina_norm:
+        return (
+            f"1. Abertura (mobilizacao de memorias e experiencias): iniciar com uma pergunta simples sobre o tema {tema_frase}, relacionando o assunto a experiencias, memorias ou situacoes conhecidas pela turma.\n\n"
+            "2. Desenvolvimento (explicacao dialogada): apresentar o conteudo de forma dialogada, destacando acontecimentos, personagens, mudancas, permanencias e relacoes entre passado e presente, com retomadas orais ao longo da exposicao.\n\n"
+            "3. Atividade (registro e compreensao): orientar registros no caderno e questoes de compreensao, acompanhando as respostas e retomando os pontos que gerarem duvida para consolidar a aprendizagem.\n\n"
+            "4. Fechamento (socializacao e organizacao das ideias): fazer correcao coletiva, ouvir algumas respostas da turma e organizar no quadro os pontos principais estudados."
+        )
+
+    if "geografia" in disciplina_norm:
+        return (
+            f"1. Abertura (leitura do espaco vivido): iniciar com conversa sobre lugares, paisagens, moradias, deslocamentos ou situacoes do cotidiano relacionadas ao tema {tema_frase}, valorizando exemplos da comunidade e da realidade dos alunos.\n\n"
+            "2. Desenvolvimento (explicacao com exemplos concretos): apresentar o conteudo com explicacao clara, exemplos proximos da realidade dos alunos e registros no quadro para organizar conceitos, comparacoes e palavras-chave.\n\n"
+            "3. Atividade (observacao e registro): propor observacao, comparacao, identificacao ou registro no caderno, acompanhando a turma durante a realizacao das tarefas e retomando oralmente os comandos principais.\n\n"
+            "4. Fechamento (retomada do conceito central): socializar algumas respostas, corrigir as atividades e retomar o conceito principal da aula com linguagem simples."
+        )
+
+    if "ciencia" in disciplina_norm:
+        return (
+            f"1. Abertura (observacao do cotidiano): iniciar com exemplos do cotidiano relacionados ao tema {tema_frase}, perguntando o que os alunos observam em casa, na escola ou na comunidade e registrando algumas hipoteses no quadro.\n\n"
+            "2. Desenvolvimento (explicacao com exemplos e esquemas): explicar o conteudo com linguagem simples, exemplos concretos, esquemas no quadro e perguntas orais para verificar a compreensao ao longo da exposicao.\n\n"
+            "3. Atividade (identificacao, classificacao e registro): orientar atividades de identificacao, classificacao, registro ou interpretacao, acompanhando os alunos durante a realizacao das questoes e retomando os pontos essenciais quando necessario.\n\n"
+            "4. Fechamento (retomada dos conceitos principais): corrigir coletivamente e retomar os cuidados, conceitos ou informacoes principais da aula com uma sintese final."
+        )
+
+    if "arte" in disciplina_norm:
+        return (
+            f"1. Abertura (sensibilizacao e repertorio): iniciar com conversa sobre manifestacoes artisticas, culturais ou corporais relacionadas ao tema {tema_frase}, valorizando experiencias conhecidas pelos alunos e exemplos presentes no cotidiano.\n\n"
+            "2. Desenvolvimento (apresentacao da proposta): apresentar o conteudo com exemplos simples, explicacao oral, apreciacao guiada e demonstracao da proposta quando necessario.\n\n"
+            "3. Atividade (expressao e acompanhamento): orientar producao, registro, apreciacao ou movimento, acompanhando a participacao da turma e respeitando diferentes formas de expressao durante a realizacao da atividade.\n\n"
+            "4. Fechamento (socializacao e valorizacao): socializar as producoes ou comentarios e retomar as ideias principais da aula, valorizando o processo vivido."
+        )
+
+    return (
+        f"1. Abertura (ativacao dos conhecimentos previos): iniciar com conversa breve sobre o tema {tema_frase}, levantando conhecimentos previos dos alunos e exemplos do cotidiano.\n\n"
+        "2. Desenvolvimento (explicacao orientada): apresentar o conteudo com linguagem simples, exemplos proximos da realidade da turma e registros no quadro para organizar as ideias.\n\n"
+        "3. Atividade (pratica acompanhada): orientar exercicios ou registros no caderno, acompanhando a realizacao das tarefas e apoiando quem precisar.\n\n"
+        "4. Fechamento (retomada e sintese): realizar correcao coletiva e retomar os principais pontos trabalhados."
     )
 
 

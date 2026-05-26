@@ -81,11 +81,22 @@ _TIPOS_MATEMATICA = [
 _TIPOS_EDUCACAO_FINANCEIRA = [
     ("credito_endividamento", ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]),
     ("empreendedorismo", ["empreendedorismo", "empreendedor", "negocio", "empresa", "produto", "servico", "mercado", "lucro", "viabilidade"]),
+    ("analise_percentuais_noticias", ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias", "manchetes", "noticias", "percentual", "porcentagem"]),
+    ("governo_economia", ["papel do governo na economia", "governo na economia", "estado na economia", "politicas publicas", "impostos", "arrecadacao"]),
+    ("impacto_decisoes_economicas", ["impacto das decisoes economicas", "decisoes economicas em nossas vidas", "impacto das escolhas economicas", "escolhas economicas"]),
     ("cidadania_financeira", ["direito do consumidor", "direitos do consumidor", "consumidor", "reclamacao", "garantia", "nota fiscal", "cidadania financeira"]),
     ("instituicoes_financeiras", ["instituicao financeira", "instituicoes financeiras", "banco", "conta digital", "guardar dinheiro", "onde guardamos", "movimentar dinheiro"]),
     ("investimento_poupanca", ["investimento", "poupanca", "rendimento", "juros", "aplicacao", "reserva", "patrimonio", "rentabilidade", "reserva de emergencia"]),
     ("orcamento_planejamento", ["orcamento", "planejamento", "receita", "despesa", "gasto", "renda", "controle", "organizacao financeira"]),
     ("consumo_consciente", ["consumo", "compra", "decisao", "necessidade", "desejo", "prioridade", "escolha", "custo-beneficio", "consumo consciente"]),
+]
+
+_TIPOS_TECNOLOGIA_INOVACAO = [
+    ("programacao_inicial", ["startlab", "bloco diga", "bandeira verde", "blocos de eventos", "aparencia", "algoritmo", "programacao", "mensagens interativas", "criando com teclado"]),
+    ("cultura_digital", ["cultura digital", "interacoes digitais", "forum", "emocoes", "etica", "respeito", "comportamentos respeitosos", "convivencia online"]),
+    ("comunicacao_digital", ["perguntas claras", "duvidas corretamente", "fazer perguntas", "mensagem", "forum", "pedido de ajuda", "comunicacao clara", "perguntas inadequadas"]),
+    ("consumo_tecnologia", ["obsolescencia", "lixo eletronico", "consumo excessivo", "consumo consciente", "descarte", "sustentabilidade", "impactos ambientais"]),
+    ("dispositivos_entrada_saida", ["entrada e saida", "dispositivo de entrada", "dispositivo de saida", "teclado", "mouse", "monitor", "impressora", "microfone", "camera", "projetor", "caixa de som"]),
 ]
 
 _TIPOS_GERAIS = [
@@ -102,6 +113,22 @@ _TIPOS_GERAIS = [
 ]
 
 
+def _detectar_tipo_educacao_financeira_por_tema(tema_base: str) -> str | None:
+    """Prioriza o titulo/tema para evitar contaminacao por texto auxiliar."""
+    mapa_prioritario = [
+        ("instituicoes_financeiras", ["onde guardamos o dinheiro", "guardar dinheiro", "onde guardar o dinheiro", "guardamos o dinheiro"]),
+        ("investimento_poupanca", ["por que poupamos", "porque poupamos", "reserva de emergencia", "poupamos"]),
+        ("orcamento_planejamento", ["objetivos em familia ou em grupo", "objetivos em familia", "objetivos em grupo", "planejamento financeiro"]),
+        ("analise_percentuais_noticias", ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias"]),
+        ("governo_economia", ["papel do governo na economia", "governo na economia"]),
+        ("impacto_decisoes_economicas", ["impacto das decisoes economicas", "decisoes economicas em nossas vidas"]),
+    ]
+    for tipo, termos in mapa_prioritario:
+        if contem_termos(tema_base, termos):
+            return tipo
+    return None
+
+
 def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     """Classifica o tipo de aula a partir do conteudo."""
     base = normalizar_texto(f"{disciplina} {tema} {texto}")
@@ -109,8 +136,14 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     perfil = perfil_disciplina(disciplina)
 
     if perfil == "educacao_financeira":
+        tipo_por_tema = _detectar_tipo_educacao_financeira_por_tema(tema_base)
+        if tipo_por_tema:
+            return tipo_por_tema
         for tipo, termos in _TIPOS_EDUCACAO_FINANCEIRA:
-            if contem_termos(base, termos) or contem_termos(tema_base, termos):
+            if contem_termos(tema_base, termos):
+                return tipo
+        for tipo, termos in _TIPOS_EDUCACAO_FINANCEIRA:
+            if contem_termos(base, termos):
                 return tipo
         return "decisao_financeira"
 
@@ -119,6 +152,12 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
             if contem_termos(base, termos) or contem_termos(tema_base, termos):
                 return tipo
         return "resolucao_problemas"
+
+    if perfil == "tecnologia_inovacao":
+        for tipo, termos in _TIPOS_TECNOLOGIA_INOVACAO:
+            if contem_termos(base, termos) or contem_termos(tema_base, termos):
+                return tipo
+        return "tecnologia_geral"
 
     for tipo, termos in _TIPOS_GERAIS:
         if contem_termos(base, termos):

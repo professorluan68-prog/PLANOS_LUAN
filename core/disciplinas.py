@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 
 
-BIMESTRES = ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"]
+BIMESTRES = ["1Âº Bimestre", "2Âº Bimestre", "3Âº Bimestre", "4Âº Bimestre"]
 MODO_PDF = "pdf"
 MODO_CDP = "cdp"
 MODO_CDP_FUNDAMENTAL = "cdp_fundamental"
@@ -21,28 +21,34 @@ class DisciplinaConfig:
 _DISCIPLINAS = [
     "Arte",
     "Biologia",
-    "Ciências",
-    "Educação Financeira",
-    "Educação Física",
+    "CiÃªncias",
+    "EducaÃ§Ã£o Financeira",
+    "EducaÃ§Ã£o FÃ­sica",
     "Filosofia",
-    "Física",
+    "FÃ­sica",
     "Geografia",
-    "História",
-    "Língua Inglesa",
-    "Língua Portuguesa",
-    "Matemática",
+    "HistÃ³ria",
+    "LideranÃ§a e OratÃ³ria",
+    "LÃ­ngua Inglesa",
+    "LÃ­ngua Portuguesa",
+    "MatemÃ¡tica",
     "CDP-ENSINO FUNDAMENTAL",
+    "CDP-ENSINO MÉDIO",
     "CDP- Multisseriada",
     "Projeto de Vida",
-    "Química",
-    "Redação e Leitura",
+    "QuÃ­mica",
+    "RedaÃ§Ã£o e Leitura",
     "Sociologia",
+    "Tecnologia e Inovação",
     "Outra",
 ]
 
 TURMAS_CDP = [
-    "MULTISSERIADO 1º, 2º e 3º ano",
-    "MULTISSERIADO 4º e 5º ano",
+    "MULTISSERIADO 1Âº, 2Âº e 3Âº ano",
+    "MULTISSERIADO 4Âº e 5Âº ano",
+    "6º/7º E.F",
+    "8º/9º E.F",
+    "1º/2º/3º E.M",
 ]
 TURMAS_CDP_MULTISSERIADA = TURMAS_CDP
 
@@ -73,4 +79,6 @@ def eh_cdp_fundamental(nome: str) -> bool:
 
 
 def eh_cdp_contextual(nome: str) -> bool:
-    return (nome or "").strip().upper().replace(" ", "") == "CDP-ENSINOFUNDAMENTAL"
+    chave = (nome or "").strip().upper().replace(" ", "")
+    return chave in {"CDP-ENSINOFUNDAMENTAL", "CDP-ENSINOMEDIO", "CDP-ENSINOMÉDIO"}
+

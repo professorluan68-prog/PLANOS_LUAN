@@ -28,6 +28,30 @@ def test_educacao_financeira_classifica_tipos_especificos():
         )
         == "investimento_poupanca"
     )
+    assert (
+        _detectar_tipo_aula(
+            "Texto contaminado com produto, servico e viabilidade, mas o tema da aula e sobre noticias e percentuais.",
+            "Percentuais na midia analisando noticias - Parte 1",
+            "Educacao Financeira",
+        )
+        == "analise_percentuais_noticias"
+    )
+    assert (
+        _detectar_tipo_aula(
+            "Texto contaminado com juros, parcelas e custo total.",
+            "Onde guardamos o dinheiro?",
+            "Educacao Financeira",
+        )
+        == "instituicoes_financeiras"
+    )
+    assert (
+        _detectar_tipo_aula(
+            "Texto contaminado com negocio, produto e lucro.",
+            "O papel do governo na economia",
+            "Educacao Financeira",
+        )
+        == "governo_economia"
+    )
 
 
 def test_educacao_financeira_metodologia_usa_regras_da_analise():
@@ -51,6 +75,27 @@ def test_educacao_financeira_metodologia_usa_regras_da_analise():
     assert "REGISTREM" not in texto
 
 
+def test_educacao_financeira_percentuais_nao_vira_empreendedorismo():
+    etapas = _montar_etapas_metodologia(
+        texto=(
+            "Texto antigo contaminado por produto, servico, custos e viabilidade. "
+            "Agora a aula precisa analisar noticias, manchetes e porcentagens com leitura de dados."
+        ),
+        disciplina="Educacao Financeira",
+        turma="8 ano A",
+        tema="Percentuais na midia analisando noticias - Parte 1",
+    )
+
+    titulos = [etapa["titulo"] for etapa in etapas]
+    texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+
+    assert "Calculos financeiros" in titulos
+    assert "noticias" in texto
+    assert "manchetes" in texto or "graficos" in texto
+    assert "projeto empreendedor" not in texto
+    assert "viabilidade" not in texto
+
+
 def test_educacao_financeira_acompanhamento_e_acessibilidade_por_tipo():
     acompanhamento = gerar_acompanhamento_aprimorado(
         tema="Credito e juros",
@@ -65,3 +110,19 @@ def test_educacao_financeira_acompanhamento_e_acessibilidade_por_tipo():
 
     assert any("custo total" in item for item in acompanhamento)
     assert any("valor \u00e0 vista" in item for item in acessibilidade)
+
+
+def test_educacao_financeira_acompanhamento_e_acessibilidade_para_percentuais():
+    acompanhamento = gerar_acompanhamento_aprimorado(
+        tema="Percentuais na midia analisando noticias",
+        disciplina="Educacao Financeira",
+        tipo="analise_percentuais_noticias",
+    )
+    acessibilidade = gerar_acessibilidade_aprimorada(
+        tema="Percentuais na midia analisando noticias",
+        disciplina="Educacao Financeira",
+        tipo="analise_percentuais_noticias",
+    )
+
+    assert any("percentuais" in item.lower() for item in acompanhamento)
+    assert any("noticia" in item.lower() or "grafico" in item.lower() for item in acessibilidade)

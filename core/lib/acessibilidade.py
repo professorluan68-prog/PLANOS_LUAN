@@ -150,9 +150,9 @@ _FALLBACK_POR_PERFIL = {
         "Oferecer mediação individual e correção dialogada, retomando vocabulário financeiro, critérios de escolha e estratégias de resolução conforme as dificuldades observadas.",
     ],
     "tecnologia_inovacao": [
-        "Apresentar o conteúdo com exemplos concretos, linguagem clara e apoio visual para favorecer a compreensão dos conceitos e problemas discutidos.",
-        "Organizar registros guiados, perguntas orientadoras e sínteses parciais para apoiar a participação e a construção das respostas.",
-        "Oferecer acompanhamento individual, retomadas coletivas e flexibilização das formas de registro conforme as necessidades da turma.",
+        "Apresentar exemplos concretos do cotidiano tecnologico da turma, como teclado, mouse, monitor, celular, mensagens, foruns e equipamentos da escola, para facilitar a compreensao do conteudo.",
+        "Demonstrar cada etapa no quadro ou no projetor antes da execucao individual, com retomada oral dos comandos, blocos, regras ou classificacoes necessarios a atividade.",
+        "Permitir registros por palavras-chave, colunas, topicos, desenhos, esquemas, frases curtas, producao em dupla ou resposta oral mediada, conforme a necessidade dos estudantes.",
     ],
     "sociologia": [
         "Apresentar o conteúdo com exemplos concretos, linguagem clara e apoio visual para favorecer a compreensão dos conceitos e problemas discutidos.",
@@ -186,6 +186,21 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
         "Organizar o projeto em etapas curtas: ideia, público, recursos, custos, preço, viabilidade e revisão.",
         "Utilizar quadro ou ficha de planejamento para apoiar a organização das decisões do grupo.",
         "Permitir diferentes formas de participação, como fala, desenho, tópicos, cálculo com apoio ou registro em dupla.",
+    ],
+    "analise_percentuais_noticias": [
+        "Organizar no quadro os dados principais da noticia, destacando valor de referencia, percentual e comparacao antes dos calculos.",
+        "Retomar passo a passo a leitura de tabelas, graficos e manchetes numericas, com exemplos simples antes da atividade individual.",
+        "Permitir registro por etapas, uso de esquemas e apoio individual na interpretacao dos percentuais e de seu significado.",
+    ],
+    "governo_economia": [
+        "Apresentar exemplos concretos de impostos, servicos publicos e regulacao com linguagem acessivel e apoio visual no quadro.",
+        "Registrar palavras-chave e relacoes principais em esquema simples para apoiar a compreensao do papel do governo na economia.",
+        "Realizar leitura mediada dos enunciados e permitir respostas por topicos curtos ou fala orientada quando necessario.",
+    ],
+    "impacto_decisoes_economicas": [
+        "Organizar as situacoes em etapas curtas, destacando recursos disponiveis, alternativas e possiveis consequencias de cada escolha.",
+        "Utilizar exemplos proximos do cotidiano e comparacoes simples para apoiar a analise das decisoes economicas.",
+        "Oferecer apoio individual e flexibilizacao do registro para estudantes com dificuldade na interpretacao dos cenarios apresentados.",
     ],
     "cidadania_financeira": [
         "Utilizar exemplos de comprovantes, garantias, direitos e cuidados de segurança com linguagem acessível.",
@@ -301,6 +316,133 @@ class GeradorAcessibilidade:
 _gerador = GeradorAcessibilidade()
 
 
+def _tem_marcador_visao(base: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:olho|retina|cornea|pupila|cristalino|sistema visual|formacao da imagem|caminho da luz|visao)\b",
+            base,
+            flags=re.I,
+        )
+    )
+
+
+def _acessibilidade_especifica_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    if _tem_marcador_visao(base):
+        return [
+            "Ampliar o esquema anatômico e nomear oralmente cada estrutura antes da atividade individual.",
+            "Disponibilizar banco de palavras com os nomes das estruturas para apoiar a legenda.",
+            "Permitir apoio em dupla para leitura guiada e conferência das identificações.",
+        ]
+    if "texto sintese" in base or "texto-sintese" in base or "sintese individual" in base:
+        return [
+            "Oferecer roteiro com perguntas-chave para organizar a escrita do texto-síntese.",
+            "Destacar palavras-chave no quadro e permitir produção inicial em tópicos antes do texto final.",
+            "Realizar mediação individual para revisão de clareza, sequência de ideias e vocabulário científico.",
+        ]
+    if "tabela" in base:
+        return [
+            "Preencher uma linha da tabela como exemplo antes do trabalho autônomo.",
+            "Organizar pares produtivos para apoiar leitura dos comandos e preenchimento dos campos.",
+            "Permitir consulta constante ao material digital e ao quadro durante a atividade.",
+        ]
+    return []
+
+
+def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    if any(k in base for k in ["trilha", "alice no pais das maravilhas", "pequeno principe", "peter pan", "leitura compartilhada", "predicao guiada"]):
+        return [
+            "Realizar leitura mediada com pausas para explicação de palavras e acontecimentos importantes da narrativa.",
+            "Permitir respostas orais, desenhos, tópicos ou pequenos registros escritos como forma de participação.",
+            "Disponibilizar perguntas orientadoras para auxiliar na compreensão e organização das ideias.",
+        ]
+
+    if any(k in base for k in ["versao final", "redacao paulista", "revisao orientada", "reescrita", "rascunho"]):
+        return [
+            "Disponibilizar checklist simplificado para orientar a revisão do texto.",
+            "Permitir apoio individual durante a leitura, revisão e escrita da versão final.",
+            "Oferecer modelos de organização textual e exemplos de conectivos para auxiliar a produção escrita.",
+        ]
+
+    if "verbo haver" in base or re.search(r"\bhaver\b", base):
+        return [
+            "Oferecer exemplos práticos antes das atividades autônomas.",
+            "Disponibilizar esquemas simples com regras e exemplos do verbo haver.",
+            "Permitir apoio em dupla durante leitura e resolução das questões.",
+        ]
+
+    if "tirinha" in base and any(k in base for k in ["humor", "critica", "conflito", "linguagem mista"]):
+        return [
+            "Disponibilizar perguntas orientadoras para auxiliar na interpretação das tirinhas.",
+            "Permitir respostas orais, desenhos ou registros em tópicos curtos.",
+            "Realizar leitura mediada das imagens e falas para apoiar a compreensão.",
+        ]
+
+    if any(k in base for k in ["figura de linguagem", "figuras de linguagem", "imperativo"]) and any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario"]):
+        return [
+            "Ampliar imagens e destacar visualmente informações importantes dos anúncios.",
+            "Permitir leitura em dupla ou apoio do professor durante as atividades.",
+            "Disponibilizar exemplos resolvidos antes das propostas individuais.",
+        ]
+
+    if any(k in base for k in ["metafora", "metaforas"]) and any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario"]):
+        return [
+            "Disponibilizar palavras-chave e exemplos simples de metáforas.",
+            "Permitir explicações orais mediadas durante as atividades.",
+            "Realizar leitura guiada dos anúncios, destacando elementos importantes.",
+        ]
+
+    if any(k in base for k in ["publicidade", "anuncio", "anuncios", "publicitario", "propaganda", "slogan"]):
+        return [
+            "Disponibilizar perguntas curtas e objetivas para orientar a análise dos anúncios.",
+            "Permitir registros por tópicos, desenhos ou respostas orais.",
+            "Retomar coletivamente conceitos importantes antes das atividades.",
+        ]
+
+    if any(k in base for k in ["carta de reclamacao", "reclamar por escrito", "texto reivindicatorio", "reivindicatorios"]):
+        return [
+            "Realizar leitura mediada da carta de reclamação, destacando finalidade, estrutura e argumentos.",
+            "Disponibilizar roteiro com perguntas curtas para orientar a análise do texto.",
+            "Permitir respostas orais, registros em tópicos ou produção em dupla conforme a necessidade.",
+        ]
+
+    if any(k in base for k in ["conjuncao", "conjuncoes", "locucao conjuntiva", "locucoes conjuntivas"]):
+        return [
+            "Disponibilizar quadro com exemplos de conjunções e relações de sentido.",
+            "Oferecer exemplos comentados antes das atividades autônomas.",
+            "Permitir apoio em dupla durante leitura, identificação e resolução das questões.",
+        ]
+
+    if any(k in base for k in ["texto multissemiotico", "linguagem verbal", "linguagem nao verbal"]):
+        return [
+            "Realizar leitura guiada das imagens, falas e demais elementos visuais do texto.",
+            "Disponibilizar perguntas orientadoras para apoiar a relação entre linguagem verbal e não verbal.",
+            "Permitir registros por tópicos, desenhos, setas ou respostas orais mediadas.",
+        ]
+
+    return [
+        "Disponibilizar perguntas orientadoras para apoiar a leitura, a interpretação e a organização das respostas.",
+        "Permitir registros por tópicos, frases curtas, desenho, esquema ou resposta oral mediada.",
+        "Realizar retomadas coletivas dos comandos e dos conceitos importantes antes das atividades.",
+    ]
+
+
+def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
+    saida = []
+    for texto in itens or []:
+        txt = re.sub(r"\s+", " ", str(texto or "")).strip()
+        if not txt:
+            continue
+        if len(txt) > 220:
+            txt = txt[:217].rstrip(" ,;:-") + "."
+        saida.append(txt)
+        if len(saida) >= maximo:
+            break
+    return saida[:maximo] if len(saida) >= minimo else saida
+
+
 def gerar_acessibilidade_aprimorada(
     tema: str,
     aprendizagem: str = "",
@@ -323,7 +465,18 @@ def gerar_acessibilidade_aprimorada(
     if not tipo:
         tipo = detectar_tipo_aula(desenvolvimento, tema, disciplina)
 
-    return _gerador.gerar(
+    especifico = _acessibilidade_especifica_por_aula(tema, aprendizagem, desenvolvimento)
+    if especifico:
+        return _limitar_itens(especifico, minimo=2, maximo=3)
+
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return _limitar_itens(
+            _acessibilidade_lingua_portuguesa(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    return _limitar_itens(_gerador.gerar(
         perfil=perfil,
         tipo=tipo,
         tema=tema,
@@ -332,4 +485,4 @@ def gerar_acessibilidade_aprimorada(
         aprendizagem=aprendizagem,
         desenvolvimento=desenvolvimento,
         disciplina=disciplina,
-    )
+    ), minimo=2, maximo=3)

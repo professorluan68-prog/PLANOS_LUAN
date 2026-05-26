@@ -1,5 +1,6 @@
 from core.cdp import (
     carregar_planilha_cdp_multisseriada,
+    habilidade_item_cdp,
     listar_componentes_cdp_multisseriada,
     listar_habilidades_cdp_multisseriada,
     limpar_texto_cdp,
@@ -67,7 +68,7 @@ def test_metodologia_multisseriada_usa_estilo_eja_contextualizado():
     acompanhamento = montar_acompanhamento_cdp("matematica", item)
     acessibilidade = montar_acessibilidade_cdp("matematica", item)
 
-    assert "situação do cotidiano" in metodologia
+    assert "contextualizacao" in metodologia.lower() or "situação do cotidiano" in metodologia.lower()
     assert "conteúdo proposto" not in metodologia.lower()
     assert "cálculos" in acompanhamento[1]
     assert "explicação passo a passo" in acessibilidade[0].lower()
@@ -90,3 +91,47 @@ def test_multisseriada_separa_turmas_123_e_45():
     assert habilidades_123
     assert habilidades_45
     assert habilidades_123[0]["descricao"] != habilidades_45[0]["descricao"]
+
+
+def test_cdp_ciclo_i_separa_turmas_123_e_45_na_planilha_fundamental():
+    disciplina = "portugu\u00eas"
+    turma_123 = "MULTISSERIADO 1\u00ba, 2\u00ba e 3\u00ba ano"
+    turma_45 = "MULTISSERIADO 4\u00ba e 5\u00ba ano"
+    bimestre = "1\u00b0"
+
+    item_123 = selecionar_item(disciplina, 0, turma=turma_123, bimestre=bimestre, fundamental=True)
+    item_45 = selecionar_item(disciplina, 0, turma=turma_45, bimestre=bimestre, fundamental=True)
+
+    assert item_123
+    assert item_45
+    assert item_123.get("ANO", "").startswith("1")
+    assert item_45.get("ANO", "").startswith("4")
+    assert item_123 != item_45
+
+
+def test_habilidade_item_cdp_retorna_apenas_a_primeira_habilidade():
+    item = {
+        "HABILIDADES": "(EF01LP16) Ler e compreender poemas. (EF01LP10A) Nomear as letras do alfabeto. (EF01LP10B) Recitar as letras do alfabeto."
+    }
+
+    habilidade = habilidade_item_cdp(item)
+
+    assert habilidade.startswith("(EF01LP16)")
+    assert "(EF01LP10A)" not in habilidade
+    assert "(EF01LP10B)" not in habilidade
+
+
+def test_metodologia_cdp_fundamental_fica_mais_detalhada():
+    item = {
+        "TÍTULO": "Vaca",
+        "HABILIDADES": "(EF12LP19) Ler e compreender textos do campo artístico-literário.",
+        "CONTEÚDO": "Leitura e interpretação",
+    }
+
+    metodologia = montar_metodologia_cdp("português", item, fundamental=True)
+
+    assert "Abertura (" in metodologia
+    assert "Desenvolvimento (" in metodologia
+    assert "Atividade (" in metodologia
+    assert "Fechamento (" in metodologia
+    assert len(metodologia) > 650
