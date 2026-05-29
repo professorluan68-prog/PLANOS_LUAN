@@ -1,7 +1,7 @@
 ﻿from dataclasses import dataclass
 
 
-BIMESTRES = ["1Âº Bimestre", "2Âº Bimestre", "3Âº Bimestre", "4Âº Bimestre"]
+BIMESTRES = ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"]
 MODO_PDF = "pdf"
 MODO_CDP = "cdp"
 MODO_CDP_FUNDAMENTAL = "cdp_fundamental"
@@ -21,31 +21,32 @@ class DisciplinaConfig:
 _DISCIPLINAS = [
     "Arte",
     "Biologia",
-    "CiÃªncias",
-    "EducaÃ§Ã£o Financeira",
-    "EducaÃ§Ã£o FÃ­sica",
+    "Ciências",
+    "Educação Financeira",
+    "Educação Física",
     "Filosofia",
-    "FÃ­sica",
+    "Física",
     "Geografia",
-    "HistÃ³ria",
-    "LideranÃ§a e OratÃ³ria",
-    "LÃ­ngua Inglesa",
-    "LÃ­ngua Portuguesa",
-    "MatemÃ¡tica",
+    "História",
+    "Liderança e Oratória",
+    "Língua Inglesa",
+    "Língua Portuguesa",
+    "Matemática",
+    "Orientação de Estudos",
     "CDP-ENSINO FUNDAMENTAL",
     "CDP-ENSINO MÉDIO",
     "CDP- Multisseriada",
     "Projeto de Vida",
-    "QuÃ­mica",
-    "RedaÃ§Ã£o e Leitura",
+    "Química",
+    "Redação e Leitura",
     "Sociologia",
     "Tecnologia e Inovação",
     "Outra",
 ]
 
 TURMAS_CDP = [
-    "MULTISSERIADO 1Âº, 2Âº e 3Âº ano",
-    "MULTISSERIADO 4Âº e 5Âº ano",
+    "MULTISSERIADO 1º, 2º e 3º ano",
+    "MULTISSERIADO 4º e 5º ano",
     "6º/7º E.F",
     "8º/9º E.F",
     "1º/2º/3º E.M",

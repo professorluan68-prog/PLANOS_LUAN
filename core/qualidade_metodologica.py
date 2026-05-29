@@ -11,16 +11,106 @@ def normalizar_texto(texto: str) -> str:
     return re.sub(r"\s+", " ", texto).strip().lower()
 
 
+_PADROES_MOJIBAKE = ("Ã", "Â", "â€", "â€“", "â€”", "�")
+_CORRECOES_PONTUAIS_MOJIBAKE = {
+    "an?lise": "análise",
+    "discuss?o": "discussão",
+    "situa??es": "situações",
+    "aplica??o": "aplicação",
+    "pr?tica": "prática",
+    "tecnol?gica": "tecnológica",
+}
+_FINAIS_CONECTIVOS = {
+    "a",
+    "as",
+    "o",
+    "os",
+    "de",
+    "da",
+    "das",
+    "do",
+    "dos",
+    "para",
+    "com",
+    "e",
+    "em",
+    "por",
+}
+
+
+def tem_mojibake(texto: str) -> bool:
+    texto = str(texto or "")
+    return any(padrao in texto for padrao in _PADROES_MOJIBAKE) or any(
+        padrao in texto for padrao in _CORRECOES_PONTUAIS_MOJIBAKE
+    )
+
+
+def corrigir_mojibake(texto: str) -> str:
+    texto_original = str(texto or "")
+    if not texto_original:
+        return ""
+
+    candidatos = [texto_original]
+    if any(padrao in texto_original for padrao in _PADROES_MOJIBAKE):
+        for codec in ("latin1", "cp1252"):
+            try:
+                candidatos.append(texto_original.encode(codec).decode("utf-8"))
+            except Exception:
+                continue
+
+    def pontuar(valor: str) -> tuple[int, int]:
+        score = sum(valor.count(padrao) for padrao in _PADROES_MOJIBAKE)
+        score += sum(valor.count(padrao) for padrao in _CORRECOES_PONTUAIS_MOJIBAKE)
+        return score, len(valor)
+
+    melhor = min(candidatos, key=pontuar)
+    for errado, certo in _CORRECOES_PONTUAIS_MOJIBAKE.items():
+        melhor = melhor.replace(errado, certo)
+    return melhor
+
+
+def limitar_texto_natural(texto: str, limite: int = 220) -> str:
+    texto = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
+    if len(texto) <= limite:
+        return texto
+
+    sentencas = re.split(r"(?<=[.!?])\s+", texto)
+    acumulado = ""
+    for sentenca in sentencas:
+        candidato = f"{acumulado} {sentenca}".strip()
+        if len(candidato) <= limite:
+            acumulado = candidato
+        else:
+            break
+
+    if acumulado:
+        texto = acumulado
+    else:
+        texto = texto[:limite].rsplit(" ", 1)[0].rstrip(" ,;:-") + "."
+
+    palavras = normalizar_texto(texto).split()
+    if palavras and palavras[-1] in _FINAIS_CONECTIVOS:
+        base = texto.rsplit(" ", 1)[0].rstrip(" ,;:-")
+        if base:
+            texto = base + "."
+    return texto
+
+
 def extrair_conceito_central(titulo: str) -> str:
     """Remove rotulos administrativos para deixar apenas o foco pedagogico."""
-    texto = re.sub(r"\s+", " ", str(titulo or "")).strip(" -:.;")
+    texto = corrigir_mojibake(re.sub(r"\s+", " ", str(titulo or "")).strip(" -:.;"))
     if not texto:
         return ""
 
-    texto = re.sub(r"^(?:aula|slide|pagina|página)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:–—]?\s*", "", texto, flags=re.I)
+    texto = re.sub(
+        r"^(?:aula|slide|p[aá]gina|p?gina)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:–—]?\s*",
+        "",
+        texto,
+        flags=re.I,
+    )
     texto = re.sub(r"\s*[-:–—]?\s*parte\s+\d+\s*$", "", texto, flags=re.I)
     texto = re.sub(r"\s+(?:[1-4][º°oaª]?)\s*bimestre\b.*$", "", texto, flags=re.I)
-    texto = re.sub(r"\s+ensino\s+(?:fundamental|medio|médio)\b.*$", "", texto, flags=re.I)
+    texto = re.sub(r"\s+ensino\s+(?:fundamental|medio|m[eé]dio)\b.*$", "", texto, flags=re.I)
     return texto.strip(" -:.;")
 
 
@@ -156,53 +246,12 @@ def sanitizar_texto_metodologico(
     tema: str = "",
     contexto: str = "regular",
 ) -> str:
-    texto_final = re.sub(r"\s+", " ", str(texto or "")).strip()
+    texto_final = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
     if not texto_final:
         return ""
 
     texto_final = re.sub(
-        r"^(?:aula|slide|pagina|p?gina)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:??]?\s*",
-        "",
-        texto_final,
-        flags=re.I,
-    ).strip()
-    texto_final = _substituir_frases_problematicas(texto_final, tema)
-
-    if contexto == "cdp_eja" and any(recurso in normalizar_texto(texto_final) for recurso in RECURSOS_TECNOLOGICOS_CDP):
-        texto_final = re.sub(
-            r"\b(?:computador|celular|internet|aplicativo|plataforma digital|link|site|video online)\b",
-            "material impresso, quadro e registro no caderno",
-            texto_final,
-            flags=re.I,
-        )
-
-    if perfil == "projeto_de_vida":
-        texto_norm = normalizar_texto(texto_final)
-        if "exposicao pessoal obrigatoria" in texto_norm:
-            texto_final = re.sub(
-                r"exposi[c?][a?]o pessoal obrigat[o?]ria",
-                "socializacao voluntaria e mediada",
-                texto_final,
-                flags=re.I,
-            )
-        texto_final = re.sub(
-            r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?(?:Virem e conversem|Todo mundo escreve|Com suas palavras|Hora da leitura|De olho no modelo|Pause e responda|Um passo de cada vez)["\']?(?:\s+para)?',
-            "",
-            texto_final,
-            flags=re.I,
-        )
-        texto_final = re.sub(
-            r"\b(?:VIREM E CONVERSEM|TODO MUNDO ESCREVE|COM SUAS PALAVRAS|HORA DA LEITURA|DE OLHO NO MODELO|PAUSE E RESPONDA|UM PASSO DE CADA VEZ)\b",
-            "",
-            texto_final,
-            flags=re.I,
-        )
-        texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
-
-    return texto_final
-
-    texto_final = re.sub(
-        r"^(?:aula|slide|pagina|página)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:–—]?\s*",
+        r"^(?:aula|slide|p[aá]gina|p?gina)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:–—]?\s*",
         "",
         texto_final,
         flags=re.I,
@@ -226,6 +275,19 @@ def sanitizar_texto_metodologico(
                 texto_final,
                 flags=re.I,
             )
+        texto_final = re.sub(
+            r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?(?:Virem e conversem|Todo mundo escreve|Com suas palavras|Hora da leitura|De olho no modelo|Pause e responda|Um passo de cada vez)["\']?(?:\s+para)?',
+            "",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:VIREM E CONVERSEM|TODO MUNDO ESCREVE|COM SUAS PALAVRAS|HORA DA LEITURA|DE OLHO NO MODELO|PAUSE E RESPONDA|UM PASSO DE CADA VEZ)\b",
+            "",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
 
     return texto_final
 

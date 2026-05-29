@@ -9,6 +9,7 @@ específicas de um catálogo organizado.
 import re
 from core.lib.classificador import normalizar_texto, contem_termos, detectar_recursos
 from core.lib.progressao import _indice_hash
+from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 
 
 # ── Catálogo de estratégias por tipo de recurso/atividade ──────────────────
@@ -235,8 +236,8 @@ class GeradorAcessibilidade:
         Se recursos_detectados estiver disponível, seleciona estratégias
         específicas do catálogo. Caso contrário, usa fallback por perfil.
         """
-        # Se não detectou recursos, tenta detectar pelo texto
-        if not recursos_detectados and desenvolvimento:
+        # Só tenta detectar pelo texto gerado quando nenhum recurso veio do PDF.
+        if recursos_detectados is None and desenvolvimento:
             recursos_detectados = detectar_recursos(desenvolvimento, tema)
 
         if perfil == "educacao_financeira" and tipo in _ACESSIBILIDADE_FINANCEIRA_POR_TIPO:
@@ -326,8 +327,14 @@ def _tem_marcador_visao(base: str) -> bool:
     )
 
 
-def _acessibilidade_especifica_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+def _acessibilidade_especifica_por_aula(
+    tema: str,
+    aprendizagem: str,
+    desenvolvimento: str,
+    recursos_detectados: list[str] | None = None,
+) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    recursos = {normalizar_texto(item) for item in (recursos_detectados or [])}
     if _tem_marcador_visao(base):
         return [
             "Ampliar o esquema anatômico e nomear oralmente cada estrutura antes da atividade individual.",
@@ -340,7 +347,7 @@ def _acessibilidade_especifica_por_aula(tema: str, aprendizagem: str, desenvolvi
             "Destacar palavras-chave no quadro e permitir produção inicial em tópicos antes do texto final.",
             "Realizar mediação individual para revisão de clareza, sequência de ideias e vocabulário científico.",
         ]
-    if "tabela" in base:
+    if "tabela" in base and not recursos:
         return [
             "Preencher uma linha da tabela como exemplo antes do trabalho autônomo.",
             "Organizar pares produtivos para apoiar leitura dos comandos e preenchimento dos campos.",
@@ -359,7 +366,7 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Disponibilizar perguntas orientadoras para auxiliar na compreensão e organização das ideias.",
         ]
 
-    if any(k in base for k in ["versao final", "redacao paulista", "revisao orientada", "reescrita", "rascunho"]):
+    if any(k in base for k in ["versao final", "redacao paulista", "revisao orientada", "revis", "reescrita", "rascunho", "producao textual", "producao de textos"]):
         return [
             "Disponibilizar checklist simplificado para orientar a revisão do texto.",
             "Permitir apoio individual durante a leitura, revisão e escrita da versão final.",
@@ -432,11 +439,11 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
 def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
     saida = []
     for texto in itens or []:
-        txt = re.sub(r"\s+", " ", str(texto or "")).strip()
+        txt = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
         if not txt:
             continue
         if len(txt) > 220:
-            txt = txt[:217].rstrip(" ,;:-") + "."
+            txt = limitar_texto_natural(txt, 220)
         saida.append(txt)
         if len(saida) >= maximo:
             break
@@ -465,7 +472,12 @@ def gerar_acessibilidade_aprimorada(
     if not tipo:
         tipo = detectar_tipo_aula(desenvolvimento, tema, disciplina)
 
-    especifico = _acessibilidade_especifica_por_aula(tema, aprendizagem, desenvolvimento)
+    especifico = _acessibilidade_especifica_por_aula(
+        tema,
+        aprendizagem,
+        desenvolvimento,
+        recursos_detectados=recursos_detectados,
+    )
     if especifico:
         return _limitar_itens(especifico, minimo=2, maximo=3)
 

@@ -24,45 +24,57 @@ def contem_termos(base: str, termos: list[str] | tuple[str, ...]) -> bool:
     return any(normalizar_texto(termo) in base_normalizada for termo in termos)
 
 
+def contem_termo_exato(base: str, termos: list[str] | tuple[str, ...]) -> bool:
+    """Verifica correspondencia por palavra ou expressao inteira."""
+    base_normalizada = normalizar_texto(base)
+    for termo in termos:
+        termo_normalizado = normalizar_texto(termo)
+        if not termo_normalizado:
+            continue
+        if re.search(rf"(?<!\w){re.escape(termo_normalizado)}(?!\w)", base_normalizada):
+            return True
+    return False
+
+
 def perfil_disciplina(disciplina: str) -> str:
     """Retorna o perfil pedagogico da disciplina."""
     base = normalizar_texto(disciplina)
 
-    if contem_termos(base, ["orientacao de estudos", "orientacao estudos", "orienestudos", "orient"]):
+    if contem_termo_exato(base, ["orientacao de estudos", "orientacao estudos", "orienestudos"]):
         return "orientacao_estudos"
-    if contem_termos(base, ["redacao e leitura", "leitura e redacao", "redacao", "leitura"]):
+    if contem_termo_exato(base, ["redacao e leitura", "leitura e redacao"]):
         return "leitura_redacao"
-    if contem_termos(base, ["lingua portuguesa", "portugues"]):
-        if contem_termos(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]):
+    if contem_termo_exato(base, ["lingua portuguesa", "portugues"]):
+        if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]):
             return "lingua_portuguesa_em"
         return "lingua_portuguesa_ef"
-    if contem_termos(base, ["ciencias", "cienc"]):
+    if contem_termo_exato(base, ["ciencias"]):
         return "ciencias_ef"
-    if contem_termos(base, ["biologia", "biolog"]):
+    if contem_termo_exato(base, ["biologia"]):
         return "biologia"
-    if contem_termos(base, ["quimica", "quim"]):
+    if contem_termo_exato(base, ["quimica"]):
         return "quimica"
-    if contem_termos(base, ["fisica", "fis"]):
+    if contem_termo_exato(base, ["fisica"]):
         return "fisica"
-    if contem_termos(base, ["historia", "histor"]):
+    if contem_termo_exato(base, ["historia"]):
         return "historia"
-    if contem_termos(base, ["geografia", "geograf"]):
+    if contem_termo_exato(base, ["geografia"]):
         return "geografia"
-    if contem_termos(base, ["ingles", "lingua inglesa", "ingl"]):
+    if contem_termo_exato(base, ["ingles", "lingua inglesa"]):
         return "ingles"
-    if contem_termos(base, ["arte"]):
+    if contem_termo_exato(base, ["arte"]):
         return "arte"
-    if contem_termos(base, ["projeto de vida", "projeto"]):
+    if contem_termo_exato(base, ["projeto de vida"]):
         return "projeto_de_vida"
-    if contem_termos(base, ["educacao financeira", "financeir"]):
+    if contem_termo_exato(base, ["educacao financeira"]):
         return "educacao_financeira"
-    if contem_termos(base, ["matematica", "matem"]):
+    if contem_termo_exato(base, ["matematica"]):
         return "matematica"
-    if contem_termos(base, ["tecnologia", "inovacao", "tecnolog"]):
+    if contem_termo_exato(base, ["tecnologia e inovacao", "tecnologia", "inovacao"]):
         return "tecnologia_inovacao"
-    if contem_termos(base, ["sociologia", "sociolog"]):
+    if contem_termo_exato(base, ["sociologia"]):
         return "sociologia"
-    if contem_termos(base, ["lideranca", "oratoria", "lideranc", "orator"]):
+    if contem_termo_exato(base, ["lideranca e oratoria", "lideranca", "oratoria"]):
         return "lideranca_oratoria"
     return "geral"
 
@@ -112,6 +124,58 @@ _TIPOS_GERAIS = [
     ("leitura", ["leitura", "leia", "texto", "interpreta", "genero textual", "conto", "cronica", "anuncio", "publicidade", "publicitario", "slogan", "observe"]),
 ]
 
+_MARCADORES_RECURSOS_PRIORITARIOS = {
+    "analise_grafico": [
+        "analise o grafico",
+        "observe o grafico",
+        "leia o grafico",
+        "com base no grafico",
+        "analise a tabela",
+        "observe a tabela",
+        "preencha a tabela",
+        "complete a tabela",
+        "com base na tabela",
+    ],
+    "analise_geografica": [
+        "observe o mapa",
+        "analise o mapa",
+        "com base no mapa",
+        "leia o mapa",
+        "localize no mapa",
+    ],
+    "analise_imagem": [
+        "observe a imagem",
+        "analise a imagem",
+        "leitura da imagem",
+        "observe a charge",
+        "analise a charge",
+    ],
+    "producao_textual": [
+        "produza um texto",
+        "escreva um texto",
+        "produza uma resenha",
+        "produza uma cronica",
+        "produza uma carta",
+        "rascunho",
+        "revisao",
+        "reescrita",
+    ],
+    "calculo_resolucao": [
+        "resolva os calculos",
+        "resolva as questoes",
+        "calcule",
+        "efetue",
+        "determine o valor",
+    ],
+    "experimentacao": [
+        "realize o experimento",
+        "observe o experimento",
+        "hipotese",
+        "procedimento",
+        "conclusao do experimento",
+    ],
+}
+
 
 def _detectar_tipo_educacao_financeira_por_tema(tema_base: str) -> str | None:
     """Prioriza o titulo/tema para evitar contaminacao por texto auxiliar."""
@@ -129,6 +193,21 @@ def _detectar_tipo_educacao_financeira_por_tema(tema_base: str) -> str | None:
     return None
 
 
+def _detectar_tipo_por_catalogo(
+    tema_base: str,
+    texto_base: str,
+    catalogo: list[tuple[str, list[str]]],
+    default: str,
+) -> str:
+    for tipo, termos in catalogo:
+        if contem_termo_exato(tema_base, termos) or contem_termos(tema_base, termos):
+            return tipo
+    for tipo, termos in catalogo:
+        if contem_termo_exato(texto_base, termos) or contem_termos(texto_base, termos):
+            return tipo
+    return default
+
+
 def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     """Classifica o tipo de aula a partir do conteudo."""
     base = normalizar_texto(f"{disciplina} {tema} {texto}")
@@ -139,28 +218,19 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         tipo_por_tema = _detectar_tipo_educacao_financeira_por_tema(tema_base)
         if tipo_por_tema:
             return tipo_por_tema
-        for tipo, termos in _TIPOS_EDUCACAO_FINANCEIRA:
-            if contem_termos(tema_base, termos):
-                return tipo
-        for tipo, termos in _TIPOS_EDUCACAO_FINANCEIRA:
-            if contem_termos(base, termos):
-                return tipo
-        return "decisao_financeira"
+        return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_EDUCACAO_FINANCEIRA, "decisao_financeira")
 
     if perfil == "matematica":
-        for tipo, termos in _TIPOS_MATEMATICA:
-            if contem_termos(base, termos) or contem_termos(tema_base, termos):
-                return tipo
-        return "resolucao_problemas"
+        return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_MATEMATICA, "resolucao_problemas")
 
     if perfil == "tecnologia_inovacao":
-        for tipo, termos in _TIPOS_TECNOLOGIA_INOVACAO:
-            if contem_termos(base, termos) or contem_termos(tema_base, termos):
-                return tipo
-        return "tecnologia_geral"
+        return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_TECNOLOGIA_INOVACAO, "tecnologia_geral")
 
     for tipo, termos in _TIPOS_GERAIS:
-        if contem_termos(base, termos):
+        if contem_termo_exato(tema_base, termos) or contem_termos(tema_base, termos):
+            return tipo
+    for tipo, termos in _TIPOS_GERAIS:
+        if contem_termo_exato(base, termos) or contem_termos(base, termos):
             return tipo
 
     return "geral"
@@ -183,7 +253,14 @@ def detectar_recursos(texto: str, tema: str = "") -> list[str]:
     base = normalizar_texto(f"{tema} {texto}")
     recursos = [
         recurso
+        for recurso, marcadores in _MARCADORES_RECURSOS_PRIORITARIOS.items()
+        if any(marcador in base for marcador in marcadores)
+    ]
+    if recursos:
+        return recursos
+    recursos = [
+        recurso
         for recurso, termos in _RECURSOS_DETECTAVEIS.items()
-        if contem_termos(base, termos)
+        if contem_termo_exato(base, termos) or contem_termos(base, termos)
     ]
     return recursos or ["leitura_texto"]

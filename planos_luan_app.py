@@ -22,6 +22,15 @@ from core.disciplinas import (
 )
 from core.cdp import SEQUENCIA_PADRAO_CDP_MULTISSERIADA
 from core.cdp_em_docx import reescrever_docx_cdp_contextual_matematica
+from core.calendario import (
+    datas_do_periodo as _datas_do_periodo,
+    datas_feriado_padrao as _datas_feriado_padrao,
+    datas_sem_aula_padrao as _datas_sem_aula_padrao,
+    datas_por_dia_ate_limite as _datas_por_dia_ate_limite,
+    fim_periodo_mes_com_extensao as _fim_periodo_mes_com_extensao,
+    filtrar_datas_sem_aula as _filtrar_datas_sem_aula,
+    rotulo_data_sem_aula as _rotulo_data_sem_aula,
+)
 from core.lote import processar_varios_pdfs
 from core.validador_plano import validar_aulas_geradas
 from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR
@@ -121,6 +130,9 @@ CAMPOS_TELA = {
     "mes_select",
     "aulas_previstas_manual",
     "aulas_previstas_manual_select",
+    "extensao_mes",
+    "datas_sem_aula",
+    "datas_sem_aula_assinatura",
     "escola",
     "componente_curricular",
     "last_componente_curricular",
@@ -152,9 +164,11 @@ PREFIXOS_TELA = (
     "data_aula_",
     "horario_aula_",
     "tipo_horario_aula_",
+    "dividir_pdf_aula_",
     "data_turma2_aula_",
     "horario_turma2_aula_",
     "tipo_horario_turma2_aula_",
+    "dividir_pdf_turma2_aula_",
     "cadastro_grade_",
     "ajuste_grade_",
 )
@@ -264,6 +278,22 @@ MESES = [
 ]
 
 AULAS_SEMANA_OPCOES = ["(selecione)"] + [str(i) for i in range(1, 26)]
+EXTENSAO_MES_OPCOES = [
+    "Somente o mês",
+    "Completar a última semana",
+    "Completar a última semana + 1 semana",
+    "Completar a última semana + 2 semanas",
+]
+
+
+def _valor_extensao_mes(rotulo: str) -> int:
+    mapa = {
+        EXTENSAO_MES_OPCOES[0]: 0,
+        EXTENSAO_MES_OPCOES[1]: 1,
+        EXTENSAO_MES_OPCOES[2]: 2,
+        EXTENSAO_MES_OPCOES[3]: 3,
+    }
+    return mapa.get(rotulo, 0)
 
 TURMAS_PADRAO = ["(selecione a turma)"]
 TURMAS_PADRAO += [f"{ano}º ANO {letra}" for ano in range(1, 10) for letra in ["A", "B", "C", "D", "E", "F"]]
@@ -1443,16 +1473,17 @@ def _dia_semana_numero(texto: str):
     return dias.get(_normalizar_texto_simples(texto).replace("-", " "))
 
 
-def _datas_do_mes_por_dia(mes: str, dia_semana: int, ano: int | None = None) -> list[date]:
+def _datas_do_mes_por_dia(
+    mes: str,
+    dia_semana: int,
+    ano: int | None = None,
+    extensao: int = 0,
+) -> list[date]:
     ano = ano or date.today().year
     mes_num = _mes_numero_app(mes)
-    atual = date(ano, mes_num, 1)
-    datas = []
-    while atual.month == mes_num:
-        if atual.weekday() == dia_semana:
-            datas.append(atual)
-        atual += timedelta(days=1)
-    return datas
+    inicio = date(ano, mes_num, 1)
+    fim = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
+    return _datas_por_dia_ate_limite(inicio, fim, dia_semana)
 
 
 def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
@@ -1519,7 +1550,7 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
     return padroes
 
 
-def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "") -> list[dict]:
+def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: int = 0) -> list[dict]:
     if not config or not mes:
         return []
     if config.get("repetir_modelo_semanal"):
@@ -1541,18 +1572,19 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "") -> list[dict
         ano = date.today().year
         mes_num = _mes_numero_app(mes)
         inicio_mes = date(ano, mes_num, 1)
+        fim_periodo = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
         while inicio_mes.weekday() != primeira_data.weekday():
             inicio_mes += timedelta(days=1)
 
         itens = []
         inicio_bloco = inicio_mes
-        while inicio_bloco.month == mes_num:
+        while inicio_bloco <= fim_periodo:
             for item in primeira_semana:
                 data_base = item.get("data")
                 if not hasattr(data_base, "__sub__"):
                     continue
                 nova_data = inicio_bloco + (data_base - inicio_semana_base)
-                if nova_data.month != mes_num:
+                if nova_data < date(ano, mes_num, 1) or nova_data > fim_periodo:
                     continue
                 itens.append(
                     {
@@ -1566,14 +1598,25 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "") -> list[dict
 
     itens = []
     for padrao in _padroes_horario_config(config, turma):
-        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"]):
+        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"], extensao=extensao):
             itens.append({"data": data_aula, "horario": padrao["horario"]})
     return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
 
 
-def _sincronizar_datas_horarios_mes(config: dict, mes: str, professor: str, disciplina: str, turma: str) -> list[dict]:
-    itens = _datas_horarios_do_mes(config, mes, turma)
+def _sincronizar_datas_horarios_mes(
+    config: dict,
+    mes: str,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    extensao: int = 0,
+    datas_sem_aula: list[date] | set[date] | None = None,
+) -> list[dict]:
+    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
     if not itens:
+        for idx in range(40):
+            for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
+                st.session_state.pop(f"{prefixo}{idx}", None)
         return []
 
     def _serializar_horario(item: dict) -> str:
@@ -1588,7 +1631,8 @@ def _sincronizar_datas_horarios_mes(config: dict, mes: str, professor: str, disc
         for item in itens
     )
     cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
-    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{cadastro}|{agenda}"
+    datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
+    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
     if st.session_state.get("agenda_mes_assinatura") == assinatura:
         return itens
 
@@ -1749,6 +1793,90 @@ def validar_aulas_secundarias(gerar_turma_espelho: bool, turma_espelho: str, aul
     return ""
 
 
+def _grupos_pdf_por_aula(aulas_envio: list[dict]) -> list[dict]:
+    grupos = []
+    idx = 0
+    while idx < len(aulas_envio):
+        aula = aulas_envio[idx]
+        dividir = bool(aula.get("dividir_pdf"))
+        if dividir and idx + 1 < len(aulas_envio):
+            grupos.append({"indices": [idx, idx + 1], "dividir": True})
+            idx += 2
+            continue
+        grupos.append({"indices": [idx], "dividir": False})
+        idx += 1
+    return grupos
+
+
+def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files) -> tuple[list[dict], int]:
+    grupos = _grupos_pdf_por_aula(aulas_envio)
+    for grupo_idx, grupo in enumerate(grupos):
+        pdf = pdfs_aulas_files[grupo_idx] if grupo_idx < len(pdfs_aulas_files) else None
+        for indice in grupo["indices"]:
+            aulas_envio[indice]["pdf"] = pdf
+            aulas_envio[indice]["grupo_pdf"] = grupo_idx
+            aulas_envio[indice]["dividir_pdf"] = grupo["dividir"]
+    return aulas_envio, len(grupos)
+
+
+def _status_visual_aula(
+    idx: int,
+    num_rows: int,
+    bloqueado: bool,
+    continuidade_anterior: bool,
+    dividir_pdf_ativo: bool,
+) -> tuple[str, str, str, list[str]]:
+    badges = []
+    if continuidade_anterior:
+        badges.extend(
+            [
+                '<span class="lesson-badge lesson-badge--info">2o momento</span>',
+                '<span class="lesson-badge lesson-badge--soft">PDF compartilhado</span>',
+            ]
+        )
+        return (
+            "lesson-card lesson-card--continuation",
+            "Continuacao da aula anterior",
+            "Esta linha recebe a segunda parte da metodologia e usa o mesmo material da aula anterior.",
+            badges,
+        )
+    if dividir_pdf_ativo:
+        badges.extend(
+            [
+                '<span class="lesson-badge lesson-badge--success">PDF em 2 aulas</span>',
+                '<span class="lesson-badge lesson-badge--soft">1o momento</span>',
+            ]
+        )
+        return (
+            "lesson-card lesson-card--paired",
+            "Material compartilhado com a proxima aula",
+            "Esta aula inicia o par e reaproveita o mesmo PDF na proxima linha com dois momentos separados.",
+            badges,
+        )
+    if bloqueado:
+        badges.append('<span class="lesson-badge lesson-badge--neutral">Repeticao semanal</span>')
+        return (
+            "lesson-card lesson-card--locked",
+            "Aula preenchida pela repeticao automatica",
+            "Os dados desta linha seguem o padrao montado na primeira semana e ficam protegidos para manter a sequencia.",
+            badges,
+        )
+    if idx == num_rows - 1:
+        badges.append('<span class="lesson-badge lesson-badge--neutral">Ultima aula</span>')
+        return (
+            "lesson-card",
+            "Configuracao individual",
+            "Ajuste a data e o horario normalmente. Esta ultima linha nao pode puxar continuidade para frente.",
+            badges,
+        )
+    return (
+        "lesson-card",
+        "Configuracao individual",
+        "Defina a data, o horario e, se necessario, escolha se este PDF deve continuar na aula seguinte.",
+        badges,
+    )
+
+
 def _coletar_aulas_envio(
     num_rows: int,
     pdfs_aulas_files,
@@ -1788,11 +1916,10 @@ def _coletar_aulas_envio(
         st.markdown(f"**{titulo_secao}**")
 
     for idx in range(num_rows):
-        st.markdown(f"**Aula {idx + 1}**")
-        col_data, col_horario = st.columns([1, 1])
         chave_data = f"{key_prefix}data_aula_{idx}"
         chave_horario = f"{key_prefix}horario_aula_{idx}"
         chave_tipo = f"{key_prefix}tipo_horario_aula_{idx}"
+        chave_dividir = f"{key_prefix}dividir_pdf_aula_{idx}"
         data_fallback = st.session_state.get(f"data_aula_{idx}", date.today()) if key_prefix else date.today()
         horario_fallback = st.session_state.get(f"horario_aula_{idx}", HORARIOS_AULA[0]) if key_prefix else HORARIOS_AULA[0]
         if chave_data not in st.session_state:
@@ -1801,48 +1928,101 @@ def _coletar_aulas_envio(
             st.session_state[chave_horario] = horario_fallback
         horario_padrao_item = st.session_state.get(chave_horario, horario_fallback)
         bloqueado = auto_repetir_semana and idx >= bloco_semana
+        continuidade_anterior = bool(dividir_metodologia and idx > 0 and st.session_state.get(f"{key_prefix}dividir_pdf_aula_{idx - 1}", False))
+        dividir_pdf_ativo = bool(dividir_metodologia and st.session_state.get(chave_dividir, False))
+        card_class, status_titulo, status_texto, badges = _status_visual_aula(
+            idx,
+            num_rows,
+            bloqueado,
+            continuidade_anterior,
+            dividir_pdf_ativo,
+        )
+        badges_html = "".join([f'<span class="lesson-badge lesson-badge--index">Aula {idx + 1}</span>'] + badges)
 
-        with col_data:
-            data_aula = st.date_input(
-                "Data",
-                format="DD/MM/YYYY",
-                key=chave_data,
-                disabled=bloqueado,
+        with st.container(border=True):
+            st.markdown(
+                f"""
+                <div class="{card_class}">
+                    <div class="lesson-header">
+                        <div>
+                            <div class="lesson-title">{status_titulo}</div>
+                            <div class="lesson-subtitle">{status_texto}</div>
+                        </div>
+                        <div class="lesson-badges">{badges_html}</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-        with col_horario:
-            tipo_padrao = _tipo_horario(horario_padrao_item)
-            if chave_tipo not in st.session_state or st.session_state[chave_tipo] not in ["Simples", "Dupla"]:
-                st.session_state[chave_tipo] = tipo_padrao
-            tipo_horario = st.radio(
+            col_data, col_horario = st.columns([1, 1])
+            with col_data:
+                data_aula = st.date_input(
+                    "Data",
+                    format="DD/MM/YYYY",
+                    key=chave_data,
+                    disabled=bloqueado,
+                )
+            with col_horario:
+                tipo_padrao = _tipo_horario(horario_padrao_item)
+                if chave_tipo not in st.session_state or st.session_state[chave_tipo] not in ["Simples", "Dupla"]:
+                    st.session_state[chave_tipo] = tipo_padrao
+                tipo_horario = st.radio(
                 "Tipo de horário",
                 ["Simples", "Dupla"],
                 horizontal=True,
                 key=chave_tipo,
                 disabled=bloqueado,
             )
-            opcoes_horario = list(HORARIOS_SIMPLES if tipo_horario == "Simples" else HORARIOS_DUPLAS)
-            horario_atual = st.session_state.get(chave_horario)
-            if horario_atual not in opcoes_horario and isinstance(horario_atual, tuple):
-                opcoes_horario.insert(0, horario_atual)
-            if st.session_state.get(chave_horario) not in opcoes_horario:
-                st.session_state[chave_horario] = opcoes_horario[0]
-            horario_aula = st.selectbox(
+                opcoes_horario = list(HORARIOS_SIMPLES if tipo_horario == "Simples" else HORARIOS_DUPLAS)
+                horario_atual = st.session_state.get(chave_horario)
+                if horario_atual not in opcoes_horario and isinstance(horario_atual, tuple):
+                    opcoes_horario.insert(0, horario_atual)
+                if st.session_state.get(chave_horario) not in opcoes_horario:
+                    st.session_state[chave_horario] = opcoes_horario[0]
+                horario_aula = st.selectbox(
                 "Horário",
                 opcoes_horario,
                 format_func=_rotulo_horario,
                 key=chave_horario,
-                disabled=bloqueado,
-            )
+                    disabled=bloqueado,
+                )
 
-        pdf_idx = idx // 2 if dividir_metodologia else idx
+        dividir_pdf = False
+        if dividir_metodologia:
+            sugestao_dividir = bool(
+                idx < num_rows - 1
+                and (
+                    tipo_horario == "Dupla"
+                    or st.session_state.get(f"{key_prefix}data_aula_{idx + 1}") == data_aula
+                )
+            )
+            if chave_dividir not in st.session_state:
+                st.session_state[chave_dividir] = sugestao_dividir
+            if continuidade_anterior:
+                st.session_state[chave_dividir] = False
+            dividir_pdf = st.checkbox(
+                "Usar o mesmo PDF também na próxima aula",
+                key=chave_dividir,
+                disabled=bloqueado or idx == num_rows - 1 or continuidade_anterior,
+                help="Marque quando este material deve gerar o primeiro e o segundo momento em duas aulas seguidas.",
+            )
+            if continuidade_anterior:
+                st.caption("Esta aula já está reservada como continuação da aula anterior.")
+            elif idx == num_rows - 1:
+                st.caption("A última aula não pode puxar continuação, porque não existe uma próxima linha.")
+            elif dividir_pdf:
+                st.caption("Este PDF será reaproveitado na próxima aula, com metodologia dividida em dois momentos.")
+
         aulas_envio.append(
             {
                 "data": data_aula,
                 "horario": horario_aula,
-                "pdf": pdfs_aulas_files[pdf_idx] if pdf_idx < len(pdfs_aulas_files) else None,
+                "pdf": None,
+                "dividir_pdf": dividir_pdf,
             }
         )
 
+    aulas_envio, _ = _aplicar_pdfs_a_grupos(aulas_envio, pdfs_aulas_files)
     return aulas_envio
 
 
@@ -1962,9 +2142,12 @@ def _extrair_aulas_dos_pdfs(
     temp_paths = []
     try:
         dados_aulas = []
-        aulas_processamento = aulas_envio[::2] if dividir_metodologia else aulas_envio
-        for aula_envio in aulas_processamento:
+        grupos = _grupos_pdf_por_aula(aulas_envio) if dividir_metodologia else [{"indices": [idx], "dividir": False} for idx in range(len(aulas_envio))]
+        dividir_por_pdf = []
+        for grupo in grupos:
+            aula_envio = aulas_envio[grupo["indices"][0]]
             temp_paths.append(_salvar_pdf_temporario(aula_envio["pdf"]))
+            dividir_por_pdf.append(bool(grupo["dividir"]))
         for aula_envio in aulas_envio:
             dados_aulas.append(
                 {
@@ -1982,6 +2165,7 @@ def _extrair_aulas_dos_pdfs(
             provedor_ia=modo_ia.lower(),
             modelo_ia=(modelo_openai if modo_ia == "OpenAI" else modelo_gemini) if modo_ia != "Sem IA" else "",
             dividir_metodologia=dividir_metodologia,
+            dividir_por_pdf=dividir_por_pdf,
             modalidade_eja=modalidade_eja,
         )
         if not aulas:
@@ -2002,7 +2186,7 @@ def _extrair_aulas_dos_pdfs(
         problemas_plano = validar_aulas_geradas(
             aulas,
             permitir_temas_repetidos=cdp_contextual,
-            permitir_metodologia_simples=cdp_contextual,
+            permitir_metodologia_simples=cdp_contextual or dividir_metodologia,
         )
         avisos_repeticao = []
         problemas_bloqueantes = []
@@ -2425,6 +2609,135 @@ st.markdown(
             text-shadow: none !important;
         }
 
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: linear-gradient(180deg, rgba(248, 252, 254, 0.96) 0%, rgba(236, 247, 252, 0.94) 100%);
+            border: 1px solid rgba(126, 173, 198, 0.42) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 10px 24px rgba(39, 100, 140, 0.08);
+            padding: 0.35rem 0.45rem 0.65rem 0.45rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .lesson-card {
+            margin-bottom: 0.2rem;
+        }
+
+        .lesson-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 0.35rem;
+        }
+
+        .lesson-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--brand-dark);
+            margin: 0;
+        }
+
+        .lesson-subtitle {
+            color: var(--muted);
+            font-size: 0.86rem;
+            line-height: 1.45;
+            margin-top: 3px;
+            max-width: 620px;
+        }
+
+        .lesson-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .lesson-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .lesson-badge--index {
+            background: #EAF5FB;
+            border-color: #BDDCEC;
+            color: #205879;
+        }
+
+        .lesson-badge--success {
+            background: #E8F7F0;
+            border-color: #BFE7D2;
+            color: #1F6A4B;
+        }
+
+        .lesson-badge--info {
+            background: #E8F2FB;
+            border-color: #C6DCF0;
+            color: #23527A;
+        }
+
+        .lesson-badge--neutral {
+            background: #F2F6F8;
+            border-color: #D3E0E8;
+            color: #516B7A;
+        }
+
+        .lesson-badge--soft {
+            background: #F8FBFD;
+            border-color: #D5E5EF;
+            color: #5A7485;
+        }
+
+        .lesson-card--paired .lesson-title {
+            color: #1F6A4B;
+        }
+
+        .lesson-card--continuation .lesson-title {
+            color: #23527A;
+        }
+
+        .lesson-card--locked .lesson-title {
+            color: #516B7A;
+        }
+
+        .lesson-note {
+            margin-top: 0.35rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 12px;
+            font-size: 0.83rem;
+            line-height: 1.45;
+            border: 1px solid transparent;
+        }
+
+        .lesson-note--success {
+            background: #EDF9F2;
+            border-color: #C5E8D2;
+            color: #215A42;
+        }
+
+        .lesson-note--info {
+            background: #EEF5FC;
+            border-color: #C9DDF1;
+            color: #274F71;
+        }
+
+        .lesson-note--neutral {
+            background: #F4F8FA;
+            border-color: #D5E1E8;
+            color: #526877;
+        }
+
+        .lesson-note--soft {
+            background: #F7FBFD;
+            border-color: #D6E7F0;
+            color: #536C7E;
+        }
+
         /* Sidebar */
         [data-testid="stSidebar"] {
             background: #D8EEF8;
@@ -2721,7 +3034,17 @@ with col_previstas:
         "aulas_previstas_manual_select",
         "aulas_previstas_manual",
     )
+extensao_mes_rotulo = st.selectbox(
+    "Extensão após o mês",
+    EXTENSAO_MES_OPCOES,
+    index=0,
+    key="extensao_mes",
+    help="Use esta opção quando precisar incluir a continuação da semana no próximo mês ou semanas adicionais depois disso.",
+)
+extensao_mes = _valor_extensao_mes(extensao_mes_rotulo)
 datas_horarios_mes = []
+datas_horarios_mes_base = []
+datas_sem_aula = []
 config_agenda_mes = config_turma_selecionada
 if modo_cdp_dedicado and modelo_bytes:
     agenda_modelo = _config_agenda_a_partir_do_modelo(modelo_bytes)
@@ -2731,12 +3054,45 @@ if modo_cdp_dedicado and modelo_bytes:
             **agenda_modelo,
         }
 if config_agenda_mes and mes and (not disciplina_cdp or modo_cdp_dedicado):
+    datas_horarios_mes_base = _datas_horarios_do_mes(config_agenda_mes, mes, turma, extensao=extensao_mes)
+    ano_periodo = date.today().year
+    mes_num_periodo = _mes_numero_app(mes)
+    inicio_periodo = date(ano_periodo, mes_num_periodo, 1)
+    fim_periodo = _fim_periodo_mes_com_extensao(ano_periodo, mes_num_periodo, extensao_mes)
+    datas_opcoes_sem_aula = _datas_do_periodo(inicio_periodo, fim_periodo)
+    assinatura_datas_sem_aula = "|".join(
+        [
+            professor or "",
+            disciplina or "",
+            turma or "",
+            mes or "",
+            str(extensao_mes),
+            ",".join(item["data"].isoformat() for item in datas_horarios_mes_base if item.get("data")),
+        ]
+    )
+    if st.session_state.get("datas_sem_aula_assinatura") != assinatura_datas_sem_aula:
+        st.session_state["datas_sem_aula_assinatura"] = assinatura_datas_sem_aula
+        padrao_feriados = _datas_feriado_padrao(datas_opcoes_sem_aula)
+        st.session_state["datas_sem_aula"] = padrao_feriados or _datas_sem_aula_padrao(datas_horarios_mes_base)
+
+    if datas_opcoes_sem_aula:
+        st.caption("Dias sem aula neste mes: marque feriados, ponto facultativo, ponte ou qualquer suspensao da escola.")
+        datas_sem_aula = st.multiselect(
+            "Excluir estas datas do plano",
+            options=datas_opcoes_sem_aula,
+            format_func=_rotulo_data_sem_aula,
+            key="datas_sem_aula",
+            help="Os feriados nacionais detectados entram marcados automaticamente. Voce pode incluir ou remover datas antes de gerar o plano.",
+        )
+
     datas_horarios_mes = _sincronizar_datas_horarios_mes(
         config_agenda_mes,
         mes,
         professor,
         disciplina,
         turma,
+        extensao=extensao_mes,
+        datas_sem_aula=datas_sem_aula,
     )
 if False:
     modelo_automatico_bytes = _ler_bytes_arquivo_cache(modelo_automatico_arquivo)
@@ -2971,6 +3327,8 @@ else:
     linhas_modelo = linhas_mes or linhas_modelo_original
     if linhas_mes:
         st.caption(f"Linhas de aula para {mes}: {linhas_mes}")
+        if extensao_mes:
+            st.caption(f"Extensão aplicada: {extensao_mes_rotulo}.")
         if linhas_modelo_original and linhas_modelo_original != linhas_mes:
             st.caption(
                 f"O modelo original tinha {linhas_modelo_original} linha(s), mas o mês selecionado pede {linhas_mes}."
@@ -2984,14 +3342,16 @@ else:
 
     if "auto_repetir_semana" not in st.session_state:
         st.session_state["auto_repetir_semana"] = False if linhas_mes else True
+    elif linhas_mes and st.session_state.get("auto_repetir_semana"):
+        st.session_state["auto_repetir_semana"] = False
     auto_repetir_semana = st.checkbox(
         "Repetir automaticamente datas e horários da 1ª semana nas semanas seguintes",
-        value=st.session_state["auto_repetir_semana"],
         help="Preencha a 1ª semana normalmente. As próximas semanas replicam o mesmo padrão com +7 dias.",
         key="auto_repetir_semana",
+        disabled=bool(linhas_mes),
     )
     if linhas_mes:
-        st.caption("Com o mês selecionado, você ainda pode usar a repetição automática para replicar o padrão da 1ª semana.")
+        st.caption("Com o mês selecionado, as datas já são distribuídas automaticamente no período inteiro e respeitam os dias excluídos acima.")
 
     dividir_metodologia = st.checkbox(
         "Dividir metodologia em dois dias (Primeiro/Segundo Momento)",
@@ -3002,16 +3362,25 @@ else:
 
     if dividir_metodologia:
         num_rows = linhas_modelo or int(qtd_aulas) * 2
-        pdfs_necessarios = math.ceil(num_rows / 2) if num_rows else qtd_aulas
         if linhas_modelo:
             st.info(
-                f"Divisão ativa: o plano tem {num_rows} linha(s) de aula, então você pode usar {pdfs_necessarios} PDF(s), "
-                "com cada material preenchendo dois dias consecutivos."
+                "Divisão ativa: você pode marcar apenas as aulas que devem compartilhar o mesmo PDF com a próxima linha."
             )
     else:
         pdfs_necessarios = linhas_modelo or qtd_aulas
         num_rows = linhas_modelo or int(qtd_aulas)
 
+    aulas_envio = _coletar_aulas_envio(
+        num_rows=num_rows,
+        pdfs_aulas_files=pdfs_aulas_files,
+        dividir_metodologia=dividir_metodologia,
+        auto_repetir_semana=auto_repetir_semana,
+    )
+    if dividir_metodologia:
+        pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_envio))
+        st.caption(
+            f"Com a divisão seletiva configurada, esta combinação pede {pdfs_necessarios} PDF(s) para {len(aulas_envio)} aula(s)."
+        )
     if pdfs_necessarios:
         if qtd_aulas == pdfs_necessarios:
             st.success(f"PDFs conferidos: {qtd_aulas}/{pdfs_necessarios}.")
@@ -3020,13 +3389,6 @@ else:
                 f"PDFs adicionados: {qtd_aulas}/{pdfs_necessarios}. "
                 "A quantidade precisa bater com as linhas de aula do plano."
             )
-
-    aulas_envio = _coletar_aulas_envio(
-        num_rows=num_rows,
-        pdfs_aulas_files=pdfs_aulas_files,
-        dividir_metodologia=dividir_metodologia,
-        auto_repetir_semana=auto_repetir_semana,
-    )
     if gerar_turma_espelho:
         st.markdown("---")
         aulas_envio_espelho = _coletar_aulas_envio(

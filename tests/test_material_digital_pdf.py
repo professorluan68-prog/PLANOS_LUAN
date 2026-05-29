@@ -499,6 +499,31 @@ def test_fluxo_ia_reinsere_tecnicas_lemov_quando_sumirem():
     assert "No momento" not in texto
 
 
+def test_pdf_khan_matematica_revisao_de_funcao_usa_metodologia_fixa():
+    from core.lote import _metodologia_fixa_pdf_especial
+
+    texto = (
+        "Matematica Aula Khan Revisao: Conceito de funcao. "
+        "Representacoes algébrica e grafica de grandezas dependentes. "
+        "Relacoes proporcionais. Grandezas diretamente proporcionais e grandezas inversamente proporcionais. "
+        "Pratica na Khan. Atividade Khan."
+    )
+
+    metodologia = _metodologia_fixa_pdf_especial(texto, "Matematica", "Revisao: Conceito de funcao")
+
+    assert metodologia is not None
+    assert [item["titulo"] for item in metodologia] == [
+        "Para comecar",
+        "Foco no conteudo",
+        "Pratica e consolidacao",
+        "Fechamento",
+    ]
+    texto_total = " ".join(item["texto"] for item in metodologia)
+    assert "funcao" in texto_total.lower()
+    assert "proporcionalidade" in texto_total.lower()
+    assert "aplicativo" in texto_total.lower()
+
+
 def test_sanitiza_aprendizagem_de_redacao_sem_metodologia_colada():
     aprendizagem = _sanitizar_aprendizagem(
         "Habilidade: (EF69LP46) Participar de praticas de compartilhamento de leitura/recepcao de obras literarias. Trilha Harry Potter e o Calice de Fogo 1. Disparo inicial Explique o objetivo da aula.",

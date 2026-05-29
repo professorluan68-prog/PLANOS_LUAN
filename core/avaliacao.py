@@ -54,6 +54,17 @@ def gerar_acompanhamento_dinamico(
     perfil: str = "",
     tipo: str = "",
 ) -> list[str]:
+    from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
+
+    return gerar_acompanhamento_aprimorado(
+        tema=tema,
+        aprendizagem=aprendizagem,
+        desenvolvimento=desenvolvimento,
+        disciplina=disciplina,
+        perfil=perfil,
+        tipo=tipo,
+    )
+
     base = _base_textual(tema, aprendizagem, desenvolvimento, disciplina, tipo)
     perfil = _perfil_resolvido(perfil, disciplina)
 
@@ -191,6 +202,17 @@ def gerar_acessibilidade_dinamica(
     perfil: str = "",
     tipo: str = "",
 ) -> list[str]:
+    from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+
+    return gerar_acessibilidade_aprimorada(
+        tema=tema,
+        aprendizagem=aprendizagem,
+        desenvolvimento=desenvolvimento,
+        disciplina=disciplina,
+        perfil=perfil,
+        tipo=tipo,
+    )
+
     base = _base_textual(tema, aprendizagem, desenvolvimento, disciplina, tipo)
     perfil = _perfil_resolvido(perfil, disciplina)
 

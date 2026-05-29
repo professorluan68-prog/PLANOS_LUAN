@@ -1,0 +1,62 @@
+from datetime import date
+
+from core.calendario import (
+    datas_do_periodo,
+    datas_feriado_padrao,
+    datas_por_dia_ate_limite,
+    datas_sem_aula_padrao,
+    feriados_nacionais_brasil,
+    filtrar_datas_sem_aula,
+    fim_periodo_mes_com_extensao,
+)
+
+
+def test_feriados_nacionais_detecta_corpus_christi_2026():
+    feriados = feriados_nacionais_brasil(2026)
+
+    assert date(2026, 6, 4) in feriados
+
+
+def test_datas_sem_aula_padrao_marca_feriado_nacional_presente_na_agenda():
+    agenda = [
+        {"data": date(2026, 6, 4), "horario": "13h - 14h40"},
+        {"data": date(2026, 6, 5), "horario": "13h - 14h40"},
+        {"data": date(2026, 6, 11), "horario": "13h - 14h40"},
+    ]
+
+    assert datas_sem_aula_padrao(agenda) == [date(2026, 6, 4)]
+
+
+def test_filtrar_datas_sem_aula_remove_feriado_e_ponto_facultativo():
+    agenda = [
+        {"data": date(2026, 6, 4), "horario": "13h - 14h40"},
+        {"data": date(2026, 6, 5), "horario": "13h - 14h40"},
+        {"data": date(2026, 6, 11), "horario": "13h - 14h40"},
+    ]
+
+    filtrada = filtrar_datas_sem_aula(agenda, [date(2026, 6, 4), date(2026, 6, 5)])
+
+    assert [item["data"] for item in filtrada] == [date(2026, 6, 11)]
+
+
+def test_extensao_mes_completa_ultima_semana_que_avanca_no_mes_seguinte():
+    assert fim_periodo_mes_com_extensao(2026, 6, 1) == date(2026, 7, 3)
+
+
+def test_datas_por_dia_ate_limite_inclui_inicio_do_mes_seguinte_quando_extendido():
+    datas = datas_por_dia_ate_limite(date(2026, 6, 1), fim_periodo_mes_com_extensao(2026, 6, 1), 3)
+
+    assert datas[-1] == date(2026, 7, 2)
+
+
+def test_datas_do_periodo_de_junho_incluem_feriado_e_ponte():
+    datas = datas_do_periodo(date(2026, 6, 1), date(2026, 6, 30))
+
+    assert date(2026, 6, 4) in datas
+    assert date(2026, 6, 5) in datas
+
+
+def test_datas_feriado_padrao_marca_corpus_christi_no_periodo():
+    datas = datas_do_periodo(date(2026, 6, 1), date(2026, 6, 30))
+
+    assert date(2026, 6, 4) in datas_feriado_padrao(datas)

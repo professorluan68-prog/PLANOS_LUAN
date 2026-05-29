@@ -11,6 +11,7 @@ from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_d
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
 from core.qualidade_metodologica import detectar_contexto_metodologico, naturalizar_metodologia_professor, revisar_metodologia
+from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
 
 
@@ -209,6 +210,85 @@ def _juntar_partes_titulo(partes: list[str]) -> str:
             continue
         break
     return titulo
+
+
+_ORIENTACAO_ESTUDOS_TITULOS = {
+    ("missao", 1): "Jogos com palavras e imagens",
+    ("missao", 2): "Para chorar de rir",
+    ("missao", 3): "Da charge à notícia",
+    ("missao", 4): "Que tirada!",
+    ("missao", 5): "Vamos a fundo nos assuntos",
+    ("missao", 6): "Uma palavra puxa a outra",
+    ("missao", 7): "A trama do texto",
+    ("missao", 8): "Por dentro dos verbetes",
+    ("missao", 9): "Narrativas breves",
+    ("missao", 10): "A voz da poesia",
+    ("missao", 11): "Um mergulho no cordel",
+    ("missao", 12): "Poema para mim e para você",
+    ("missao", 13): "Lendas e narrativa",
+    ("missao", 14): "Qual é a moral da história",
+    ("missao", 15): "O texto no teatro",
+    ("missao", 16): "Opinião versus fato",
+    ("trilha", 1): "Crônicas e conectivos",
+    ("trilha", 2): "Romances e conectivos",
+    ("trilha", 3): "Crônicas, tirinhas e conectivos",
+    ("trilha", 4): "Histórias em quadrinhos e humor",
+    ("trilha", 5): "Contos e finalidade do texto",
+    ("trilha", 6): "Causos e variação linguística",
+    ("trilha", 7): "Projetos culturais e coesão textual",
+    ("trilha", 8): "Cartas de leitor e argumento",
+    ("trilha", 9): "Elementos da notícia",
+    ("trilha", 10): "Notícias e opinião",
+    ("trilha", 11): "Notícias, charges e crítica",
+    ("trilha", 12): "Carta aberta e argumentação",
+    ("trilha", 13): "Muito mais informações",
+    ("trilha", 14): "Reportagens e informação",
+    ("trilha", 15): "Campanhas comunitárias e informação",
+    ("trilha", 16): "Textos de divulgação científica",
+    ("jornada", 1): "Nas entrelinhas da notícia",
+    ("jornada", 2): "Repercussão das notícias nos quadrinhos",
+    ("jornada", 3): "Contando o dia a dia",
+    ("jornada", 4): "Diferentes formas de dizer a mesma coisa",
+    ("jornada", 5): "Linguagem poética, versos e rimas",
+    ("jornada", 6): "Lendas e mitos: rever com olhos novos",
+    ("jornada", 7): "Entre manifestos e outras reivindicações",
+    ("jornada", 8): "Das resenhas às videorresenhas",
+    ("jornada", 9): "Informação visual",
+    ("jornada", 10): "Informações em infográficos, gráficos, tabelas e esquemas",
+    ("jornada", 11): "Linguagem poética: poema, slam e canção",
+    ("jornada", 12): "Palavras, ilustrações e paratextos",
+    ("jornada", 13): "Recursos midiáticos",
+    ("jornada", 14): "A língua (a) viva: variedades linguísticas",
+    ("jornada", 15): "Gêneros científicos e refutação de teses",
+    ("jornada", 16): "Anúncios para você",
+}
+
+
+def _familia_numero_orientacao_estudos(caminho_pdf: str) -> tuple[str, int]:
+    base_arquivo = _normalizar(Path(caminho_pdf).stem)
+    for familia in ("missao", "trilha", "jornada"):
+        match = re.search(rf"{familia}[_\s-]*(\d{{1,2}})", base_arquivo)
+        if match:
+            return familia, int(match.group(1))
+    return "", 0
+
+
+def _titulo_catalogado_orientacao_estudos(caminho_pdf: str, texto: str = "") -> str:
+    familia, numero = _familia_numero_orientacao_estudos(caminho_pdf)
+    if familia and numero:
+        titulo = _ORIENTACAO_ESTUDOS_TITULOS.get((familia, numero))
+        if titulo:
+            return f"{familia.upper()} {numero} - {titulo}"
+
+    base_texto = _normalizar(texto)
+    for (familia_catalogo, numero_catalogo), titulo_catalogado in _ORIENTACAO_ESTUDOS_TITULOS.items():
+        if _normalizar(titulo_catalogado) in base_texto:
+            return f"{familia_catalogo.upper()} {numero_catalogo} - {titulo_catalogado}"
+    return ""
+
+
+def _titulo_ja_rotulado_orientacao_estudos(titulo: str) -> bool:
+    return bool(re.match(r"^(missao|trilha|jornada)\\s+\\d+\\s+-\\s+", _normalizar(titulo)))
 
 
 def _contem(base: str, termos: list[str]) -> bool:
@@ -2679,6 +2759,11 @@ def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return "decisao_financeira"
 
     if perfil == "matematica":
+        if _contem(base, ["aula khan", "pratica na khan", "atividade khan"]) and _contem(
+            base,
+            ["revisao", "conceito de funcao", "relacoes proporcionais", "grandezas diretamente proporcionais"],
+        ):
+            return "revisao_khan_funcao"
         if _contem(
             base,
             [
@@ -2747,6 +2832,53 @@ def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     ):
         return "leitura"
     return "geral"
+
+
+def _metodologia_fixa_pdf_especial(texto: str, disciplina: str, tema: str) -> list[dict] | None:
+    perfil = _perfil_disciplina(disciplina)
+    base = _normalizar(f"{disciplina} {tema} {texto}")
+
+    if perfil == "matematica" and _contem(base, ["aula khan", "pratica na khan", "atividade khan"]) and _contem(
+        base,
+        ["revisao", "conceito de funcao", "relacoes proporcionais", "grandezas diretamente proporcionais"],
+    ):
+        return [
+            {
+                "titulo": "Para comecar",
+                "texto": (
+                    "Retomar com a turma os conceitos principais da aula, relacionando o conteudo a situacoes "
+                    "do cotidiano e levantando conhecimentos previos dos alunos sobre funcao, proporcionalidade "
+                    "e relacoes entre grandezas."
+                ),
+            },
+            {
+                "titulo": "Foco no conteudo",
+                "texto": (
+                    "Revisar os conceitos trabalhados em sala por meio de exemplos no quadro, leitura de graficos, "
+                    "analise de tabelas e pequenas situacoes-problema, destacando como uma grandeza pode depender "
+                    "da outra e como essa relacao pode ser representada matematicamente."
+                ),
+            },
+            {
+                "titulo": "Pratica e consolidacao",
+                "texto": (
+                    "Orientar os alunos na resolucao de atividades no caderno e, em seguida, encaminha-los para "
+                    "a pratica no aplicativo, reforcando que o objetivo e revisar, testar hipoteses, aprender com "
+                    "os erros e repetir a atividade sempre que necessario ate dominar a habilidade."
+                ),
+            },
+            {
+                "titulo": "Fechamento",
+                "texto": (
+                    "Retomar coletivamente as principais duvidas percebidas durante a atividade, socializar "
+                    "estrategias de resolucao e registrar os pontos que precisarao ser reforcados nas proximas "
+                    "aulas, utilizando o desempenho dos alunos no aplicativo como apoio para o acompanhamento "
+                    "da aprendizagem."
+                ),
+            },
+        ]
+
+    return None
 
 
 def _conceito_principal(linhas: list[str], tema: str) -> str:
@@ -4066,31 +4198,53 @@ def _montar_etapas_metodologia(
     indice_aula: int = 0,
     total_aulas: int = 1,
 ) -> list[dict]:
-    linhas = _linhas_relevantes(texto, disciplina, tema)
-    conceito = _conceito_principal(linhas, tema)
     perfil = _perfil_disciplina(disciplina)
-    if perfil == "matematica" and _normalizar(conceito) in {"matematica", "matemática"}:
-        conceito = tema
-    tipo = _detectar_tipo_aula(texto, tema, disciplina)
     if perfil == "leitura_redacao":
         return _metodologia_leitura_redacao_modelo(texto, tema)
-    frases = _frases_por_contexto(perfil, tipo, tema, conceito, turma, texto)
-    etapas = []
-    for titulo, chave in _etapas_por_perfil(perfil, tipo, texto, tema):
-        texto_etapa = frases.get(chave, "").strip()
-        if texto_etapa:
-            texto_etapa = _ajustar_texto_por_sequencia(
-                texto_etapa,
-                chave,
-                indice_aula=indice_aula,
-                total_aulas=total_aulas,
-                tema=tema,
-            )
-            etapas.append({"titulo": titulo, "texto": texto_etapa})
-    return etapas
+
+    metodologia = _motor_metodologico.gerar(
+        texto_pdf=texto,
+        disciplina=disciplina,
+        turma=turma,
+        tema=tema,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+    )
+    mapa_titulos = {
+        "para comecar": "Para comecar",
+        "relembre": "Relembre",
+        "contextualizacao": "Contextualizacao",
+        "leitura analitica": "Leitura analitica",
+        "leitura e construcao do conteudo": "Leitura e construcao do conteudo",
+        "foco no conteudo": "Foco no conteudo",
+        "pause e responda": "Pause e responda",
+        "na pratica": "Na pratica",
+        "analise de caso": "Analise de caso",
+        "calculos financeiros": "Calculos financeiros",
+        "planejamento orcamentario": "Planejamento orcamentario",
+        "projeto empreendedor": "Projeto empreendedor",
+        "revisao e reescrita": "Revisao e reescrita",
+        "encerramento": "Encerramento",
+    }
+    harmonizada = []
+    for item in metodologia or []:
+        if not isinstance(item, dict):
+            harmonizada.append(item)
+            continue
+        novo_item = dict(item)
+        titulo_norm = _normalizar(novo_item.get("titulo", ""))
+        if titulo_norm in mapa_titulos:
+            novo_item["titulo"] = mapa_titulos[titulo_norm]
+        harmonizada.append(novo_item)
+    return harmonizada
 
 
 def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
+    if _perfil_disciplina(disciplina) == "orientacao_estudos":
+        titulo_catalogado = _titulo_catalogado_orientacao_estudos(caminho_pdf, texto)
+        if titulo_catalogado:
+            return titulo_catalogado
+
     def limpar_prefixo_disciplina(titulo: str) -> str:
         palavras_titulo = str(titulo or "").split()
         palavras_disciplina = str(disciplina or "").split()
@@ -4173,6 +4327,8 @@ def _rotulo_aula_material(texto: str, caminho_pdf: str) -> str:
 def _material_digital_por_texto(texto: str, caminho_pdf: str, disciplina: str, tema: str = "") -> str:
     rotulo = _rotulo_aula_material(texto, caminho_pdf)
     titulo = (tema or _tema_por_texto(texto, caminho_pdf, disciplina)).strip()
+    if _perfil_disciplina(disciplina) == "orientacao_estudos" and _titulo_ja_rotulado_orientacao_estudos(titulo):
+        return titulo
     if rotulo and titulo:
         return f"{rotulo} - {titulo}"
     return rotulo or titulo
@@ -4590,9 +4746,9 @@ def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
         ]
     if any(termo in base for termo in ["hereditariedade", "heredograma", "mendel", "dna", "gene", "genes", "genetica", "biotecnologia", "clonagem", "bioetica", "biosseguranca"]):
         return [
-            f"â˜‘ Verificar se os estudantes relacionam {tema} aos conceitos de hereditariedade, variabilidade genÃ©tica ou biotecnologia trabalhados na aula.",
-            "â˜‘ Observar se utilizam evidÃªncias, esquemas, cruzamentos ou dados do material para justificar as respostas.",
-            "â˜‘ Conferir se os registros apresentam vocabulÃ¡rio cientÃ­fico adequado e conexÃµes coerentes entre conceito, exemplo e conclusÃ£o.",
+            f"☑ Verificar se os estudantes relacionam {tema} aos conceitos de hereditariedade, variabilidade genética ou biotecnologia trabalhados na aula.",
+            "☑ Observar se utilizam evidências, esquemas, cruzamentos ou dados do material para justificar as respostas.",
+            "☑ Conferir se os registros apresentam vocabulário científico adequado e conexões coerentes entre conceito, exemplo e conclusão.",
         ]
     if perfil in {"biologia", "ciencias_ef"}:
         return [
@@ -4986,9 +5142,67 @@ from core.inteligencia_local import SistemaGeracaoMetodologica
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
 from core.lib.extrator_pdf import ExtratorPDF
+from core.lib.metodologia import MotorMetodologico
+from core.validador_plano import validar_aula_final
 
 gerador_inteligente = SistemaGeracaoMetodologica()
 _extrator_lib = ExtratorPDF()
+_motor_metodologico = MotorMetodologico()
+
+
+def _perfil_gerador_colunas_habilitado(perfil: str) -> bool:
+    return perfil not in {"projeto_de_vida", "lideranca_oratoria", "leitura_redacao", "orientacao_estudos"}
+
+
+def _tentar_gerador_colunas_pedagogicas(
+    texto: str,
+    titulo_aula: str,
+    disciplina: str,
+    turma: str,
+    tema: str,
+    perfil: str,
+    contexto_metodologico: str,
+    indice_aula: int,
+    total_aulas: int,
+    modalidade_eja_ativa: bool,
+) -> dict | None:
+    if not _perfil_gerador_colunas_habilitado(perfil):
+        return None
+
+    try:
+        colunas = montar_colunas_pedagogicas(texto_pdf=texto, titulo_aula=titulo_aula)
+        metodologia = list(colunas.get("metodologia_blocos") or [])
+        acompanhamento = list(colunas.get("acompanhamento_aprendizagem") or [])
+        acessibilidade = list(colunas.get("acessibilidade") or [])
+        if not metodologia or len(acompanhamento) < 2 or len(acessibilidade) < 2:
+            return None
+
+        metodologia = _ajustar_metodologia_por_sequencia(
+            metodologia,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            tema=tema,
+        )
+        metodologia, _ = revisar_metodologia(
+            metodologia,
+            perfil=perfil,
+            tema=tema,
+            contexto=contexto_metodologico,
+        )
+        metodologia = naturalizar_metodologia_professor(metodologia)
+        if modalidade_eja_ativa:
+            tecnicas_pdf = _detectar_tecnicas_lemov(texto, tema)
+            metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_pdf)
+
+        return {
+            "metodologia": metodologia,
+            "acompanhamento": acompanhamento,
+            "acessibilidade": acessibilidade,
+            "pistas_pdf": colunas.get("pistas"),
+        }
+    except Exception:
+        return None
+
 
 def _aula_por_pdf(
     caminho_pdf: str,
@@ -5009,7 +5223,10 @@ def _aula_por_pdf(
     cdp_contextual = _eh_cdp_contextual_disciplina(disciplina)
     disciplina_base = _disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
     perfil = _perfil_disciplina(disciplina_base)
-    tipo = _detectar_tipo_aula(texto, tema, disciplina_base)
+    extracao_pdf = _extrator_lib.extrair(texto, tema)
+    texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
+    tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base)
+    metodologia_fixa_pdf = _metodologia_fixa_pdf_especial(texto, disciplina_base, tema)
     modalidade_eja_ativa = bool(modalidade_eja and _perfil_suporta_eja(perfil))
     contexto_metodologico = "eja_regular" if modalidade_eja_ativa else detectar_contexto_metodologico(texto, caminho_pdf, disciplina_base, turma)
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
@@ -5019,7 +5236,7 @@ def _aula_por_pdf(
         material_digital = f"AULA {int(numero_aula)} - {tema}" if numero_aula.isdigit() else tema
 
     if cdp_contextual:
-        extracao_cdp = _extrator_lib.extrair(texto, tema)
+        extracao_cdp = extracao_pdf
         conceito_cdp = extracao_cdp.get("conceito_extraido", tema)
         habilidade_cdp = extracao_cdp.get("habilidade", "")
         if habilidade_cdp and len(habilidade_cdp) > 15:
@@ -5031,6 +5248,7 @@ def _aula_por_pdf(
             )
             aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resoluções com apoio do professor."
         return {
+            "disciplina": disciplina_base,
             "tema": tema,
             "material": _formatar_material_cdp_contextual(tema, disciplina_base),
             "numero_aula": numero_aula,
@@ -5053,6 +5271,7 @@ def _aula_por_pdf(
             plano_ia = processar_plano_ia(texto, disciplina, turma, provedor_ia, modelo_ia, modalidade_eja=modalidade_eja_ativa)
             tema = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
             extracao = _extrator_lib.extrair(texto, tema)
+            tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base)
             habilidade_pdf = extracao.get("habilidade", "")
             if aprendizagem_pv:
                 aprendizagem = aprendizagem_pv
@@ -5060,53 +5279,97 @@ def _aula_por_pdf(
                 aprendizagem = habilidade_pdf
             else:
                 aprendizagem = plano_ia.get("aprendizagem", "")
-            metodologia = plano_ia.get("metodologia", [])
-            tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
-            if perfil == "leitura_redacao":
-                metodologia = _metodologia_leitura_redacao_modelo(texto, tema)
-            if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
-                metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
-            metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
-            if perfil != "leitura_redacao":
-                metodologia = _ajustar_metodologia_por_sequencia(
-                    metodologia,
-                    indice_aula=indice_aula,
-                    total_aulas=total_aulas,
-                    tema=tema,
-                )
-            metodologia, _ = revisar_metodologia(
-                metodologia,
-                perfil=perfil,
-                tema=tema,
-                contexto=contexto_metodologico,
-            )
-            metodologia = naturalizar_metodologia_professor(metodologia)
-            metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
             aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, perfil=perfil)
-            
-            desenvolvimento = _texto_metodologia(metodologia)
-            
-            # Extrair etapas e dados para acompanhamento enriquecido
-            etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
-            acompanhamento = gerar_acompanhamento_aprimorado(
-                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-                habilidade=habilidade_pdf,
-                etapas_metodologia=etapas_titulos,
+            colunas_planejamento = _tentar_gerador_colunas_pedagogicas(
+                texto=texto,
+                titulo_aula=material_digital or tema,
+                disciplina=disciplina_base,
+                turma=turma,
+                tema=tema,
+                perfil=perfil,
+                contexto_metodologico=contexto_metodologico,
+                indice_aula=indice_aula,
+                total_aulas=total_aulas,
+                modalidade_eja_ativa=modalidade_eja_ativa,
             )
-            acessibilidade = gerar_acessibilidade_aprimorada(
-                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-                recursos_detectados=extracao.get("recursos_detectados"),
-            )
-            acompanhamento, acessibilidade = _normalizar_itens_contextuais(
-                acompanhamento,
-                acessibilidade,
-                tema,
-                perfil,
-            )
+
+            if metodologia_fixa_pdf:
+                metodologia = metodologia_fixa_pdf
+                desenvolvimento = _texto_metodologia(metodologia)
+                etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+                acompanhamento = gerar_acompanhamento_aprimorado(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    habilidade=habilidade_pdf, etapas_metodologia=etapas_titulos,
+                )
+                acessibilidade = gerar_acessibilidade_aprimorada(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    recursos_detectados=extracao.get("recursos_detectados"),
+                )
+                acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+                    acompanhamento,
+                    acessibilidade,
+                    tema,
+                    perfil,
+                )
+            elif colunas_planejamento:
+                metodologia = colunas_planejamento["metodologia"]
+                desenvolvimento = _texto_metodologia(metodologia)
+                acompanhamento = colunas_planejamento["acompanhamento"]
+                acessibilidade = colunas_planejamento["acessibilidade"]
+                acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+                    acompanhamento,
+                    acessibilidade,
+                    tema,
+                    perfil,
+                )
+            else:
+                metodologia = plano_ia.get("metodologia", [])
+                tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+                if perfil == "leitura_redacao":
+                    metodologia = _metodologia_leitura_redacao_modelo(texto, tema)
+                if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+                    metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
+                metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
+                if perfil != "leitura_redacao":
+                    metodologia = _ajustar_metodologia_por_sequencia(
+                        metodologia,
+                        indice_aula=indice_aula,
+                        total_aulas=total_aulas,
+                        tema=tema,
+                    )
+                metodologia, _ = revisar_metodologia(
+                    metodologia,
+                    perfil=perfil,
+                    tema=tema,
+                    contexto=contexto_metodologico,
+                )
+                metodologia = naturalizar_metodologia_professor(metodologia)
+                metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
+
+                desenvolvimento = _texto_metodologia(metodologia)
+                etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+                acompanhamento = gerar_acompanhamento_aprimorado(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    habilidade=habilidade_pdf,
+                    etapas_metodologia=etapas_titulos,
+                )
+                acessibilidade = gerar_acessibilidade_aprimorada(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    recursos_detectados=extracao.get("recursos_detectados"),
+                )
+                acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+                    acompanhamento,
+                    acessibilidade,
+                    tema,
+                    perfil,
+                )
             
-            return {
+            aula_gerada = {
+                "disciplina": disciplina_base,
                 "tema": tema,
                 "material": material_digital,
                 "numero_aula": numero_aula,
@@ -5118,34 +5381,16 @@ def _aula_por_pdf(
                 "ia_provedor": provedor_ia,
                 "ia_erro": "",
             }
+            aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
+            return aula_gerada
         except Exception as e:
             ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
     
     # 2. Fallback heurístico — usa o motor sofisticado do lote.py
     #    em vez do motor fraco do inteligencia_local.py
-    metodologia = _montar_etapas_metodologia(
-        texto,
-        disciplina_base,
-        turma,
-        tema,
-        indice_aula=indice_aula,
-        total_aulas=total_aulas,
-    )
-    tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
-    if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
-        metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
-    metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
-    metodologia, _ = revisar_metodologia(
-        metodologia,
-        perfil=perfil,
-        tema=tema,
-        contexto=contexto_metodologico,
-    )
-    metodologia = naturalizar_metodologia_professor(metodologia)
-    metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
-
     # Extrair dados estruturados do PDF
     extracao = _extrator_lib.extrair(texto, tema)
+    tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base)
     conceito = extracao.get("conceito_extraido", tema)
     habilidade = extracao.get("habilidade", "")
     recursos = extracao.get("recursos_detectados", [])
@@ -5161,27 +5406,94 @@ def _aula_por_pdf(
         conceito_aprendizagem = _foco_limpo_aprendizagem(tema, conceito)
         aprendizagem = f"{verbo} os conceitos relacionados a: {conceito_aprendizagem}."
     aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, conceito, perfil=perfil)
+
+    colunas_planejamento = _tentar_gerador_colunas_pedagogicas(
+        texto=texto,
+        titulo_aula=material_digital or tema,
+        disciplina=disciplina_base,
+        turma=turma,
+        tema=tema,
+        perfil=perfil,
+        contexto_metodologico=contexto_metodologico,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+        modalidade_eja_ativa=modalidade_eja_ativa,
+    )
+
+    if metodologia_fixa_pdf:
+        metodologia = metodologia_fixa_pdf
+        desenvolvimento = _texto_metodologia(metodologia)
+        etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+        acompanhamento = gerar_acompanhamento_aprimorado(
+            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+            habilidade=habilidade, etapas_metodologia=etapas_titulos,
+        )
+        acessibilidade = gerar_acessibilidade_aprimorada(
+            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+            recursos_detectados=recursos,
+        )
+        acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+            acompanhamento,
+            acessibilidade,
+            tema,
+            perfil,
+        )
+    elif colunas_planejamento:
+        metodologia = colunas_planejamento["metodologia"]
+        desenvolvimento = _texto_metodologia(metodologia)
+        acompanhamento = colunas_planejamento["acompanhamento"]
+        acessibilidade = colunas_planejamento["acessibilidade"]
+        acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+            acompanhamento,
+            acessibilidade,
+            tema,
+            perfil,
+        )
+    else:
+        metodologia = _montar_etapas_metodologia(
+            texto,
+            disciplina_base,
+            turma,
+            tema,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+        )
+        tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+        if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+            metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
+        metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
+        metodologia, _ = revisar_metodologia(
+            metodologia,
+            perfil=perfil,
+            tema=tema,
+            contexto=contexto_metodologico,
+        )
+        metodologia = naturalizar_metodologia_professor(metodologia)
+        metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf) if modalidade_eja_ativa else metodologia
+
+        desenvolvimento = _texto_metodologia(metodologia)
+        etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+        acompanhamento = gerar_acompanhamento_aprimorado(
+            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+            habilidade=habilidade, etapas_metodologia=etapas_titulos,
+        )
+        acessibilidade = gerar_acessibilidade_aprimorada(
+            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+            recursos_detectados=recursos,
+        )
+        acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+            acompanhamento,
+            acessibilidade,
+            tema,
+            perfil,
+        )
     
-    desenvolvimento = _texto_metodologia(metodologia)
-    etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
-    acompanhamento = gerar_acompanhamento_aprimorado(
-        tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-        disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-        habilidade=habilidade, etapas_metodologia=etapas_titulos,
-    )
-    acessibilidade = gerar_acessibilidade_aprimorada(
-        tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-        disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-        recursos_detectados=recursos,
-    )
-    acompanhamento, acessibilidade = _normalizar_itens_contextuais(
-        acompanhamento,
-        acessibilidade,
-        tema,
-        perfil,
-    )
-    
-    return {
+    aula_gerada = {
+        "disciplina": disciplina_base,
         "tema": tema,
         "material": material_digital,
         "numero_aula": numero_aula,
@@ -5193,6 +5505,8 @@ def _aula_por_pdf(
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
     }
+    aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
+    return aula_gerada
 
 
 def processar_varios_pdfs(
@@ -5204,6 +5518,7 @@ def processar_varios_pdfs(
     provedor_ia: str = "",
     modelo_ia: str = "",
     dividir_metodologia: bool = False,
+    dividir_por_pdf: list[bool] | None = None,
     modalidade_eja: bool = False,
 ) -> list[dict]:
     aulas = []
@@ -5221,7 +5536,8 @@ def processar_varios_pdfs(
             total_aulas=total_aulas,
             modalidade_eja=modalidade_eja,
         )
-        if dividir_metodologia:
+        dividir_aula_atual = bool(dividir_por_pdf[idx]) if dividir_por_pdf and idx < len(dividir_por_pdf) else dividir_metodologia
+        if dividir_aula_atual:
             texto = _texto_metodologia(aula["metodologia"])
             parte1, parte2 = processar_pdf_e_dividir_metodologia(texto)
             aula_primeiro = dict(aula)

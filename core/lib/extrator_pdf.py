@@ -8,6 +8,8 @@ atividades praticas e contexto de aula a partir do texto extraido.
 import re
 import unicodedata
 
+from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
+
 
 def _normalizar_texto(texto: str) -> str:
     texto = unicodedata.normalize("NFKD", texto or "")
@@ -16,7 +18,7 @@ def _normalizar_texto(texto: str) -> str:
 
 
 def _limpar_trecho(texto: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip(" -:;*")
+    texto = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip(" -:;*"))
     texto = re.sub(r"\.{2,}", ".", texto)
     return texto.strip()
 
@@ -63,7 +65,7 @@ def _trecho_descartavel(texto: str) -> bool:
         return True
     if re.fullmatch(r"[A-Za-z0-9_*?&=.%/-]{18,}", texto) and not re.search(r"\s", texto):
         return True
-    if re.search(r"\b[A-Za-z0-9]{10,}\b", texto) and not re.search(
+    if not re.search(r"\s", texto) and re.search(r"\b[A-Za-z0-9]{10,}\b", texto) and not re.search(
         r"\b(?:EM|EF)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b",
         texto,
         flags=re.I,
@@ -91,7 +93,7 @@ def _trecho_seguro(texto: str, fallback: str, limite: int = 220) -> str:
         return fallback
     if len(texto) <= limite:
         return texto
-    recorte = texto[:limite].rsplit(" ", 1)[0].strip()
+    recorte = limitar_texto_natural(texto, limite)
     return recorte if not _trecho_descartavel(recorte) else fallback
 
 
@@ -111,6 +113,54 @@ _PADRAO_ETAPA_METODOLOGICA = re.compile(
     r"^(?:\d+\.\s+|trilha\b|pratica de linguagem\b|aula\s+\d+\b|sugestoes para conducao\b)",
     re.IGNORECASE,
 )
+_SECOES_PRIORITARIAS_PRATICA = [
+    "na pratica",
+    "atividade",
+    "pause e responda",
+    "foco no conteudo",
+    "encerramento",
+]
+_SECOES_PARADA = {
+    "para comecar",
+    "relembre",
+    "exploracao",
+    "foco no conteudo",
+    "pause e responda",
+    "na pratica",
+    "encerramento",
+    "sistematizacao",
+    "contextualizacao",
+    "leitura analitica",
+    "leitura e construcao do conteudo",
+    "producao textual",
+    "revisao e fechamento",
+}
+
+
+def _normalizar_rotulo_secao(texto: str) -> str:
+    return _normalizar_texto(str(texto or "")).strip(" :-")
+
+
+def extrair_secao(linhas: list[str], inicio: str, paradas: set[str] | None = None) -> list[str]:
+    coletando = False
+    bloco = []
+    inicio = _normalizar_rotulo_secao(inicio)
+    paradas = paradas or set()
+
+    for linha in linhas:
+        normalizada = _normalizar_rotulo_secao(linha)
+
+        if normalizada == inicio:
+            coletando = True
+            continue
+
+        if coletando and normalizada in paradas:
+            break
+
+        if coletando and not _trecho_descartavel(linha):
+            bloco.append(_limpar_trecho(linha))
+
+    return bloco
 
 
 class ExtratorPDF:
@@ -134,13 +184,21 @@ class ExtratorPDF:
     ]
 
     def extrair(self, texto: str, tema: str) -> dict:
-        linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
+        linhas = [linha.strip() for linha in corrigir_mojibake(texto).split("\n") if linha.strip()]
+        linhas_limpas = [_limpar_trecho(linha) for linha in linhas if not _trecho_descartavel(linha)]
+        secoes = {
+            secao: extrair_secao(linhas, secao, _SECOES_PARADA - {secao})
+            for secao in _SECOES_PRIORITARIAS_PRATICA
+        }
 
-        conceito = self._extrair_conceito(linhas, tema)
-        atividade_pratica = self._extrair_pratica(linhas, tema)
-        contexto_aula = self._extrair_contexto(linhas)
-        palavras_chave = self._extrair_palavras_chave(linhas)
+        conceito = self._extrair_conceito(linhas_limpas, tema)
+        atividade_pratica = self._extrair_pratica(linhas_limpas, tema, secoes)
+        contexto_aula = self._extrair_contexto(linhas_limpas)
+        palavras_chave = self._extrair_palavras_chave(linhas_limpas)
         etapas_detectadas = self._detectar_etapas(linhas)
+        texto_prioritario = " ".join(
+            " ".join(secoes[nome]) for nome in _SECOES_PRIORITARIAS_PRATICA if secoes.get(nome)
+        ).strip()
 
         from core.lib.classificador import detectar_recursos
 
@@ -155,8 +213,11 @@ class ExtratorPDF:
             "contexto_aula": _trecho_seguro(contexto_aula, "", 160),
             "palavras_chave": palavras_chave,
             "etapas_detectadas": etapas_detectadas,
-            "recursos_detectados": detectar_recursos(texto, tema),
+            "recursos_detectados": detectar_recursos(texto_prioritario or " ".join(linhas_limpas), tema),
+            "texto_prioritario": texto_prioritario,
             "linhas": linhas,
+            "linhas_limpas": linhas_limpas,
+            "secoes_extraidas": secoes,
         }
 
     def _linha_valida(self, linha: str) -> bool:
@@ -282,14 +343,17 @@ class ExtratorPDF:
                 break
         return tema
 
-    def _extrair_pratica(self, linhas: list[str], tema: str) -> str:
+    def _extrair_pratica(self, linhas: list[str], tema: str, secoes: dict[str, list[str]] | None = None) -> str:
+        secoes = secoes or {}
+        for nome_secao in _SECOES_PRIORITARIAS_PRATICA:
+            bloco = secoes.get(nome_secao) or []
+            if bloco:
+                return " ".join(bloco)[:300]
+
         marcadores = [
             "atividade",
             "exercicio",
             "na pratica",
-            "veja no livro",
-            "assistam",
-            "leiam o texto",
             "analise",
             "compare",
             "identifique",
@@ -352,7 +416,7 @@ class ExtratorPDF:
         }
         encontradas = []
         for linha in linhas:
-            normalizada = _normalizar_texto(linha)
+            normalizada = _normalizar_rotulo_secao(linha)
             if normalizada in etapas_conhecidas:
                 encontradas.append(normalizada)
         return encontradas

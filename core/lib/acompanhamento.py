@@ -12,6 +12,7 @@ Gera textos de acompanhamento contextualizados por:
 import re
 from core.lib.classificador import normalizar_texto, contem_termos
 from core.lib.progressao import verbo_observacao, verbo_verificacao, verbo_acompanhamento, conector_progressao
+from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 
 
 # ── Frases-base por perfil disciplinar e tipo de aula ──────────────────────
@@ -226,9 +227,9 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
             "{v_acomp} as propostas de campanha, listas ou orientacoes produzidas pela turma, considerando viabilidade, consciencia ambiental e clareza das ideias.",
         ],
         "_default": [
-            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de an?lise, discuss?o e registro.",
-            "{v_ver} se articulam o tema estudado a situa??es do cotidiano, usos da tecnologia e formas de resolver problemas ou se comunicar melhor.",
-            "{v_acomp} os registros produzidos, considerando clareza de ideias, autonomia crescente e aplica??o pr?tica do conhecimento trabalhado.",
+            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de análise, discussão e registro.",
+            "{v_ver} se articulam o tema estudado a situações do cotidiano, usos da tecnologia e formas de resolver problemas ou se comunicar melhor.",
+            "{v_acomp} os registros produzidos, considerando clareza de ideias, autonomia crescente e aplicação prática do conhecimento trabalhado.",
         ],
     },
     "sociologia": {
@@ -254,6 +255,26 @@ _CONECTORES_ETAPAS = {
     "leitura analitica": "na análise dos textos, imagens e recursos apresentados",
     "sistematizacao": "na sistematização dos conceitos e registros construídos",
 }
+
+_PRIORIDADE_ETAPA = [
+    "na pratica",
+    "atividade",
+    "producao textual",
+    "calculos financeiros",
+    "analise de caso",
+    "foco no conteudo",
+    "leitura analitica",
+    "encerramento",
+    "para comecar",
+]
+
+
+def _etapa_principal(etapas: list[str] | None) -> str:
+    etapas_norm = [normalizar_texto(etapa) for etapa in list(etapas or []) if str(etapa or "").strip()]
+    for prioridade in _PRIORIDADE_ETAPA:
+        if prioridade in etapas_norm:
+            return prioridade
+    return etapas_norm[0] if etapas_norm else ""
 
 
 class CompositorAcompanhamento:
@@ -319,7 +340,7 @@ class CompositorAcompanhamento:
 
         # Camada 3: Enriquecer com referência à etapa da metodologia
         if etapas_metodologia:
-            etapa_principal = normalizar_texto(etapas_metodologia[0]) if etapas_metodologia else ""
+            etapa_principal = _etapa_principal(etapas_metodologia)
             conector_etapa = _CONECTORES_ETAPAS.get(etapa_principal, "")
             if conector_etapa and len(itens) >= 2:
                 # Enriquece o segundo item com referência à etapa
@@ -478,11 +499,11 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
 def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
     saida = []
     for texto in itens or []:
-        txt = re.sub(r"\s+", " ", str(texto or "")).strip()
+        txt = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
         if not txt:
             continue
         if len(txt) > 220:
-            txt = txt[:217].rstrip(" ,;:-") + "."
+            txt = limitar_texto_natural(txt, 220)
         saida.append(txt)
         if len(saida) >= maximo:
             break

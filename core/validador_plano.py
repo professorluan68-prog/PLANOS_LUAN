@@ -5,6 +5,7 @@ Valida tema, metodologia, acompanhamento, acessibilidade e aprendizagem.
 """
 
 import re
+from core.qualidade_metodologica import normalizar_texto, tem_mojibake
 
 
 _ROTULOS_ETAPAS = (
@@ -134,3 +135,51 @@ def validar_aulas_geradas(
                 )
 
     return problemas
+
+
+def validar_aula_final(aula: dict) -> list[str]:
+    """Faz uma checagem semântica simples antes do preenchimento do DOCX."""
+    avisos = []
+
+    disciplina = normalizar_texto(aula.get("disciplina", ""))
+    tema = normalizar_texto(aula.get("tema", ""))
+    metodologia = " ".join(
+        str(item.get("texto", ""))
+        for item in aula.get("metodologia", [])
+        if isinstance(item, dict)
+    )
+    acompanhamento = " ".join(str(item) for item in aula.get("acompanhamento", []))
+    acessibilidade = " ".join(str(item) for item in aula.get("acessibilidade", []))
+    texto_total = " ".join(
+        [
+            str(aula.get("tema", "")),
+            str(aula.get("aprendizagem", "")),
+            metodologia,
+            acompanhamento,
+            acessibilidade,
+        ]
+    )
+    texto_norm = normalizar_texto(texto_total)
+
+    if tem_mojibake(texto_total):
+        avisos.append("Texto com possível problema de codificação.")
+    if "relacionado a relacionado" in texto_norm:
+        avisos.append("Possível frase artificial ou repetida.")
+    if disciplina and "matematica" in disciplina and any(
+        termo in texto_norm for termo in ["texto literario", "personagens", "enredo", "cronica"]
+    ):
+        avisos.append("Possível contaminação: metodologia de leitura literária em Matemática.")
+    if disciplina and "geografia" in disciplina and any(
+        termo in texto_norm for termo in ["equacao", "incognita", "resolver x", "sistema de equacoes"]
+    ):
+        avisos.append("Possível contaminação: linguagem algébrica em Geografia.")
+    if disciplina and "historia" in disciplina and any(
+        termo in texto_norm for termo in ["calculo", "equacao", "porcentagem", "resolver operacoes"]
+    ):
+        avisos.append("Possível contaminação: cálculo matemático em História.")
+    if "producao textual" in tema and not any(
+        termo in texto_norm for termo in ["rascunho", "revis", "reescrita", "planejamento"]
+    ):
+        avisos.append("Produção textual sem etapa clara de planejamento ou revisão.")
+
+    return avisos

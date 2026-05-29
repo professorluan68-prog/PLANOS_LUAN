@@ -10,7 +10,10 @@ from core.lib.classificador import perfil_disciplina, detectar_tipo_aula, normal
 from core.lib.tecnicas import SeletorTecnicas
 from core.lib.progressao import ajustar_texto_por_posicao
 from core.lib.extrator_pdf import ExtratorPDF
-from core.qualidade_metodologica import naturalizar_texto_metodologico
+from core.qualidade_metodologica import (
+    corrigir_mojibake,
+    naturalizar_texto_metodologico,
+)
 
 
 _seletor_tecnicas = SeletorTecnicas()
@@ -24,7 +27,7 @@ class ValidadorQualidade:
         validada = []
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
-                texto = naturalizar_texto_metodologico(etapa["texto"].strip())
+                texto = naturalizar_texto_metodologico(corrigir_mojibake(etapa["texto"].strip()))
                 if not texto.endswith('.'):
                     texto += '.'
                 etapa["texto"] = texto
@@ -71,6 +74,16 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Revisão e reescrita", "encerramento"),
         ]
 
+    if perfil == "orientacao_estudos":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Leitura e construcao do conteudo", "leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Pause e responda", "pause"),
+            ("Encerramento", "encerramento"),
+        ]
+
     if perfil == "educacao_financeira":
         etapas = [
             ("Para começar", "para_comecar"),
@@ -101,9 +114,113 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
     ]
 
 
+_PRIORIDADE_RECURSO = [
+    "producao_textual",
+    "calculo_resolucao",
+    "analise_grafico",
+    "analise_geografica",
+    "analise_imagem",
+    "experimentacao",
+    "debate_oral",
+    "leitura_texto",
+]
+
+
+def _recurso_principal(recursos_detectados: list[str] | None) -> str:
+    recursos = [normalizar_texto(recurso) for recurso in list(recursos_detectados or [])]
+    for prioridade in _PRIORIDADE_RECURSO:
+        if prioridade in recursos:
+            return prioridade
+    return recursos[0] if recursos else ""
+
+
+def _ajustar_por_recurso(base: dict[str, str], recurso_principal: str, tema: str, atividade_extraida: str) -> None:
+    atividade = corrigir_mojibake(atividade_extraida or "")
+    if recurso_principal == "analise_grafico":
+        base["foco"] = (
+            f"Conduzir a leitura de gráficos ou tabelas relacionados a {tema}, destacando título, legenda, eixos, categorias, variações e comparação de dados antes da interpretação."
+        )
+        base["pratica"] = (
+            f"Orientar a análise dos dados em etapas, retomando o que a atividade pede e solicitando registros sobre padrões, comparações e conclusões. Atividade central do material: {atividade or 'interpretar informações numéricas e justificar respostas.'}"
+        )
+    elif recurso_principal == "analise_geografica":
+        base["foco"] = (
+            f"Explorar o mapa como linguagem principal da aula, destacando título, legenda, escala, localização e o fenômeno espacial relacionado a {tema}."
+        )
+        base["pratica"] = (
+            f"Orientar leitura guiada do mapa e registro das observações no caderno, solicitando localização, comparação e explicação do fenômeno analisado. Atividade central do material: {atividade or 'interpretar informações do mapa com apoio do professor.'}"
+        )
+    elif recurso_principal == "analise_imagem":
+        base["leitura"] = (
+            "Explorar a imagem, charge, fotografia ou esquema do material com leitura mediada, destacando elementos visuais, pistas de sentido e relações com o tema da aula."
+        )
+        base["pratica"] = (
+            f"Orientar a observação guiada da imagem e a construção de respostas com base em evidências visuais, articulando descrição, interpretação e justificativa. Atividade central do material: {atividade or 'analisar a imagem e registrar as conclusões mais importantes.'}"
+        )
+    elif recurso_principal == "producao_textual":
+        base["foco"] = (
+            f"Retomar as características do gênero ou proposta de escrita relacionada a {tema}, destacando finalidade, interlocutor, organização das ideias e critérios de qualidade."
+        )
+        base["pratica"] = (
+            f"Organizar a atividade em planejamento, escrita, revisão e reescrita, com mediação do professor durante o processo. Atividade central do material: {atividade or 'produzir um texto coerente com o gênero e revisar a versão inicial.'}"
+        )
+    elif recurso_principal == "calculo_resolucao":
+        base["foco"] = (
+            f"Explicar o procedimento central de {tema} com exemplo resolvido passo a passo, destacando leitura dos dados, escolha da operação e conferência do resultado."
+        )
+        base["pratica"] = (
+            f"Orientar a resolução das questões em etapas, solicitando registro do raciocínio e comparação de estratégias. Atividade central do material: {atividade or 'resolver os cálculos e justificar o procedimento utilizado.'}"
+        )
+    elif recurso_principal == "experimentacao":
+        base["foco"] = (
+            f"Apresentar o fenômeno relacionado a {tema} por meio de observação orientada, hipótese inicial e organização das etapas do experimento ou demonstração."
+        )
+        base["pratica"] = (
+            f"Conduzir a atividade experimental com registro de observações, comparação de resultados e conclusão baseada em evidências. Atividade central do material: {atividade or 'observar, registrar e concluir a partir da prática proposta.'}"
+        )
+
+
+def _conceito_projeto_vida(conceito: str, tema: str, texto_base: str, atividade_extraida: str) -> str:
+    conceito_limpo = corrigir_mojibake(str(conceito or "")).strip(" .:-")
+    conceito_norm = normalizar_texto(conceito_limpo)
+    tema_norm = normalizar_texto(tema)
+    base_contexto = normalizar_texto(" ".join([atividade_extraida or "", texto_base or "", tema or ""]))
+
+    generico = (
+        not conceito_norm
+        or conceito_norm == tema_norm
+        or any(
+            marcador in conceito_norm
+            for marcador in [
+                "questao essencial",
+                "habilidade",
+                "competencia",
+                "competencias",
+                "tema da aula",
+                "conteudo da aula",
+            ]
+        )
+        or (conceito_norm.split()[-1:] and conceito_norm.split()[-1] in {"a", "as", "o", "os", "de", "da", "do", "e", "em", "com", "para", "por"})
+    )
+    if not generico:
+        return conceito_limpo
+
+    if any(termo in base_contexto for termo in ["autoconhecimento", "quem sou", "identidade"]):
+        return "autoconhecimento e cuidado consigo"
+    if any(termo in base_contexto for termo in ["opiniao", "opinioes", "ponto de vista", "pontos de vista", "conviv", "respeito"]):
+        return "pontos de vista, respeito e convivencia"
+    if any(termo in base_contexto for termo in ["print", "post", "postar", "digital", "rede", "online", "internet"]):
+        return "exposicao e responsabilidade no ambiente digital"
+    return "escolhas, convivencia e responsabilidade"
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
-    turma: str, tecnicas: dict, texto_base: str = ""
+    turma: str, tecnicas: dict, texto_base: str = "",
+    atividade_extraida: str = "",
+    recursos_detectados: list[str] | None = None,
+    etapas_detectadas: list[str] | None = None,
+    habilidade: str = "",
 ) -> dict[str, str]:
     """Gera frases contextualizadas para cada etapa da metodologia."""
 
@@ -149,6 +266,9 @@ def _frases_por_contexto(
         ),
     }
 
+    recurso_principal = _recurso_principal(recursos_detectados)
+    _ajustar_por_recurso(base, recurso_principal, tema, atividade_extraida)
+
     # Ajustes por perfil
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         if tipo == "producao":
@@ -176,18 +296,57 @@ def _frases_por_contexto(
             )
 
     elif perfil in {"orientacao_estudos"}:
+        base["para_comecar"] = (
+            f"Retomar conhecimentos previos sobre {tema} com perguntas curtas, exemplos proximos da rotina escolar e "
+            "registro no quadro das primeiras pistas que ajudarao a turma a estudar melhor o material."
+        )
+        base["leitura"] = (
+            "Realizar leitura guiada dos comandos, textos, imagens e orientacoes do material, fazendo pausas para localizar "
+            "informacoes importantes, esclarecer vocabulario e marcar palavras-chave que orientem o estudo."
+        )
         base["foco"] = (
-            f"Trabalhar {conceito} como oportunidade para ensinar uma estratégia de estudo: localizar informações, "
-            "interpretar comandos, justificar respostas e revisar registros."
+            f"Trabalhar {conceito} como oportunidade para ensinar uma estrategia de estudo: interpretar comandos, "
+            "selecionar evidencias, justificar respostas e organizar registros que possam ser retomados em outras aulas."
         )
         base["pratica"] = (
-            f"Orientar a resolução das atividades explicitando o passo a passo de estudo, usando {t_reg}: ler o comando, marcar "
-            "palavras-chave, buscar evidências, responder e revisar a resposta."
+            f"Orientar a resolucao das atividades explicitando o passo a passo de estudo, usando {t_reg}: ler o comando, marcar "
+            "palavras-chave, buscar evidencias no material, responder com justificativa e revisar a propria resposta antes da socializacao."
+        )
+        base["pause"] = (
+            "Socializar respostas selecionadas e realizar correcao dialogada, retomando trechos do material, marcas feitas no texto "
+            "e os caminhos usados pelos estudantes para chegar as respostas."
         )
         base["encerramento"] = (
-            f"Finalizar com autoavaliação breve sobre qual estratégia ajudou mais a compreender {tema} e como ela "
-            "pode ser usada em outras disciplinas."
+            f"Finalizar com autoavaliacao breve sobre qual estrategia ajudou mais a compreender {tema} e como ela "
+            "pode ser aplicada em outras disciplinas, leituras e momentos de estudo."
         )
+        if recurso_principal == "producao_textual":
+            base["foco"] = (
+                f"Retomar as caracteristicas da proposta relacionada a {tema}, mostrando como planejar a escrita, selecionar ideias "
+                "centrais e revisar o texto com base em criterios simples e visiveis."
+            )
+            base["pratica"] = (
+                "Organizar a atividade em planejamento, rascunho, revisao e versao final, com apoio do professor para transformar "
+                "os comandos do material em passos concretos de estudo e producao."
+            )
+        elif recurso_principal == "analise_grafico":
+            base["foco"] = (
+                f"Explorar {conceito} ensinando a turma a ler titulo, legendas, linhas, colunas, valores e comparacoes antes de tirar conclusoes."
+            )
+            base["pratica"] = (
+                "Orientar a leitura dos dados em etapas, pedindo que os estudantes registrem o que observaram, comparem informacoes "
+                "e expliquem como chegaram as respostas."
+            )
+        elif recurso_principal == "analise_imagem":
+            base["foco"] = (
+                f"Explorar {conceito} a partir da leitura de imagens, tirinhas, charges ou esquemas, ajudando a turma a descrever, "
+                "interpretar pistas visuais e relaciona-las ao texto verbal."
+            )
+        if "de olho no saeb" in normalizar_texto(texto_base):
+            base["pratica"] += (
+                " Quando o material trouxer DE OLHO NO SAEB, conduzir a resolucao de forma guiada, explicando como ler "
+                "o enunciado, localizar pistas e revisar alternativas sem transformar a aula em treino mecanico."
+            )
 
     elif perfil in {"ciencias_ef", "biologia", "quimica", "fisica"}:
         base["para_comecar"] = (
@@ -252,26 +411,22 @@ def _frases_por_contexto(
         )
 
     elif perfil in {"projeto_de_vida", "lideranca_oratoria"}:
-        conceito_norm = normalizar_texto(conceito)
-        conceito_seguro = tema if any(
-            marcador in conceito_norm
-            for marcador in ["questao essencial", "habilidade", "competencia", "competencias", "tema da aula", "conteudo da aula"]
-        ) or (conceito_norm.split()[-1:] and conceito_norm.split()[-1] in {"a", "as", "o", "os", "de", "da", "do", "e", "em", "com", "para", "por"}) else conceito
+        conceito_seguro = _conceito_projeto_vida(conceito, tema, texto_base, atividade_extraida)
         base["para_comecar"] = (
-            f"Abrir a aula com uma situação acolhedora relacionada a {tema}, sem exigir exposição pessoal. Propor "
-            "troca em duplas ou roda de conversa breve, respeitando diferentes ritmos de participação."
+            f"Abrir a aula com uma situacao acolhedora relacionada a {tema}, sem exigir exposicao pessoal. Propor "
+            "troca em duplas ou roda de conversa breve, respeitando diferentes ritmos de participacao."
         )
         base["foco"] = (
-            f"Construir a reflexÃ£o sobre {conceito_seguro} por meio de exemplos escolares e cotidianos, ajudando a turma a "
+            f"Construir a reflexao sobre {conceito_seguro} por meio de exemplos escolares e cotidianos, ajudando a turma a "
             "relacionar sentir, pensar e agir de forma respeitosa."
         )
         base["pratica"] = (
             "Orientar atividade reflexiva com registro individual, escolha pessoal ou planejamento simples. Garantir "
-            "que a socialização seja opcional ou mediada, evitando exposição de experiências íntimas."
+            "que a socializacao seja opcional ou mediada, evitando exposicao de experiencias intimas."
         )
         base["encerramento"] = (
-            f"Encerrar com um compromisso simples ou observação para a semana, relacionado a {tema}, reforçando "
-            "autonomia, respeito e cuidado nas relações."
+            f"Encerrar com um compromisso simples ou observacao para a semana, relacionado a {tema}, reforcando "
+            "autonomia, respeito e cuidado nas relacoes."
         )
 
     elif perfil == "educacao_financeira":
@@ -534,12 +689,28 @@ class MotorMetodologico:
         # 2. Extrair conceito
         extracao = self.extrator.extrair(texto_pdf, tema)
         conceito = extracao["conceito_extraido"]
+        atividade = extracao.get("atividade_extraida", "")
+        recursos = extracao.get("recursos_detectados", [])
+        etapas_pdf = extracao.get("etapas_detectadas", [])
+        habilidade = extracao.get("habilidade", "")
 
         # 3. Selecionar técnicas com variação
         tecnicas = self.seletor.selecionar_para_aula(perfil, tipo, tema, indice_aula)
 
         # 4. Gerar frases contextualizadas
-        frases = _frases_por_contexto(perfil, tipo, tema, conceito, turma, tecnicas, texto_pdf)
+        frases = _frases_por_contexto(
+            perfil,
+            tipo,
+            tema,
+            conceito,
+            turma,
+            tecnicas,
+            texto_pdf,
+            atividade_extraida=atividade,
+            recursos_detectados=recursos,
+            etapas_detectadas=etapas_pdf,
+            habilidade=habilidade,
+        )
 
         # 5. Montar etapas
         etapas_config = _etapas_por_perfil(perfil, tipo)

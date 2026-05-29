@@ -12,6 +12,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 from core.helpers import texto_lista
+from core.qualidade_metodologica import corrigir_mojibake
 
 
 DESTAQUES_TEXTO = {
@@ -385,11 +386,12 @@ def _polir_texto_docx(texto: str) -> str:
             texto_final,
             flags=re.I,
         )
-    return texto_final
+    return corrigir_mojibake(texto_final)
 
 
 def _titulo_exibicao(titulo: str) -> str:
-    return TITULOS_ETAPAS.get(str(titulo or "").strip(), str(titulo or "").strip())
+    valor = TITULOS_ETAPAS.get(str(titulo or "").strip(), str(titulo or "").strip())
+    return corrigir_mojibake(valor)
 
 
 def _adicionar_texto_com_destaques(paragrafo, texto: str) -> None:

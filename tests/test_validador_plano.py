@@ -46,3 +46,20 @@ def test_validador_mantem_bloqueio_quando_ha_mesmo_poucas_etapas():
 
     problemas = validar_aulas_geradas(aulas)
     assert any("metodologia com poucas etapas" in problema for problema in problemas)
+
+
+def test_validador_aceita_metodologia_curta_quando_modo_simples_esta_liberado():
+    aulas = [
+        {
+            "tema": "Tema dividido em dois encontros",
+            "aprendizagem": "Desenvolver habilidades de leitura e escrita relacionadas ao tema trabalhado em sala.",
+            "metodologia": [
+                {"titulo": "Para comecar", "texto": "Retomar o encontro anterior e apresentar a atividade do dia."},
+                {"titulo": "Encerramento", "texto": "Socializar as respostas e preparar a continuidade para o proximo dia."},
+            ],
+            "acompanhamento": ["Item 1 completo.", "Item 2 completo."],
+            "acessibilidade": ["Item 1 completo.", "Item 2 completo."],
+        }
+    ]
+
+    assert validar_aulas_geradas(aulas, permitir_metodologia_simples=True) == []
