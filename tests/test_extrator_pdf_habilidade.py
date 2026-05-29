@@ -72,3 +72,32 @@ def test_habilidade_para_antes_da_metodologia():
     assert "EF69LP46" in habilidade
     assert "Trilha Harry Potter" not in habilidade
     assert "Disparo inicial" not in habilidade
+
+
+def test_extrai_habilidade_textual_da_secao_habilidades():
+    linhas = [
+        "Objetivos da aula",
+        "• Identificar as principais causas das migracoes internacionais.",
+        "Habilidades",
+        "Analisar criticamente as influencias da globalizacao e mundializacao nas juventudes, avaliando como esses processos impactam diferentes contextos sociais, economicos e culturais e as oportunidades e desafios no mundo do trabalho.",
+        "Conteudos",
+        "• Causas das migracoes internacionais.",
+    ]
+
+    habilidade = ExtratorPDF()._extrair_habilidade(linhas)
+
+    assert habilidade.startswith("Habilidade:")
+    assert "globalizacao e mundializacao" in habilidade
+
+
+def test_rejeita_habilidade_textual_truncada():
+    linhas = [
+        "Habilidades",
+        "s para estimular a inovacao e o desenvolvimento sustentavel.",
+        "Conteudos",
+        "• Migracoes internacionais.",
+    ]
+
+    habilidade = ExtratorPDF()._extrair_habilidade(linhas)
+
+    assert habilidade == ""

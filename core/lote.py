@@ -4724,6 +4724,97 @@ def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "", pe
     return texto
 
 
+def _texto_habilidade_invalido_ou_truncado(texto: str) -> bool:
+    base = _normalizar(texto)
+    if not base:
+        return True
+
+    texto_limpo = re.sub(r"^habilidade:\s*", "", texto.strip(), flags=re.I)
+    palavras = re.findall(r"[A-Za-zÀ-ÿ]+", texto_limpo)
+    if not palavras:
+        return True
+
+    ultimo = _normalizar(palavras[-1])
+    if ultimo in {"a", "as", "o", "os", "de", "da", "do", "das", "dos", "e", "em", "com", "para", "por", "que"}:
+        return True
+
+    if len(texto_limpo) < 30:
+        return True
+
+    if texto_limpo[:1].islower():
+        return True
+
+    if _trecho_incompleto_aprendizagem(texto_limpo):
+        return True
+
+    return False
+
+
+def _sintetizar_objetivos_e_conteudos_para_aprendizagem(
+    tema: str,
+    objetivos: list[str] | None = None,
+    conteudos: list[str] | None = None,
+    perfil: str = "",
+) -> str:
+    objetivos = [re.sub(r"\s+", " ", str(x or "")).strip(" .;:-") for x in (objetivos or []) if str(x or "").strip()]
+    conteudos = [re.sub(r"\s+", " ", str(x or "")).strip(" .;:-") for x in (conteudos or []) if str(x or "").strip()]
+
+    foco_tema = _foco_limpo_aprendizagem(tema, " ".join(conteudos[:2]))
+
+    if perfil == "geografia":
+        if objetivos:
+            verbo_base = objetivos[0]
+            verbo_base = re.sub(r"^(identificar|analisar|reconhecer|interpretar|comparar|avaliar|explicar)\s+", lambda m: m.group(1).capitalize() + " ", verbo_base, flags=re.I)
+            complemento = ""
+            if len(objetivos) > 1:
+                complemento = objetivos[1]
+                complemento = re.sub(r"^(identificar|analisar|reconhecer|interpretar|comparar|avaliar|explicar)\s+", "", complemento, flags=re.I)
+                complemento = complemento[:180].rstrip(" .;:-")
+                if complemento:
+                    return f"{verbo_base.rstrip(' .;:-')}, {complemento}."
+            return verbo_base.rstrip(" .;:-") + "."
+
+        if conteudos:
+            return f"Analisar criticamente aspectos relacionados a {foco_tema}, com base nos conteúdos e discussões propostos no material."
+
+        return f"Analisar criticamente aspectos relacionados a {foco_tema}, relacionando o tema aos conceitos centrais da aula."
+
+    if objetivos:
+        base = objetivos[0].rstrip(" .;:-")
+        if len(objetivos) > 1:
+            segundo = re.sub(r"^(identificar|analisar|reconhecer|interpretar|comparar|avaliar|explicar|aplicar|justificar)\s+", "", objetivos[1], flags=re.I).rstrip(" .;:-")
+            if segundo:
+                return f"{base}, {segundo}."
+        return base + "."
+
+    if conteudos:
+        return f"Compreender e analisar conceitos relacionados a {foco_tema}, articulando os conteúdos trabalhados no material."
+
+    return f"Desenvolver habilidades relacionadas ao tema da aula, com foco em {foco_tema}."
+
+
+def _montar_aprendizagem_inteligente(
+    habilidade_pdf: str,
+    tema: str,
+    conceito: str,
+    perfil: str,
+    objetivos_secao: list[str] | None = None,
+    conteudos_secao: list[str] | None = None,
+) -> str:
+    habilidade_pdf = re.sub(r"\s+", " ", str(habilidade_pdf or "")).strip()
+
+    if habilidade_pdf and not _texto_habilidade_invalido_ou_truncado(habilidade_pdf):
+        return _sanitizar_aprendizagem(habilidade_pdf, tema, conceito, perfil=perfil)
+
+    fallback = _sintetizar_objetivos_e_conteudos_para_aprendizagem(
+        tema=tema,
+        objetivos=objetivos_secao,
+        conteudos=conteudos_secao,
+        perfil=perfil,
+    )
+    return _sanitizar_aprendizagem(fallback, tema, conceito, perfil=perfil)
+
+
 def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
     base = _normalizar(tema)
     if any(termo in base for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]):
@@ -5273,13 +5364,19 @@ def _aula_por_pdf(
             extracao = _extrator_lib.extrair(texto, tema)
             tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base)
             habilidade_pdf = extracao.get("habilidade", "")
+            objetivos_secao = extracao.get("objetivos_secao") or []
+            conteudos_secao = extracao.get("conteudos_secao") or []
             if aprendizagem_pv:
                 aprendizagem = aprendizagem_pv
-            elif habilidade_pdf and len(habilidade_pdf) > 15:
-                aprendizagem = habilidade_pdf
             else:
-                aprendizagem = plano_ia.get("aprendizagem", "")
-            aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, perfil=perfil)
+                aprendizagem = _montar_aprendizagem_inteligente(
+                    habilidade_pdf=habilidade_pdf or plano_ia.get("aprendizagem", ""),
+                    tema=tema,
+                    conceito=extracao.get("conceito_extraido", tema),
+                    perfil=perfil,
+                    objetivos_secao=objetivos_secao,
+                    conteudos_secao=conteudos_secao,
+                )
             colunas_planejamento = _tentar_gerador_colunas_pedagogicas(
                 texto=texto,
                 titulo_aula=material_digital or tema,
@@ -5394,18 +5491,22 @@ def _aula_por_pdf(
     conceito = extracao.get("conceito_extraido", tema)
     habilidade = extracao.get("habilidade", "")
     recursos = extracao.get("recursos_detectados", [])
+    objetivos_secao = extracao.get("objetivos_secao") or []
+    conteudos_secao = extracao.get("conteudos_secao") or []
     
     # Se o extrator encontrou uma habilidade/BNCC no PDF, usa ela diretamente
     if aprendizagem_pv:
         aprendizagem = aprendizagem_pv
         habilidade = aprendizagem_pv
-    elif habilidade and len(habilidade) > 15:
-        aprendizagem = habilidade
     else:
-        verbo = "Aplicar atividades e compreender" if tipo == "pratica" else "Compreender e analisar"
-        conceito_aprendizagem = _foco_limpo_aprendizagem(tema, conceito)
-        aprendizagem = f"{verbo} os conceitos relacionados a: {conceito_aprendizagem}."
-    aprendizagem = _sanitizar_aprendizagem(aprendizagem, tema, conceito, perfil=perfil)
+        aprendizagem = _montar_aprendizagem_inteligente(
+            habilidade_pdf=habilidade,
+            tema=tema,
+            conceito=conceito,
+            perfil=perfil,
+            objetivos_secao=objetivos_secao,
+            conteudos_secao=conteudos_secao,
+        )
 
     colunas_planejamento = _tentar_gerador_colunas_pedagogicas(
         texto=texto,

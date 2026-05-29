@@ -54,19 +54,28 @@ class PistasPedagogicas:
     conteudos: List[str] = field(default_factory=list)
     objetivos: List[str] = field(default_factory=list)
     vocabulario_chave: List[str] = field(default_factory=list)
+
     tem_para_comecar: bool = False
     tem_relembre: bool = False
     tem_foco_conteudo: bool = False
     tem_pause_responda: bool = False
     tem_atividade_final: bool = False
     tem_video: bool = False
+
     tem_grafico: bool = False
     tem_tabela: bool = False
     tem_calculo: bool = False
     tem_comparacao: bool = False
     tem_estudo_caso: bool = False
     tem_situacao_problema: bool = False
+    tem_noticia: bool = False
+    tem_imagem_inicial: bool = False
+    tem_mapa: bool = False
+    tem_leitura_guiada: bool = False
+    tem_construcao_conceito: bool = False
+
     tecnicas_lemov: List[str] = field(default_factory=list)
+
     perfil: str = "geral"
     verbo_objetivo: str = "compreender"
 
@@ -86,28 +95,17 @@ VERBOS_OBJETIVO = [
     "avaliar", "identificar", "planejar", "aplicar", "justificar",
 ]
 
-PALAVRAS_GRAFICO = [
-    "grafico", "gráfico", "linha", "coluna", "eixo", "dados", "ipca",
-]
-
-PALAVRAS_TABELA = [
-    "tabela", "quadro", "comparativo", "categoria", "percentual",
-]
-
-PALAVRAS_CALCULO = [
-    "juros", "porcentagem", "percentual", "cálculo", "calculo",
-    "valor", "parcela", "saldo", "rendimento", "rentabilidade",
-]
-
-PALAVRAS_COMPARACAO = [
-    "comparar", "comparação", "comparacao", "diferença",
-    "diferenca", "vantagens", "riscos", "alternativas",
-]
-
-PALAVRAS_ESTUDO_CASO = [
-    "ana tem", "gabriel recebeu", "joão recebeu", "joao recebeu",
-    "carlos ganhou", "seu personagem", "situação", "situacao",
-]
+PALAVRAS_GRAFICO = ["grafico", "gráfico", "coluna", "linha", "eixo", "fluxo de refugiados"]
+PALAVRAS_TABELA = ["tabela", "quadro", "comparativo"]
+PALAVRAS_CALCULO = ["juros", "porcentagem", "percentual", "cálculo", "calculo", "rendimento"]
+PALAVRAS_COMPARACAO = ["comparar", "comparação", "comparacao", "diferença", "diferenca", "sinônimos", "sinonimos"]
+PALAVRAS_ESTUDO_CASO = ["situação", "situacao", "caso", "estudante de 25 anos", "um rapaz se mudou"]
+PALAVRAS_NOTICIA = ["leia a notícia", "leia a noticia", "notícia", "noticia", "uol", "g1", "cnn", "bbc", "veja"]
+PALAVRAS_IMAGEM = ["observe as imagens", "observe a imagem", "imagem de satélite", "imagem de satelite"]
+PALAVRAS_MAPA = ["mapa interativo", "fluxo de migração", "fluxo de migracao", "legenda", "países ou regiões", "paises ou regioes"]
+PALAVRAS_LEITURA = ["leia", "leitura", "hora da leitura"]
+PALAVRAS_CONSTRUCAO_CONCEITO = ["construindo o conceito"]
+PALAVRAS_DEBATE = ["virem e conversem", "com suas palavras", "para refletir"]
 
 
 def extrair_bullets_secao(texto: str, marcador_secao: str) -> List[str]:
@@ -120,8 +118,10 @@ def extrair_bullets_secao(texto: str, marcador_secao: str) -> List[str]:
         if marcador_secao in n:
             secao = True
             continue
-        if secao and ("objetivos" in n or "conteudos" in n) and marcador_secao not in n:
+
+        if secao and any(rot in n for rot in ["objetivos", "conteudos", "conteúdos", "habilidades", "recursos didaticos", "duração da aula", "duracao da aula"]) and marcador_secao not in n:
             break
+
         if secao and linha.startswith("●"):
             itens.append(linha.lstrip("●").strip(" ;:."))
 
@@ -157,6 +157,7 @@ def extrair_vocabulario_chave(conteudos: List[str], objetivos: List[str], titulo
     if titulo:
         titulo_limpo = re.sub(r"^\s*aula\s*\d+\s*-\s*", "", titulo, flags=re.I)
         candidatos.append(titulo_limpo)
+
     candidatos.extend(conteudos[:4])
 
     for obj in objetivos[:4]:
@@ -173,22 +174,42 @@ def extrair_vocabulario_chave(conteudos: List[str], objetivos: List[str], titulo
         candidato = clean(candidato)
         if 4 <= len(candidato) <= 90:
             saida.append(candidato)
+
     return dedup(saida)[:6]
 
 
-def classificar_perfil(texto: str, titulo: str, conteudos: List[str], objetivos: List[str]) -> str:
+def classificar_perfil(texto: str, titulo: str, conteudos: List[str], objetivos: List[str], blocos: Dict[str, str]) -> str:
     base = " ".join([texto, titulo] + conteudos + objetivos)
     n = norm(base)
-    if any(p in n for p in [norm(x) for x in PALAVRAS_GRAFICO]):
-        return "grafico"
-    if any(p in n for p in [norm(x) for x in PALAVRAS_CALCULO]):
-        return "calculo"
-    if any(p in n for p in [norm(x) for x in PALAVRAS_COMPARACAO]):
-        return "comparacao"
-    if any(p in n for p in [norm(x) for x in PALAVRAS_ESTUDO_CASO]):
-        return "decisao"
-    if "conceito" in n or "o que e" in n:
-        return "conceito"
+
+    tem_noticia = any(p in n for p in [norm(x) for x in PALAVRAS_NOTICIA])
+    tem_imagem = any(p in n for p in [norm(x) for x in PALAVRAS_IMAGEM])
+    tem_mapa = any(p in n for p in [norm(x) for x in PALAVRAS_MAPA])
+    tem_comparacao = any(p in n for p in [norm(x) for x in PALAVRAS_COMPARACAO])
+    tem_grafico = any(p in n for p in [norm(x) for x in PALAVRAS_GRAFICO])
+    tem_estado = any(t in n for t in ["estado", "documentos internacionais", "direitos", "restrições", "restricoes", "soberania", "fronteiras"])
+    tem_xenofobia = "xenofobia" in n
+    tem_refugiado = "refugiado" in n or "refugiados" in n
+    tem_migracao_legal_ilegal = "migracao legal e ilegal" in n or ("migrante legal" in n and "migrante ilegal" in n)
+
+    if tem_xenofobia and tem_noticia:
+        return "noticia_leitura_critica"
+    if tem_migracao_legal_ilegal and (tem_imagem or "virem e conversem" in n) and tem_estado:
+        return "imagem_debate_direitos"
+    if tem_refugiado and tem_comparacao:
+        return "comparacao_conceitual"
+    if tem_mapa and "migracao" in n:
+        return "mapa_fluxos_migratorios"
+    if tem_grafico and tem_refugiado:
+        return "grafico_fluxos_refugiados"
+    if tem_comparacao:
+        return "comparacao_conceitual"
+    if tem_noticia:
+        return "noticia_leitura_critica"
+    if tem_imagem:
+        return "imagem_debate"
+    if "construindo o conceito" in n or blocos.get("Construindo o conceito"):
+        return "conceito_reflexivo"
     return "geral"
 
 
@@ -205,21 +226,29 @@ def extrair_pistas(texto_pdf: str, titulo_aula: str) -> PistasPedagogicas:
         conteudos=conteudos,
         objetivos=objetivos,
         vocabulario_chave=extrair_vocabulario_chave(conteudos, objetivos, titulo_aula),
-        tem_para_comecar=bool(blocos.get("Para comecar")) or ("para comecar" in n),
+
+        tem_para_comecar=bool(blocos.get("Para comecar")) or ("para comecar" in n) or bool(blocos.get("Ponto de partida")),
         tem_relembre=bool(blocos.get("Relembre")) or ("relembre" in n),
-        tem_foco_conteudo=bool(blocos.get("Foco no conteudo")) or ("foco no conteudo" in n),
+        tem_foco_conteudo=bool(blocos.get("Foco no conteudo")) or ("foco no conteudo" in n) or bool(blocos.get("Construindo o conceito")),
         tem_pause_responda=bool(blocos.get("Pause e responda")) or ("pause e responda" in n),
-        tem_atividade_final=bool(blocos.get("Na pratica")) or ("na pratica" in n or "desafio" in n or "roda de conversa" in n),
+        tem_atividade_final=bool(blocos.get("Na pratica")) or ("na pratica" in n or "desafio" in n),
         tem_video=("link para video" in n or "assista ao video" in n),
+
         tem_grafico=any(p in n for p in [norm(x) for x in PALAVRAS_GRAFICO]),
         tem_tabela=any(p in n for p in [norm(x) for x in PALAVRAS_TABELA]),
         tem_calculo=any(p in n for p in [norm(x) for x in PALAVRAS_CALCULO]),
         tem_comparacao=any(p in n for p in [norm(x) for x in PALAVRAS_COMPARACAO]),
         tem_estudo_caso=any(p in n for p in [norm(x) for x in PALAVRAS_ESTUDO_CASO]),
-        tem_situacao_problema=("problema" in n or "situação" in texto_pdf.lower() or "situacao" in n),
+        tem_situacao_problema=("problema" in n or "questoes abaixo" in n or "responda às perguntas" in texto_pdf.lower() or "responda as perguntas" in n),
+        tem_noticia=any(p in n for p in [norm(x) for x in PALAVRAS_NOTICIA]),
+        tem_imagem_inicial=any(p in n for p in [norm(x) for x in PALAVRAS_IMAGEM]),
+        tem_mapa=any(p in n for p in [norm(x) for x in PALAVRAS_MAPA]),
+        tem_leitura_guiada=any(p in n for p in [norm(x) for x in PALAVRAS_LEITURA]),
+        tem_construcao_conceito=any(p in n for p in [norm(x) for x in PALAVRAS_CONSTRUCAO_CONCEITO]),
         tecnicas_lemov=detectar_tecnicas(texto_pdf),
     )
-    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos)
+
+    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos, blocos)
     pistas.verbo_objetivo = detectar_verbo_objetivo(objetivos)
     return pistas
 
@@ -239,57 +268,84 @@ def sanitizar_texto_pedagogico(txt: str) -> str:
 
 def bloquear_contaminacao_tematica(texto: str, pistas: PistasPedagogicas) -> str:
     n = norm(texto)
-    if pistas.perfil in {"grafico", "conceito", "comparacao"} and not pistas.tem_calculo:
-        for termo in ["parcelas", "endividamento", "credito", "crédito", "custo total"]:
+
+    if pistas.perfil in {
+        "noticia_leitura_critica",
+        "imagem_debate",
+        "imagem_debate_direitos",
+        "comparacao_conceitual",
+        "conceito_reflexivo",
+        "mapa_fluxos_migratorios",
+    } and not pistas.tem_grafico and not pistas.tem_tabela:
+        for termo in [
+            "graficos, tabelas ou dados",
+            "gráficos, tabelas ou dados",
+            "eixos, valores",
+            "localizar dados relevantes",
+        ]:
             if norm(termo) in n:
                 return ""
     return texto
 
 
-def frase_inicial(pistas: PistasPedagogicas) -> str:
+def frase_inicial(p: PistasPedagogicas) -> str:
     opcoes = []
-    if pistas.tem_para_comecar or pistas.tem_relembre:
-        opcoes.append("Iniciar a aula retomando a situação apresentada no material e mobilizando conhecimentos prévios da turma sobre o tema.")
-    if pistas.tem_estudo_caso or pistas.tem_situacao_problema:
+
+    if p.tem_noticia:
+        opcoes.append("Iniciar a aula com leitura guiada da notícia apresentada no material, mobilizando conhecimentos prévios e incentivando a turma a identificar o problema central discutido.")
+    if p.tem_imagem_inicial:
+        opcoes.append("Iniciar a aula com observação orientada das imagens do material, estimulando os estudantes a levantar hipóteses, identificar elementos importantes e relacioná-los ao tema.")
+    if p.tem_mapa:
+        opcoes.append("Iniciar a aula com exploração do mapa apresentado no material, orientando a turma a observar fluxos, regiões e possíveis explicações para os deslocamentos identificados.")
+    if p.tem_estudo_caso or p.tem_situacao_problema:
         opcoes.append("Iniciar com a situação-problema do material, incentivando a turma a levantar hipóteses e antecipar possíveis caminhos de análise.")
     opcoes.append("Iniciar a aula apresentando o tema central e incentivando os estudantes a relacioná-lo a situações do cotidiano.")
-    return deterministic_choice(opcoes, pistas.titulo + "|inicio")
+
+    return deterministic_choice(opcoes, p.titulo + "|inicio")
 
 
-def frase_foco(pistas: PistasPedagogicas) -> str:
-    if pistas.perfil == "grafico":
-        return "Conduzir a leitura orientada de gráficos, tabelas ou dados do material, ajudando a turma a interpretar informações, comparar valores e construir conclusões com base nas evidências apresentadas."
-    if pistas.perfil == "calculo":
-        return "Desenvolver o conteúdo com mediação passo a passo, destacando dados, operações e interpretação dos resultados, de modo que o cálculo esteja ligado à compreensão da situação estudada."
-    if pistas.perfil == "comparacao":
-        return "Explorar comparações presentes no material, destacando diferenças, vantagens, limites e critérios de escolha de forma crítica e contextualizada."
-    if pistas.perfil == "decisao":
-        return "Conduzir a análise do caso apresentado, discutindo alternativas, consequências e critérios de decisão, com foco em escolhas mais conscientes e justificadas."
-    if pistas.perfil == "conceito":
+def frase_foco(p: PistasPedagogicas) -> str:
+    if p.perfil == "noticia_leitura_critica":
+        return "Conduzir a leitura orientada da notícia e das perguntas propostas, destacando informações principais, pontos de vista, formas de preconceito ou conflito e relações com o conceito central da aula."
+    if p.perfil == "imagem_debate":
+        return "Explorar as imagens e questões iniciais do material, promovendo debate orientado e análise crítica das situações apresentadas antes da sistematização dos conceitos."
+    if p.perfil == "imagem_debate_direitos":
+        return "Explorar as imagens, os questionamentos iniciais e os conceitos do material, destacando diferenças entre situações analisadas, riscos envolvidos, direitos, restrições e o papel do Estado."
+    if p.perfil == "comparacao_conceitual":
+        return "Sistematizar os conceitos centrais da aula por meio de comparação orientada, ajudando a turma a distinguir termos próximos, reconhecer critérios e justificar diferenças com clareza."
+    if p.perfil == "mapa_fluxos_migratorios":
+        return "Conduzir a leitura orientada do mapa e dos conceitos do material, destacando fluxos migratórios, causas dos deslocamentos e relações entre globalização, trabalho e qualidade de vida."
+    if p.perfil == "grafico_fluxos_refugiados":
+        return "Conduzir a leitura orientada de gráficos, quadros ou informações visuais do material, ajudando a turma a interpretar os fluxos de refugiados e relacioná-los às causas do deslocamento forçado."
+    if p.perfil == "conceito_reflexivo":
         return "Sistematizar os conceitos centrais da aula com explicações claras, exemplos próximos da realidade dos estudantes e retomada do vocabulário principal."
     return "Desenvolver o conteúdo central da aula com explicação dialogada, exemplos do material e participação orientada da turma."
 
 
-def frase_pause(pistas: PistasPedagogicas) -> str:
-    if pistas.tem_pause_responda:
-        return "Realizar uma pausa de verificação da aprendizagem para que os estudantes comparem respostas, justifiquem ideias e revisem o raciocínio antes de avançar."
+def frase_pause(p: PistasPedagogicas) -> str:
+    if p.tem_pause_responda:
+        return "Realizar uma pausa de verificação da aprendizagem para que os estudantes justifiquem respostas, retomem conceitos e revisem o raciocínio antes de avançar."
     return ""
 
 
-def frase_pratica(pistas: PistasPedagogicas) -> str:
-    if pistas.perfil == "grafico":
-        return "Propor atividade de aplicação em que os estudantes interpretem dados, registrem conclusões e expliquem o que as informações revelam sobre o tema estudado."
-    if pistas.perfil == "calculo":
-        return "Encaminhar atividade com registro dos cálculos e breve justificativa, reforçando a relação entre procedimento, resultado e tomada de decisão."
-    if pistas.perfil == "comparacao":
-        return "Organizar atividade de comparação entre alternativas, solicitando que os estudantes registrem a escolha feita e os critérios utilizados para justificá-la."
-    if pistas.perfil == "decisao":
-        return "Propor situação prática para que a turma discuta possibilidades, defenda escolhas e relacione o conteúdo a decisões mais responsáveis."
+def frase_pratica(p: PistasPedagogicas) -> str:
+    if p.perfil == "noticia_leitura_critica":
+        return "Propor atividade de análise e registro em que os estudantes retomem a notícia, respondam às questões e relacionem o caso discutido aos conceitos trabalhados na aula."
+    if p.perfil == "imagem_debate":
+        return "Encaminhar atividade de debate e registro para que a turma organize observações, formule respostas e relacione as imagens às ideias centrais estudadas."
+    if p.perfil == "imagem_debate_direitos":
+        return "Organizar atividade em que os estudantes comparem situações, registrem diferenças e justifiquem respostas com base nos conceitos, direitos e restrições discutidos."
+    if p.perfil == "comparacao_conceitual":
+        return "Propor atividade de comparação conceitual para que os estudantes organizem critérios, registrem diferenças e expliquem os conceitos com maior precisão."
+    if p.perfil == "mapa_fluxos_migratorios":
+        return "Propor atividade em que os estudantes interpretem o mapa, relacionem fluxos e causas das migrações e registrem conclusões com base nas discussões realizadas."
+    if p.perfil == "grafico_fluxos_refugiados":
+        return "Propor atividade de interpretação de informações visuais para que a turma relacione os fluxos de refugiados às causas e aos contextos geopolíticos estudados."
     return "Propor atividade de aplicação para que os estudantes retomem o conteúdo, organizem ideias principais e consolidem a aprendizagem."
 
 
-def frase_encerramento(pistas: PistasPedagogicas) -> str:
-    destaque = ", ".join(pistas.vocabulario_chave[:3])
+def frase_encerramento(p: PistasPedagogicas) -> str:
+    destaque = ", ".join(p.vocabulario_chave[:3])
     if destaque:
         return f"Encerrar a aula com síntese dos pontos principais, retomando especialmente {destaque} e verificando o que a turma conseguiu compreender."
     return "Encerrar a aula com síntese dos pontos principais e retomada das aprendizagens construídas."
@@ -308,49 +364,49 @@ def complemento_tecnica(tecnica: str, etapa: str) -> str:
     return mapa.get((tecnica, etapa), "")
 
 
-def _blocos_metodologia(pistas: PistasPedagogicas) -> List[Dict[str, str]]:
+def _blocos_metodologia(p: PistasPedagogicas) -> List[Dict[str, str]]:
     blocos = []
-    blocos.append({"titulo": "Para comecar", "texto": frase_inicial(pistas)})
+    blocos.append({"titulo": "Para comecar", "texto": frase_inicial(p)})
 
-    if "Virem e conversem" in pistas.tecnicas_lemov:
+    if "Virem e conversem" in p.tecnicas_lemov:
         comp = complemento_tecnica("Virem e conversem", "inicio")
         if comp:
             blocos.append({"titulo": "Interacao inicial", "texto": comp})
 
-    blocos.append({"titulo": "Foco no conteudo", "texto": frase_foco(pistas)})
+    blocos.append({"titulo": "Foco no conteudo", "texto": frase_foco(p)})
 
     for tecnica in ("Um passo de cada vez", "De olho no modelo", "Hora da leitura"):
-        if tecnica in pistas.tecnicas_lemov:
+        if tecnica in p.tecnicas_lemov:
             comp = complemento_tecnica(tecnica, "foco")
             if comp:
                 blocos.append({"titulo": tecnica, "texto": comp})
                 break
 
-    pause = frase_pause(pistas)
+    pause = frase_pause(p)
     if pause:
         blocos.append({"titulo": "Pause e responda", "texto": pause})
-        if "Pausa produtiva" in pistas.tecnicas_lemov:
+        if "Pausa produtiva" in p.tecnicas_lemov:
             comp = complemento_tecnica("Pausa produtiva", "pause")
             if comp:
                 blocos.append({"titulo": "Pausa produtiva", "texto": comp})
 
-    blocos.append({"titulo": "Na pratica", "texto": frase_pratica(pistas)})
+    blocos.append({"titulo": "Na pratica", "texto": frase_pratica(p)})
 
-    if "Todo mundo escreve" in pistas.tecnicas_lemov:
+    if "Todo mundo escreve" in p.tecnicas_lemov:
         comp = complemento_tecnica("Todo mundo escreve", "pratica")
         if comp:
             blocos.append({"titulo": "Registro individual", "texto": comp})
 
-    blocos.append({"titulo": "Encerramento", "texto": frase_encerramento(pistas)})
+    blocos.append({"titulo": "Encerramento", "texto": frase_encerramento(p)})
 
-    if "Com suas palavras" in pistas.tecnicas_lemov:
+    if "Com suas palavras" in p.tecnicas_lemov:
         comp = complemento_tecnica("Com suas palavras", "encerramento")
         if comp:
             blocos.append({"titulo": "Com suas palavras", "texto": comp})
 
     saida = []
     for bloco in blocos:
-        texto = bloquear_contaminacao_tematica(sanitizar_texto_pedagogico(bloco.get("texto", "")), pistas)
+        texto = bloquear_contaminacao_tematica(sanitizar_texto_pedagogico(bloco.get("texto", "")), p)
         if texto:
             saida.append({"titulo": bloco["titulo"], "texto": texto})
 
@@ -361,6 +417,7 @@ def _blocos_metodologia(pistas: PistasPedagogicas) -> List[Dict[str, str]]:
         if chave and chave not in seen:
             seen.add(chave)
             uniq.append(bloco)
+
     return uniq[:6]
 
 
@@ -370,41 +427,53 @@ def gerar_metodologia(pistas: PistasPedagogicas) -> str:
 
 
 BANCO_ACOMPANHAMENTO = {
-    "grafico": [
-        "Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informações apresentadas em gráficos ou tabelas do material.",
-        "Observar se conseguem relacionar os dados analisados ao conceito central da aula, explicando conclusões com clareza.",
-        "Conferir se os registros finais apresentam comparação de informações e justificativas coerentes com a discussão realizada.",
-        "Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusões sem evidências.",
+    "noticia_leitura_critica": [
+        "Verificar se os estudantes identificam informações principais, problema central e posicionamentos presentes na notícia analisada.",
+        "Observar se relacionam o caso discutido aos conceitos trabalhados na aula, utilizando argumentos coerentes nas respostas orais e escritas.",
+        "Conferir se os registros finais apresentam interpretação crítica, clareza na exposição das ideias e retomada do vocabulário principal.",
+        "Acompanhar se a turma diferencia fatos do caso apresentado e interpretações construídas durante o debate."
     ],
-    "calculo": [
-        "Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
-        "Observar se realizam os procedimentos com apoio progressivamente menor, explicando o significado dos resultados encontrados.",
-        "Conferir se os registros finais articulam cálculo, interpretação e conclusão, e não apenas a resposta numérica.",
-        "Acompanhar se a turma reconhece a relação entre resultado obtido e decisão financeira discutida na aula.",
+    "imagem_debate": [
+        "Verificar se os estudantes observam elementos relevantes das imagens e conseguem relacioná-los ao tema discutido na aula.",
+        "Observar a participação nas discussões iniciais e a capacidade de formular hipóteses, perguntas e respostas com progressiva autonomia.",
+        "Conferir se os registros finais retomam as ideias centrais construídas a partir da observação e do debate orientado.",
+        "Acompanhar se a turma articula imagem, contexto e conceito de forma coerente."
     ],
-    "comparacao": [
-        "Verificar se os estudantes identificam diferenças, vantagens, limites e critérios de escolha entre as alternativas analisadas.",
-        "Observar se justificam suas respostas com base nas informações do material, evitando respostas apenas intuitivas.",
-        "Conferir se os registros finais evidenciam tomada de decisão com coerência, argumentação e uso do vocabulário trabalhado.",
-        "Acompanhar se a turma compara alternativas sem perder de vista o objetivo central da aula.",
+    "imagem_debate_direitos": [
+        "Verificar se os estudantes identificam diferenças entre as situações analisadas e compreendem os riscos, direitos e restrições envolvidos.",
+        "Observar se justificam respostas com base nas imagens, nos conceitos trabalhados e nas discussões sobre o papel do Estado.",
+        "Conferir se os registros finais apresentam comparação coerente, uso do vocabulário central e argumentação progressivamente mais precisa.",
+        "Acompanhar se a turma reconhece relações entre migração, direitos humanos e políticas migratórias."
     ],
-    "decisao": [
-        "Verificar se os estudantes compreendem a situação analisada e reconhecem os elementos importantes para a tomada de decisão.",
-        "Observar se conseguem defender escolhas com justificativas coerentes, considerando consequências e critérios discutidos na aula.",
-        "Conferir se os registros finais expressam posicionamento claro, argumentação e retomada dos conceitos trabalhados.",
-        "Acompanhar se a turma articula informações do material com decisões mais conscientes e responsáveis.",
+    "comparacao_conceitual": [
+        "Verificar se os estudantes distinguem corretamente os conceitos trabalhados, evitando tratá-los como sinônimos.",
+        "Observar se utilizam critérios de comparação para justificar respostas e explicar diferenças com maior precisão.",
+        "Conferir se os registros finais evidenciam compreensão conceitual, organização das ideias e uso do vocabulário principal.",
+        "Acompanhar se a turma relaciona os conceitos comparados aos exemplos e situações apresentados no material."
     ],
-    "conceito": [
+    "mapa_fluxos_migratorios": [
+        "Verificar se os estudantes interpretam o mapa apresentado e identificam fluxos, entradas, saídas e possíveis explicações para os deslocamentos observados.",
+        "Observar se relacionam as informações do material às causas das migrações e às discussões sobre globalização, trabalho e qualidade de vida.",
+        "Conferir se os registros finais apresentam leitura coerente do mapa, justificativas plausíveis e retomada dos conceitos principais.",
+        "Acompanhar se a turma utiliza a legenda e os elementos do mapa para sustentar suas respostas."
+    ],
+    "grafico_fluxos_refugiados": [
+        "Verificar se os estudantes interpretam corretamente gráficos, quadros ou informações visuais sobre fluxos de refugiados.",
+        "Observar se relacionam os dados analisados às causas do deslocamento forçado e aos contextos geopolíticos discutidos.",
+        "Conferir se os registros finais articulam leitura visual, explicação conceitual e conclusão coerente.",
+        "Acompanhar se a turma utiliza evidências do material para sustentar respostas e comparações."
+    ],
+    "conceito_reflexivo": [
         "Verificar se os estudantes compreendem os conceitos centrais da aula e conseguem explicá-los com suas próprias palavras.",
         "Observar a participação nas discussões e a retomada do vocabulário principal durante as intervenções orais e escritas.",
         "Conferir se os registros finais apresentam ideias organizadas, exemplos coerentes e compreensão progressiva do tema.",
-        "Acompanhar se a turma diferencia corretamente os conceitos trabalhados, evitando confusões entre noções próximas.",
+        "Acompanhar se a turma diferencia corretamente os conceitos trabalhados, evitando confusões entre noções próximas."
     ],
     "geral": [
         "Verificar se os estudantes compreendem o tema central da aula e reconhecem as ideias principais trabalhadas.",
         "Observar a participação, os registros e a forma como justificam respostas ao longo das atividades propostas.",
         "Conferir se as produções finais apresentam clareza, coerência e retomada dos conceitos estudados.",
-        "Acompanhar se os estudantes utilizam o vocabulário da aula de forma progressivamente mais autônoma.",
+        "Acompanhar se os estudantes utilizam o vocabulário da aula de forma progressivamente mais autônoma."
     ],
 }
 
@@ -417,41 +486,53 @@ def gerar_acompanhamento(pistas: PistasPedagogicas) -> List[str]:
 
 
 BANCO_ACESSIBILIDADE = {
-    "grafico": [
-        "Disponibilizar leitura guiada de gráficos e tabelas, destacando título, eixos, valores e comparação entre os dados apresentados.",
+    "noticia_leitura_critica": [
+        "Oferecer leitura guiada da notícia com destaque para título, informações principais, personagens envolvidos e problema central discutido.",
+        "Disponibilizar palavras-chave e perguntas orientadoras para apoiar a interpretação do texto e a organização das respostas.",
+        "Permitir registro em tópicos, frases curtas ou resposta oral mediada, conforme as necessidades observadas na turma.",
+        "Retomar coletivamente o sentido de trechos importantes antes do trabalho individual."
+    ],
+    "imagem_debate": [
+        "Organizar observação orientada das imagens com perguntas curtas que ajudem a turma a identificar elementos relevantes antes da discussão.",
+        "Utilizar apoio visual e retomadas coletivas para favorecer a relação entre imagem, contexto e conceito central da aula.",
+        "Permitir diferentes formas de registro, como tópicos, frases curtas, esquema ou resposta oral mediada.",
+        "Oferecer mediação individual na organização das ideias e na formulação das respostas."
+    ],
+    "imagem_debate_direitos": [
+        "Apresentar comandos curtos e objetivos, com retomada coletiva das perguntas antes do registro individual.",
+        "Organizar quadro comparativo simples para apoiar a distinção entre situações, riscos, direitos e restrições discutidos no material.",
+        "Permitir registro em tópicos, frases curtas, esquema comparativo ou resposta oral mediada, conforme as necessidades observadas.",
+        "Destacar visualmente conceitos centrais ligados a migração, documentação, direitos e papel do Estado."
+    ],
+    "comparacao_conceitual": [
+        "Organizar quadro comparativo ou esquema visual para apoiar a distinção entre os conceitos trabalhados na aula.",
+        "Retomar oralmente os critérios de comparação com exemplos simples antes da atividade autônoma.",
+        "Permitir registro em tópicos, tabela simples, frases curtas ou resposta oral mediada, conforme as necessidades observadas.",
+        "Destacar visualmente semelhanças e diferenças para apoiar a compreensão conceitual."
+    ],
+    "mapa_fluxos_migratorios": [
+        "Disponibilizar leitura guiada do mapa com destaque para legenda, fluxos, regiões de entrada e saída e elementos visuais relevantes.",
+        "Oferecer perguntas orientadoras para ajudar os estudantes a relacionar o mapa às causas das migrações e aos contextos discutidos na aula.",
+        "Permitir diferentes formas de registro, como tópicos, setas, esquema simples ou resposta oral mediada.",
+        "Retomar coletivamente como localizar informações essenciais no mapa antes do trabalho individual."
+    ],
+    "grafico_fluxos_refugiados": [
+        "Disponibilizar leitura guiada de gráficos, quadros ou informações visuais, destacando título, categorias e comparação entre os dados apresentados.",
         "Oferecer apoio visual com palavras-chave e perguntas orientadoras para ajudar na interpretação das informações do material.",
         "Permitir diferentes formas de registro, como tópicos, respostas curtas, marcações no gráfico ou explicação oral mediada.",
-        "Retomar coletivamente como localizar dados relevantes antes do trabalho individual.",
+        "Retomar coletivamente como localizar dados relevantes antes do trabalho individual."
     ],
-    "calculo": [
-        "Disponibilizar resolução em etapas, com destaque visual para dados, operação a realizar e interpretação do resultado.",
-        "Oferecer mediação com exemplos semelhantes antes da atividade autônoma, reduzindo a sobrecarga cognitiva da tarefa.",
-        "Permitir uso de esquemas, anotações guiadas, cálculo acompanhado e explicação oral do raciocínio como forma de registro.",
-        "Apresentar comandos curtos e sequenciados, com conferência coletiva de cada etapa da atividade.",
-    ],
-    "comparacao": [
-        "Organizar quadro comparativo ou esquema visual para apoiar a análise entre alternativas, critérios e consequências.",
-        "Apresentar comandos curtos e objetivos, com retomada coletiva das etapas da atividade antes do registro individual.",
-        "Permitir registro em tópicos, frases curtas, tabela simples ou resposta oral mediada, conforme as necessidades observadas.",
-        "Destacar visualmente semelhanças e diferenças para facilitar a tomada de decisão durante a atividade.",
-    ],
-    "decisao": [
-        "Disponibilizar roteiro com perguntas orientadoras para apoiar a análise da situação apresentada e a justificativa das escolhas.",
-        "Retomar oralmente os critérios de decisão com exemplos simples antes da produção individual ou em dupla.",
-        "Permitir diferentes formas de registro, como tópicos, esquema, frases curtas ou resposta oral mediada.",
-        "Oferecer apoio individual na organização das ideias, especialmente para estudantes com dificuldade em justificar respostas.",
-    ],
-    "conceito": [
+    "conceito_reflexivo": [
         "Disponibilizar glossário com palavras-chave e exemplos simples para apoiar a compreensão do vocabulário da aula.",
         "Retomar oralmente os conceitos principais com apoio de esquema, quadro ou síntese visual construída com a turma.",
         "Permitir diferentes formas de expressão do entendimento, como tópicos, frases curtas, desenho explicativo ou resposta oral mediada.",
-        "Utilizar exemplos concretos do cotidiano para apoiar a compreensão de termos mais abstratos.",
+        "Utilizar exemplos concretos do cotidiano para apoiar a compreensão de termos mais abstratos."
     ],
     "geral": [
         "Disponibilizar roteiro com palavras-chave e perguntas orientadoras para apoiar a compreensão da atividade.",
         "Realizar retomadas coletivas dos comandos e oferecer mediação individual conforme as necessidades observadas.",
         "Permitir diferentes formas de registro, como tópicos, frases curtas, esquema, desenho ou resposta oral mediada.",
-        "Organizar momentos de apoio em duplas para favorecer compreensão e participação.",
+        "Organizar momentos de apoio em duplas para favorecer compreensão e participação."
     ],
 }
 

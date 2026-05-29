@@ -109,6 +109,10 @@ _PADRAO_HABILIDADE_TEXTO = re.compile(
     r"(?:habilidade|aprendizagem essencial|competencia|competência)[:\s]*([^\n]{20,})",
     re.IGNORECASE,
 )
+_PADRAO_TITULO_SECAO = re.compile(
+    r"^(objetivos da aula|objetivos|conteudos|conteúdos|habilidades|recursos didaticos|recursos didáticos|duracao da aula|duração da aula)$",
+    re.I,
+)
 _PADRAO_ETAPA_METODOLOGICA = re.compile(
     r"^(?:\d+\.\s+|trilha\b|pratica de linguagem\b|aula\s+\d+\b|sugestoes para conducao\b)",
     re.IGNORECASE,
@@ -136,9 +140,91 @@ _SECOES_PARADA = {
     "revisao e fechamento",
 }
 
+_FINAIS_TRUNCADOS_HABILIDADE = {
+    "a", "as", "o", "os", "de", "da", "do", "das", "dos", "e", "em", "com", "para", "por", "que",
+}
+
 
 def _normalizar_rotulo_secao(texto: str) -> str:
     return _normalizar_texto(str(texto or "")).strip(" :-")
+
+
+def _linha_secao(linha: str, nome_secao: str) -> bool:
+    base = _normalizar_texto(linha).strip(" :-")
+    alvo = _normalizar_texto(nome_secao).strip(" :-")
+    return base == alvo
+
+
+def _extrair_bloco_apos_secao(linhas: list[str], nome_secao: str, limite_linhas: int = 14) -> list[str]:
+    bloco = []
+    coletando = False
+
+    for linha in linhas:
+        if _linha_secao(linha, nome_secao):
+            coletando = True
+            continue
+
+        if coletando and _PADRAO_TITULO_SECAO.match(linha.strip()):
+            break
+
+        if coletando:
+            trecho = _limpar_trecho(linha)
+            if trecho and not _trecho_descartavel(trecho):
+                bloco.append(trecho)
+                if len(bloco) >= limite_linhas:
+                    break
+
+    return bloco
+
+
+def _texto_habilidade_truncado(texto: str) -> bool:
+    base = _normalizar_texto(texto)
+    if not base:
+        return True
+
+    palavras = re.findall(r"[a-zà-ÿA-ZÀ-ÿ]+", texto)
+    if not palavras:
+        return True
+
+    ultimo = _normalizar_texto(palavras[-1])
+    if ultimo in _FINAIS_TRUNCADOS_HABILIDADE:
+        return True
+
+    if len(texto.strip()) < 30:
+        return True
+
+    if texto.strip()[:1].islower():
+        return True
+
+    if re.match(r"^[a-zà-ÿ]\s", texto.strip(), flags=re.I):
+        return True
+
+    if base.startswith(("s para ", "e para ", "a para ")):
+        return True
+
+    return False
+
+
+def _montar_habilidade_por_secao(linhas: list[str]) -> str:
+    bloco = _extrair_bloco_apos_secao(linhas, "Habilidades", limite_linhas=8)
+    if not bloco:
+        return ""
+
+    texto = _limpar_trecho(" ".join(bloco))
+    texto = re.sub(r"^(habilidades?)\s*:\s*", "", texto, flags=re.I).strip()
+
+    if _texto_habilidade_truncado(texto):
+        return ""
+
+    return f"Habilidade: {texto}"
+
+
+def _extrair_objetivos_secao(linhas: list[str]) -> list[str]:
+    return _extrair_bloco_apos_secao(linhas, "Objetivos da aula", limite_linhas=8)
+
+
+def _extrair_conteudos_secao(linhas: list[str]) -> list[str]:
+    return _extrair_bloco_apos_secao(linhas, "Conteúdos", limite_linhas=8) or _extrair_bloco_apos_secao(linhas, "Conteudos", limite_linhas=8)
 
 
 def extrair_secao(linhas: list[str], inicio: str, paradas: set[str] | None = None) -> list[str]:
@@ -199,6 +285,8 @@ class ExtratorPDF:
         texto_prioritario = " ".join(
             " ".join(secoes[nome]) for nome in _SECOES_PRIORITARIAS_PRATICA if secoes.get(nome)
         ).strip()
+        objetivos_secao = _extrair_objetivos_secao(linhas)
+        conteudos_secao = _extrair_conteudos_secao(linhas)
 
         from core.lib.classificador import detectar_recursos
 
@@ -210,6 +298,8 @@ class ExtratorPDF:
                 220,
             ),
             "habilidade": self._extrair_habilidade(linhas),
+            "objetivos_secao": objetivos_secao,
+            "conteudos_secao": conteudos_secao,
             "contexto_aula": _trecho_seguro(contexto_aula, "", 160),
             "palavras_chave": palavras_chave,
             "etapas_detectadas": etapas_detectadas,
@@ -227,13 +317,26 @@ class ExtratorPDF:
         )
 
     def _extrair_habilidade(self, linhas: list[str]) -> str:
+        # 1) primeiro tenta BNCC/AE do jeito antigo
         for i, linha in enumerate(linhas):
             if _PADRAO_HABILIDADE.search(linha):
-                return self._montar_bloco_habilidade(linhas, i)
+                habilidade = self._montar_bloco_habilidade(linhas, i)
+                if habilidade and not _texto_habilidade_truncado(re.sub(r"^Habilidade:\s*", "", habilidade, flags=re.I)):
+                    return habilidade
+
+        # 2) depois tenta linha textual "Habilidade: ..."
         for linha in linhas:
             match = _PADRAO_HABILIDADE_TEXTO.search(linha)
             if match:
-                return match.group(1).strip()
+                texto = _limpar_trecho(match.group(1))
+                if texto and not _texto_habilidade_truncado(texto):
+                    return f"Habilidade: {texto}"
+
+        # 3) por fim, tenta bloco estruturado da seção "Habilidades"
+        habilidade_secao = _montar_habilidade_por_secao(linhas)
+        if habilidade_secao:
+            return habilidade_secao
+
         return ""
 
     def _montar_bloco_habilidade(self, linhas: list[str], indice: int) -> str:
