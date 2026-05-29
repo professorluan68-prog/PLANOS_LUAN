@@ -1,4 +1,5 @@
 from io import BytesIO
+from datetime import datetime
 from typing import Dict
 
 from docx import Document
@@ -79,25 +80,51 @@ def _disciplina_exibicao(disciplina: str) -> str:
     return nomes.get(disciplina, disciplina.upper())
 
 
+_DIAS_SEMANA_CDP = {
+    0: "Segunda",
+    1: "Terça",
+    2: "Quarta",
+    3: "Quinta",
+    4: "Sexta",
+    5: "Sábado",
+    6: "Domingo",
+}
+
+
+def _dia_semana_cdp(valor) -> str:
+    if hasattr(valor, "weekday"):
+        return _DIAS_SEMANA_CDP.get(int(valor.weekday()), "")
+    texto = str(valor or "").strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d/%m"):
+        try:
+            data = datetime.strptime(texto, fmt)
+            return _DIAS_SEMANA_CDP.get(int(data.weekday()), "")
+        except ValueError:
+            continue
+    return ""
+
+
+def _ajustar_rotulos_data_cdp(doc) -> None:
+    for tabela in doc.tables:
+        for linha in tabela.rows:
+            for celula in linha.cells:
+                for paragrafo in celula.paragraphs:
+                    texto = paragrafo.text or ""
+                    if "Data e Horário" in texto:
+                        paragrafo.text = texto.replace("Data e Horário", "Data")
+                    elif "Data e Horario" in texto:
+                        paragrafo.text = texto.replace("Data e Horario", "Data")
+
+
 def _formatar_data_aula_cdp(aula: dict) -> str:
     data_bruta = aula.get("data")
     if hasattr(data_bruta, "strftime"):
         data = data_bruta.strftime("%d/%m")
     else:
         data = str(data_bruta or "").strip()
-    aula_texto = str(aula.get("aula") or "").strip()
-    horario_bruto = aula.get("horario")
-    if isinstance(horario_bruto, (tuple, list)):
-        horario_texto = str(horario_bruto[1] if len(horario_bruto) > 1 else horario_bruto[0]).strip()
-    else:
-        horario_texto = str(horario_bruto or "").strip()
-
-    partes = [parte.strip() for parte in aula_texto.splitlines() if parte.strip()]
-    if not partes and horario_texto:
-        partes = [parte.strip() for parte in horario_texto.splitlines() if parte.strip()]
-    if not partes:
-        return data
-    return "\n".join([data, partes[-1]]).strip()
+    dia_semana = str(aula.get("dia_semana") or "").strip() or _dia_semana_cdp(data_bruta)
+    partes = [parte for parte in [data, dia_semana] if parte]
+    return "\n".join(partes).strip()
 
 
 def _habilidade(item: Dict[str, str]) -> str:
@@ -164,6 +191,7 @@ def preencher_documento_cdp(
     aulas_previstas_manual: str = "",
 ) -> BytesIO:
     doc = Document(modelo_docx)
+    _ajustar_rotulos_data_cdp(doc)
     componente = "CDP - CICLO I" if fundamental else "MULTISSERIADA - EJA FUNDAMENTAL - ANOS INICIAIS"
     _preencher_cabecalhos_cdp(
         doc,

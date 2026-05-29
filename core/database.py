@@ -15,6 +15,10 @@ def _normalizar_campo(valor):
     return str(valor or "").strip()
 
 
+def _normalizar_campo_chave(valor):
+    return _normalizar_campo(valor).upper()
+
+
 def _obter_ou_criar_professor(cursor, nome: str) -> int:
     nome = _normalizar_campo(nome).upper()
     cursor.execute("INSERT OR IGNORE INTO professores (nome) VALUES (?)", (nome,))
@@ -113,12 +117,13 @@ def migrar_json_para_sqlite():
                 prof_id = cursor.fetchone()[0]
 
                 for d in info.get("disciplinas", []):
+                    componente = _normalizar_campo_chave(d.get("componente_curricular"))
                     cursor.execute(
                         """
                         SELECT id FROM professor_turmas
-                        WHERE professor_id = ? AND disciplina = ? AND turma = ?
+                        WHERE professor_id = ? AND disciplina = ? AND turma = ? AND UPPER(COALESCE(componente_curricular, '')) = ?
                         """,
-                        (prof_id, d.get("disciplina"), d.get("turma")),
+                        (prof_id, d.get("disciplina"), d.get("turma"), componente),
                     )
                     if not cursor.fetchone():
                         cursor.execute(
@@ -164,6 +169,7 @@ def obter_professores_db():
                 END,
                 t.disciplina,
                 t.turma
+                , COALESCE(t.componente_curricular, '')
             """
         )
 
@@ -204,15 +210,24 @@ def salvar_professor_turma(
     with get_connection() as conn:
         cursor = conn.cursor()
         prof_id = _obter_ou_criar_professor(cursor, nome)
+        disciplina = _normalizar_campo(disciplina)
+        turma = _normalizar_campo(turma)
+        dia_semana = _normalizar_campo(dia_semana)
+        horario = _normalizar_campo(horario)
+        aulas_semana = _normalizar_campo(aulas_semana)
+        arquivo_modelo = _normalizar_campo(arquivo_modelo)
+        template_id = _normalizar_campo(template_id)
+        componente_curricular = _normalizar_campo(componente_curricular)
+        componente_chave = _normalizar_campo_chave(componente_curricular)
 
         cursor.execute(
             """
             SELECT id FROM professor_turmas
-            WHERE professor_id = ? AND disciplina = ? AND turma = ?
+            WHERE professor_id = ? AND disciplina = ? AND turma = ? AND UPPER(COALESCE(componente_curricular, '')) = ?
             ORDER BY id
             LIMIT 1
             """,
-            (prof_id, disciplina, turma),
+            (prof_id, disciplina, turma, componente_chave),
         )
         existente = cursor.fetchone()
 
@@ -257,6 +272,7 @@ def listar_vinculos_professores():
             FROM professor_turmas t
             JOIN professores p ON p.id = t.professor_id
             ORDER BY p.nome, t.disciplina, t.turma, t.id
+                     , COALESCE(t.componente_curricular, '')
             """
         )
         return [

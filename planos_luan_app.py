@@ -356,13 +356,18 @@ def _slug_key(texto: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]+", "_", str(texto or "")).strip("_") or "item"
 
 
-def _chave_cadastro(professor: str, disciplina: str, turma: str) -> tuple[str, str, str]:
+def _chave_cadastro(
+    professor: str,
+    disciplina: str,
+    turma: str,
+    componente_curricular: str = "",
+) -> tuple[str, str, str, str]:
     def norm(valor: str) -> str:
         valor = unicodedata.normalize("NFKD", str(valor or ""))
         valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
         return re.sub(r"\s+", " ", valor).strip().upper()
 
-    return norm(professor), norm(disciplina), norm(turma)
+    return norm(professor), norm(disciplina), norm(turma), norm(componente_curricular)
 
 
 def _eh_cadastro_cdp_eja(disciplina: str, componente_curricular: str = "") -> bool:
@@ -393,13 +398,23 @@ def _cadastros_para_gestao() -> list[dict]:
         ))
         cadastro["template_central"] = str(template_path)
         cadastro["sem_modelo"] = not template_path.exists()
-        chave = _chave_cadastro(cadastro.get("professor", ""), cadastro.get("disciplina", ""), cadastro.get("turma", ""))
+        chave = _chave_cadastro(
+            cadastro.get("professor", ""),
+            cadastro.get("disciplina", ""),
+            cadastro.get("turma", ""),
+            cadastro.get("componente_curricular", ""),
+        )
         chaves_banco.setdefault(chave, cadastro)
         cadastros.append(cadastro)
 
     for professor, dados in {}.items():
         for indice, item in enumerate(dados.get("disciplinas", [])):
-            chave = _chave_cadastro(professor, item.get("disciplina", ""), item.get("turma", ""))
+            chave = _chave_cadastro(
+                professor,
+                item.get("disciplina", ""),
+                item.get("turma", ""),
+                item.get("componente_curricular", ""),
+            )
             modelo = {
                 "id": None,
                 "professor": professor,
@@ -430,15 +445,28 @@ def _cadastros_para_gestao() -> list[dict]:
             modelo["id_cadastro"] = f"modelo:{indice}:{modelo['arquivo']}"
             cadastros.append(modelo)
 
-    return sorted(cadastros, key=lambda item: (item.get("professor", ""), item.get("disciplina", ""), item.get("turma", ""), item.get("id") or 0))
+    return sorted(
+        cadastros,
+        key=lambda item: (
+            item.get("professor", ""),
+            item.get("disciplina", ""),
+            item.get("turma", ""),
+            item.get("componente_curricular", ""),
+            item.get("id") or 0,
+        ),
+    )
 
 
 def _rotulo_cadastro(cadastro: dict) -> str:
     horario = str(cadastro.get("horario") or "sem horario").replace("\n", " | ")
+    componente = str(cadastro.get("componente_curricular") or "").strip()
+    disciplina = str(cadastro.get("disciplina") or "DISCIPLINA")
+    if componente:
+        disciplina = f"{disciplina} | {componente}"
     return " | ".join(
         [
             str(cadastro.get("professor") or "PROFESSOR"),
-            str(cadastro.get("disciplina") or "DISCIPLINA"),
+            disciplina,
             str(cadastro.get("turma") or "TURMA"),
             horario,
         ]
@@ -558,7 +586,7 @@ def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
         apenas_sem_modelo = st.checkbox("Sem DOCX", key="cadastro_filtro_sem_modelo")
 
     busca = st.text_input("Buscar por professor, disciplina, turma ou horario", key="cadastro_busca")
-    busca_norm = _chave_cadastro(busca, "", "")[0] if busca else ""
+    busca_norm = _chave_cadastro(busca, "", "", "")[0] if busca else ""
 
     filtrados = []
     for cadastro in cadastros:
@@ -575,6 +603,7 @@ def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
                 cadastro.get("professor", ""),
                 cadastro.get("disciplina", ""),
                 f"{cadastro.get('turma', '')} {cadastro.get('horario', '')}",
+                cadastro.get("componente_curricular", ""),
             )
             if busca_norm not in " ".join(texto):
                 continue
@@ -587,6 +616,7 @@ def _renderizar_tabela_cadastros(cadastros: list[dict]) -> None:
         {
             "Professor": cad.get("professor", ""),
             "Disciplina": cad.get("disciplina", ""),
+            "Componente": cad.get("componente_curricular", ""),
             "Turma": cad.get("turma", ""),
             "Aulas": cad.get("aulas_semana", ""),
             "Origem": cad.get("origem", ""),
