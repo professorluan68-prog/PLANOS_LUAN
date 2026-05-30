@@ -9,11 +9,16 @@ e chegar na lista de aulas, execute BAIXAR_PDFS_CENTRO_MIDIAS.bat.
 from __future__ import annotations
 
 import base64
+import logging
 import re
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlparse
 
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 PORTA_EDGE = 9222
 SITE_BASE = "https://repositorio.educacao.sp.gov.br/midia"
@@ -79,6 +84,7 @@ JS_COLETAR_PDFS = r"""
 
 
 def _slug(texto: str) -> str:
+    """Converte texto em slug seguro para nome de arquivo."""
     texto = (texto or "").strip().lower()
     texto = re.sub(r"[^\w\s-]", "", texto, flags=re.UNICODE)
     texto = re.sub(r"[\s_-]+", "_", texto)
@@ -86,6 +92,7 @@ def _slug(texto: str) -> str:
 
 
 def _nome_pdf(url: str, titulo: str, ordem: int) -> str:
+    """Gera nome seguro para arquivo PDF."""
     nome_original = Path(unquote(urlparse(url).path)).name
     if nome_original.lower().endswith(".pdf") and len(nome_original) > 4:
         return f"{ordem:02d}_{_slug(nome_original[:-4])}.pdf"
@@ -93,6 +100,7 @@ def _nome_pdf(url: str, titulo: str, ordem: int) -> str:
 
 
 def _escolher_pagina(browser):
+    """Escolhe a página mais apropriada do navegador para download."""
     paginas = []
     for contexto in browser.contexts:
         paginas.extend(contexto.pages)
@@ -107,36 +115,49 @@ def _escolher_pagina(browser):
 
 
 def _conteudo_pdf_por_url(request_context, url: str) -> bytes:
-    resp = request_context.get(url, timeout=60000)
-    content_type = (resp.headers.get("content-type") or "").lower()
-    body = resp.body()
-    if not resp.ok or (b"%PDF" not in body[:20] and "pdf" not in content_type):
-        raise RuntimeError(f"HTTP {resp.status} / {content_type}")
-    return body
+    """Baixa conteúdo PDF por URL com validação."""
+    try:
+        resp = request_context.get(url, timeout=60000)
+        content_type = (resp.headers.get("content-type") or "").lower()
+        body = resp.body()
+        
+        if not resp.ok or (b"%PDF" not in body[:20] and "pdf" not in content_type):
+            raise RuntimeError(f"HTTP {resp.status} / {content_type}")
+        
+        return body
+    except Exception as e:
+        logger.error(f"Erro ao baixar PDF de {url}: {e}")
+        raise
 
 
 def _conteudo_pdf_por_blob(pdf_page) -> bytes:
-    data_b64 = pdf_page.evaluate(
-        """
-        async () => {
-          const resp = await fetch(location.href);
-          const blob = await resp.blob();
-          return await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        }
-        """
-    )
-    body = base64.b64decode(data_b64)
-    if b"%PDF" not in body[:20]:
-        raise RuntimeError("conteudo blob nao parece PDF")
-    return body
+    """Extrai conteúdo PDF de blob da página."""
+    try:
+        data_b64 = pdf_page.evaluate(
+            """
+            async () => {
+              const resp = await fetch(location.href);
+              const blob = await resp.blob();
+              return await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            }
+            """
+        )
+        body = base64.b64decode(data_b64)
+        if b"%PDF" not in body[:20]:
+            raise RuntimeError("conteudo blob nao parece PDF")
+        return body
+    except Exception as e:
+        logger.error(f"Erro ao extrair PDF de blob: {e}")
+        raise
 
 
 def _urls_pdf_da_aba(pdf_page) -> list[str]:
+    """Coleta todas as URLs de PDF visíveis na página."""
     urls = [pdf_page.url]
     urls.extend(
         pdf_page.evaluate(
@@ -158,6 +179,7 @@ def _urls_pdf_da_aba(pdf_page) -> list[str]:
 
 
 def _salvar_pdf_de_aba(pdf_page, request_context, destino: Path) -> None:
+    """Salva PDF aberto em aba do navegador."""
     pdf_page.wait_for_load_state("domcontentloaded", timeout=20000)
     pdf_page.wait_for_timeout(1000)
 
@@ -169,19 +191,21 @@ def _salvar_pdf_de_aba(pdf_page, request_context, destino: Path) -> None:
             try:
                 destino.write_bytes(_conteudo_pdf_por_url(request_context, url))
                 return
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Falha ao baixar de {url}: {e}")
                 continue
 
     raise RuntimeError("nao consegui extrair o PDF da aba aberta")
 
 
 def _baixar_por_cliques(page, pasta_destino: Path) -> tuple[int, int]:
+    """Modo alternativo de download: clica em botões PDF."""
     botoes_pdf = page.get_by_text(re.compile(r"^\s*PDF\s*$", re.I))
     total = botoes_pdf.count()
     if total == 0:
         return 0, 0
 
-    print(f"\nTentando modo alternativo por clique em {total} botao(oes) PDF...")
+    logger.info(f"Tentando modo alternativo por clique em {total} botao(oes) PDF...")
     baixados = 0
     falhas = 0
     contexto = page.context
@@ -214,47 +238,49 @@ def _baixar_por_cliques(page, pasta_destino: Path) -> tuple[int, int]:
                     botao.click(timeout=15000)
                 download_info.value.save_as(str(destino))
             baixados += 1
-            print(f"[OK] {nome}")
+            logger.info(f"[OK] {nome}")
         except Exception as exc:
             falhas += 1
-            print(f"[FALHA] clique PDF {i + 1} ({exc})")
+            logger.error(f"[FALHA] clique PDF {i + 1} ({exc})")
 
     return baixados, falhas
 
 
 def main() -> int:
+    """Função principal para baixar PDFs."""
     try:
         from playwright.sync_api import sync_playwright
-    except Exception:
-        print("Playwright nao encontrado. Rode: python -m pip install playwright")
+    except ImportError:
+        logger.error("Playwright nao encontrado. Rode: python -m pip install playwright")
         return 1
 
     pasta_destino = PASTA_DOWNLOAD_PADRAO
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
-    print("\n=== BAIXADOR DE PDFs - CENTRO DE MIDIAS ===")
-    print("Este modo conecta no Edge que voce ja abriu pelo atalho do portal.")
-    print(f"Pasta de destino: {pasta_destino}")
+    logger.info("\n=== BAIXADOR DE PDFs - CENTRO DE MIDIAS ===")
+    logger.info("Este modo conecta no Edge que voce ja abriu pelo atalho do portal.")
+    logger.info(f"Pasta de destino: {pasta_destino}")
 
     with sync_playwright() as p:
         try:
             browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORTA_EDGE}")
-        except Exception:
-            print("\nNao consegui encontrar o Edge preparado para download.")
-            print("Abra primeiro o arquivo ABRIR_PORTAL_CENTRO_MIDIAS.bat, entre no portal e tente de novo.")
+        except Exception as e:
+            logger.error(f"Erro ao conectar no Edge: {e}")
+            logger.error("Nao consegui encontrar o Edge preparado para download.")
+            logger.error("Abra primeiro o arquivo ABRIR_PORTAL_CENTRO_MIDIAS.bat, entre no portal e tente de novo.")
             return 1
 
         page = _escolher_pagina(browser)
         if page is None:
-            print("Nao encontrei nenhuma aba aberta no Edge.")
+            logger.error("Nao encontrei nenhuma aba aberta no Edge.")
             browser.close()
             return 1
 
         page.bring_to_front()
-        print(f"\nAba encontrada:\n{page.url}")
+        logger.info(f"\nAba encontrada:\n{page.url}")
         if "sso.acesso.gov.br" in page.url:
-            print("\nVoce ainda esta na tela do gov.br.")
-            print("Termine o login, abra a lista de aulas do repositorio e rode este baixador de novo.")
+            logger.warning("\nVoce ainda esta na tela do gov.br.")
+            logger.warning("Termine o login, abra a lista de aulas do repositorio e rode este baixador de novo.")
             browser.close()
             return 1
 
@@ -277,20 +303,20 @@ def main() -> int:
             })
 
         if not urls_unicas:
-            print("\nNao encontrei links PDF visiveis nessa pagina.")
+            logger.warning("\nNao encontrei links PDF visiveis nessa pagina.")
             baixados, falhas = _baixar_por_cliques(page, pasta_destino)
             if baixados or falhas:
-                print("\n=== FINALIZADO ===")
-                print(f"Baixados: {baixados}")
-                print(f"Falhas:   {falhas}")
-                print(f"Pasta:    {pasta_destino}")
+                logger.info("\n=== FINALIZADO ===")
+                logger.info(f"Baixados: {baixados}")
+                logger.info(f"Falhas:   {falhas}")
+                logger.info(f"Pasta:    {pasta_destino}")
                 browser.close()
                 return 0 if baixados else 1
-            print("Deixe a lista de aulas aberta, com os botoes PDF aparecendo, e tente novamente.")
+            logger.warning("Deixe a lista de aulas aberta, com os botoes PDF aparecendo, e tente novamente.")
             browser.close()
             return 1
 
-        print(f"\nEncontrei {len(urls_unicas)} PDF(s). Baixando...")
+        logger.info(f"\nEncontrei {len(urls_unicas)} PDF(s). Baixando...")
 
         baixados = 0
         falhas = 0
@@ -303,22 +329,22 @@ def main() -> int:
             try:
                 destino.write_bytes(_conteudo_pdf_por_url(request_context, url))
                 baixados += 1
-                print(f"[OK] {nome}")
+                logger.info(f"[OK] {nome}")
             except Exception as exc:
                 falhas += 1
-                print(f"[FALHA] {nome} ({exc})")
+                logger.error(f"[FALHA] {nome} ({exc})")
 
         if baixados == 0:
-            print("\nOs links encontrados nao eram PDFs baixaveis direto.")
+            logger.warning("\nOs links encontrados nao eram PDFs baixaveis direto.")
             baixados, falhas = _baixar_por_cliques(page, pasta_destino)
 
-        print("\n=== FINALIZADO ===")
-        print(f"Baixados: {baixados}")
-        print(f"Falhas:   {falhas}")
-        print(f"Pasta:    {pasta_destino}")
+        logger.info("\n=== FINALIZADO ===")
+        logger.info(f"Baixados: {baixados}")
+        logger.info(f"Falhas:   {falhas}")
+        logger.info(f"Pasta:    {pasta_destino}")
         browser.close()
 
-    return 0
+    return 0 if (baixados > 0 or falhas == 0) else 1
 
 
 if __name__ == "__main__":
