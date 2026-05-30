@@ -1,49 +1,95 @@
 import re
+import unicodedata
 from enum import Enum
 from typing import List, Tuple
 
 
 class EstrategiaDivisao(Enum):
+    """Estratégias disponíveis para divisão de metodologia."""
     DENSIDADE = "densidade"
     TIPO_ATIVIDADE = "tipo_atividade"
     COMPLEXIDADE = "complexidade"
 
 
+def normalizar_texto(texto: str) -> str:
+    """
+    Normaliza texto removendo acentos e normalizando espaços.
+    
+    Args:
+        texto: Texto a normalizar
+        
+    Returns:
+        Texto normalizado em minúsculas
+    """
+    if not texto:
+        return ""
+    
+    # Remove acentos
+    texto = unicodedata.normalize('NFKD', texto)
+    texto = ''.join(c for c in texto if not unicodedata.combining(c))
+    
+    # Normaliza espaços e converte para minúscula
+    texto = re.sub(r'\s+', ' ', texto).strip().lower()
+    return texto
+
+
 class SecaoMetodologia:
+    """Representa uma seção de metodologia extraída do texto."""
+    
     def __init__(self, nome: str, conteudo: str):
+        """
+        Inicializa uma seção de metodologia.
+        
+        Args:
+            nome: Nome/título da seção
+            conteudo: Conteúdo da seção
+        """
         self.nome = nome
         self.conteudo = conteudo
         self.tipo = self._inferir_tipo(nome)
 
     def _inferir_tipo(self, nome: str) -> str:
-        n = nome.lower()
-        if "comecar" in n or "abertura" in n or "disparo inicial" in n:
+        """
+        Infere o tipo de seção baseado no nome.
+        
+        Args:
+            nome: Nome da seção
+            
+        Returns:
+            Tipo da seção (introducao, teoria, pratica, conclusao ou outros)
+        """
+        n = normalizar_texto(nome)
+        
+        if any(palavra in n for palavra in ["comecar", "abertura", "disparo inicial"]):
             return "introducao"
-        if (
-            "exploracao" in n
-            or "leitura" in n
-            or "conteudo" in n
-            or "teoria" in n
-            or "analise" in n
-            or "sistematizacao" in n
-            or "pause e responda" in n
-        ):
+        
+        if any(palavra in n for palavra in [
+            "exploracao", "leitura", "conteudo", "teoria", 
+            "analise", "sistematizacao", "pause e responda"
+        ]):
             return "teoria"
-        if (
-            "pratica" in n
-            or "atividade" in n
-            or "producao" in n
-            or "revisao" in n
-            or "submissao" in n
-        ):
+        
+        if any(palavra in n for palavra in [
+            "pratica", "atividade", "producao", "revisao", "submissao"
+        ]):
             return "pratica"
-        if "encerramento" in n or "finalizacao" in n or "fechamento" in n:
+        
+        if any(palavra in n for palavra in ["encerramento", "finalizacao", "fechamento"]):
             return "conclusao"
+        
         return "outros"
 
 
 class CriteriosDivisao:
+    """Critérios para divisão de metodologia."""
+    
     def __init__(self, secoes: List[SecaoMetodologia]):
+        """
+        Inicializa os critérios de divisão.
+        
+        Args:
+            secoes: Lista de seções de metodologia
+        """
         self.quantidade_secoes = len(secoes)
         self.volume_teorico = sum(len(s.conteudo) for s in secoes if s.tipo == "teoria")
         self.quantidade_atividades = sum(1 for s in secoes if s.tipo == "pratica")
@@ -51,7 +97,10 @@ class CriteriosDivisao:
 
 
 class DivisorMetodologia:
+    """Divide a metodologia em dois momentos pedagógicos."""
+    
     def __init__(self):
+        """Inicializa o divisor com os marcadores conhecidos."""
         self.marcadores = [
             "Para comecar:",
             "Para começar:",
@@ -83,43 +132,66 @@ class DivisorMetodologia:
             "Revisão e fechamento:",
             "Encerramento:",
         ]
+        # Pré-compilar padrão para melhor performance
+        self._compilar_padrao()
+
+    def _compilar_padrao(self) -> None:
+        """Compila o padrão regex uma vez para evitar recompilação."""
+        padrao_str = "(" + "|".join(re.escape(m) for m in self.marcadores) + ")"
+        self.padrao_compilado = re.compile(padrao_str)
 
     def extrair_secoes(self, texto: str) -> List[SecaoMetodologia]:
-        padrao = "(" + "|".join(re.escape(m) for m in self.marcadores) + ")"
-        partes = re.split(padrao, texto)
+        """
+        Extrai seções de metodologia do texto.
+        
+        Args:
+            texto: Texto contendo a metodologia
+            
+        Returns:
+            Lista de seções extraídas
+        """
+        if not texto or not texto.strip():
+            return []
+        
+        partes = self.padrao_compilado.split(texto)
 
         secoes = []
         i = 1
         while i < len(partes):
-            nome = partes[i].strip()
+            nome = partes[i].strip() if i < len(partes) else ""
             conteudo = partes[i + 1].strip() if (i + 1) < len(partes) else ""
-            secoes.append(SecaoMetodologia(nome, conteudo))
+            
+            if nome:
+                secoes.append(SecaoMetodologia(nome, conteudo))
             i += 2
 
+        # Fallback: se não encontrou nenhuma seção, divide por parágrafos
         if not secoes:
             blocos = [b.strip() for b in texto.split("\n\n") if b.strip()]
-            for idx, bloco in enumerate(blocos):
-                secoes.append(SecaoMetodologia(f"Parte {idx + 1}:", bloco))
+            for idx, bloco in enumerate(blocos, start=1):
+                secoes.append(SecaoMetodologia(f"Parte {idx}:", bloco))
 
         return secoes
 
     def dividir(self, texto: str) -> Tuple[str, str]:
+        """
+        Divide a metodologia em dois momentos.
+        
+        Args:
+            texto: Texto da metodologia a dividir
+            
+        Returns:
+            Tupla contendo (primeiro_momento, segundo_momento)
+        """
+        if not texto or not texto.strip():
+            return "", ""
+        
         secoes = self.extrair_secoes(texto)
 
         if len(secoes) <= 1:
-            meio = len(texto) // 2
-            ponto = texto.find(".", meio)
-            if ponto == -1:
-                ponto = meio
-            else:
-                ponto += 1
-            return texto[:ponto].strip(), texto[ponto:].strip()
+            return self._dividir_por_tamanho(texto)
 
-        idx_pratica = -1
-        for idx, secao in enumerate(secoes):
-            if secao.tipo == "pratica":
-                idx_pratica = idx
-                break
+        idx_pratica = self._encontrar_primeira_pratica(secoes)
 
         if idx_pratica > 0:
             secoes_dia1 = secoes[:idx_pratica]
@@ -131,9 +203,55 @@ class DivisorMetodologia:
 
         metodologia_dia1 = self._formatar_dia(secoes_dia1, dia=1)
         metodologia_dia2 = self._formatar_dia(secoes_dia2, dia=2)
+        
         return metodologia_dia1, metodologia_dia2
 
+    def _dividir_por_tamanho(self, texto: str) -> Tuple[str, str]:
+        """
+        Divide o texto por tamanho quando não há seções bem definidas.
+        
+        Args:
+            texto: Texto a dividir
+            
+        Returns:
+            Tupla contendo (primeira_parte, segunda_parte)
+        """
+        meio = len(texto) // 2
+        ponto = texto.find(".", meio)
+        
+        if ponto == -1:
+            ponto = meio
+        else:
+            ponto += 1
+        
+        return texto[:ponto].strip(), texto[ponto:].strip()
+
+    def _encontrar_primeira_pratica(self, secoes: List[SecaoMetodologia]) -> int:
+        """
+        Encontra o índice da primeira seção prática.
+        
+        Args:
+            secoes: Lista de seções
+            
+        Returns:
+            Índice da primeira prática, ou -1 se não encontrar
+        """
+        for idx, secao in enumerate(secoes):
+            if secao.tipo == "pratica":
+                return idx
+        return -1
+
     def _formatar_dia(self, secoes: List[SecaoMetodologia], dia: int) -> str:
+        """
+        Formata as seções para um dia específico.
+        
+        Args:
+            secoes: Seções a formatar
+            dia: Número do dia (1 ou 2)
+            
+        Returns:
+            Texto formatado para o dia
+        """
         texto = ""
         for secao in secoes:
             texto += f"{secao.nome}\n{secao.conteudo}\n\n"
@@ -156,5 +274,14 @@ class DivisorMetodologia:
 
 
 def processar_pdf_e_dividir_metodologia(texto_metodologia: str) -> Tuple[str, str]:
+    """
+    Processa PDF e divide a metodologia em dois momentos.
+    
+    Args:
+        texto_metodologia: Texto de metodologia a processar
+        
+    Returns:
+        Tupla contendo (primeiro_momento, segundo_momento)
+    """
     divisor = DivisorMetodologia()
     return divisor.dividir(texto_metodologia)
