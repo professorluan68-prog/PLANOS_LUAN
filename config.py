@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 
 # Configuracoes centralizadas do projeto
@@ -8,9 +9,17 @@ PDFS_ORGANIZADOS_DIR = BASE_DIR / "PDFs_Organizados"
 MODELOS_DOCX_DIR = BASE_DIR / "modelos_docx"
 TEMPLATES_DOCX_DIR = BASE_DIR / "templates"
 LEGACY_PLANOS_FEITOS_DIR = BASE_DIR / "Planos feitos"
-PASTA_PLANOS_PROFESSORES = Path(r"D:\PLANOS DE JUNHO")
+
+# Usar variáveis de ambiente com fallback para caminhos padrão
+PASTA_PLANOS_PROFESSORES = Path(
+    os.getenv("PLANOS_DIR", r"D:\PLANOS DE JUNHO")
+)
 MODELOS_LEGADOS_QUARENTENA_DIR = PASTA_PLANOS_PROFESSORES / "_MODELOS_LEGADOS_PARA_EXCLUIR"
-PLANOS_FINALIZADOS_DIR = Path(r"D:\PLANOS-FINALIZADOS")
+
+PLANOS_FINALIZADOS_DIR = Path(
+    os.getenv("PLANOS_FINALIZADOS_DIR", r"D:\PLANOS-FINALIZADOS")
+)
+
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequência 2026 (1).ods"
 
 REDACAO_DIR = PDFS_ORGANIZADOS_DIR / "Redação e Leitura"
