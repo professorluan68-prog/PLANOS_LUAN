@@ -1779,6 +1779,8 @@ def validar_entrada(
     pdfs_enviados: int = 0,
     pdfs_necessarios: int = 0,
 ) -> str:
+    disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
+    orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
     if not modelo_bytes:
         return "Selecione ou envie o modelo DOCX."
     if not disciplina.strip():
@@ -1802,7 +1804,8 @@ def validar_entrada(
         )
     if disciplina_config.exige_pdf and not aulas_envio:
         return "Envie os PDFs das aulas para gerar o plano."
-    if disciplina_config.exige_pdf and pdfs_necessarios and pdfs_enviados != pdfs_necessarios:
+    pdf_unico_orientacao = bool(orientacao_estudos and pdfs_enviados == 1 and pdfs_necessarios >= 1)
+    if disciplina_config.exige_pdf and pdfs_necessarios and pdfs_enviados != pdfs_necessarios and not pdf_unico_orientacao:
         return (
             f"Quantidade de PDFs incorreta: foram adicionados {pdfs_enviados}, "
             f"mas o plano selecionado possui {pdfs_necessarios} linha(s) de aula. "
@@ -1838,10 +1841,17 @@ def _grupos_pdf_por_aula(aulas_envio: list[dict]) -> list[dict]:
     return grupos
 
 
-def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files) -> tuple[list[dict], int]:
+def _aplicar_pdfs_a_grupos(
+    aulas_envio: list[dict],
+    pdfs_aulas_files,
+    replicar_pdf_unico: bool = False,
+) -> tuple[list[dict], int]:
     grupos = _grupos_pdf_por_aula(aulas_envio)
     for grupo_idx, grupo in enumerate(grupos):
-        pdf = pdfs_aulas_files[grupo_idx] if grupo_idx < len(pdfs_aulas_files) else None
+        if replicar_pdf_unico and len(pdfs_aulas_files or []) == 1:
+            pdf = pdfs_aulas_files[0]
+        else:
+            pdf = pdfs_aulas_files[grupo_idx] if grupo_idx < len(pdfs_aulas_files) else None
         for indice in grupo["indices"]:
             aulas_envio[indice]["pdf"] = pdf
             aulas_envio[indice]["grupo_pdf"] = grupo_idx
@@ -1912,6 +1922,7 @@ def _coletar_aulas_envio(
     pdfs_aulas_files,
     dividir_metodologia: bool,
     auto_repetir_semana: bool,
+    replicar_pdf_unico: bool = False,
     key_prefix: str = "",
     titulo_secao: str = "",
 ):
@@ -2052,7 +2063,11 @@ def _coletar_aulas_envio(
             }
         )
 
-    aulas_envio, _ = _aplicar_pdfs_a_grupos(aulas_envio, pdfs_aulas_files)
+    aulas_envio, _ = _aplicar_pdfs_a_grupos(
+        aulas_envio,
+        pdfs_aulas_files,
+        replicar_pdf_unico=replicar_pdf_unico,
+    )
     return aulas_envio
 
 
@@ -2972,6 +2987,8 @@ if modo_cdp_dedicado:
     )
 
 disciplina_config = obter_config(disciplina)
+disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
+orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
 disciplina_cdp = eh_cdp(disciplina)
 if (disciplina_cdp or eh_cdp_fundamental(disciplina) or modo_cdp_dedicado) and escolha_template != "Upload de novo modelo...":
     modelo_cdp = TEMPLATES_DIR / "MODELOCDP.docx"
@@ -3405,6 +3422,7 @@ else:
         pdfs_aulas_files=pdfs_aulas_files,
         dividir_metodologia=dividir_metodologia,
         auto_repetir_semana=auto_repetir_semana,
+        replicar_pdf_unico=bool(orientacao_estudos and qtd_aulas == 1),
     )
     if dividir_metodologia:
         pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_envio))
@@ -3414,6 +3432,11 @@ else:
     if pdfs_necessarios:
         if qtd_aulas == pdfs_necessarios:
             st.success(f"PDFs conferidos: {qtd_aulas}/{pdfs_necessarios}.")
+        elif orientacao_estudos and qtd_aulas == 1 and pdfs_necessarios >= 1:
+            st.success(
+                f"PDF único de Orientação de Estudos detectado: {qtd_aulas}/{pdfs_necessarios}. "
+                "O sistema vai reaproveitar o arquivo nas semanas e separar as etapas automaticamente."
+            )
         else:
             st.warning(
                 f"PDFs adicionados: {qtd_aulas}/{pdfs_necessarios}. "
@@ -3426,6 +3449,7 @@ else:
             pdfs_aulas_files=pdfs_aulas_files,
             dividir_metodologia=dividir_metodologia,
             auto_repetir_semana=auto_repetir_semana,
+            replicar_pdf_unico=bool(orientacao_estudos and qtd_aulas == 1),
             key_prefix="turma2_",
             titulo_secao="Datas e horários da 2ª turma",
         )

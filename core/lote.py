@@ -288,7 +288,71 @@ def _titulo_catalogado_orientacao_estudos(caminho_pdf: str, texto: str = "") -> 
 
 
 def _titulo_ja_rotulado_orientacao_estudos(titulo: str) -> bool:
-    return bool(re.match(r"^(missao|trilha|jornada)\\s+\\d+\\s+-\\s+", _normalizar(titulo)))
+    return bool(re.match(r"^(missao|trilha|jornada)\s+\d+\s+-\s+", _normalizar(titulo)))
+
+
+def _extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
+    """
+    Extrai blocos por etapa em materiais de Orientacao de Estudos.
+    Exemplo esperado no PDF: Etapa 1, Etapa 2, Etapa 3, Etapa final.
+    """
+    bruto = str(texto or "")
+    if not bruto.strip():
+        return []
+
+    linhas = bruto.splitlines()
+    if not linhas:
+        return []
+
+    marcadores = []
+    for i, linha in enumerate(linhas):
+        atual = re.sub(r"\s+", " ", str(linha or "")).strip().lower()
+        if not atual:
+            continue
+
+        match_inline = re.match(r"^etapa\s*(final|\d+)\b", atual)
+        if match_inline:
+            rotulo = str(match_inline.group(1) or "").strip().lower()
+            marcadores.append((i, rotulo))
+            continue
+
+        if atual == "etapa":
+            prox = re.sub(r"\s+", " ", str(linhas[i + 1] if i + 1 < len(linhas) else "")).strip().lower()
+            ant = re.sub(r"\s+", " ", str(linhas[i - 1] if i - 1 >= 0 else "")).strip().lower()
+            if re.fullmatch(r"\d+", prox):
+                marcadores.append((i, prox))
+            elif re.fullmatch(r"\d+", ant):
+                marcadores.append((i, ant))
+            elif prox == "final" or ant == "final":
+                marcadores.append((i, "final"))
+
+    if not marcadores:
+        return []
+
+    # remove duplicatas sequenciais de mesmo rotulo
+    compactos = []
+    for marcador in marcadores:
+        if compactos and compactos[-1][1] == marcador[1] and abs(compactos[-1][0] - marcador[0]) <= 2:
+            continue
+        compactos.append(marcador)
+    marcadores = compactos
+
+    etapas = []
+    for idx, (linha_inicio, rotulo) in enumerate(marcadores):
+        linha_fim = marcadores[idx + 1][0] if idx + 1 < len(marcadores) else len(linhas)
+        bloco_linhas = linhas[linha_inicio:linha_fim]
+        bloco = "\n".join(bloco_linhas).strip()
+        if not bloco:
+            continue
+
+        titulo = "Etapa final" if rotulo == "final" else f"Etapa {rotulo}"
+        texto_etapa = re.sub(r"\s+", " ", bloco).strip()
+        texto_etapa = re.sub(r"(?i)^\s*etapa\s*(final|\d+)?\s*", "", texto_etapa).strip()
+        if len(texto_etapa) < 20:
+            continue
+        etapas.append({"titulo": titulo, "texto": texto_etapa})
+
+    return etapas
 
 
 def _contem(base: str, termos: list[str]) -> bool:
@@ -5314,6 +5378,15 @@ def _aula_por_pdf(
     cdp_contextual = _eh_cdp_contextual_disciplina(disciplina)
     disciplina_base = _disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
     perfil = _perfil_disciplina(disciplina_base)
+    if perfil == "orientacao_estudos":
+        etapas_orientacao = _extrair_etapas_orientacao_estudos(texto)
+        if etapas_orientacao:
+            idx_etapa = min(max(indice_aula, 0), len(etapas_orientacao) - 1)
+            etapa_atual = etapas_orientacao[idx_etapa]
+            texto = etapa_atual["texto"]
+            rotulo_etapa = etapa_atual["titulo"].upper()
+            tema = rotulo_etapa
+            material_digital = rotulo_etapa
     extracao_pdf = _extrator_lib.extrair(texto, tema)
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
     tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base)
@@ -5506,6 +5579,11 @@ def _aula_por_pdf(
             perfil=perfil,
             objetivos_secao=objetivos_secao,
             conteudos_secao=conteudos_secao,
+        )
+    if perfil == "orientacao_estudos" and re.match(r"(?i)^etapa\s+(\d+|final)\b", str(tema or "").strip()):
+        aprendizagem = (
+            f"Desenvolver estratégias de leitura, interpretação e registro na {tema}, "
+            "com foco em autonomia de estudo e resolução orientada das atividades."
         )
 
     colunas_planejamento = _tentar_gerador_colunas_pedagogicas(
