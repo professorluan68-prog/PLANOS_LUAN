@@ -1,0 +1,57 @@
+RECUPERACAO - ORIENTACAO DE ESTUDOS
+Data: 2026-05-26
+
+1. O que foi encontrado em G:\Meu Drive
+- Planos antigos em DOCX de Orientacao de Estudos.
+- Um backup compactado com arquivos do sistema anterior.
+- PDFs organizados da disciplina, incluindo familias Missao, Trilha e Jornada.
+- Documentos metodologicos e testes antigos da disciplina.
+
+2. Pasta local de recuperacao
+- D:\PLANOS_LUAN\RECUPERADO_ORIENTACAO_DE_ESTUDOS_20260526
+
+3. Conteudo principal recuperado
+- planos_recuperados_drive\
+  - Planos antigos de professores como HELOISA e SEE.
+- extraido_python\
+  - orientacao_estudos.py
+  - test_orientacao_estudos.py
+  - MISSAO01 a MISSAO16
+  - TRILHA1 a TRILHA16
+  - JORNADA1 a JORNADA16
+  - SP-ENSINOFUNDAMENTAL.pdf
+  - PDF-geral.pdf
+  - guias e analises metodologicas antigas
+
+4. O que foi restaurado no sistema atual
+- Disciplina "Orientacao de Estudos" recolocada no cadastro.
+- Prompt especifico da disciplina para o fluxo com IA.
+- Orientacao especifica da disciplina para o fluxo sem IA.
+- Catalogo de titulos recuperados para:
+  - MISSAO 1 a 16
+  - TRILHA 1 a 16
+  - JORNADA 1 a 16
+- Extracao de tema/material ajustada para reconhecer os titulos corretos.
+- Metodologia reforcada com identidade propria da disciplina:
+  - Para comecar
+  - Leitura e construcao do conteudo
+  - Foco no conteudo
+  - Na pratica
+  - Pause e responda
+  - Encerramento
+- Tratamento especial para "DE OLHO NO SAEB" quando aparecer no material.
+- Testes automatizados novos para evitar regressao.
+
+5. Arquivos do sistema atual alterados nesta restauracao
+- D:\PLANOS_LUAN\core\disciplinas.py
+- D:\PLANOS_LUAN\core\prompts_por_disciplina.py
+- D:\PLANOS_LUAN\core\lib\metodologia.py
+- D:\PLANOS_LUAN\core\lote.py
+- D:\PLANOS_LUAN\tests\test_orientacao_estudos_recuperada.py
+- D:\PLANOS_LUAN\pytest.ini
+
+6. Validacao
+- Suite completa: 154 testes aprovados.
+
+7. Proximo passo sugerido
+- Gerar 1 plano real de Orientacao de Estudos com PDF de Missao, 1 com Trilha e 1 com Jornada para revisar o produto final em Word.

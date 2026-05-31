@@ -60,3 +60,25 @@ def test_datas_feriado_padrao_marca_corpus_christi_no_periodo():
     datas = datas_do_periodo(date(2026, 6, 1), date(2026, 6, 30))
 
     assert date(2026, 6, 4) in datas_feriado_padrao(datas)
+
+
+def test_filtrar_datas_sem_aula_remove_apenas_data_especifica_nao_dia_da_semana():
+    """Regressão: remover uma quinta-feira feriado não deve sumir com as outras quintas."""
+    # Simula agenda com quintas-feiras de junho (4 quintas)
+    quintas_junho = [
+        date(2026, 6, 4),   # quinta - Corpus Christi (feriado)
+        date(2026, 6, 11),
+        date(2026, 6, 18),
+        date(2026, 6, 25),
+    ]
+    agenda = [{"data": d, "horario": "13h - 14h40"} for d in quintas_junho]
+
+    # Remove apenas o feriado (1ª quinta)
+    filtrada = filtrar_datas_sem_aula(agenda, [date(2026, 6, 4)])
+    datas_restantes = [item["data"] for item in filtrada]
+
+    # As demais quintas devem permanecer intactas
+    assert date(2026, 6, 11) in datas_restantes
+    assert date(2026, 6, 18) in datas_restantes
+    assert date(2026, 6, 25) in datas_restantes
+    assert date(2026, 6, 4) not in datas_restantes

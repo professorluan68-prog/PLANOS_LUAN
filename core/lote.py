@@ -88,6 +88,10 @@ def _linha_generica(linha: str, disciplina: str) -> bool:
     }
     if texto in genericas:
         return True
+    if "gps" in texto and "guia" in texto:
+        return True
+    if "praticas de sala de aula" in texto:
+        return True
     if _linha_periodo_ensino(texto):
         return True
     return bool(re.fullmatch(r"(?:[1-4][oº°]?\s*)?bimestre", texto))
@@ -304,27 +308,43 @@ def _extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
     if not linhas:
         return []
 
+    def _normalizar_rotulo_etapa(rotulo: str) -> str:
+        rotulo = rotulo.strip().lower()
+        if rotulo == "final":
+            return "final"
+        roman_map = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6"}
+        if rotulo in roman_map:
+            return roman_map[rotulo]
+        match_digit = re.search(r"\d+", rotulo)
+        if match_digit:
+            return str(int(match_digit.group(0)))
+        return rotulo
+
     marcadores = []
     for i, linha in enumerate(linhas):
         atual = re.sub(r"\s+", " ", str(linha or "")).strip().lower()
         if not atual:
             continue
 
-        match_inline = re.match(r"^etapa\s*(final|\d+)\b", atual)
-        if match_inline:
-            rotulo = str(match_inline.group(1) or "").strip().lower()
+        match_p1 = re.match(r"^etapa\s+(final|[ivxldcm]+|\d+)\b", atual)
+        match_p2 = re.match(r"^(\d+)\s*(?:a|o|ª|º|°)?\s*etapa\b", atual)
+        
+        if match_p1:
+            rotulo = _normalizar_rotulo_etapa(match_p1.group(1))
+            marcadores.append((i, rotulo))
+            continue
+        elif match_p2:
+            rotulo = _normalizar_rotulo_etapa(match_p2.group(1))
             marcadores.append((i, rotulo))
             continue
 
         if atual == "etapa":
             prox = re.sub(r"\s+", " ", str(linhas[i + 1] if i + 1 < len(linhas) else "")).strip().lower()
             ant = re.sub(r"\s+", " ", str(linhas[i - 1] if i - 1 >= 0 else "")).strip().lower()
-            if re.fullmatch(r"\d+", prox):
-                marcadores.append((i, prox))
-            elif re.fullmatch(r"\d+", ant):
-                marcadores.append((i, ant))
-            elif prox == "final" or ant == "final":
-                marcadores.append((i, "final"))
+            if re.fullmatch(r"\d+", prox) or prox in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
+                marcadores.append((i, _normalizar_rotulo_etapa(prox)))
+            elif re.fullmatch(r"\d+", ant) or ant in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
+                marcadores.append((i, _normalizar_rotulo_etapa(ant)))
 
     if not marcadores:
         return []
@@ -340,14 +360,14 @@ def _extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
     etapas = []
     for idx, (linha_inicio, rotulo) in enumerate(marcadores):
         linha_fim = marcadores[idx + 1][0] if idx + 1 < len(marcadores) else len(linhas)
-        bloco_linhas = linhas[linha_inicio:linha_fim]
+        bloco_linhas = list(linhas[linha_inicio:linha_fim])
         bloco = "\n".join(bloco_linhas).strip()
         if not bloco:
             continue
 
         titulo = "Etapa final" if rotulo == "final" else f"Etapa {rotulo}"
         texto_etapa = re.sub(r"\s+", " ", bloco).strip()
-        texto_etapa = re.sub(r"(?i)^\s*etapa\s*(final|\d+)?\s*", "", texto_etapa).strip()
+        texto_etapa = re.sub(r"(?i)^\s*(?:etapa\s*(?:final|[ivxldcm]+|\d+)?|(?:\d+)\s*(?:a|o|ª|º|°)?\s*etapa)\s*[-:–]?\s*", "", texto_etapa).strip()
         if len(texto_etapa) < 20:
             continue
         etapas.append({"titulo": titulo, "texto": texto_etapa})
@@ -499,6 +519,13 @@ def _adaptar_metodologia_eja(metodologia, perfil: str, tema: str, texto_pdf: str
         adaptada.append(novo)
 
     adaptada = _garantir_tecnicas_lemov_na_metodologia(adaptada, [tecnica for tecnica in tecnicas_pdf if tecnica not in usados])
+    tecnicas_lemov = ["VIREM E CONVERSEM", "TODO MUNDO ESCREVE", "PAUSE E RESPONDA", "COM SUAS PALAVRAS", "DE OLHO NO MODELO", "HORA DA LEITURA", "UM PASSO DE CADA VEZ"]
+    for item in adaptada:
+        if isinstance(item, dict) and "texto" in item:
+            texto_item = item["texto"]
+            for tecnica in tecnicas_lemov:
+                texto_item = re.sub(re.escape(tecnica), tecnica, texto_item, flags=re.I)
+            item["texto"] = texto_item
     return _consolidar_blocos_eja(adaptada)
 
 
@@ -865,7 +892,7 @@ def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = ""
     base = _normalizar(f"{Path(caminho_pdf).name} {tema} {texto}")
     opcoes = [
         ("Matemática", ["matematica", "matem"]),
-        ("Língua Portuguesa", ["lingua portuguesa", "portugues"]),
+        ("Língua Portuguesa", ["lingua portuguesa"]),
         ("Ciências", ["ciencias", "cienc"]),
         ("História", ["historia", "histor"]),
         ("Geografia", ["geografia", "geograf"]),
@@ -874,11 +901,37 @@ def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = ""
         ("Física", ["fisica", "fis"]),
         ("Química", ["quimica", "quim"]),
         ("Língua Inglesa", ["ingles", "lingua inglesa"]),
+        ("Sociologia", ["sociologia"]),
+        ("Liderança e Oratória", ["lideranca e oratoria", "lideranca"]),
     ]
+    if re.search(r"\bportugues\b", base):
+        return "Língua Portuguesa"
     for nome, chaves in opcoes:
         if _contem(base, chaves):
             return nome
     return "Geral"
+
+
+def _tema_cdp_seguro(texto: str, tema: str, disciplina: str, padrao: str) -> str:
+    if not padrao:
+        return tema or padrao
+    linhas = _limpar_linhas(texto)
+    idx = -1
+    for i, linha in enumerate(linhas):
+        if _normalizar(padrao) in _normalizar(linha):
+            idx = i
+            break
+    if idx == -1:
+        return tema or padrao
+    
+    partes = [linhas[idx]]
+    for i in range(idx + 1, min(idx + 5, len(linhas))):
+        linha_norm = _normalizar(linhas[i])
+        if any(w in linha_norm for w in ["conteudo", "objetivo", "habilidade", "ef", "em", "aula", "bimestre"]):
+            break
+        partes.append(linhas[i])
+        
+    return " ".join(partes).strip()
 
 
 def _limpar_tema_cdp_contextual(tema: str, disciplina_base: str) -> str:
@@ -909,7 +962,7 @@ def _formatar_material_cdp_contextual(tema: str, disciplina_base: str = "") -> s
     return f"TEMA:\n{titulo}" if titulo else "TEMA:\nConteúdo da aula"
 
 
-def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str) -> list[str]:
+def _metodologia_cdp_contextual_obsoleta(perfil: str, tipo: str, tema: str, conceito: str) -> list[str]:
     tema_frase = _limpar_tema_cdp_contextual(tema, "")
     conceito_frase = _limpar_tema_cdp_contextual(conceito or tema_frase, "")
     base_tema = _normalizar(f"{tema_frase} {conceito_frase}")
@@ -1615,7 +1668,27 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
     ]
     saida = str(texto or "")
     for termo in proibidos:
-        saida = re.sub(re.escape(termo), "", saida, flags=re.I)
+        if termo.lower() in [
+            "virem e conversem",
+            "todo mundo escreve",
+            "com suas palavras",
+            "pause e responda",
+            "para comecar",
+            "para começar",
+            "foco no conteudo",
+            "foco no conteúdo",
+            "de olho no modelo",
+            "um passo de cada vez",
+            "hora da leitura",
+        ]:
+            saida = re.sub(
+                rf"(?<!t[eé]cnica\s)(?<!din[aá]mica\s)(?<!momento\s)(?<!proposta\s)(?<!estrat[eé]gia\s){re.escape(termo)}",
+                "",
+                saida,
+                flags=re.I,
+            )
+        else:
+            saida = re.sub(re.escape(termo), "", saida, flags=re.I)
     return re.sub(r"\s+", " ", saida).strip()
 
 
@@ -2000,7 +2073,16 @@ def _acessibilidade_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
     return bancos.get(tipo_cdp, [])
 
 
-def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str, indice_aula: int = 0) -> list[str]:
+def _metodologia_cdp_contextual(
+    perfil: str,
+    tipo: str,
+    tema: str,
+    conceito: str,
+    indice_aula: int = 0,
+    texto_pdf: str = None,
+    extracao_pdf: dict = None,
+    disciplina_base: str = "",
+) -> list[str]:
     conceito_frase = _conceito_cdp_contextual(perfil, tema, conceito)
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
     exemplo = _exemplo_concreto_cdp(tipo_cdp)
@@ -2205,6 +2287,14 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         opcoes = ciencias.get(tipo_cdp, ciencias["ciencias_geral"])
     elif perfil == "geografia":
         opcoes = geografia.get(tipo_cdp, geografia["geografia_geral"])
+    elif perfil == "sociologia":
+        opcoes = [
+            f"A aula inicia com uma conversa breve para levantar o que os alunos já sabem sobre {conceito_frase}, introduzindo um conceito sociológico relevante para o tema. Em seguida, o professor explica o conteúdo no quadro, destacando as relações sociais e desigualdades associadas. Os alunos realizam atividades de reflexão e análise no caderno, com acompanhamento individual do professor e síntese final coletiva."
+        ]
+    elif perfil == "lideranca_oratoria":
+        opcoes = [
+            f"O professor inicia a aula convidando os alunos a refletirem sobre a persuasão ética e a responsabilidade discursiva na comunicação. Em seguida, explica conceitos de análise de discurso, mostrando como as escolhas de linguagem constroem argumentos no debate público. Os alunos realizam exercícios práticos no caderno sobre {conceito_frase}, com mediação do professor e fechamento coletivo."
+        ]
     else:
         opcoes = [gerais.get(tipo_cdp, gerais["geral_cdp"])]
 
@@ -2216,6 +2306,18 @@ def _metodologia_cdp_contextual(perfil: str, tipo: str, tema: str, conceito: str
         exemplo=exemplo,
         texto=texto,
     )
+    
+    tecnicas = []
+    if texto_pdf:
+        tecnicas = _detectar_tecnicas_lemov(texto_pdf, tema)
+    elif extracao_pdf and extracao_pdf.get("texto_prioritario"):
+        tecnicas = _detectar_tecnicas_lemov(extracao_pdf["texto_prioritario"], tema)
+
+    if tecnicas:
+        metodologia_temp = [{"titulo": "Abertura", "texto": texto}]
+        metodologia_temp = _garantir_tecnicas_lemov_na_metodologia(metodologia_temp, tecnicas)
+        texto = metodologia_temp[0]["texto"]
+
     return [_limpar_texto_cdp_contextual(texto)]
 
 
@@ -3732,6 +3834,15 @@ def _obra_literaria_redacao(tema: str, texto_base: str = "") -> str:
 
 
 def _eh_producao_final_redacao(texto_base: str, tema: str = "") -> bool:
+    # Check top lines of the text_base for reading indicators
+    linhas_topo = _limpar_linhas(texto_base)[:6]
+    texto_topo = _normalizar(" ".join(linhas_topo))
+    texto_topo_limpo = re.sub(r"[^\w\s]", " ", texto_topo)
+    texto_topo_limpo = re.sub(r"\s+", " ", texto_topo_limpo).strip()
+    if "pratica de linguagem leitura" in texto_topo_limpo or "praticas de leitura" in texto_topo_limpo or "praticas de linguagem leitura" in texto_topo_limpo:
+        if "producao de textos" not in texto_topo_limpo and "pratica de linguagem producao" not in texto_topo_limpo:
+            return False
+
     base = _normalizar(f"{tema} {texto_base}")
     if "pratica de linguagem" in base and "leitura" in base and not any(
         termo in base
@@ -3760,7 +3871,7 @@ def _eh_producao_final_redacao(texto_base: str, tema: str = "") -> bool:
     )
 
 
-def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict]:
+def _metodologia_leitura_redacao_modelo_obsoleta(texto_base: str, tema: str) -> list[dict]:
     if _eh_producao_final_redacao(texto_base, tema):
         return [
             {
@@ -3914,13 +4025,144 @@ def _sistematizacao_redacao(genero: str) -> str:
     )
 
 
+def _extrair_tema_redacao_leitura(texto: str) -> str | None:
+    linhas = _limpar_linhas(texto)
+    if not linhas:
+        return None
+        
+    texto_topo = " ".join(linhas[:20])
+    
+    # 1. Trilha with quotes
+    match_trilha = re.search(r'(Trilha\s+[“"\'\u201c][^”"\'\u201d]+[”"\'\u201d])', texto_topo, flags=re.I)
+    if match_trilha:
+        return match_trilha.group(1).strip()
+        
+    # 2. Elaboração do Projeto/Rascunho/Texto
+    match_elab = re.search(r'(Elaboração\s+(?:do|de|)\s*(?:Projeto\s+de\s+Texto\s+\d+|rascunho|texto\s+\d+))', texto_topo, flags=re.I)
+    if match_elab:
+        return match_elab.group(1).strip()
+        
+    # 3. Versão final do Texto / Rascunho
+    match_versao = re.search(r'(Versão\s+final\s+do\s+Texto\s+\d+|Versão\s+final\s+do\s+rascunho)', texto_topo, flags=re.I)
+    if match_versao:
+        return match_versao.group(1).strip()
+
+    # 4. Devolutiva do Texto
+    match_devolutiva = re.search(r'(Devolutiva\s+do\s+Texto\s+\d+)', texto_topo, flags=re.I)
+    if match_devolutiva:
+        return match_devolutiva.group(1).strip()
+        
+    # Fallback to line-by-line matches if not found in joined format
+    for linha in linhas[:20]:
+        match = re.search(r'(Trilha\s+[“"[][^”"\]]+[”"\]])', linha, flags=re.I)
+        if match:
+            return match.group(1).strip()
+        
+        match_v = re.search(r'(Versão\s+final\s+do\s+Texto\s+\d+)', linha, flags=re.I)
+        if match_v:
+            return match_v.group(1).strip()
+
+        match_d = re.search(r'(Devolutiva\s+do\s+Texto\s+\d+)', linha, flags=re.I)
+        if match_d:
+            return match_d.group(1).strip()
+
+    # Generic Trilha/Versão final/Devolutiva matches
+    for linha in linhas[:20]:
+        linha_lower = linha.lower()
+        if "trilha" in linha_lower:
+            match = re.search(r'(Trilha\s+.+)', linha, flags=re.I)
+            if match:
+                t = match.group(1).split('|')[0].strip()
+                t = re.sub(r'^(Trilha\s+[^-\n]+).*$', r'\1', t).strip()
+                return t
+        if "versao final" in _normalizar(linha):
+            match = re.search(r'(Versão\s+final\s+.+)', linha, flags=re.I)
+            if match:
+                return match.group(1).split('|')[0].strip()
+        if "devolutiva" in _normalizar(linha):
+            match = re.search(r'(Devolutiva\s+.+)', linha, flags=re.I)
+            if match:
+                return match.group(1).split('|')[0].strip()
+                
+    return None
+
+
+def _seccionar_texto_por_tema(texto: str, tema: str) -> str:
+    linhas = texto.splitlines()
+    tema_norm = _normalizar(tema)
+    tema_norm_limpo = re.sub(r'[“"”\'\[\]]', '', tema_norm).strip()
+    
+    idx_inicio = 0
+    for i, linha in enumerate(linhas):
+        linha_norm = _normalizar(linha)
+        linha_norm_limpo = re.sub(r'[“"”\'\[\]]', '', linha_norm).strip()
+        if tema_norm_limpo in linha_norm_limpo or (len(tema_norm_limpo) > 5 and tema_norm_limpo[:15] in linha_norm_limpo):
+            idx_inicio = i
+            break
+            
+    idx_fim = len(linhas)
+    for i in range(idx_inicio + 1, len(linhas)):
+        linha_norm = _normalizar(linhas[i])
+        if "trilha " in linha_norm or "versao final " in linha_norm or "devolutiva " in linha_norm:
+            linha_norm_limpo = re.sub(r'[“"”\'\[\]]', '', linha_norm).strip()
+            if tema_norm_limpo not in linha_norm_limpo:
+                idx_fim = i
+                break
+                
+    return "\n".join(linhas[idx_inicio:idx_fim])
+
+
+def _extrair_etapas_redacao_leitura(texto: str) -> list[dict]:
+    linhas = texto.splitlines()
+    etapas = []
+    secao_atual = None
+    linhas_secao = []
+    
+    for linha in linhas:
+        linha_clean = linha.strip()
+        match = re.match(r"^\s*(\d+)\.\s*(.+)$", linha_clean)
+        if match:
+            if secao_atual:
+                etapas.append({
+                    "numero": secao_atual["numero"],
+                    "titulo": secao_atual["titulo"],
+                    "texto": "\n".join(linhas_secao).strip()
+                })
+            secao_atual = {
+                "numero": int(match.group(1)),
+                "titulo": match.group(2).strip(),
+            }
+            linhas_secao = []
+        else:
+            if secao_atual is not None:
+                if linha_clean.isdigit() and len(linha_clean) <= 2:
+                    continue
+                linhas_secao.append(linha_clean)
+                
+    if secao_atual:
+        etapas.append({
+            "numero": secao_atual["numero"],
+            "titulo": secao_atual["titulo"],
+            "texto": "\n".join(linhas_secao).strip()
+        })
+        
+    return etapas
+
+
 def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict]:
     genero = _genero_textual_redacao(texto_base, tema)
     objetivo = _objetivo_pedagogico_redacao(texto_base, tema, genero)
     perguntas = _perguntas_analise_redacao(genero, tema)
 
+    # 1. Tentar extrair as etapas do PDF
+    etapas_pdf = []
+    if texto_base:
+        secao = _seccionar_texto_por_tema(texto_base, tema)
+        etapas_pdf = _extrair_etapas_redacao_leitura(secao)
+
+    # 2. Gerar a estrutura padrão
     if _eh_producao_final_redacao(texto_base, tema):
-        return [
+        metodologia = [
             {
                 "titulo": "Disparo inicial / contextualizacao",
                 "texto": (
@@ -3958,52 +4200,100 @@ def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict
             {
                 "titulo": "Revisao e fechamento",
                 "texto": (
-                    "Finalizar com revisao final em dupla ou individual, retomando o checklist e incentivando ajustes antes da entrega. "
+                    "Finalizar com revisao final em dupla ou individual, retomando o checklist e incentivando adjustments antes da entrega. "
                     "Encerrar com reflexao sobre o que melhorou do rascunho para a versao final e por que revisar faz parte do processo de escrita."
                 ),
             },
         ]
+    else:
+        obra = _obra_literaria_redacao(tema, texto_base)
+        metodologia = [
+            {
+                "titulo": "Disparo inicial / contextualizacao",
+                "texto": (
+                    f"Apresentar a aula a partir da obra {obra}, conectando o tema ao cotidiano, as experiencias leitoras da turma e o repertorio dos estudantes. "
+                    f"Explicar o proposito da atividade e explicitar o objetivo pedagogico: {objetivo}"
+                ),
+            },
+            {
+                "titulo": "Leitura ou exploracao inicial",
+                "texto": (
+                    f"Propor leitura guiada ou exploracao inicial de trechos de {obra}, com foco no genero {genero}, nas personagens, nos acontecimentos e na forma como o texto busca envolver o leitor."
+                ),
+            },
+            {
+                "titulo": "Analise guiada",
+                "texto": (
+                    f"Conduzir perguntas interpretativas e reflexivas: 1) {perguntas[0]} 2) {perguntas[1]} 3) {perguntas[2]}"
+                ),
+            },
+            {
+                "titulo": "Sistematizacao",
+                "texto": _sistematizacao_redacao(genero),
+            },
+            {
+                "titulo": "Producao textual",
+                "texto": (
+                    f"Propor uma atividade de escrita em contexto real, como recomendacao para colegas, texto para mural da escola, diario de leitura ou publicacao da turma. "
+                    f"Explicar o que escrever, para quem escrever e com qual objetivo, garantindo integracao entre leitura e escrita, incentivando producoes textuais criativas e deixando claros os criterios obrigatorios do genero {genero}."
+                ),
+            },
+            {
+                "titulo": "Revisao e fechamento",
+                "texto": (
+                    "Orientar revisao com checklist de clareza, organizacao, adequacao ao genero, justificativa das opinioes e efeito no leitor. "
+                    "Encerrar com socializacao breve e reflexao sobre como a leitura ajudou a produzir um texto mais consciente e melhor elaborado."
+                ),
+            },
+        ]
 
-    obra = _obra_literaria_redacao(tema, texto_base)
-    return [
-        {
-            "titulo": "Disparo inicial / contextualizacao",
-            "texto": (
-                f"Apresentar a aula a partir da obra {obra}, conectando o tema ao cotidiano, as experiencias leitoras da turma e o repertorio dos estudantes. "
-                f"Explicar o proposito da atividade e explicitar o objetivo pedagogico: {objetivo}"
-            ),
-        },
-        {
-            "titulo": "Leitura ou exploracao inicial",
-            "texto": (
-                f"Propor leitura guiada ou exploracao inicial de trechos de {obra}, com foco no genero {genero}, nas personagens, nos acontecimentos e na forma como o texto busca envolver o leitor."
-            ),
-        },
-        {
-            "titulo": "Analise guiada",
-            "texto": (
-                f"Conduzir perguntas interpretativas e reflexivas: 1) {perguntas[0]} 2) {perguntas[1]} 3) {perguntas[2]}"
-            ),
-        },
-        {
-            "titulo": "Sistematizacao",
-            "texto": _sistematizacao_redacao(genero),
-        },
-        {
-            "titulo": "Producao textual",
-            "texto": (
-                f"Propor uma atividade de escrita em contexto real, como recomendacao para colegas, texto para mural da escola, diario de leitura ou publicacao da turma. "
-                f"Explicar o que escrever, para quem escrever e com qual objetivo, garantindo integracao entre leitura e escrita, incentivando producoes textuais criativas e deixando claros os criterios obrigatorios do genero {genero}."
-            ),
-        },
-        {
-            "titulo": "Revisao e fechamento",
-            "texto": (
-                "Orientar revisao com checklist de clareza, organizacao, adequacao ao genero, justificativa das opinioes e efeito no leitor. "
-                "Encerrar com socializacao breve e reflexao sobre como a leitura ajudou a produzir um texto mais consciente e melhor elaborado."
-            ),
-        },
-    ]
+    # 3. Se houver etapas extraídas, mapeá-las para enriquecer cada bloco
+    if etapas_pdf:
+        mapa_etapas = {i: [] for i in range(6)}
+        
+        for idx_e, e in enumerate(etapas_pdf):
+            t_norm = _normalizar(e["titulo"])
+            texto_completo = f"Condução prática sugerida: {e['titulo']}. {e['texto']}"
+            
+            mapped = False
+            if any(k in t_norm for k in ["retomada", "prepara", "abertura", "context", "introducao", "disparo"]):
+                mapa_etapas[0].append(texto_completo)
+                mapped = True
+            if any(k in t_norm for k in ["leitura", "exploracao", "ler"]):
+                mapa_etapas[1].append(texto_completo)
+                mapped = True
+            if any(k in t_norm for k in ["analise", "pergunta", "discussao", "positivo", "revisao guiada"]):
+                mapa_etapas[2].append(texto_completo)
+                mapped = True
+            if any(k in t_norm for k in ["sistematizacao", "registro", "roteiro", "esquema", "oportunidade", "melhoria"]):
+                mapa_etapas[3].append(texto_completo)
+                mapped = True
+            if any(k in t_norm for k in ["producao", "escrita", "escrever", "submissao", "plataforma", "redacao"]):
+                mapa_etapas[4].append(texto_completo)
+                mapped = True
+            if any(k in t_norm for k in ["fechamento", "revisao", "conclusao", "socializacao", "encerramento"]):
+                mapa_etapas[5].append(texto_completo)
+                mapped = True
+                
+            if not mapped:
+                total = len(etapas_pdf)
+                if total <= 3:
+                    seq_map = {0: [0], 1: [1], 2: [1], 3: [2], 4: [2], 5: [2]}
+                elif total == 4:
+                    seq_map = {0: [0], 1: [1], 2: [1], 3: [2], 4: [2], 5: [3]}
+                else:
+                    seq_map = {0: [0], 1: [1], 2: [2], 3: [3], 4: [3], 5: [4]}
+                
+                for b_idx, e_idxs in seq_map.items():
+                    if idx_e in e_idxs:
+                        mapa_etapas[b_idx].append(texto_completo)
+
+        for i in range(6):
+            if mapa_etapas[i]:
+                etapas_unidas = "\n\n".join(mapa_etapas[i])
+                metodologia[i]["texto"] = f"{metodologia[i]['texto']}\n\n{etapas_unidas}"
+
+    return metodologia
 
 
 def _etapas_por_perfil(perfil: str, tipo: str, texto_base: str = "", tema: str = "") -> list[tuple[str, str]]:
@@ -4331,7 +4621,14 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
     for linha in linhas[:12]:
         titulo_aula = limpar_prefixo_disciplina(_limpar_titulo_material(_titulo_em_linha_aula(linha), disciplina))
         if len(titulo_aula) >= 6:
-            return titulo_aula[:120]
+            titulo_aula_norm = _normalizar(titulo_aula).replace(" ", "").replace("\ufffd", "")
+            if not ("sugestoes" in titulo_aula_norm and "condu" in titulo_aula_norm):
+                return titulo_aula[:120]
+
+    if _perfil_disciplina(disciplina) == "leitura_redacao":
+        tema_leitura = _extrair_tema_redacao_leitura(texto)
+        if tema_leitura:
+            return tema_leitura
 
     candidatos = []
     disciplina_norm = _normalizar(disciplina)
@@ -5417,7 +5714,16 @@ def _aula_por_pdf(
             "material": _formatar_material_cdp_contextual(tema, disciplina_base),
             "numero_aula": numero_aula,
             "aprendizagem": _sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil),
-            "metodologia": _metodologia_cdp_contextual(perfil, tipo, tema, conceito_cdp, indice_aula),
+            "metodologia": _metodologia_cdp_contextual(
+                perfil,
+                tipo,
+                tema,
+                conceito_cdp,
+                indice_aula,
+                texto_pdf=texto,
+                extracao_pdf=extracao_pdf,
+                disciplina_base=disciplina_base,
+            ),
             "acompanhamento": _acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
             "acessibilidade": _acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
             "ia_usada": False,
@@ -5485,6 +5791,9 @@ def _aula_por_pdf(
                 )
             elif colunas_planejamento:
                 metodologia = colunas_planejamento["metodologia"]
+                if modalidade_eja_ativa:
+                    tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+                    metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf)
                 desenvolvimento = _texto_metodologia(metodologia)
                 acompanhamento = colunas_planejamento["acompanhamento"]
                 acessibilidade = colunas_planejamento["acessibilidade"]
@@ -5621,6 +5930,9 @@ def _aula_por_pdf(
         )
     elif colunas_planejamento:
         metodologia = colunas_planejamento["metodologia"]
+        if modalidade_eja_ativa:
+            tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+            metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf)
         desenvolvimento = _texto_metodologia(metodologia)
         acompanhamento = colunas_planejamento["acompanhamento"]
         acessibilidade = colunas_planejamento["acessibilidade"]

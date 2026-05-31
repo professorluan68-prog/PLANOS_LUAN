@@ -1,65 +1,44 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
+# ==========================================
+# DOCUMENTAÇÃO E CONFIGURAÇÃO DE CAMINHOS
+# ==========================================
 
-# Configuracoes centralizadas do projeto
-
+# 1. Caminho Base do Projeto
 BASE_DIR = Path(__file__).resolve().parent
-PDFS_ORGANIZADOS_DIR = BASE_DIR / "PDFs_Organizados"
-MODELOS_DOCX_DIR = BASE_DIR / "modelos_docx"
+
+# 2. Caminhos de Trabalho Externos (Centralizados)
+PASTA_PRINCIPAL_TRABALHO = Path(r"D:\PLANOS DE JUNHO")
+PASTA_BACKUP = Path(r"D:\BACKUPS_PLANOS_LUAN")
+
+# 3. Compatibilidade com o sistema existente
+PASTA_PLANOS_PROFESSORES = Path(
+    os.getenv("PLANOS_DIR", str(PASTA_PRINCIPAL_TRABALHO))
+)
 TEMPLATES_DOCX_DIR = BASE_DIR / "templates"
 LEGACY_PLANOS_FEITOS_DIR = BASE_DIR / "Planos feitos"
-
-# Usar variáveis de ambiente com fallback para caminhos padrão
-PASTA_PLANOS_PROFESSORES = Path(
-    os.getenv("PLANOS_DIR", r"D:\PLANOS DE JUNHO")
-)
 MODELOS_LEGADOS_QUARENTENA_DIR = PASTA_PLANOS_PROFESSORES / "_MODELOS_LEGADOS_PARA_EXCLUIR"
-
 PLANOS_FINALIZADOS_DIR = Path(
     os.getenv("PLANOS_FINALIZADOS_DIR", r"D:\PLANOS-FINALIZADOS")
 )
+DB_PATH = BASE_DIR / "core" / "planos_luan.db"
 
+# Arquivos de dados específicos
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequência 2026 (1).ods"
 
-REDACAO_DIR = PDFS_ORGANIZADOS_DIR / "Redação e Leitura"
-REDACAO_PLANILHA_FUNDAMENTAL = REDACAO_DIR / "PLANILHA.xlsx"
-REDACAO_PLANILHA_MEDIO = REDACAO_DIR / "PLANILHAENSINOMEDIO.xlsx"
-REDACAO_TITULOS_XLSX = REDACAO_DIR / "TÍTULO.xlsx"
-
-FORMATO_REFERENCIA_DOCX = MODELOS_DOCX_DIR / "modelo.docx"
-
-# IA
+# 4. Configurações de Inteligência Artificial
 MODELO_OPENAI_PADRAO = "gpt-4o-mini"
-MODELO_GEMINI_PADRAO = "gemini-2.0-flash"
-OPENAI_RESPONSES_URL = "https://api.openai.com/v1/chat/completions"
-IA_TIMEOUT_SEGUNDOS = 45
+MODELO_GEMINI_PADRAO = "gemini-1.5-flash"
+IA_TIMEOUT_SEGUNDOS = 120
 
-# Limites de caracteres no DOCX
-MAX_CELL_CHARS = 8000
+# 5. Limites e Regras de Leitura
+PDF_TEXTO_LIMITE_CHARS = 100000
+MAX_CHARS_WORD = 15000
 
-MAX_DESENVOLVIMENTO_CHARS: dict[str, int] = {
-    "default": 4500,
-    "biologia": 4800,
-    "ciencias": 4800,
-    "lingua portuguesa": 5200,
-}
+# 6. Criação Automática de Pastas
+os.makedirs(PLANOS_FINALIZADOS_DIR, exist_ok=True)
+os.makedirs(TEMPLATES_DOCX_DIR, exist_ok=True)
+os.makedirs(PASTA_BACKUP, exist_ok=True)
 
-MAX_ITEM_LISTA_CHARS: dict[str, int] = {
-    "default": 550,
-    "ciencias": 650,
-    "lingua portuguesa": 650,
-}
-
-MAX_LISTA_TOTAL_CHARS: dict[str, int] = {
-    "default": 1650,
-    "ciencias": 1800,
-    "lingua portuguesa": 1800,
-}
-
-# PDF
-PDF_MAX_PAGINAS = 400
-PDF_OCR_DPI = 200
-PDF_OCR_LANG = "por"
-PDF_SLIDE_LIMITE_CHARS = 2200
-PDF_TEXTO_LIMITE_CHARS = 14000
+print(f"[CONFIG] Definições carregadas. Pasta principal: {PASTA_PRINCIPAL_TRABALHO}")

@@ -149,6 +149,47 @@ def extrair_datas_horarios_de_bytes(docx_bytes: bytes) -> list[dict[str, object]
     return itens
 
 
+def _texto_horario_grade(item: dict[str, object]) -> str:
+    horario = _norm(str(item.get("horario") or ""))
+    aula = _norm(str(item.get("aula") or ""))
+    if horario and aula:
+        return f"{horario} ({aula})"
+    return horario or aula
+
+
+def _resumir_grade_semanal(datas_horarios: list[dict[str, object]]) -> tuple[str, str]:
+    itens_ordenados = sorted(
+        datas_horarios,
+        key=lambda item: (
+            item["data"],
+            _texto_horario_grade(item),
+        ),
+    )
+    grade = []
+    vistos = set()
+    for item in itens_ordenados:
+        data_aula = item.get("data")
+        if not hasattr(data_aula, "weekday"):
+            continue
+        horario_grade = _texto_horario_grade(item)
+        chave = (data_aula.weekday(), horario_grade)
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        grade.append(
+            {
+                "dia_semana": DIAS_PT[data_aula.weekday()],
+                "horario": horario_grade,
+                "indice_dia": data_aula.weekday(),
+            }
+        )
+
+    grade.sort(key=lambda item: (item["indice_dia"], item["horario"]))
+    dias = " - ".join(item["dia_semana"] for item in grade if item["dia_semana"])
+    horarios = ", ".join(item["horario"] for item in grade if item["horario"])
+    return dias, horarios
+
+
 def extrair_info_plano(caminho: Path, professor_pasta: str) -> dict[str, object]:
     doc = Document(caminho)
     info = {
@@ -175,12 +216,7 @@ def extrair_info_plano(caminho: Path, professor_pasta: str) -> dict[str, object]
 
     if datas_horarios:
         info["datas_horarios"] = datas_horarios
-        info["dia_semana"] = " - ".join(DIAS_PT[item["data"].weekday()] for item in datas_horarios[:4])
-        info["horario"] = ", ".join(
-            _norm(f"{item.get('horario', '')} ({item.get('aula', '')})")
-            for item in datas_horarios[:4]
-            if item.get("horario") or item.get("aula")
-        )
+        info["dia_semana"], info["horario"] = _resumir_grade_semanal(datas_horarios)
     if ultimo_cabecalho and not info["aulas_semana"]:
         info["aulas_semana"] = ultimo_cabecalho.get("aulas_semana", "")
     return info

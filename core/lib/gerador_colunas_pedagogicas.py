@@ -305,21 +305,42 @@ def frase_inicial(p: PistasPedagogicas) -> str:
 
 
 def frase_foco(p: PistasPedagogicas) -> str:
+    frase = ""
     if p.perfil == "noticia_leitura_critica":
-        return "Conduzir a leitura orientada da notícia e das perguntas propostas, destacando informações principais, pontos de vista, formas de preconceito ou conflito e relações com o conceito central da aula."
-    if p.perfil == "imagem_debate":
-        return "Explorar as imagens e questões iniciais do material, promovendo debate orientado e análise crítica das situações apresentadas antes da sistematização dos conceitos."
-    if p.perfil == "imagem_debate_direitos":
-        return "Explorar as imagens, os questionamentos iniciais e os conceitos do material, destacando diferenças entre situações analisadas, riscos envolvidos, direitos, restrições e o papel do Estado."
-    if p.perfil == "comparacao_conceitual":
-        return "Sistematizar os conceitos centrais da aula por meio de comparação orientada, ajudando a turma a distinguir termos próximos, reconhecer critérios e justificar diferenças com clareza."
-    if p.perfil == "mapa_fluxos_migratorios":
-        return "Conduzir a leitura orientada do mapa e dos conceitos do material, destacando fluxos migratórios, causas dos deslocamentos e relações entre globalização, trabalho e qualidade de vida."
-    if p.perfil == "grafico_fluxos_refugiados":
-        return "Conduzir a leitura orientada de gráficos, quadros ou informações visuais do material, ajudando a turma a interpretar os fluxos de refugiados e relacioná-los às causas do deslocamento forçado."
-    if p.perfil == "conceito_reflexivo":
-        return "Sistematizar os conceitos centrais da aula com explicações claras, exemplos próximos da realidade dos estudantes e retomada do vocabulário principal."
-    return "Desenvolver o conteúdo central da aula com explicação dialogada, exemplos do material e participação orientada da turma."
+        frase = "Conduzir a leitura orientada da notícia e das perguntas propostas, destacando informações principais, pontos de vista, formas de preconceito ou conflito e relações com o conceito central da aula."
+    elif p.perfil == "imagem_debate":
+        frase = "Explorar as imagens e questões iniciais do material, promovendo debate orientado e análise crítica das situações apresentadas antes da sistematização dos conceitos."
+    elif p.perfil == "imagem_debate_direitos":
+        frase = "Explorar as imagens, os questionamentos iniciais e os conceitos do material, destacando diferenças entre situações analisadas, riscos envolvidos, direitos, restrições e o papel do Estado."
+    elif p.perfil == "comparacao_conceitual":
+        frase = "Sistematizar os conceitos centrais da aula por meio de comparação orientada, ajudando a turma a distinguir termos próximos, reconhecer critérios e justificar diferenças com clareza."
+    elif p.perfil == "mapa_fluxos_migratorios":
+        frase = "Conduzir a leitura orientada do mapa e dos conceitos do material, destacando fluxos migratórios, causas dos deslocamentos e relações entre globalização, trabalho e qualidade de vida."
+    elif p.perfil == "grafico_fluxos_refugiados":
+        frase = "Conduzir a leitura orientada de gráficos, quadros ou informações visuais do material, ajudando a turma a interpretar os fluxos de refugiados e relacioná-los às causas do deslocamento forçado."
+    elif p.perfil == "conceito_reflexivo":
+        frase = "Sistematizar os conceitos centrais da aula com explicações claras, exemplos próximos da realidade dos estudantes e retomada do vocabulário principal."
+    else:
+        if p.tem_grafico and p.tem_tabela:
+            frase = "Desenvolver o conteúdo central da aula por meio da análise orientada de gráficos e tabelas explicativas presentes no material."
+        elif p.tem_grafico:
+            frase = "Desenvolver o conteúdo central da aula por meio da leitura e interpretação orientada de gráficos e informações visuais do material."
+        elif p.tem_tabela:
+            frase = "Desenvolver o conteúdo central da aula por meio da análise de tabelas ou quadros comparativos do material."
+        else:
+            frase = "Desenvolver o conteúdo central da aula com explicação dialogada, exemplos do material e participação orientada da turma."
+
+    if p.tem_grafico or p.tem_tabela:
+        f_norm = norm(frase)
+        if "grafico" not in f_norm and "tabela" not in f_norm and "quadro" not in f_norm:
+            if p.tem_grafico and p.tem_tabela:
+                frase += " Orientar a leitura e interpretação dos gráficos e tabelas presentes no material para fundamentar a análise."
+            elif p.tem_grafico:
+                frase += " Orientar a leitura e interpretação dos gráficos presentes no material."
+            elif p.tem_tabela:
+                frase += " Orientar a análise das tabelas ou quadros explicativos do material."
+
+    return frase
 
 
 def frase_pause(p: PistasPedagogicas) -> str:
@@ -418,6 +439,10 @@ def _blocos_metodologia(p: PistasPedagogicas) -> List[Dict[str, str]]:
             seen.add(chave)
             uniq.append(bloco)
 
+    if len(uniq) > 6:
+        for idx in range(5, len(uniq)):
+            if uniq[idx]["titulo"] in {"Encerramento", "Com suas palavras"}:
+                return uniq[:5] + [uniq[idx]]
     return uniq[:6]
 
 

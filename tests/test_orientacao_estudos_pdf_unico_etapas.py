@@ -37,6 +37,28 @@ ETAPA FINAL
 Sintese final com socializacao das estrategias de leitura e revisao dos pontos principais.
 """
 
+TEXTO_ORIENTACAO_ETAPAS_VARIANTES = """
+MISSAO 11 - Um mergulho no cordel
+1ª ETAPA
+Leitura orientada com grifo de palavras-chave.
+
+ETAPA II
+Interpretacao com comparacao entre estrofes.
+
+ETAPA 03
+Registro no caderno com justificativas.
+
+ETAPA FINAL
+Sintese e autoavaliacao das estrategias usadas.
+"""
+
+TEXTO_ORIENTACAO_FALSO_POSITIVO = """
+Atividades:
+1: LP5LERE01 | N2.3 | Fácil
+2: LP5LERE02 | N1.1 | Fácil
+Nestas etapas seguintes, o estudante deve revisar o caderno.
+"""
+
 
 def test_extrai_etapas_orientacao_estudos():
     etapas = lote._extrair_etapas_orientacao_estudos(TEXTO_ORIENTACAO_ETAPAS)
@@ -52,6 +74,15 @@ def test_extrai_etapas_orientacao_estudos_quando_numero_vem_em_linha_separada():
     etapas = lote._extrair_etapas_orientacao_estudos(TEXTO_ORIENTACAO_ETAPAS_LINHA_QUEBRADA)
     titulos = [e["titulo"] for e in etapas]
     assert titulos == ["Etapa 1", "Etapa 2", "Etapa 3", "Etapa final"]
+
+def test_extrai_etapas_orientacao_estudos_com_variacoes():
+    etapas = lote._extrair_etapas_orientacao_estudos(TEXTO_ORIENTACAO_ETAPAS_VARIANTES)
+    assert [e["titulo"] for e in etapas] == ["Etapa 1", "Etapa 2", "Etapa 3", "Etapa final"]
+
+
+def test_parser_nao_confunde_codigos_lp_com_etapas():
+    etapas = lote._extrair_etapas_orientacao_estudos(TEXTO_ORIENTACAO_FALSO_POSITIVO)
+    assert etapas == []
 
 
 def test_aula_por_pdf_orientacao_usa_etapa_por_indice(monkeypatch):
@@ -89,3 +120,18 @@ def test_aula_por_pdf_orientacao_usa_etapa_por_indice(monkeypatch):
 
     assert "leitura" in texto_1
     assert texto_1 != texto_2
+
+
+def test_aula_por_pdf_orientacao_reaproveita_ultima_etapa_quando_sobra_aula(monkeypatch):
+    monkeypatch.setattr(lote, "_extrair_texto_pdf", lambda caminho: TEXTO_ORIENTACAO_ETAPAS)
+    aula_5 = lote._aula_por_pdf(
+        "MISSAO11.pdf",
+        "Orientação de Estudos",
+        "6º ano A",
+        "2º bimestre",
+        usar_ia=False,
+        provedor_ia="",
+        indice_aula=4,
+        total_aulas=5,
+    )
+    assert aula_5["tema"] == "ETAPA FINAL"
