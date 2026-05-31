@@ -1,0 +1,139 @@
+/* PLANOS_LUAN Premium Light Theme (Branco Cinza) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Títulos com Gradiente Elegante */
+h1 {
+    background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem !important;
+}
+
+h2, h3 {
+    color: #334155 !important;
+    font-weight: 700;
+}
+
+/* Botão Primário (Azul Vibrante com Efeito) */
+button[kind="primary"] {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2) !important;
+    transition: all 0.3s ease !important;
+}
+
+button[kind="primary"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4), 0 4px 6px -2px rgba(37, 99, 235, 0.2) !important;
+    filter: brightness(1.1);
+}
+
+button[kind="primary"]:active {
+    transform: translateY(0px);
+}
+
+/* Botão Secundário */
+button[kind="secondary"] {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+button[kind="secondary"]:hover {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
+/* Inputs, Selects e Textareas (Visual Limpo e Foco Azul) */
+div[data-baseweb="input"] > div,
+div[data-baseweb="select"] > div,
+textarea {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    color: #334155 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+div[data-baseweb="input"] > div:focus-within,
+div[data-baseweb="select"] > div:focus-within,
+textarea:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+    background-color: #ffffff !important;
+}
+
+/* Expanders */
+.streamlit-expanderHeader {
+    background-color: #f8fafc !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+    font-weight: 600 !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.streamlit-expanderHeader:hover {
+    background-color: #f1f5f9 !important;
+}
+
+.streamlit-expanderContent {
+    border: 1px solid #e2e8f0 !important;
+    border-top: none !important;
+    border-radius: 0 0 8px 8px !important;
+    background-color: #ffffff !important;
+}
+
+/* SideBar (Painel Lateral) - Cinza muito suave */
+section[data-testid="stSidebar"] {
+    background-color: #f8fafc !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+/* Cards (st.info, st.success, etc) */
+div[data-testid="stAlert"] {
+    border-radius: 8px !important;
+    border: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Métricas */
+div[data-testid="stMetricValue"] {
+    color: #2563eb !important;
+    font-weight: 800 !important;
+    font-size: 2.2rem !important;
+}
+
+/* Estilo para Dataframes/Tabelas */
+.stDataFrame {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Upload file box */
+section[data-testid="stFileUploadDropzone"] {
+    border-radius: 12px !important;
+    border: 2px dashed #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    transition: all 0.3s ease !important;
+}
+
+section[data-testid="stFileUploadDropzone"]:hover {
+    border-color: #3b82f6 !important;
+    background-color: #eff6ff !important;
+}

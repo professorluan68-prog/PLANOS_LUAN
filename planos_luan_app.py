@@ -68,6 +68,13 @@ BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.
 
 st.set_page_config(page_title="PLANOS_LUAN", layout="wide")
 
+def carregar_css():
+    css_file = BASE_DIR / "assets" / "style.css"
+    if css_file.exists():
+        st.markdown(f"<style>{css_file.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+
+carregar_css()
+
 
 @st.cache_data(show_spinner=False, ttl=300)
 def _carregar_professores_dos_planos_cache():
