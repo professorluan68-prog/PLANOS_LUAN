@@ -4253,7 +4253,9 @@ def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict
         
         for idx_e, e in enumerate(etapas_pdf):
             t_norm = _normalizar(e["titulo"])
-            texto_completo = f"Condução prática sugerida: {e['titulo']}. {e['texto']}"
+            # Usa apenas o texto da etapa (sem o prefixo verboso) para manter
+            # a metodologia no tamanho adequado ao modelo de plano.
+            texto_completo = e["texto"].strip() if e["texto"].strip() else e["titulo"]
             
             mapped = False
             if any(k in t_norm for k in ["retomada", "prepara", "abertura", "context", "introducao", "disparo"]):
@@ -4290,8 +4292,9 @@ def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict
 
         for i in range(6):
             if mapa_etapas[i]:
-                etapas_unidas = "\n\n".join(mapa_etapas[i])
-                metodologia[i]["texto"] = f"{metodologia[i]['texto']}\n\n{etapas_unidas}"
+                # O conteúdo extraído do PDF substitui o texto base do bloco,
+                # evitando acúmulo que tornava a metodologia excessivamente longa.
+                metodologia[i]["texto"] = " ".join(mapa_etapas[i])
 
     return metodologia
 

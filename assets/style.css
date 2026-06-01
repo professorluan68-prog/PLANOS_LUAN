@@ -27,9 +27,19 @@ body,
     color: var(--pl-text);
 }
 
-[data-testid="stAppViewContainer"] *,
-[data-testid="stSidebar"] * {
+/* Aplicar fonte customizada em todos os elementos, EXCETO ícones do Streamlit */
+[data-testid="stAppViewContainer"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not([data-testid="stIconMaterial"]),
+[data-testid="stSidebar"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not([data-testid="stIconMaterial"]) {
     font-family: inherit;
+}
+
+/* Garantir que ícones Material Design do Streamlit usem sua própria fonte */
+.material-icons,
+.material-icons-rounded,
+.material-icons-sharp,
+[data-testid="stIconMaterial"],
+span[class*="material"] {
+    font-family: "Material Icons", "Material Icons Rounded", "Material Icons Sharp" !important;
 }
 
 /* Títulos */
