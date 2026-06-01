@@ -68,10 +68,14 @@ BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.
 
 st.set_page_config(page_title="PLANOS_LUAN", layout="wide")
 
+@st.cache_data(show_spinner=False)
+def _ler_css_app(caminho: str) -> str:
+    return Path(caminho).read_text(encoding="utf-8")
+
 def carregar_css():
     css_file = BASE_DIR / "assets" / "style.css"
     if css_file.exists():
-        st.markdown(f"<style>{css_file.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+        st.markdown(f"<style id='planos-luan-theme'>{_ler_css_app(str(css_file))}</style>", unsafe_allow_html=True)
 
 carregar_css()
 

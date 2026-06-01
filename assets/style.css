@@ -1,135 +1,175 @@
-/* PLANOS_LUAN Premium Light Theme (Branco Cinza) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* PLANOS_LUAN Premium Light Theme */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+:root {
+    --pl-primary: #2563eb;
+    --pl-primary-dark: #1d4ed8;
+    --pl-primary-ink: #1e3a8a;
+    --pl-bg: #ffffff;
+    --pl-bg-soft: #f8fafc;
+    --pl-bg-soft-hover: #f1f5f9;
+    --pl-text: #1e293b;
+    --pl-text-soft: #334155;
+    --pl-border: #cbd5e1;
+    --pl-border-soft: #e2e8f0;
+    --pl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --pl-shadow-primary: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2);
+    --pl-shadow-primary-hover: 0 10px 15px -3px rgba(37, 99, 235, 0.4), 0 4px 6px -2px rgba(37, 99, 235, 0.2);
+    --pl-font: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Títulos com Gradiente Elegante */
+html,
+body,
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stSidebar"] {
+    font-family: var(--pl-font);
+    color: var(--pl-text);
+}
+
+[data-testid="stAppViewContainer"] *,
+[data-testid="stSidebar"] * {
+    font-family: inherit;
+}
+
+/* Títulos */
 h1 {
-    background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
+    background: linear-gradient(90deg, var(--pl-primary-ink) 0%, #3b82f6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
     font-weight: 800;
     letter-spacing: -0.5px;
     margin-bottom: 0.5rem !important;
 }
 
-h2, h3 {
-    color: #334155 !important;
+h2,
+h3 {
+    color: var(--pl-text-soft) !important;
     font-weight: 700;
 }
 
-/* Botão Primário (Azul Vibrante com Efeito) */
-button[kind="primary"] {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-    color: white !important;
+/* Botões */
+button[kind="primary"],
+button[kind="primaryFormSubmit"] {
+    background: linear-gradient(135deg, var(--pl-primary) 0%, var(--pl-primary-dark) 100%) !important;
+    color: #fff !important;
     border: none !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2) !important;
+    box-shadow: var(--pl-shadow-primary) !important;
     transition: all 0.3s ease !important;
 }
 
-button[kind="primary"]:hover {
+button[kind="primary"]:hover,
+button[kind="primaryFormSubmit"]:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4), 0 4px 6px -2px rgba(37, 99, 235, 0.2) !important;
-    filter: brightness(1.1);
+    box-shadow: var(--pl-shadow-primary-hover) !important;
+    filter: brightness(1.08);
 }
 
-button[kind="primary"]:active {
-    transform: translateY(0px);
+button[kind="primary"]:active,
+button[kind="primaryFormSubmit"]:active {
+    transform: translateY(0);
 }
 
-/* Botão Secundário */
-button[kind="secondary"] {
-    background-color: #f1f5f9 !important;
+button[kind="secondary"],
+button[kind="secondaryFormSubmit"] {
+    background-color: var(--pl-bg-soft) !important;
     color: #475569 !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid var(--pl-border) !important;
     border-radius: 8px !important;
     transition: all 0.2s ease !important;
 }
 
-button[kind="secondary"]:hover {
-    background-color: #e2e8f0 !important;
+button[kind="secondary"]:hover,
+button[kind="secondaryFormSubmit"]:hover {
+    background-color: var(--pl-border-soft) !important;
     color: #0f172a !important;
     border-color: #94a3b8 !important;
 }
 
-/* Inputs, Selects e Textareas (Visual Limpo e Foco Azul) */
+/* Inputs, selects e textareas */
 div[data-baseweb="input"] > div,
+div[data-baseweb="base-input"] > div,
 div[data-baseweb="select"] > div,
 textarea {
-    background-color: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
+    background-color: var(--pl-bg) !important;
+    border: 1px solid var(--pl-border) !important;
     border-radius: 6px !important;
-    color: #334155 !important;
+    color: var(--pl-text-soft) !important;
     transition: all 0.2s ease !important;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 div[data-baseweb="input"] > div:focus-within,
+div[data-baseweb="base-input"] > div:focus-within,
 div[data-baseweb="select"] > div:focus-within,
 textarea:focus {
     border-color: #3b82f6 !important;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
-    background-color: #ffffff !important;
+    background-color: var(--pl-bg) !important;
 }
 
 /* Expanders */
+details[data-testid="stExpander"] summary,
 .streamlit-expanderHeader {
-    background-color: #f8fafc !important;
+    background-color: var(--pl-bg-soft) !important;
     border-radius: 8px !important;
-    border: 1px solid #e2e8f0 !important;
-    color: #1e293b !important;
+    border: 1px solid var(--pl-border-soft) !important;
+    color: var(--pl-text) !important;
     font-weight: 600 !important;
     transition: background-color 0.2s ease !important;
 }
 
+details[data-testid="stExpander"] summary:hover,
 .streamlit-expanderHeader:hover {
-    background-color: #f1f5f9 !important;
+    background-color: var(--pl-bg-soft-hover) !important;
 }
 
+details[data-testid="stExpander"] > div,
 .streamlit-expanderContent {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid var(--pl-border-soft) !important;
     border-top: none !important;
     border-radius: 0 0 8px 8px !important;
-    background-color: #ffffff !important;
+    background-color: var(--pl-bg) !important;
 }
 
-/* SideBar (Painel Lateral) - Cinza muito suave */
+/* Sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #f8fafc !important;
-    border-right: 1px solid #e2e8f0 !important;
+    background-color: var(--pl-bg-soft) !important;
+    border-right: 1px solid var(--pl-border-soft) !important;
 }
 
-/* Cards (st.info, st.success, etc) */
+/* Alertas */
 div[data-testid="stAlert"] {
     border-radius: 8px !important;
     border: none !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: var(--pl-shadow-sm);
 }
 
 /* Métricas */
 div[data-testid="stMetricValue"] {
-    color: #2563eb !important;
+    color: var(--pl-primary) !important;
     font-weight: 800 !important;
     font-size: 2.2rem !important;
 }
 
-/* Estilo para Dataframes/Tabelas */
+/* Tabelas */
+[data-testid="stDataFrame"],
 .stDataFrame {
     border-radius: 8px !important;
     overflow: hidden !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid var(--pl-border-soft) !important;
+    box-shadow: var(--pl-shadow-sm);
 }
 
-/* Upload file box */
+/* Upload */
 section[data-testid="stFileUploadDropzone"] {
     border-radius: 12px !important;
-    border: 2px dashed #cbd5e1 !important;
-    background-color: #f8fafc !important;
+    border: 2px dashed var(--pl-border) !important;
+    background-color: var(--pl-bg-soft) !important;
     transition: all 0.3s ease !important;
 }
 
