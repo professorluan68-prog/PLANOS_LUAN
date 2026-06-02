@@ -484,9 +484,51 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
 
     if any(k in base for k in ["texto multissemiótico", "texto multissemiótico", "multissemiotico", "linguagem verbal", "linguagem nao verbal"]):
         return [
-            "Observar se os estudantes relacionam linguagem verbal e não verbal na construção dos sentidos do texto.",
-            "Verificar a participação nas leituras, análises e discussões sobre os recursos utilizados.",
-            "Acompanhar os registros produzidos durante as atividades e retomadas coletivas.",
+        "Observar se os estudantes relacionam linguagem verbal e não verbal na construção dos sentidos do texto.",
+        "Verificar a participação nas leituras, análises e discussões sobre os recursos utilizados.",
+        "Acompanhar os registros produzidos durante as atividades e retomadas coletivas.",
+    ]
+
+    # Novos tipos de aula LP — derivados da classificacao especializada
+    if any(k in base for k in ["leitura_literaria", "cronica", "conto", "poema", "poesia", "narrativa",
+                                "eu lirico", "narrador", "enredo", "personagem", "fruicao", "literatura"]):
+        return [
+            "Observar se os estudantes identificam elementos do texto literário como narrador, personagens e conflito.",
+            "Verificar a participação nas discussões sobre o texto e a capacidade de compartilhar leituras e impressões.",
+            "Acompanhar os registros produzidos durante as atividades de leitura e interpretação literária.",
+        ]
+
+    if any(k in base for k in ["gramatica_contextualizada", "modo subjuntivo", "modo indicativo",
+                                "tempos verbais", "coesao", "coesivos", "pronomes", "regencia",
+                                "modalizacao", "polissemia", "intertextualidade"]):
+        return [
+            "Verificar se os estudantes identificam e aplicam a norma ou fenômeno gramatical estudado em situações reais de uso.",
+            "Observar a participação nas análises de trechos e a correção coletiva das atividades.",
+            "Acompanhar os registros que demonstram compreensão sobre o efeito de sentido produzido pelo recurso gramatical.",
+        ]
+
+    if any(k in base for k in ["leitura_jornalistica", "noticia", "editorial", "reportagem",
+                                "manchete", "lide", "jornalismo", "midia", "imparcialidade"]):
+        return [
+            "Observar se os estudantes distinguem fato e opinião nos textos jornalísticos analisados.",
+            "Verificar a participação nas discussões sobre o papel da mídia e a intencionalidade dos textos.",
+            "Acompanhar os registros produzidos durante as atividades de leitura e análise crítica.",
+        ]
+
+    if any(k in base for k in ["producao_textual", "producao", "resenha", "carta do leitor",
+                                "estrutura do genero", "publico-alvo", "suporte", "redija"]):
+        return [
+            "Verificar se os estudantes planejam, escrevem e revisam o texto considerando o gênero e a situação comunicativa.",
+            "Observar a participação no planejamento e nas etapas de produção, com atenção à clareza e coerência.",
+            "Acompanhar os registros produzidos, avaliando se atendem à finalidade, ao público e às convenções do gênero.",
+        ]
+
+    if any(k in base for k in ["pesquisa", "scielo", "curadoria", "plagio", "fontes confiaveis",
+                                "divulgacao cientifica", "direitos autorais", "google academico"]):
+        return [
+            "Observar se os estudantes identificam critérios de confiabilidade em fontes de pesquisa.",
+            "Verificar a compreensão sobre autoria, plágio e uso responsável das informações coletadas.",
+            "Acompanhar os registros produzidos durante as atividades de curadoria e seleção de fontes.",
         ]
 
     return [

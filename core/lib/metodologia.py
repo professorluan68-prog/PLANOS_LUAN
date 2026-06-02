@@ -55,15 +55,47 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "lingua_portuguesa_em":
+        # Etapas várias por tipo de aula LP
+        if tipo == "gramatica_contextualizada":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "foco"),
+                ("Pause e responda", "pause"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "producao_textual":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("Na prática", "pratica"),
+                ("Compartilhamento", "compartilhamento"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "leitura_jornalistica":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Na prática", "pratica"),
+                ("Foco no conteúdo", "foco"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "pesquisa":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        # leitura_literaria (padrão LP EM)
         return [
             ("Para começar", "para_comecar"),
-            ("Contextualização", "contextualizacao"),
-            ("Leitura analítica", "leitura_analitica"),
-            ("Foco no conteúdo", "foco"),
-            ("Pause e responda", "pause"),
+            ("Hora da leitura", "hora_leitura"),
             ("Na prática", "pratica"),
+            ("Foco no conteúdo", "foco"),
             ("Encerramento", "encerramento"),
         ]
+
 
     if perfil in {"leitura_redacao"} and tipo == "producao":
         return [
@@ -214,6 +246,35 @@ def _conceito_projeto_vida(conceito: str, tema: str, texto_base: str, atividade_
     return "escolhas, convivencia e responsabilidade"
 
 
+def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
+    """Gerador especializado de frases para o perfil Lingua Portuguesa."""
+    if tipo == "gramatica_contextualizada":
+        return {
+            "relembre": "Retomar conhecimentos anteriores sobre o fenômeno gramatical em foco, utilizando exemplos curtos ou situações de uso.",
+            "foco": f"Explicar o funcionamento da norma-padrão ou variação linguística em {tema}, conectando a regra ao efeito de sentido gerado no texto.",
+            "pause": "Realizar pausas para análise de trechos específicos, verificando se a turma identifica a aplicação do conteúdo gramatical estudado.",
+            "pratica": "Orientar a aplicação dos conceitos em frases ou pequenos textos, focando na adequação do uso da língua à intenção comunicativa.",
+            "encerramento": f"Sintetizar a regra ou norma estudada em {tema}, destacando como o domínio dessa convenção amplia as possibilidades de escrita e leitura."
+        }
+    if tipo == "producao_textual":
+        return {
+            "para_comecar": f"Apresentar a proposta de escrita sobre {tema}, discutindo a relevância do tema e a situação comunicativa (quem escreve, para quem, onde).",
+            "foco": "Analisar as convenções do gênero textual, estrutura, registro e recursos linguísticos necessários para a produção.",
+            "pratica": "Orientar a escrita e o planejamento do texto, garantindo que os estudantes apliquem as características do gênero e critérios de qualidade.",
+            "compartilhamento": "Promover um momento de compartilhamento das produções ou etapas do planejamento para revisão entre pares ou socialização.",
+            "encerramento": "Finalizar com a verificação de autoria e a importância do processo de reescrita para o aperfeiçoamento do texto."
+        }
+    if tipo == "leitura_jornalistica":
+        return {
+            "para_comecar": f"Mobilizar conhecimentos sobre o tema {tema} a partir de manchetes ou contextos atuais de circulação social.",
+            "hora_leitura": "Conduzir a leitura analítica do texto jornalístico, identificando lide, fato, dados e recursos de linguagem presentes.",
+            "pratica": "Propor questões de compreensão e análise crítica, incentivando a busca por evidências no texto.",
+            "foco": "Explorar o papel do jornalismo e a construção de sentidos no texto, destacando a importância da veracidade e da clareza na informação.",
+            "encerramento": "Sintetizar as percepções sobre o tema e a leitura, reforçando o valor da informação consciente."
+        }
+    return None
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
     turma: str, tecnicas: dict, texto_base: str = "",
@@ -271,6 +332,13 @@ def _frases_por_contexto(
 
     # Ajustes por perfil
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        # Delegar para o gerador especializado de LP se o tipo for reconhecido
+        _frases_lp = _metodologia_lingua_portuguesa(texto_base, tema, tipo)
+        if _frases_lp is not None:
+            base.update(_frases_lp)
+            return base
+
+        # Fallback antigo para tipos não cobertos pelo gerador especializado
         if tipo == "producao":
             base["leitura"] = (
                 "Apresentar a proposta de produção e realizar leitura guiada dos comandos, destacando finalidade, "

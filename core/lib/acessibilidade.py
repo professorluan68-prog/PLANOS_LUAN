@@ -429,6 +429,49 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Permitir registros por tópicos, desenhos, setas ou respostas orais mediadas.",
         ]
 
+
+    # Novos tipos de aula LP — derivados da classificacao especializada
+    if any(k in base for k in ["leitura_literaria", "cronica", "conto", "poema", "poesia", "narrativa",
+                                "eu lirico", "narrador", "enredo", "personagem", "fruicao", "literatura"]):
+        return [
+            "Realizar leitura mediada do texto literário com pausas para explicação de palavras, expressões e acontecimentos.",
+            "Disponibilizar perguntas orientadoras que auxiliem na identificação de personagens, conflito e tema.",
+            "Permitir respostas orais, desenhos, mapas mentais ou registros em tópicos como forma de participação.",
+        ]
+
+    if any(k in base for k in ["gramatica_contextualizada", "modo subjuntivo", "modo indicativo",
+                                "tempos verbais", "coesao", "coesivos", "pronomes", "regencia",
+                                "modalizacao", "polissemia", "intertextualidade"]):
+        return [
+            "Disponibilizar esquemas visuais com exemplos da norma ou fenômeno gramatical estudado.",
+            "Oferecer trechos comentados antes das atividades autônomas para facilitar a identificação do conteúdo.",
+            "Permitir apoio em dupla ou resolução parcial com mediação do professor.",
+        ]
+
+    if any(k in base for k in ["leitura_jornalistica", "noticia", "editorial", "reportagem",
+                                "manchete", "lide", "jornalismo", "midia", "imparcialidade"]):
+        return [
+            "Disponibilizar glossário com termos do universo jornalístico utilizados no texto.",
+            "Realizar leitura mediada do texto com ênfase em lide, manchete e intenção comunicativa.",
+            "Permitir respostas em tópicos curtos ou orais com apoio de perguntas orientadoras.",
+        ]
+
+    if any(k in base for k in ["producao_textual", "producao", "resenha", "carta do leitor",
+                                "estrutura do genero", "publico-alvo", "suporte", "redija"]):
+        return [
+            "Disponibilizar modelo de planejamento textual com etapas simples e exemplos de estrutura.",
+            "Oferecer lista de verificação para que os estudantes confiram adequação ao gênero antes da versão final.",
+            "Permitir apoio individual na escrita e na revisão, incluindo ditado para o professor quando necessário.",
+        ]
+
+    if any(k in base for k in ["pesquisa", "scielo", "curadoria", "plagio", "fontes confiaveis",
+                                "divulgacao cientifica", "direitos autorais", "google academico"]):
+        return [
+            "Disponibilizar lista de sites e fontes confiáveis previamente selecionadas pelo professor.",
+            "Orientar a pesquisa com roteiro de etapas simples: busca, seleção, leitura e registro.",
+            "Permitir que os estudantes trabalhem em dupla durante a navegação e a síntese das informações.",
+        ]
+
     return [
         "Disponibilizar perguntas orientadoras para apoiar a leitura, a interpretação e a organização das respostas.",
         "Permitir registros por tópicos, frases curtas, desenho, esquema ou resposta oral mediada.",

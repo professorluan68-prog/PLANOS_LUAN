@@ -82,6 +82,86 @@ def perfil_disciplina(disciplina: str) -> str:
     return "geral"
 
 
+# ── Palavras-chave e função de classificação para Língua Portuguesa ────────
+
+_LP_LEITURA_LITERARIA = [
+    "cronica", "conto", "poema", "poesia", "narrativa", "leitura literaria",
+    "genero literario", "eu lirico", "narrador", "enredo", "personagem",
+    "metafora", "figuras de linguagem", "fruicao", "apreciacao",
+    "machado de assis", "clarice lispector", "rubem braga", "carlos drummond",
+    "marina colasanti", "conto indigena", "literatura",
+]
+
+_LP_GRAMATICA_CONTEXTUALIZADA = [
+    "modo subjuntivo", "modo indicativo", "tempos verbais", "preterito",
+    "futuro", "gerundio", "coesao", "elementos coesivos", "conjuncoes",
+    "pronomes", "regencia verbal", "regencia nominal", "oracoes subordinadas",
+    "adverbiais", "adjetivas", "modalizacao", "polissemia", "intertextualidade",
+    "conectores", "anafora", "catafora",
+]
+
+_LP_LEITURA_JORNALISTICA = [
+    "noticia", "editorial", "artigo de opiniao", "carta do leitor",
+    "reportagem", "manchete", "lide", "tema central", "subtemas",
+    "fato", "opiniao", "parcialidade", "imparcialidade", "veiculo",
+    "jornalismo", "midia", "fonte", "intencionalidade",
+    "resenha critica",
+]
+
+_LP_PRODUCAO_TEXTUAL = [
+    "produza", "escreva uma carta", "redija", "elabore",
+    "carta do leitor", "resenha", "artigo", "producao",
+    "estrutura do genero", "publico-alvo", "suporte", "circulacao",
+]
+
+_LP_PESQUISA = [
+    "scielo", "curadoria", "artigo cientifico", "plagio",
+    "base de dados", "google academico", "fontes confiaveis",
+    "divulgacao cientifica", "direitos autorais",
+]
+
+
+def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
+    """
+    Classifica o tipo de aula de Língua Portuguesa com base no título e texto.
+
+    Retorna:
+        'leitura_literaria', 'gramatica_contextualizada',
+        'leitura_jornalistica', 'producao_textual' ou 'pesquisa'.
+
+    Regra especial: se o título contém 'Parte 2', 'Parte 3' ou 'Parte 4'
+    e o conteúdo traz termos de gramática contextualizada, retorna
+    'gramatica_contextualizada'.
+    """
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+
+    # Regra especial: aula de continuidade com foco gramatical
+    if any(p in titulo_norm for p in ["parte 2", "parte 3", "parte 4"]):
+        if contem_termos(texto_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
+            return "gramatica_contextualizada"
+
+    # Pesquisa acadêmica
+    if contem_termos(texto_norm, _LP_PESQUISA):
+        return "pesquisa"
+
+    # Produção textual
+    if contem_termos(texto_norm, _LP_PRODUCAO_TEXTUAL):
+        return "producao_textual"
+
+    # Leitura jornalística
+    if contem_termos(texto_norm, _LP_LEITURA_JORNALISTICA):
+        if contem_termos(texto_norm, ["fato", "opiniao", "parcialidade", "veiculo", "intencionalidade", "manchete"]):
+            return "leitura_jornalistica"
+
+    # Gramática contextualizada
+    if contem_termos(texto_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
+        return "gramatica_contextualizada"
+
+    # Leitura literária (padrão para LP)
+    return "leitura_literaria"
+
+
 _TIPOS_MATEMATICA = [
     ("modelagem", ["modelagem", "modelar situacoes", "metodo de polya", "polya", "representar matematicamente", "sentenca matematica"]),
     ("grandezas_medidas", ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]),
@@ -228,6 +308,10 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
 
     if perfil == "tecnologia_inovacao":
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_TECNOLOGIA_INOVACAO, "tecnologia_geral")
+
+    # Língua Portuguesa — classificador especializado
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return _tipo_aula_lingua_portuguesa(tema, texto)
 
     for tipo, termos in _TIPOS_GERAIS:
         if contem_termo_exato(tema_base, termos) or contem_termos(tema_base, termos):
