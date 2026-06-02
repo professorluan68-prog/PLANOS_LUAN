@@ -218,7 +218,7 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
 
 _ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO = {
     "autoconhecimento": [
-        "Permitir que alunos com dificuldade de escrita expressem suas reflexões oralmente para o professor ou colega de confiança, que pode registrar as ideias.",
+        "Promover ambiente acolhedor, com combinados de escuta e respeito, para que os estudantes participem sem exposição excessiva de vivências pessoais.",
         "Oferecer modelo estruturado do mapa com campos pré-definidos para alunos que precisam de mais apoio para organizar as ideias visualmente.",
         "Garantir que a atividade de compartilhamento em duplas seja feita com colega escolhido pelo próprio aluno, respeitando vínculos de confiança.",
     ],
@@ -517,6 +517,42 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
 
 
 
+def _acessibilidade_projeto_vida(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Detecta o tipo de aula de Projeto de Vida pelo contexto e retorna estratégias específicas.
+
+    Cobre 6 tipos (mesma prioridade de _tipo_aula_projeto_de_vida em classificador.py):
+    futureme, encerramento, consciencia_social, convivencia, producao_coletiva, autoconhecimento.
+    """
+    from core.lib.classificador import (
+        _PV_FUTUREME, _PV_ENCERRAMENTO, _PV_CONSCIENCIA_SOCIAL,
+        _PV_CONVIVENCIA, _PV_PRODUCAO_COLETIVA,
+    )
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    # 1. Plataforma FutureMe
+    if contem_termos(base, _PV_FUTUREME):
+        return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["futureme"])
+
+    # 2. Encerramento e Síntese
+    if contem_termos(base, _PV_ENCERRAMENTO):
+        return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["encerramento"])
+
+    # 3. Consciência Social
+    if contem_termos(base, _PV_CONSCIENCIA_SOCIAL):
+        return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["consciencia_social"])
+
+    # 4. Convivência e Tomada de Decisão
+    if contem_termos(base, _PV_CONVIVENCIA):
+        return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["convivencia"])
+
+    # 5. Produção Coletiva
+    if contem_termos(base, _PV_PRODUCAO_COLETIVA):
+        return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["producao_coletiva"])
+
+    # 6. Autoconhecimento (padrão)
+    return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO["autoconhecimento"])
+
+
 def _acessibilidade_matematica(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Gera acessibilidade específica para Matemática, diferenciada por tipo de aula."""
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
@@ -616,6 +652,13 @@ def gerar_acessibilidade_aprimorada(
     if perfil == "matematica":
         return _limitar_itens(
             _acessibilidade_matematica(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "projeto_de_vida":
+        return _limitar_itens(
+            _acessibilidade_projeto_vida(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

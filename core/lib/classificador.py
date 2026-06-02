@@ -84,64 +84,95 @@ def perfil_disciplina(disciplina: str) -> str:
 
 # ── Palavras-chave e função de classificação para Projeto de Vida ──────────
 
+# Tipo 1 — Autoconhecimento e Reflexão Pessoal
 _PV_AUTOCONHECIMENTO = [
     "autoconhecimento", "identidade", "valores", "interesses", "habilidades",
     "sonhos", "metas", "futuro profissional", "projeto de vida", "escolha profissional",
     "perfil profissional", "mapa de opcoes", "trajetoria", "planejamento",
     "quem sou eu", "quem quero ser", "meu futuro", "caminhos profissionais",
-    "ensino superior", "curso tecnico", "empreendedorismo", "carreira"
+    "ensino superior", "curso tecnico", "empreendedorismo", "carreira",
+    # termos adicionais da análise metodológica completa
+    "quem sou eu", "o que valorizo", "meus interesses", "minhas habilidades",
+    "caminhos profissionais", "planejando meu futuro", "planejando meu projeto",
 ]
 
+# Tipo 2 — Plataforma Digital FutureMe
 _PV_FUTUREME = [
     "futureme", "plataforma", "questionario de perfil profissional",
     "questionario de personalidade", "mapa de oportunidades", "podio dos cursos",
     "podio das profissoes", "guia das profissoes", "relatorio de perfil",
-    "autoconhecimento profissional", "jornada do futuro", "sp.futureme.tech"
+    "autoconhecimento profissional", "jornada do futuro", "sp.futureme.tech",
+    # termos adicionais da análise metodológica completa
+    "questionario de perfil", "passo a frente", "ssp109", "ppf109",
 ]
 
+# Tipo 3 — Produção Coletiva e Projeto
 _PV_PRODUCAO_COLETIVA = [
     "biomapa", "campanha", "bora cuidar", "cartaz", "panfleto", "faixa",
     "planejamento da campanha", "mensagens-chave", "divulgacao", "mobilizacao",
     "video de 1 minuto", "festival do minuto", "minuto escola", "hq",
     "historia em quadrinhos", "mostra", "produto final", "projeto bimestral",
-    "caixa dos vinculos", "painel de convivencia"
+    "caixa dos vinculos", "painel de convivencia",
+    # termos adicionais da análise metodológica completa
+    "producao coletiva", "em grupos", "grupos de", "antes que vire print",
+    "grupos de seis", "grupos de quatro", "grupos de cinco",
 ]
 
+# Tipo 4 — Convivência e Tomada de Decisão
 _PV_CONVIVENCIA = [
     "circulo de convivencia", "tomada de decisao", "dilema", "votacao",
     "mediador", "secretario", "guardiao do tempo", "acordos de fala",
     "escuta ativa", "comunicacao nao violenta", "cnv", "gremio estudantil",
     "gestao democratica", "conselho escolar", "protagonismo juvenil",
-    "convivencia", "conflito", "bullying", "painel de convivencia"
+    "convivencia", "conflito", "bullying", "painel de convivencia",
+    # termos adicionais da análise metodológica completa
+    "conselho de classe participativo", "apm", "decidir juntos", "decisao coletiva",
 ]
 
+# Tipo 5 — Consciência Social e Engajamento
 _PV_CONSCIENCIA_SOCIAL = [
     "privilegios", "desvantagens", "desigualdade", "vulnerabilidade",
     "desigualdade digital", "acesso a internet", "representatividade",
     "estereotipos", "inteligencia artificial", "vies", "engajamento",
     "consciencia social", "caminhada do privilegio", "ambiente digital",
-    "inclusao", "exclusao", "diversidade"
+    "inclusao", "exclusao", "diversidade",
+    # termos adicionais da análise metodológica completa
+    "passo a frente", "quem e mais vulneravel", "perfis subrepresentados",
+    "leitura critica de midia", "vieses da ia", "vieses artificiais",
 ]
 
+# Tipo 6 — Encerramento e Síntese
 _PV_ENCERRAMENTO = [
     "pacto final", "sintese", "encerramento", "celebracao", "jornada",
     "o que aprendemos", "refletindo sobre a jornada", "caixa dos vinculos",
     "palavras que marcaram", "compromisso", "vinculos respeitosos",
-    "mostra", "apresentacao final", "post-it", "mapa mental coletivo"
+    "mostra", "apresentacao final", "post-it", "mapa mental coletivo",
+    # termos adicionais da análise metodológica completa
+    "encerramento de bimestre", "sintese do bimestre", "pacto",
+    "abrir a caixa", "reler o painel", "revisitar o mapa",
 ]
 
 
 def _tipo_aula_projeto_de_vida(titulo: str, texto: str) -> str:
     """
     Classifica o tipo de aula de Projeto de Vida com base no título e texto.
+
     Retorna: 'futureme', 'encerramento', 'consciencia_social', 'convivencia',
              'producao_coletiva' ou 'autoconhecimento'.
+
+    Prioridades (do mais específico ao mais genérico):
+        1. futureme       — referência explícita à plataforma FutureMe
+        2. encerramento   — síntese, pacto final, encerramento de bimestre
+        3. consciencia_social — privilégios, desigualdades, vulnerabilidade
+        4. convivencia    — círculo de convivência, dilema, votação coletiva
+        5. producao_coletiva — biomapa, campanha, HQ, produto coletivo em grupos
+        6. autoconhecimento — padrão para reflexão individual
     """
     titulo_norm = normalizar_texto(titulo)
     texto_norm = normalizar_texto(texto)
     base_norm = f"{titulo_norm} {texto_norm}"
 
-    # 1. Plataforma Digital FutureMe
+    # 1. Plataforma Digital FutureMe (prioridade máxima)
     if contem_termos(base_norm, _PV_FUTUREME):
         return "futureme"
 
@@ -161,8 +192,12 @@ def _tipo_aula_projeto_de_vida(titulo: str, texto: str) -> str:
     if contem_termos(base_norm, _PV_PRODUCAO_COLETIVA):
         return "producao_coletiva"
 
-    # Padrão: autoconhecimento
+    # Padrão: autoconhecimento e reflexão pessoal
     return "autoconhecimento"
+
+
+# Alias para compatibilidade com nomes alternativos usados em outros módulos
+_tipo_aula_projeto_vida = _tipo_aula_projeto_de_vida
 
 
 # ── Palavras-chave e função de classificação para Língua Portuguesa ────────

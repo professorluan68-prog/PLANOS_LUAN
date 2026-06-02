@@ -151,12 +151,12 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
             "{v_acomp} a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
         ],
         "futureme": [
-            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar 'a resposta certa'.",
+            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar ‘a resposta certa’.",
             "{v_ver} se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência, sem aceitar passivamente o resultado.",
             "{v_acomp} a troca em duplas/trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano escolar e pessoal.",
         ],
         "producao_coletiva": [
-            "{v_obs} se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elements claros: objetivo, mensagem, público-alvo e estratégia de ação.",
+            "{v_obs} se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elementos claros: objetivo, mensagem, público-alvo e estratégia de ação.",
             "{v_ver} se todos os integrantes do grupo participam ativamente da produção, com funções definidas e contribuições visíveis.",
             "{v_acomp} a apresentação do produto, avaliando se o grupo consegue explicar as escolhas feitas e conectá-las ao tema do bimestre.",
         ],
@@ -598,6 +598,73 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
 
 
 
+def _acompanhamento_projeto_vida(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Detecta o tipo de aula de Projeto de Vida pelo contexto e retorna 3 itens específicos com ☑.
+
+    Cobre 6 tipos:
+    - futureme (plataforma FutureMe)
+    - encerramento (síntese, pacto, ritual de fechamento)
+    - consciencia_social (privilégios, desigualdade digital)
+    - convivencia (círculo, dilema, tomada de decisão)
+    - producao_coletiva (biomapa, campanha, HQ)
+    - autoconhecimento (padrão)
+    """
+    from core.lib.classificador import (
+        _PV_FUTUREME, _PV_ENCERRAMENTO, _PV_CONSCIENCIA_SOCIAL,
+        _PV_CONVIVENCIA, _PV_PRODUCAO_COLETIVA,
+    )
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    # 1. Plataforma FutureMe
+    if contem_termos(base, _PV_FUTUREME):
+        return [
+            "☑ Observar se o estudante acessa e completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais.",
+            "☑ Verificar se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência.",
+            "☑ Acompanhar a troca em trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano e a possibilidades de futuro.",
+        ]
+
+    # 2. Encerramento e Síntese
+    if contem_termos(base, _PV_ENCERRAMENTO):
+        return [
+            "☑ Observar se o estudante identifica pelo menos uma descoberta significativa sobre si mesmo ao longo do bimestre, conectando-a a situações concretas vividas nas aulas.",
+            "☑ Verificar se o estudante consegue nomear uma mudança no modo de agir, sentir ou ver o mundo a partir dos aprendizados do bimestre.",
+            "☑ Acompanhar a participação no ritual simbólico de encerramento, avaliando se o estudante escolhe palavras e compromissos que refletem os temas trabalhados.",
+        ]
+
+    # 3. Consciência Social
+    if contem_termos(base, _PV_CONSCIENCIA_SOCIAL):
+        return [
+            "☑ Observar se o estudante reconhece a diferença entre privilégios e desvantagens como condições estruturais, e não apenas como resultado do esforço individual.",
+            "☑ Verificar se o estudante identifica, no ambiente digital e na mídia, padrões de representação que privilegiam certos perfis e invisibilizam outros.",
+            "☑ Acompanhar o registro individual, avaliando se o estudante indica mudanças concretas em sua forma de agir ao reconhecer as desigualdades.",
+        ]
+
+    # 4. Convivência e Tomada de Decisão
+    if contem_termos(base, _PV_CONVIVENCIA):
+        return [
+            "☑ Observar se o estudante participa do Círculo de Convivência com escuta ativa, respeitando os acordos de fala e sem interromper os colegas.",
+            "☑ Verificar se o estudante contribui com pelo menos uma proposta de solução para o dilema discutido, justificando com base nos efeitos para o grupo.",
+            "☑ Acompanhar o registro individual do compromisso, avaliando se o estudante identifica uma ação concreta que pode realizar para colocar a decisão coletiva em prática.",
+        ]
+
+    # 5. Produção Coletiva
+    if contem_termos(base, _PV_PRODUCAO_COLETIVA):
+        return [
+            "☑ Observar se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elementos claros: objetivo, mensagem, público-alvo e estratégia de ação.",
+            "☑ Verificar se todos os integrantes do grupo participam ativamente da produção, com funções definidas e contribuições visíveis no produto final.",
+            "☑ Acompanhar a apresentação, avaliando se o grupo consegue explicar as escolhas feitas e conectá-las ao tema do bimestre.",
+        ]
+
+    # 6. Autoconhecimento (padrão)
+    return [
+        "☑ Observar se o estudante identifica pelo menos três possibilidades de futuro conectadas aos seus interesses e valores, com justificativa para cada escolha.",
+        "☑ Verificar se o estudante reconhece fatores externos (contexto social, oportunidades, imprevistos) que influenciam suas escolhas, sem se limitar à vontade individual.",
+        "☑ Acompanhar a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
+    ]
+
+
+
+
 def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Detecta o tipo de aula de Matemática pelo contexto e retorna 3 itens específicos com ☑."""
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
@@ -671,6 +738,13 @@ def gerar_acompanhamento_aprimorado(
     if perfil == "matematica":
         return _limitar_itens(
             _acompanhamento_matematica(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "projeto_de_vida":
+        return _limitar_itens(
+            _acompanhamento_projeto_vida(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )
