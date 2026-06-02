@@ -82,6 +82,89 @@ def perfil_disciplina(disciplina: str) -> str:
     return "geral"
 
 
+# ── Palavras-chave e função de classificação para Projeto de Vida ──────────
+
+_PV_AUTOCONHECIMENTO = [
+    "autoconhecimento", "identidade", "valores", "interesses", "habilidades",
+    "sonhos", "metas", "futuro profissional", "projeto de vida", "escolha profissional",
+    "perfil profissional", "mapa de opcoes", "trajetoria", "planejamento",
+    "quem sou eu", "quem quero ser", "meu futuro", "caminhos profissionais",
+    "ensino superior", "curso tecnico", "empreendedorismo", "carreira"
+]
+
+_PV_FUTUREME = [
+    "futureme", "plataforma", "questionario de perfil profissional",
+    "questionario de personalidade", "mapa de oportunidades", "podio dos cursos",
+    "podio das profissoes", "guia das profissoes", "relatorio de perfil",
+    "autoconhecimento profissional", "jornada do futuro", "sp.futureme.tech"
+]
+
+_PV_PRODUCAO_COLETIVA = [
+    "biomapa", "campanha", "bora cuidar", "cartaz", "panfleto", "faixa",
+    "planejamento da campanha", "mensagens-chave", "divulgacao", "mobilizacao",
+    "video de 1 minuto", "festival do minuto", "minuto escola", "hq",
+    "historia em quadrinhos", "mostra", "produto final", "projeto bimestral",
+    "caixa dos vinculos", "painel de convivencia"
+]
+
+_PV_CONVIVENCIA = [
+    "circulo de convivencia", "tomada de decisao", "dilema", "votacao",
+    "mediador", "secretario", "guardiao do tempo", "acordos de fala",
+    "escuta ativa", "comunicacao nao violenta", "cnv", "gremio estudantil",
+    "gestao democratica", "conselho escolar", "protagonismo juvenil",
+    "convivencia", "conflito", "bullying", "painel de convivencia"
+]
+
+_PV_CONSCIENCIA_SOCIAL = [
+    "privilegios", "desvantagens", "desigualdade", "vulnerabilidade",
+    "desigualdade digital", "acesso a internet", "representatividade",
+    "estereotipos", "inteligencia artificial", "vies", "engajamento",
+    "consciencia social", "caminhada do privilegio", "ambiente digital",
+    "inclusao", "exclusao", "diversidade"
+]
+
+_PV_ENCERRAMENTO = [
+    "pacto final", "sintese", "encerramento", "celebracao", "jornada",
+    "o que aprendemos", "refletindo sobre a jornada", "caixa dos vinculos",
+    "palavras que marcaram", "compromisso", "vinculos respeitosos",
+    "mostra", "apresentacao final", "post-it", "mapa mental coletivo"
+]
+
+
+def _tipo_aula_projeto_de_vida(titulo: str, texto: str) -> str:
+    """
+    Classifica o tipo de aula de Projeto de Vida com base no título e texto.
+    Retorna: 'futureme', 'encerramento', 'consciencia_social', 'convivencia',
+             'producao_coletiva' ou 'autoconhecimento'.
+    """
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    # 1. Plataforma Digital FutureMe
+    if contem_termos(base_norm, _PV_FUTUREME):
+        return "futureme"
+
+    # 2. Encerramento e Síntese
+    if contem_termos(base_norm, _PV_ENCERRAMENTO):
+        return "encerramento"
+
+    # 3. Consciência Social e Engajamento
+    if contem_termos(base_norm, _PV_CONSCIENCIA_SOCIAL):
+        return "consciencia_social"
+
+    # 4. Convivência e Tomada de Decisão
+    if contem_termos(base_norm, _PV_CONVIVENCIA):
+        return "convivencia"
+
+    # 5. Produção Coletiva e Projeto
+    if contem_termos(base_norm, _PV_PRODUCAO_COLETIVA):
+        return "producao_coletiva"
+
+    # Padrão: autoconhecimento
+    return "autoconhecimento"
+
+
 # ── Palavras-chave e função de classificação para Língua Portuguesa ────────
 
 _LP_LEITURA_LITERARIA = [
@@ -312,6 +395,10 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     # Língua Portuguesa — classificador especializado
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _tipo_aula_lingua_portuguesa(tema, texto)
+
+    # Projeto de Vida — classificador especializado
+    if perfil == "projeto_de_vida":
+        return _tipo_aula_projeto_de_vida(tema, texto)
 
     for tipo, termos in _TIPOS_GERAIS:
         if contem_termo_exato(tema_base, termos) or contem_termos(tema_base, termos):

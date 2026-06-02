@@ -130,6 +130,36 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
         ],
     },
     "projeto_de_vida": {
+        "autoconhecimento": [
+            "{v_obs} se o estudante identifica pelo menos três possibilidades de futuro conectadas aos seus interesses e valores, com justificativa para cada escolha.",
+            "{v_ver} se o estudante reconhece fatores externos (contexto social, oportunidades, imprevistos) que influenciam suas escolhas, sem se limitar à vontade individual.",
+            "{v_acomp} a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
+        ],
+        "futureme": [
+            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar 'a resposta certa'.",
+            "{v_ver} se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência, sem aceitar passivamente o resultado.",
+            "{v_acomp} a troca em duplas/trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano escolar e pessoal.",
+        ],
+        "producao_coletiva": [
+            "{v_obs} se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elements claros: objetivo, mensagem, público-alvo e estratégia de ação.",
+            "{v_ver} se todos os integrantes do grupo participam ativamente da produção, com funções definidas e contribuições visíveis.",
+            "{v_acomp} a apresentação do produto, avaliando se o grupo consegue explicar as escolhas feitas e conectá-las ao tema do bimestre.",
+        ],
+        "convivencia": [
+            "{v_obs} se o estudante participa do Círculo de Convivência com escuta ativa, respeitando os acordos de fala e sem interromper os colegas.",
+            "{v_ver} se o estudante contribui com pelo menos uma proposta de solução para o dilema discutido, justificando com base nos efeitos para o grupo.",
+            "{v_acomp} o registro individual do compromisso, avaliando se o estudante identifica uma ação concreta que pode realizar para colocar a decisão coletiva em prática.",
+        ],
+        "consciencia_social": [
+            "{v_obs} se o estudante reconhece a diferença entre privilégios e desvantagens como condições estruturais, e não apenas como resultado do esforço individual.",
+            "{v_ver} se o estudante identifica, no ambiente digital e na mídia, padrões de representação que privilegiam certos perfis e invisibilizam outros.",
+            "{v_acomp} o registro individual, avaliando se o estudante indica mudanças concretas em sua forma de agir ao reconhecer desigualdades.",
+        ],
+        "encerramento": [
+            "{v_obs} se o estudante identifica pelo menos uma descoberta significativa sobre si mesmo ao longo do bimestre, conectando-a a situações concretas vividas nas aulas.",
+            "{v_ver} se o estudante consegue nomear uma mudança no modo de agir, sentir ou ver o mundo a partir dos aprendizados do bimestre.",
+            "{v_acomp} a participação no ritual simbólico de encerramento, avaliando se o estudante escolhe palavras/compromissos que refletem os temas trabalhados.",
+        ],
         "_default": [
             "{v_obs} a participação dos estudantes nas reflexões e interações propostas, considerando escuta, respeito, cooperação e elaboração de ideias.",
             "{v_ver} se os estudantes relacionam o tema da aula a escolhas, atitudes, estratégias de convivência e planejamento pessoal ou coletivo.",

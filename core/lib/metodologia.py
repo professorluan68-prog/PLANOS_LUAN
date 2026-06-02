@@ -135,6 +135,53 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         etapas.append(("Encerramento", "encerramento"))
         return etapas
 
+    if perfil == "projeto_de_vida":
+        if tipo == "futureme":
+            return [
+                ("Para começar", "ponto_de_partida"),
+                ("Foco no conteúdo", "construindo_o_conceito"),
+                ("Na prática", "acesso_plataforma"),
+                ("Compartilhamento", "compartilhamento"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "producao_coletiva":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "foco_no_tema"),
+                ("Na prática", "producao_em_grupos"),
+                ("Compartilhamento", "apresentacao"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "convivencia":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "foco_no_tema"),
+                ("Na prática", "circulo_ou_votacao"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "consciencia_social":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco_no_tema"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "encerramento":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "sintese_do_percurso"),
+                ("Na prática", "producao_final"),
+                ("Encerramento", "encerramento"),
+            ]
+        # autoconhecimento / default
+        return [
+            ("Para começar", "ponto_de_partida"),
+            ("Foco no conteúdo", "construindo_o_conceito"),
+            ("Na prática", "colocando_em_pratica"),
+            ("Compartilhamento", "virem_e_conversem"),
+            ("Encerramento", "encerramento"),
+        ]
+
     # Padrão geral
     return [
         ("Para começar", "para_comecar"),
@@ -273,6 +320,93 @@ def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dic
             "encerramento": "Sintetizar as percepções sobre o tema e a leitura, reforçando o valor da informação consciente."
         }
     return None
+
+
+def _metodologia_projeto_de_vida(texto_base: str, tema: str, tipo: str, conceito: str, atividade_extraida: str) -> dict[str, str] | None:
+    """Gerador especializado de frases para o perfil Projeto de Vida."""
+    import re
+    texto_norm = normalizar_texto(texto_base)
+
+    # Questão essencial
+    match_q = re.search(r"(?:questao essencial|pergunta disparadora)[:\s]*([^\n?]+\??)", texto_base, re.I)
+    questao = match_q.group(1).strip() if match_q else f"como as escolhas de hoje influenciam o amanhã em relação a {tema}?"
+
+    # Música ou Vídeo disparador
+    match_mv = re.search(r"(?:musica|m%C3%BAsica|clipe|video|v%C3%ADdeo|cancao|can%C3%A7ao|can%C3%A7%C3%A3o)[:\s]*([^\n,.]+)", texto_base, re.I)
+    midia_nome = match_mv.group(1).strip() if match_mv else ""
+
+    # Extração de perguntas adicionais
+    perguntas = re.findall(r"([^?\n]{15,100}\?)", texto_base)
+    p1 = perguntas[0].strip() if len(perguntas) > 0 else f"O que você pensa sobre {tema}?"
+    p2 = perguntas[1].strip() if len(perguntas) > 1 else "Como isso se aplica no seu dia a dia?"
+
+    # Construção do conceito
+    conceito_seguro = _conceito_projeto_vida(conceito, tema, texto_base, atividade_extraida)
+
+    # Atividade prática
+    atividade = atividade_extraida or f"mapeamento e reflexão sobre {tema}"
+
+    if tipo == "futureme":
+        match_act = re.search(r"(?:questionario de perfil|questionario de personalidade|mapa de oportunidades|podio dos cursos|podio das profissoes)", texto_norm)
+        act_name = match_act.group(0).title() if match_act else "Questionário de Perfil Profissional"
+        return {
+            "ponto_de_partida": f"Iniciar a aula convidando os estudantes a pensarem sobre o papel da tecnologia no autoconhecimento profissional. Propor a pergunta: '{questao}' e abrir para uma breve discussão em duplas.",
+            "construindo_o_conceito": f"Apresentar o conceito de {conceito_seguro} de forma dialogada, destacando a importância de usar ferramentas estruturadas para mapear afinidades e possibilidades de carreira.",
+            "acesso_plataforma": f"Orientar os estudantes a acessarem a plataforma FutureMe e seguirem o passo a passo para o {act_name}, garantindo que todos consigam navegar de forma autônoma e segura.",
+            "compartilhamento": "Após a conclusão, organizar a troca em duplas ou trios sobre os resultados do relatório: o que mais fez sentido e o que causou surpresa, exercitando a escuta ativa.",
+            "encerramento": "Encerrar propondo que cada estudante registre no caderno uma síntese pessoal sobre como as descobertas da plataforma se conectam aos seus objetivos futuros."
+        }
+
+    if tipo == "producao_coletiva":
+        match_prod = re.search(r"(?:biomapa|campanha|mostra|painel|caixa dos vinculos|video|festival do minuto|hq)", texto_norm)
+        prod_name = match_prod.group(0).title() if match_prod else "projeto do bimestre"
+        return {
+            "relembre": f"Retomar brevemente as reflexões e produções das aulas anteriores, relembrando o objetivo do {prod_name} e como cada estudante contribuiu até aqui.",
+            "foco_no_tema": f"Explicar as etapas e critérios necessários para a produção prática de hoje, destacando o papel da colaboração, da divisão de tarefas e do respeito mútuo.",
+            "producao_em_grupos": f"Organizar a turma em grupos de 4 a 6 estudantes e orientar a elaboração passo a passo do {prod_name}. Circular pela sala apoiando o desenvolvimento e a mediação de conflitos.",
+            "apresentacao": f"Promover a socialização das produções ou do andamento das propostas com a turma, permitindo que cada grupo compartilhe suas escolhas e aprendizados.",
+            "encerramento": f"Finalizar solicitando que cada estudante registre individualmente uma reflexão sobre a importância do trabalho coletivo e o impacto do {prod_name} no ambiente escolar."
+        }
+
+    if tipo == "convivencia":
+        return {
+            "relembre": f"Retomar os acordos de convivência e a importância de construir um espaço seguro para o diálogo e a tomada de decisões coletivas a partir de {tema}.",
+            "foco_no_tema": f"Apresentar o dilema ou tema de reflexão coletiva sobre {conceito_seguro}, explicando como as decisões de cada um afetam o grupo e ajudando a turma a relacionar sentir, pensar e agir de forma respeitosa na convivência escolar.",
+            "circulo_ou_votacao": "Organizar a turma em círculo para a dinâmica do Círculo de Convivência, estabelecendo os papéis de mediador, secretário e guardião do tempo. Após o debate, conduzir o levantamento de soluções e registrar a decisão coletiva no Painel de Convivência.",
+            "encerramento": "Encerrar a aula solicitando o registro individual no caderno do compromisso pessoal que cada aluno assume para contribuir com a decisão do grupo e a harmonia da convivência."
+        }
+
+    if tipo == "consciencia_social":
+        return {
+            "para_comecar": f"Iniciar a aula com uma pergunta provocadora ou dinâmica corporal que sensibilize os estudantes para o tema de privilégios e desigualdades associados a {tema}, sem expor experiências pessoais.",
+            "foco_no_tema": f"Apresentar conceitos e dados relacionados a {conceito_seguro}, discutindo a diferença entre condições estruturais e esforço individual de forma dialógica.",
+            "pratica": "Conduzir a leitura dialogada de reportagem, infográfico ou situação-problema do material. Em seguida, propor atividade prática de análise crítica (como o mapa do ambiente digital ou revisão da HQ) para registrar as conclusões do grupo.",
+            "encerramento": "Finalizar com uma reflexão escrita individual sobre como o reconhecimento de privilégios e desvantagens pode transformar as atitudes e escolhas diárias."
+        }
+
+    if tipo == "encerramento":
+        match_prod = re.search(r"(?:caixa dos vinculos|painel de convivencia|mostra|pacto final|video|biomapa)", texto_norm)
+        prod_name = match_prod.group(0).title() if match_prod else "projeto do bimestre"
+        return {
+            "relembre": f"Abrir a aula retomando simbolicamente a jornada do bimestre e revisitando o {prod_name} para reconectar a turma com as vivências acumuladas.",
+            "sintese_do_percurso": "Conduzir uma breve retrospectiva dialogada sobre os temas trabalhados, celebrando a evolução, os desafios superados e os aprendizados construídos.",
+            "producao_final": f"Orientar a conclusão e apresentação do produto final (vídeo, mostra, pacto ou painel), garantindo a participação de todos os estudantes.",
+            "encerramento": "Reservar tempo para a escrita de uma síntese pessoal no caderno/livro, focando em uma descoberta significativa. Encerrar a aula com um ritual simbólico de compromisso (como depositar palavras na caixa, assinar o painel ou compartilhar post-its)."
+        }
+
+    # autoconhecimento / default
+    if midia_nome:
+        ponto_partida_str = f"Iniciar a aula com a escuta/exibição da música ou vídeo '{midia_nome}', convidando os estudantes a perceberem as emoções e ideias despertadas, sem exigir exposicao pessoal. Propor que conversem em duplas sobre as questões: '{p1}' e '{p2}'."
+    else:
+        ponto_partida_str = f"Abrir a aula com uma situacao acolhedora relacionada a {tema}, sem exigir exposicao pessoal. Propor que os estudantes compartilhem suas impressões sobre a pergunta existencial: '{questao}', respeitando diferentes ritmos de participacao."
+
+    return {
+        "ponto_de_partida": ponto_partida_str,
+        "construindo_o_conceito": f"Conduzir uma exposição dialogada sobre {conceito_seguro}, utilizando exemplos cotidianos para ajudar a turma a relacionar sentir, pensar e agir de forma respeitosa.",
+        "colocando_em_pratica": f"Orientar a elaboração individual de {atividade}, com instruções passo a passo. Garantir que a socializacao seja opcional ou mediada, evitando exposicao de experiencias intimas.",
+        "virem_e_conversem": f"Organizar o compartilhamento das produções em duplas, com base nas perguntas do material, exercitando a escuta ativa e o respeito mútuo.",
+        "encerramento": "Finalizar propondo que cada estudante registre no caderno uma síntese pessoal das descobertas e sentimentos despertados ao longo da aula."
+    }
 
 
 def _frases_por_contexto(
@@ -455,7 +589,13 @@ def _frases_por_contexto(
             "processos criativos, escolhas dos estudantes e socialização das produções ou percepções."
         )
 
-    elif perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+    elif perfil == "projeto_de_vida":
+        _frases_pv = _metodologia_projeto_de_vida(texto_base, tema, tipo, conceito, atividade_extraida)
+        if _frases_pv is not None:
+            base.update(_frases_pv)
+            return base
+
+    elif perfil == "lideranca_oratoria":
         conceito_seguro = _conceito_projeto_vida(conceito, tema, texto_base, atividade_extraida)
         base["para_comecar"] = (
             f"Abrir a aula com uma situacao acolhedora relacionada a {tema}, sem exigir exposicao pessoal. Propor "

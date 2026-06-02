@@ -98,3 +98,68 @@ def test_projeto_vida_ia_fallback_gera_aprendizagem_especifica():
     assert "tema da aula" not in aprendizagem
     assert "ambiente digital" in aprendizagem
     assert "virem e conversem" not in metodologia
+
+
+def test_projeto_vida_classificacao_e_etapas_futureme():
+    from core.lib.classificador import detectar_tipo_aula
+    from core.lib.metodologia import _etapas_por_perfil
+
+    tipo = detectar_tipo_aula(
+        texto="Plataforma digital FutureMe. Responder ao Questionário de Personalidade e ver o Pódio das Profissões.",
+        tema="Descobrindo minhas afinidades no FutureMe",
+        disciplina="Projeto de Vida"
+    )
+    assert tipo == "futureme"
+
+    etapas_config = _etapas_por_perfil("projeto_de_vida", "futureme")
+    titulos = [t[0] for t in etapas_config]
+    assert "Para começar" in titulos
+    assert "Na prática" in titulos
+    assert "Compartilhamento" in titulos
+    assert "Encerramento" in titulos
+
+
+def test_projeto_vida_classificacao_e_etapas_producao_coletiva():
+    from core.lib.classificador import detectar_tipo_aula
+    from core.lib.metodologia import _etapas_por_perfil
+
+    tipo = detectar_tipo_aula(
+        texto="Elaboração em grupos de um biomapa representando a escola.",
+        tema="Nosso Biomapa da Escola",
+        disciplina="Projeto de Vida"
+    )
+    assert tipo == "producao_coletiva"
+
+    etapas_config = _etapas_por_perfil("projeto_de_vida", "producao_coletiva")
+    titulos = [t[0] for t in etapas_config]
+    assert "Relembre" in titulos
+    assert "Foco no conteúdo" in titulos
+    assert "Na prática" in titulos
+    assert "Compartilhamento" in titulos
+    assert "Encerramento" in titulos
+
+
+def test_projeto_vida_acompanhamento_especifico_futureme():
+    from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
+
+    itens = gerar_acompanhamento_aprimorado(
+        tema="Autoconhecimento",
+        desenvolvimento="FutureMe questionário de personalidade",
+        disciplina="Projeto de Vida",
+        tipo="futureme"
+    )
+    assert len(itens) >= 2
+    assert any("futureme" in item.lower() or "questionário" in item.lower() for item in itens)
+
+
+def test_projeto_vida_acessibilidade_especifica_convivencia():
+    from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+
+    itens = gerar_acessibilidade_aprimorada(
+        tema="Círculo de convivência",
+        desenvolvimento="dinâmica de mediação e conselho escolar",
+        disciplina="Projeto de Vida",
+        tipo="convivencia"
+    )
+    assert len(itens) >= 2
+    assert any("círculo" in item.lower() or "tímidos" in item.lower() or "dilema" in item.lower() for item in itens)

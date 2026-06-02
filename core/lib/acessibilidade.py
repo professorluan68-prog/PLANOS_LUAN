@@ -216,6 +216,40 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
 }
 
 
+_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO = {
+    "autoconhecimento": [
+        "Permitir que alunos com dificuldade de escrita expressem suas reflexões oralmente para o professor ou colega de confiança, que pode registrar as ideias.",
+        "Oferecer modelo estruturado do mapa com campos pré-definidos para alunos que precisam de mais apoio para organizar as ideias visualmente.",
+        "Garantir que a atividade de compartilhamento em duplas seja feita com colega escolhido pelo próprio aluno, respeitando vínculos de confiança.",
+    ],
+    "futureme": [
+        "Providenciar dispositivo individual para alunos sem acesso a celular, garantindo que todos possam usar a plataforma sem depender de compartilhamento.",
+        "Permitir que alunos que não se sintam confortáveis em cadastrar informações pessoais preencham apenas os campos obrigatórios.",
+        "Oferecer versão impressa do questionário para alunos com dificuldade de navegação digital, garantindo a mesma experiência de reflexão.",
+    ],
+    "producao_coletiva": [
+        "Garantir que alunos com dificuldade motora ou de escrita assumam funções de coordenação, fala ou organização no grupo, sem ficarem excluídos da produção.",
+        "Oferecer modelo simplificado do produto (biomapa, campanha) para grupos com dificuldade de organização, com campos pré-definidos para preenchimento.",
+        "Permitir que grupos sem acesso a celular realizem a apresentação ao vivo ou leiam o roteiro em voz alta, garantindo a mesma qualidade de participação.",
+    ],
+    "convivencia": [
+        "Garantir que alunos mais tímidos ou com dificuldade de expressão oral possam contribuir por escrito, entregando sua proposta ao secretário do círculo.",
+        "Oferecer roteiro de perguntas-guia para alunos que precisam de mais estrutura para participar do debate, sem expô-los desnecessariamente.",
+        "Permitir que alunos que não se sintam confortáveis com o dilema escolhido pela turma registrem sua perspectiva individualmente no caderno.",
+    ],
+    "consciencia_social": [
+        "Conduzir a dinâmica da Caminhada do Privilégio sem obrigar nenhum aluno a participar — oferecer a opção de observar e registrar as percepções por escrito.",
+        "Garantir que a discussão sobre desigualdades não exponha situações pessoais de vulnerabilidade — manter o foco em grupos sociais, não em indivíduos.",
+        "Oferecer roteiro de análise com perguntas-guia para alunos que precisam de mais estrutura para identificar padrões de representação no ambiente digital.",
+    ],
+    "encerramento": [
+        "Permitir que alunos que não se sintam confortáveis com o ritual simbólico coletivo registrem suas palavras/compromissos individualmente no caderno.",
+        "Oferecer perguntas-guia simplificadas para alunos com dificuldade de síntese, ajudando-os a identificar pelo menos uma descoberta e uma mudança de atitude.",
+        "Garantir que alunos sem acesso a celular participem da produção final (vídeo) por meio de apresentação ao vivo ou leitura do roteiro, com o mesmo valor.",
+    ],
+}
+
+
 class GeradorAcessibilidade:
     """Gera estratégias de acessibilidade contextualizadas por tipo de recurso."""
 
@@ -242,6 +276,9 @@ class GeradorAcessibilidade:
 
         if perfil == "educacao_financeira" and tipo in _ACESSIBILIDADE_FINANCEIRA_POR_TIPO:
             return list(_ACESSIBILIDADE_FINANCEIRA_POR_TIPO[tipo])
+
+        if perfil == "projeto_de_vida" and tipo in _ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO:
+            return list(_ACESSIBILIDADE_PROJETO_VIDA_POR_TIPO[tipo])
 
         if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
             fallback = _FALLBACK_POR_PERFIL.get(perfil, [])
