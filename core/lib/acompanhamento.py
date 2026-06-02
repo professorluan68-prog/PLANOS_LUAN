@@ -739,6 +739,46 @@ def _acompanhamento_ciencias(tema: str, aprendizagem: str, desenvolvimento: str)
     ]
 
 
+def _acompanhamento_biologia(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    from core.lib.classificador import detectar_tipo_aula
+
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Biologia")
+
+    if tipo == "aula_desafio":
+        return [
+            f"☑ Verificar se os estudantes identificam o problema central do caso relacionado a {tema} e levantam hipóteses coerentes antes da correção final.",
+            "☑ Observar se a turma seleciona evidências do material para justificar explicações, comparando hipóteses e revisando conclusões quando necessário.",
+            "☑ Acompanhar se os registros finais articulam análise de dados, raciocínio científico e medidas ou conclusões relacionadas ao caso estudado.",
+        ]
+
+    if tipo == "aula_pratica":
+        return [
+            f"☑ Verificar se os estudantes relacionam o que foi observado na prática aos conceitos centrais de {tema}, evitando respostas apenas descritivas.",
+            "☑ Observar se a turma registra observações, compara resultados e revê hipóteses com base nas evidências produzidas durante a atividade experimental.",
+            "☑ Acompanhar se os estudantes conseguem explicar, com vocabulário científico, como a prática confirma ou amplia a compreensão do conteúdo.",
+        ]
+
+    if tipo == "revisao_consolidacao":
+        return [
+            f"☑ Verificar se os estudantes retomam conceitos e termos ligados a {tema}, diferenciando ideias próximas sem depender apenas da memória literal do slide.",
+            "☑ Observar se a turma participa do quiz ou da revisão usando justificativas, comparações e respostas em linguagem própria.",
+            "☑ Acompanhar se os registros revelam consolidação conceitual e identificação das dúvidas que ainda precisam de retomada.",
+        ]
+
+    if tipo == "impacto_socioambiental":
+        return [
+            f"☑ Verificar se os estudantes relacionam {tema} a impactos ambientais, sociais ou de saúde pública, usando dados e exemplos do material.",
+            "☑ Observar se a turma interpreta gráficos, notícias, esquemas ou imagens com base em evidências, e não apenas em opiniões soltas.",
+            "☑ Acompanhar se os registros articulam ciência, responsabilidade coletiva e possíveis soluções ou medidas de enfrentamento.",
+        ]
+
+    return [
+        f"☑ Verificar se os estudantes compreendem o conceito biológico central de {tema} e conseguem explicá-lo em etapas com linguagem científica adequada.",
+        "☑ Observar a participação no Pause e responda, considerando se a turma justifica respostas antes de avançar para a atividade de aplicação.",
+        "☑ Acompanhar se os registros usam evidências, exemplos e síntese própria para relacionar o conteúdo a situações reais.",
+    ]
+
+
 def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 itens específicos com ☑.
 
@@ -857,6 +897,13 @@ def gerar_acompanhamento_aprimorado(
     if perfil == "ciencias_ef":
         return _limitar_itens(
             _acompanhamento_ciencias(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "biologia":
+        return _limitar_itens(
+            _acompanhamento_biologia(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

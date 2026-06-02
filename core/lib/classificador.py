@@ -361,6 +361,38 @@ _CIENCIAS_CONCEITO_NOVO = [
     "sistema", "orgao", "ciclo da agua", "solo", "energia", "nutrientes",
 ]
 
+_BIOLOGIA_AULA_DESAFIO = [
+    "aula desafio", "desafio da semana", "entendendo o problema",
+    "solucao em acao", "hora da verdade", "estudo de caso",
+    "hipotese", "investigacao", "surto", "epidemia", "zoonose",
+    "machupo", "em13cnt301",
+]
+
+_BIOLOGIA_AULA_PRATICA = [
+    "aula pratica", "na pratica", "experimento", "materiais", "montagem",
+    "laboratorio", "elodea", "bequer", "tubo de ensaio", "observar",
+    "bolhas", "resultado do experimento", "procedimento",
+]
+
+_BIOLOGIA_REVISAO = [
+    "relembre", "glossario", "quiz", "retomada", "consolidacao",
+    "revisao", "termos", "conceitos", "de quais voce sabe",
+]
+
+_BIOLOGIA_IMPACTO_SOCIOAMBIENTAL = [
+    "acao antropica", "desmatamento", "bioma", "impacto ambiental",
+    "ods", "energia renovavel", "sustentabilidade", "saude publica",
+    "degradacao", "queimada", "mineracao", "pegada de carbono",
+    "amazonia", "cerrado", "matriz energetica", "em13cnt106", "em13cnt206",
+]
+
+_BIOLOGIA_CONCEITO_NOVO = [
+    "para comecar", "foco no conteudo", "um passo de cada vez",
+    "pause e responda", "de olho no modelo", "fotossintese",
+    "respiracao celular", "ecologia", "virus", "celula", "biomas",
+    "metabolismo", "energia",
+]
+
 
 def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
     """Classifica aulas de Ciencias EF conforme a analise metodologica."""
@@ -377,6 +409,25 @@ def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
     if contem_termos(base_norm, _CIENCIAS_LEITURA_ANALISE):
         return "leitura_analise"
     if contem_termos(base_norm, _CIENCIAS_CONCEITO_NOVO):
+        return "conceito_novo"
+    return "conceito_novo"
+
+
+def _tipo_aula_biologia(titulo: str, texto: str) -> str:
+    """Classifica aulas de Biologia conforme a análise metodológica."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    if contem_termos(base_norm, _BIOLOGIA_AULA_DESAFIO):
+        return "aula_desafio"
+    if contem_termos(base_norm, _BIOLOGIA_AULA_PRATICA):
+        return "aula_pratica"
+    if contem_termos(base_norm, _BIOLOGIA_REVISAO):
+        return "revisao_consolidacao"
+    if contem_termos(base_norm, _BIOLOGIA_IMPACTO_SOCIOAMBIENTAL):
+        return "impacto_socioambiental"
+    if contem_termos(base_norm, _BIOLOGIA_CONCEITO_NOVO):
         return "conceito_novo"
     return "conceito_novo"
 
@@ -597,6 +648,9 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     # Língua Inglesa — classificador especializado
     if perfil == "ciencias_ef":
         return _tipo_aula_ciencias(tema, texto)
+
+    if perfil == "biologia":
+        return _tipo_aula_biologia(tema, texto)
 
     if perfil == "ingles":
         return _tipo_aula_ingles(tema, texto)

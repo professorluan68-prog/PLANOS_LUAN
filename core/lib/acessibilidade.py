@@ -649,6 +649,46 @@ def _acessibilidade_ciencias(tema: str, aprendizagem: str, desenvolvimento: str)
     ]
 
 
+def _acessibilidade_biologia(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    from core.lib.classificador import detectar_tipo_aula
+
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Biologia")
+
+    if tipo == "aula_desafio":
+        return [
+            "Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidências, formular hipóteses e registrar a conclusão em etapas.",
+            "Disponibilizar esquema visual com dados do caso, pistas principais e espaço para comparar hipóteses antes da Hora da verdade.",
+            "Permitir respostas em tópicos, setas, desenho explicativo ou fala mediada antes do registro final escrito.",
+        ]
+
+    if tipo == "aula_pratica":
+        return [
+            "Apresentar materiais, procedimentos e objetivos da prática em sequência visual curta, com retomada oral antes do início da atividade.",
+            "Permitir registro por desenho, esquema, tabela simples ou explicação oral para estudantes com dificuldade de escrita durante a observação.",
+            "Organizar grupos cooperativos com funções definidas para garantir participação de todos na prática e na discussão dos resultados.",
+        ]
+
+    if tipo == "revisao_consolidacao":
+        return [
+            "Disponibilizar glossário, quadro de palavras-chave ou comparação entre conceitos para apoiar a revisão antes das respostas individuais.",
+            "Conduzir o quiz ou a retomada com leitura mediada das questões, dando tempo de resposta e retomando os termos centrais no quadro.",
+            "Permitir respostas em frases curtas, tópicos ou explicação oral mediada antes da versão discursiva completa.",
+        ]
+
+    if tipo == "impacto_socioambiental":
+        return [
+            "Ler coletivamente os dados, mapas, gráficos ou notícias antes da análise individual, destacando fonte, título, legenda e palavras-chave.",
+            "Organizar perguntas orientadoras para ajudar a turma a relacionar o fenômeno biológico a impactos ambientais, sociais ou de saúde pública.",
+            "Permitir registro por tópicos, setas, tabela simples ou fala mediada para apoiar a interpretação crítica das evidências.",
+        ]
+
+    return [
+        "Utilizar imagens, esquemas, modelos visuais e exemplos do cotidiano para tornar o conceito biológico mais concreto.",
+        "Organizar a atividade em etapas curtas, com apoio no quadro para destacar processo, evidências, palavras-chave e síntese final.",
+        "Permitir diferentes formas de resposta, como tópicos, desenho, setas, frases curtas ou explicação oral mediada conforme a necessidade.",
+    ]
+
+
 def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 estratégias específicas com ☑.
 
@@ -753,6 +793,13 @@ def gerar_acessibilidade_aprimorada(
     if perfil == "ciencias_ef":
         return _limitar_itens(
             _acessibilidade_ciencias(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "biologia":
+        return _limitar_itens(
+            _acessibilidade_biologia(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

@@ -267,6 +267,45 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Encerramento", "encerramento"),
         ]
 
+    if perfil == "biologia":
+        if tipo == "aula_desafio":
+            return [
+                ("Desafio da semana", "desafio"),
+                ("Entendendo o problema", "entendendo_problema"),
+                ("Solucao em acao", "solucao_acao"),
+                ("Hora da verdade", "hora_verdade"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "aula_pratica":
+            return [
+                ("Relembre", "relembre"),
+                ("Na pratica", "pratica"),
+                ("Discussao dos resultados", "discussao_resultados"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "revisao_consolidacao":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "impacto_socioambiental":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+
     if perfil == "educacao_financeira":
         etapas = [
             ("Para começar", "para_comecar"),
@@ -1396,6 +1435,107 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
     }
 
 
+def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "", habilidade: str = "") -> dict[str, str] | None:
+    """Gerador especializado de frases para Biologia."""
+    base = normalizar_texto(" ".join([tema, texto_base, atividade_extraida, habilidade]))
+    conceito_seguro = conceito if normalizar_texto(conceito) not in {"biologia", "geral", ""} else tema
+    atividade = atividade_extraida or "as atividades propostas no material"
+
+    contexto = "uma imagem, noticia, dado ou situacao concreta apresentada no material"
+    if any(k in base for k in ["reportagem", "noticia", "amazonia", "inpe", "ods", "matriz energetica", "saude publica", "desmatamento"]):
+        contexto = "um dado real, noticia ou problema socioambiental apresentado no material"
+    elif any(k in base for k in ["grafico", "infografico", "esquema", "de olho no modelo"]):
+        contexto = "o modelo visual cientifico apresentado no material"
+
+    if tipo == "aula_desafio":
+        return {
+            "desafio": (
+                f"Apresentar o caso real relacionado a {tema}, destacando os dados mais impactantes e convidando a turma a levantar hipoteses iniciais sem corrigi-las neste momento."
+            ),
+            "entendendo_problema": (
+                f"Conduzir a analise das evidencias em etapas, revelando gradualmente as informacoes do caso e explicando {conceito_seguro} com apoio do raciocinio cientifico, sempre um passo de cada vez."
+            ),
+            "solucao_acao": (
+                f"Organizar duplas ou grupos para elaborar hipoteses, comparar explicacoes e propor respostas fundamentadas para o caso, usando como base {atividade}."
+            ),
+            "hora_verdade": (
+                "Retomar as hipoteses construidas pelos grupos, apresentar as respostas esperadas e discutir por que algumas explicacoes se aproximam mais das evidencias do que outras."
+            ),
+            "encerramento": (
+                f"Encerrar com Com suas palavras, pedindo que os estudantes expliquem o que o caso ajudou a compreender sobre {tema} e quais medidas ou conclusoes cientificas podem ser defendidas."
+            ),
+        }
+
+    if tipo == "aula_pratica":
+        return {
+            "relembre": (
+                f"Retomar com a turma os conceitos necessarios para observar o fenomeno relacionado a {tema}, recuperando equacoes, etapas ou ideias-chave antes da pratica."
+            ),
+            "pratica": (
+                f"Apresentar os materiais e orientar a montagem da atividade experimental em etapas curtas, pedindo que os estudantes observem, registrem e relacionem o que ocorre com {conceito_seguro}. Atividade central: {atividade}."
+            ),
+            "discussao_resultados": (
+                "Conduzir a discussao dos resultados com Todo mundo escreve, comparando observacoes, confirmando ou revendo hipoteses e explicitando as evidencias mais importantes."
+            ),
+            "encerramento": (
+                f"Finalizar solicitando que os estudantes expliquem, com suas palavras, o que foi observado e como a pratica ajudou a compreender {tema}."
+            ),
+        }
+
+    if tipo == "revisao_consolidacao":
+        return {
+            "relembre": (
+                f"Retomar termos e conceitos ja estudados sobre {tema}, pedindo que a turma explique com suas palavras o que lembra antes da correcao formal."
+            ),
+            "foco": (
+                f"Conduzir a revisao por meio de quiz, comparacoes e retomada dos conceitos centrais de {conceito_seguro}, esclarecendo diferencas, relacoes e exemplos."
+            ),
+            "pratica": (
+                f"Orientar leitura, classificacao ou resolucao das questoes de consolidacao, solicitando que os estudantes voltem ao material para localizar evidencias e justificar respostas. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Encerrar com perguntas comparativas e Com suas palavras, consolidando o que foi retomado sobre {tema} e identificando duvidas que ainda precisam de reforco."
+            ),
+        }
+
+    if tipo == "impacto_socioambiental":
+        return {
+            "para_comecar": (
+                f"Iniciar a aula apresentando {contexto} sobre {tema}, propondo uma pergunta disparadora que ajude a turma a relacionar fenomenos biologicos, sociedade e ambiente."
+            ),
+            "foco": (
+                f"Explicar {conceito_seguro} de forma progressiva, relacionando o conteudo a impactos ambientais, saude publica, sustentabilidade ou responsabilidade coletiva, sempre um passo de cada vez."
+            ),
+            "de_olho_modelo": (
+                "Apresentar o grafico, infografico, mapa ou esquema do material e orientar a leitura, pedindo que os estudantes identifiquem dados-chave, comparacoes e implicacoes do modelo visual."
+            ),
+            "pratica": (
+                f"Propor atividade de analise de caso, texto ou dados, solicitando registro individual com base em evidencias e conexoes entre ciencia, ambiente e vida cotidiana. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Encerrar retomando a conexao entre {tema} e suas implicacoes sociais, ambientais ou de saude, com perguntas de sintese em Com suas palavras."
+            ),
+        }
+
+    return {
+        "para_comecar": (
+            f"Iniciar a aula com {contexto} relacionado a {tema}, convidando os estudantes a levantar hipoteses e ativar conhecimentos previos antes da definicao formal."
+        ),
+        "foco": (
+            f"Explicar {conceito_seguro} em etapas sequenciais, destacando processo, relacoes de causa e consequencia e exemplos biologicos que ajudem a turma a compreender o conteudo um passo de cada vez."
+        ),
+        "pause": (
+            "Propor um Pause e responda antes da atividade pratica, com tempo breve para resposta individual e correcao dialogada baseada nas evidencias e no conceito central."
+        ),
+        "pratica": (
+            f"Orientar a aplicacao do conceito em leitura, classificacao, interpretacao de modelo ou atividade investigativa, pedindo registro individual e justificativa cientifica. Atividade central: {atividade}."
+        ),
+        "encerramento": (
+            f"Finalizar com Com suas palavras, pedindo que os estudantes sintetizem o que aprenderam sobre {tema} e como esse conhecimento se conecta a situacoes reais."
+        ),
+    }
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
     turma: str, tecnicas: dict, texto_base: str = "",
@@ -1526,7 +1666,13 @@ def _frases_por_contexto(
             base.update(_frases_ciencias)
             return base
 
-    elif perfil in {"biologia", "quimica", "fisica"}:
+    elif perfil == "biologia":
+        _frases_biologia = _metodologia_biologia(texto_base, tema, tipo, conceito, atividade_extraida, habilidade)
+        if _frases_biologia is not None:
+            base.update(_frases_biologia)
+            return base
+
+    elif perfil in {"quimica", "fisica"}:
         base["para_comecar"] = (
             f"Contextualizar {tema} com uma situação-problema, imagem, dado ou exemplo do cotidiano. Propor "
             f"{t_disc} para que os estudantes antecipem explicações e levantem evidências."

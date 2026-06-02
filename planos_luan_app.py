@@ -2012,8 +2012,15 @@ hero_img = _asset_data_uri("hero-planejamento.svg")
 st.markdown(
     f"""
     <div class="app-hero">
+        <div class="app-hero__eyebrow">PLANOS_LUAN</div>
         <div class="app-title">Plano de Aula Inteligente</div>
-        <div class="app-subtitle">Gere planejamentos oficiais a partir dos PDFs das aulas.</div>
+        <div class="app-subtitle">Organize cabeçalho, horários, PDFs, revisão e geração final em um fluxo mais claro, com aparência de sistema e menos trabalho manual.</div>
+        <div class="hero-pills">
+            <span class="hero-pill">📘 Cabeçalho e turma</span>
+            <span class="hero-pill">📎 PDFs das aulas</span>
+            <span class="hero-pill">✏️ Revisão antes do DOCX</span>
+            <span class="hero-pill">📄 Saída pronta para entrega</span>
+        </div>
     </div>
     """, unsafe_allow_html=True,
 )
@@ -2022,6 +2029,7 @@ col_limpar, _ = st.columns([1, 5])
 with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=limpar_dados_tela)
 
 st.markdown('<div class="section-card"></div><div class="section-title">Área de trabalho</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Escolha o modo de uso do sistema antes de preencher os dados do plano.</div>', unsafe_allow_html=True)
 modo_tela = st.radio("Área do PLANOS_LUAN", ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"], horizontal=True, key="modo_tela", label_visibility="collapsed")
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
@@ -2044,11 +2052,13 @@ escolha_template = "MODELOCDP.docx" if modo_cdp_dedicado else OPCAO_MODELO_AUTOM
 pdfs_aulas_files = []
 
 st.markdown('<div class="section-title">🧠 Configuração de Inteligência</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Defina se o processamento será manual ou apoiado por IA.</div>', unsafe_allow_html=True)
 modo_ia = st.radio("Motor de processamento", ["Sem IA", "OpenAI", "Gemini"], index=0, horizontal=True, key="modo_ia")
 modelo_openai = os.environ.get("OPENAI_MODEL", MODELO_OPENAI_PADRAO) if modo_ia == "OpenAI" else ""
 modelo_gemini = os.environ.get("GEMINI_MODEL", MODELO_GEMINI_PADRAO) if modo_ia == "Gemini" else ""
 
 st.markdown('<div class="section-title">📝 Dados do Cabeçalho</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Preencha professor, disciplina, turma, período e dados que irão para o documento final.</div>', unsafe_allow_html=True)
 col_prof, col_disciplina = st.columns([1, 1])
 with col_prof:
     professor_selecionado = st.selectbox("Professor", _NOMES_PROFESSORES, key="professor_select")
@@ -2175,12 +2185,60 @@ modalidade_eja = False
 if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
     modalidade_eja = st.selectbox("Modalidade", ["Regular", "EJA"], key="modalidade_eja") == "EJA"
 
+def _resumo_tela(valor: str, fallback: str = "Não definido") -> str:
+    return str(valor).strip() if str(valor or "").strip() else fallback
+
 semana = ""
 observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
 turma_espelho = _selecionar_turma("2ª Série/Turma", "turma_espelho_select", "turma_espelho") if gerar_turma_espelho else ""
 
+st.markdown(
+    f"""
+    <div class="summary-grid">
+        <div class="summary-card">
+            <span class="summary-card__label">Professor</span>
+            <span class="summary-card__value">{_resumo_tela(professor, "Selecione o professor")}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-card__label">Disciplina</span>
+            <span class="summary-card__value">{_resumo_tela(disciplina, "Selecione a disciplina")}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-card__label">Turma</span>
+            <span class="summary-card__value">{_resumo_tela(turma, "Selecione a turma")}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-card__label">Mês / Bimestre</span>
+            <span class="summary-card__value">{_resumo_tela(mes, "Mês")} • {_resumo_tela(bimestre, "Bimestre")}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-card__label">Escola</span>
+            <span class="summary-card__value">{_resumo_tela(escola)}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-card__label">Componente</span>
+            <span class="summary-card__value">{_resumo_tela(componente_curricular, "Usando a disciplina")}</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="step-strip">
+        <span class="step-pill step-pill--active">1. Configurar dados</span>
+        <span class="step-pill">2. Processar PDFs</span>
+        <span class="step-pill">3. Revisar conteúdo</span>
+        <span class="step-pill">4. Gerar DOCX</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown('<div class="section-title">📚 Gestão das Aulas</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Defina o modo de envio e organize as aulas que serão processadas neste plano.</div>', unsafe_allow_html=True)
 if disciplina_cdp:
     if eh_cdp_multisseriada(disciplina):
         col1, col2 = st.columns([2, 1])
@@ -2298,8 +2356,23 @@ else:
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Confira a organização das aulas e inicie o processamento para transformar os PDFs em blocos prontos para revisão.</div>', unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="process-panel">
+        <div class="panel-title">Tudo pronto para processar</div>
+        <div class="panel-text">Revise rapidamente as datas, horários e PDFs vinculados. Quando estiver ok, o sistema prepara as aulas para você revisar antes de gerar o documento final.</div>
+        <div class="panel-pills">
+            <span class="panel-pill">Fluxo guiado</span>
+            <span class="panel-pill">Menos retrabalho</span>
+            <span class="panel-pill">Revisão antes do DOCX</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 geracao_em_andamento = bool(st.session_state.get("geracao_em_andamento", False))
-if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento):
+if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
     erro = validar_entrada(modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma, bimestre, mes, aulas_previstas_manual, pdfs_enviados_val, pdfs_necessarios)
@@ -2332,10 +2405,30 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
 
 if st.session_state.get("turmas_processadas"):
     st.markdown('<div class="section-title">✏️ Passo 2: Revisão</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Ajuste tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes de montar o arquivo final.</div>', unsafe_allow_html=True)
+    total_turmas_revisao = len(st.session_state["turmas_processadas"])
+    total_aulas_revisao = sum(len(td.get("aulas", [])) for td in st.session_state["turmas_processadas"])
+    st.markdown(
+        f"""
+        <div class="review-shell">
+            <div class="panel-title">Revisão pedagógica centralizada</div>
+            <div class="panel-text">Você está revisando <strong>{total_aulas_revisao}</strong> aula(s) distribuídas em <strong>{total_turmas_revisao}</strong> turma(s). Abra apenas os blocos que quiser ajustar.</div>
+            <div class="panel-pills">
+                <span class="panel-pill">Tema</span>
+                <span class="panel-pill">Metodologia</span>
+                <span class="panel-pill">Acompanhamento</span>
+                <span class="panel-pill">Acessibilidade</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     turmas_revisadas = []
     rev_tok = st.session_state.get("revisao_token", 0)
     for t_idx, td in enumerate(st.session_state["turmas_processadas"]):
-        st.markdown(f"### {td['turma']}")
+        total_aulas_turma = len(td.get("aulas", []))
+        st.markdown(f'<div class="review-class-title">{td["turma"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="review-class-meta">{total_aulas_turma} aula(s) prontas para conferência nesta turma.</div>', unsafe_allow_html=True)
         aulas_edit = []
         for a_idx, aula in enumerate(td["aulas"]):
             with st.expander(f"Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
@@ -2352,6 +2445,15 @@ if st.session_state.get("turmas_processadas"):
                 aulas_edit.append(ae)
         turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
         
+    st.markdown(
+        """
+        <div class="download-panel">
+            <div class="panel-title">Última conferência antes do arquivo final</div>
+            <div class="panel-text">Se estiver tudo certo na revisão, gere o documento final para liberar os botões de download logo abaixo.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if st.button("GERAR DOCX", type="primary"):
         planos_gerados = []
         for tr in turmas_revisadas:
@@ -2363,6 +2465,21 @@ if st.session_state.get("turmas_processadas"):
 if st.session_state.get("planos_gerados"):
     planos_gerados = st.session_state["planos_gerados"]
     st.markdown('<div class="section-title">📥 Passo 3: Download</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Baixe o arquivo final já pronto para envio ou salve um pacote com todas as turmas processadas.</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="download-panel">
+            <div class="panel-title">Arquivos finais disponíveis</div>
+            <div class="panel-text">O sistema preparou <strong>{len(planos_gerados)}</strong> arquivo(s) final(is). Você pode baixar um documento único ou um pacote completo, conforme a quantidade de turmas processadas.</div>
+            <div class="panel-pills">
+                <span class="panel-pill">DOCX pronto</span>
+                <span class="panel-pill">Compatível com modelo</span>
+                <span class="panel-pill">Entrega organizada</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if len(planos_gerados) == 1:
         st.download_button("Baixar DOCX", data=planos_gerados[0]["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(planos_gerados[0]["turma"], disciplina), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     else:
