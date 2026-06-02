@@ -7,14 +7,39 @@ atividades praticas e contexto de aula a partir do texto extraido.
 
 import re
 import unicodedata
+import pdfplumber
 
+from config import PDF_TEXTO_LIMITE_CHARS
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 
 
-def _normalizar_texto(texto: str) -> str:
+def limpar_linhas(texto: str) -> list[str]:
+    linhas = []
+    for linha in (texto or "").splitlines():
+        linha = re.sub(r"\s+", " ", linha).strip()
+        if linha:
+            linhas.append(linha)
+    return linhas
+
+
+def normalizar_texto(texto: str) -> str:
     texto = unicodedata.normalize("NFKD", texto or "")
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return re.sub(r"\s+", " ", texto).strip().lower()
+
+
+def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS) -> str:
+    partes = []
+    with pdfplumber.open(caminho_pdf) as pdf:
+        for pagina in pdf.pages:
+            partes.append(pagina.extract_text() or "")
+            if sum(len(parte) for parte in partes) >= limite_chars:
+                break
+    return "\n".join(partes)[:limite_chars]
+
+
+def _normalizar_texto(texto: str) -> str:
+    return normalizar_texto(texto)
 
 
 def _limpar_trecho(texto: str) -> str:
