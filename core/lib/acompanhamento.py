@@ -20,19 +20,34 @@ from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
     "matematica": {
         "verificacao": [
-            "{v_obs} se os estudantes retomam procedimentos, propriedades e relações matemáticas já trabalhadas, corrigindo estratégias quando necessário.",
-            "{v_ver} se os estudantes justificam os caminhos escolhidos, comparam resultados e identificam onde precisam rever o raciocínio.",
-            "{v_acomp} se os registros mostram autonomia progressiva na resolução, conferência e validação das respostas.",
+            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
+            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
+            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
+        ],
+        "khan": [
+            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
+            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
+            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
         ],
         "modelagem": [
-            "{v_ver} se os estudantes identificam os elementos matemáticos centrais de {tema} e representam as relações envolvidas de modo coerente.",
-            "{v_obs} se os estudantes utilizam estratégias, registros, cálculos e justificativas compatíveis com a situação-problema proposta.",
-            "{v_acomp} se os estudantes interpretam os resultados, comparam caminhos de resolução e validam as conclusões construídas ao longo da aula.",
+            "☑ Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
+            "☑ Acompanhar se a turma reconhece a relação entre o resultado obtido e o contexto da situação estudada, evitando respostas apenas numéricas.",
+            "☑ Conferir se os registros finais articulam cálculo, interpretação e conclusão, demonstrando compreensão do conceito trabalhado.",
+        ],
+        "grafico": [
+            "☑ Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informações apresentadas em gráficos ou tabelas do material.",
+            "☑ Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusões sem evidências.",
+            "☑ Observar se conseguem relacionar a representação gráfica ao contexto real da situação estudada.",
+        ],
+        "resolucao_problemas": [
+            "☑ Verificar se os estudantes aplicam as etapas do método de resolução: compreender, planejar, executar e verificar.",
+            "☑ Acompanhar se a turma justifica a estratégia escolhida e verifica se o resultado faz sentido no contexto do problema.",
+            "☑ Observar se os estudantes conseguem resolver problemas variados, transferindo o raciocínio para situações novas.",
         ],
         "_default": [
-            "{v_obs} se os estudantes mobilizam conhecimentos prévios e constroem estratégias adequadas para resolver as situações relacionadas a {tema}.",
-            "{v_ver} se os estudantes explicitam procedimentos, organizam os registros e conseguem explicar como chegaram às respostas.",
-            "{v_acomp} se os estudantes revisam, testam e validam os resultados com progressiva autonomia durante as etapas da aula.",
+            "☑ Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
+            "☑ Acompanhar se a turma reconhece a relação entre o resultado obtido e o contexto da situação estudada, evitando respostas apenas numéricas.",
+            "☑ Conferir se os registros finais articulam cálculo, interpretação e conclusão, demonstrando compreensão do conceito trabalhado.",
         ],
     },
     "lingua_portuguesa_ef": {
@@ -582,6 +597,43 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
     return saida[:maximo] if len(saida) >= minimo else saida
 
 
+
+def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Detecta o tipo de aula de Matemática pelo contexto e retorna 3 itens específicos com ☑."""
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    # Aula Khan ou Verificação
+    if any(k in base for k in ["verificacao", "revisao", "khan", "relembre", "bit.ly", "khanmigo"]):
+        return [
+            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
+            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
+            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
+        ]
+
+    # Aula de gráfico ou representação
+    if any(k in base for k in ["grafico", "representacao grafica", "plano cartesiano", "eixo", "tabela", "pares ordenados"]):
+        return [
+            "☑ Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informações apresentadas em gráficos ou tabelas do material.",
+            "☑ Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusões sem evidências.",
+            "☑ Observar se conseguem relacionar a representação gráfica ao contexto real da situação estudada.",
+        ]
+
+    # Aula de resolução de problemas
+    if any(k in base for k in ["resolucao de problemas", "metodo de polya", "polya"]):
+        return [
+            "☑ Verificar se os estudantes aplicam as etapas do método de resolução: compreender, planejar, executar e verificar.",
+            "☑ Acompanhar se a turma justifica a estratégia escolhida e verifica se o resultado faz sentido no contexto do problema.",
+            "☑ Observar se os estudantes conseguem resolver problemas variados, transferindo o raciocínio para situações novas.",
+        ]
+
+    # Padrão: conceito_novo / modelagem
+    return [
+        "☑ Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
+        "☑ Acompanhar se a turma reconhece a relação entre o resultado obtido e o contexto da situação estudada, evitando respostas apenas numéricas.",
+        "☑ Conferir se os registros finais articulam cálculo, interpretação e conclusão, demonstrando compreensão do conceito trabalhado.",
+    ]
+
+
 def gerar_acompanhamento_aprimorado(
     tema: str,
     aprendizagem: str = "",
@@ -612,6 +664,13 @@ def gerar_acompanhamento_aprimorado(
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _limitar_itens(
             _acompanhamento_lingua_portuguesa(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "matematica":
+        return _limitar_itens(
+            _acompanhamento_matematica(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

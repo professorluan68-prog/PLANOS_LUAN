@@ -40,15 +40,48 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
     """Define as etapas metodológicas adequadas ao perfil e tipo de aula."""
 
     if perfil == "matematica":
+        if tipo == "khan":
+            return [
+                ("Abertura", "abertura"),
+                ("Prática na Khan Academy", "pratica_khan"),
+                ("Fechamento", "fechamento_khan"),
+            ]
         if tipo == "verificacao":
             return [
                 ("Relembre", "para_comecar"),
                 ("Na prática", "pratica"),
                 ("Encerramento", "encerramento"),
             ]
+        if tipo == "modelagem":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "grafico":
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo in {"resolucao_problemas", "tecnologia"}:
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Pause e responda", "pause"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        # conceito_novo e demais tipos do catálogo de conteúdo
         return [
             ("Para começar", "para_comecar"),
             ("Foco no conteúdo", "foco"),
+            ("De olho no modelo", "de_olho_modelo"),
             ("Pause e responda", "pause"),
             ("Na prática", "pratica"),
             ("Encerramento", "encerramento"),
@@ -291,6 +324,134 @@ def _conceito_projeto_vida(conceito: str, tema: str, texto_base: str, atividade_
     if any(termo in base_contexto for termo in ["print", "post", "postar", "digital", "rede", "online", "internet"]):
         return "exposicao e responsabilidade no ambiente digital"
     return "escolhas, convivencia e responsabilidade"
+
+
+def _metodologia_matematica(texto_base: str, tema: str, tipo: str) -> list[dict]:
+    """Gerador especializado de etapas para o perfil Matemática.
+
+    Retorna lista de dicts {titulo, texto} diferenciada por tipo de aula:
+    'conceito_novo', 'verificacao', 'khan', 'modelagem', 'grafico',
+    'resolucao_problemas', 'tecnologia'.
+
+    Chame este gerador a partir de _frases_por_contexto quando perfil=='matematica'.
+    A lista retornada sobrepõe o dicionário base de frases usado pelo motor geral.
+    """
+    if tipo == "khan":
+        return [
+            {
+                "titulo": "Abertura",
+                "texto": f"Retomar com a turma os conceitos principais relacionados a {tema}, levantando conhecimentos prévios e orientando o acesso à plataforma.",
+            },
+            {
+                "titulo": "Prática na Khan Academy",
+                "texto": f"Encaminhar os estudantes para a prática no aplicativo, reforçando que o objetivo é revisar, testar hipóteses, aprender com os erros e repetir a atividade sempre que necessário até dominar a habilidade. Orientar paralelamente os que precisarem de atividades no caderno.",
+            },
+            {
+                "titulo": "Fechamento",
+                "texto": f"Retomar coletivamente as principais dúvidas percebidas durante a prática, socializar estratégias de resolução e registrar os pontos que precisarão ser reforçados, utilizando o desempenho dos estudantes no aplicativo como apoio para o acompanhamento.",
+            },
+        ]
+
+    if tipo == "verificacao":
+        return [
+            {
+                "titulo": "Relembre",
+                "texto": f"Retomar com a turma os conceitos principais trabalhados no bloco, relacionando {tema} a situações do cotidiano e levantando conhecimentos prévios dos estudantes antes das atividades.",
+            },
+            {
+                "titulo": "Na prática",
+                "texto": f"Orientar os estudantes na resolução das atividades no caderno, trabalhando detalhadamente as resoluções e propondo outras estratégias quando necessário. Circular pela sala para identificar dificuldades e oferecer mediação individualizada.",
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": f"Retomar coletivamente as principais dúvidas percebidas durante a atividade, socializar estratégias de resolução e registrar os pontos que precisarão ser reforçados nas próximas aulas.",
+            },
+        ]
+
+    if tipo == "modelagem":
+        return [
+            {
+                "titulo": "Para começar",
+                "texto": f"Iniciar a aula com a situação-problema do material sobre {tema}, incentivando a turma a levantar hipóteses e identificar quais grandezas estão envolvidas. Aplicar Virem e conversem para socializar ideias antes da construção do modelo.",
+            },
+            {
+                "titulo": "Foco no conteúdo",
+                "texto": f"Conduzir a construção do modelo matemático para {tema}, identificando as grandezas envolvidas, estabelecendo a relação entre elas e traduzindo para linguagem algébrica. Destacar que o modelo é uma representação da situação real e que o resultado deve ser interpretado no contexto do problema.",
+            },
+            {
+                "titulo": "De olho no modelo",
+                "texto": f"Apresentar um exemplo comentado mostrando as diferentes representações do conceito: tabular, algébrica e gráfica, mostrando como cada forma revela aspectos distintos da mesma relação matemática.",
+            },
+            {
+                "titulo": "Na prática",
+                "texto": f"Encaminhar atividade de modelagem com registro dos cálculos e justificativa. Reforçar que o resultado deve ser interpretado no contexto, verificando se faz sentido na situação real estudada.",
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": f"Encerrar com síntese: como traduzir uma situação real em linguagem matemática? O que o modelo nos permite descobrir? Aplicar Com suas palavras, incentivando os estudantes a reelaborarem com autonomia.",
+            },
+        ]
+
+    if tipo == "grafico":
+        return [
+            {
+                "titulo": "Para começar",
+                "texto": f"Iniciar a aula com dados ou situação que motiva a representação gráfica de {tema}. Propor discussão em duplas sobre como representar visualmente a relação entre as grandezas.",
+            },
+            {
+                "titulo": "Foco no conteúdo",
+                "texto": f"Conduzir a leitura orientada de gráficos, tabelas ou dados do material, ajudando a turma a interpretar informações, comparar valores e construir conclusões com base nas evidências. Disponibilizar leitura guiada de gráficos, destacando título, eixos, valores e comparação entre os dados.",
+            },
+            {
+                "titulo": "De olho no modelo",
+                "texto": f"Apresentar exemplo comentado explorando as diferentes representações: tabular, algébrica e gráfica de {tema}.",
+            },
+            {
+                "titulo": "Na prática",
+                "texto": f"Propor atividade de aplicação em que os estudantes interpretem dados, construam ou analisem gráficos e registrem conclusões explicando o que as informações revelam sobre {tema}.",
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": f"Encerrar com síntese da leitura gráfica, aplicando Com suas palavras: o que o gráfico/tabela nos mostra sobre {tema}? Que decisões podemos tomar a partir dessas informações?",
+            },
+        ]
+
+    # resolucao_problemas e tecnologia: template de conceito_novo com ajuste no Foco
+    if tipo == "resolucao_problemas":
+        foco_extra = f"Conduzir a resolução seguindo as etapas do método: compreender o problema, construir um plano de ação, executar e verificar a solução. Destacar que a resposta deve ser interpretada no contexto, não apenas numérica."
+    elif tipo == "tecnologia":
+        foco_extra = f"Propor atividade de exploração em que os estudantes utilizem a ferramenta tecnológica disponível para investigar propriedades de {tema}, registrando observações e construindo conclusões a partir dos dados obtidos."
+    else:
+        foco_extra = None
+
+    # Template padrão: conceito_novo (e fallback para resolucao_problemas/tecnologia)
+    etapas = [
+        {
+            "titulo": "Para começar",
+            "texto": f"Iniciar a aula com a situação-problema apresentada no material sobre {tema}, incentivando a turma a levantar hipóteses e antecipar possíveis caminhos de análise. Aplicar a técnica Virem e conversem para que os estudantes discutam em duplas e socializem suas ideias antes da explicação formal.",
+        },
+        {
+            "titulo": "Foco no conteúdo",
+            "texto": foco_extra or f"Desenvolver {tema} de forma progressiva, conectando explicação, exemplo e atividade guiada com mediação passo a passo, destacando dados, operações e interpretação dos resultados. Conduzir a explicação com a técnica Um passo de cada vez, organizando o conteúdo em etapas claras e progressivas.",
+        },
+        {
+            "titulo": "De olho no modelo",
+            "texto": f"Apresentar um exemplo comentado como referência orientadora antes da atividade principal, destacando cada etapa do raciocínio: identificação dos dados, escolha da estratégia, execução e verificação do resultado.",
+        },
+        {
+            "titulo": "Pause e responda",
+            "texto": f"Realizar uma pausa de verificação da aprendizagem para que os estudantes comparem respostas, justifiquem ideias e revisem o raciocínio antes de avançar. Usar a pausa também para verificar quais aprendizagens já estão consolidadas e quais precisam de retomada.",
+        },
+        {
+            "titulo": "Na prática",
+            "texto": f"Encaminhar atividade com registro dos cálculos e breve justificativa, reforçando a relação entre procedimento, resultado e tomada de decisão. Solicitar que os estudantes incluam a interpretação do resultado no contexto da situação estudada.",
+        },
+        {
+            "titulo": "Encerramento",
+            "texto": f"Encerrar a aula com síntese dos pontos principais, retomando especialmente {tema}. Aplicar a técnica Com suas palavras, incentivando os estudantes a reelaborarem o conteúdo com autonomia.",
+        },
+    ]
+    return etapas
 
 
 def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
@@ -743,22 +904,31 @@ def _frases_por_contexto(
         )
 
     elif perfil == "matematica":
-        base["para_comecar"] = (
-            f"Apresentar situação-problema envolvendo {tema} e propor {t_disc} para que os estudantes mobilizem "
-            "conhecimentos prévios, levantem hipóteses e identifiquem o que precisa ser descoberto na situação."
-        )
-        base["foco"] = (
-            f"Explorar {conceito} com exemplos guiados, destacando dados, relações, procedimentos e critérios para "
-            "verificar se o resultado encontrado faz sentido na situação estudada."
-        )
-        base["pratica"] = (
-            f"Orientar {t_reg} com problemas e registros relacionados a {tema}, acompanhando a interpretação "
-            "dos enunciados, a organização dos cálculos e a validação das soluções construídas pela turma."
-        )
-        base["encerramento"] = (
-            f"Encerrar com {t_sint}, sistematizando as estratégias construídas pela turma para compreender e "
-            f"resolver situações relacionadas a {tema} e registrar uma síntese coletiva do que foi aprendido na aula."
-        )
+        # Gerador especializado de Matemática — retorna lista de etapas completas
+        etapas_mat = _metodologia_matematica(texto_base, tema, tipo)
+        # Converte lista de dicts em dicionário de frases para o motor geral
+        for etapa in etapas_mat:
+            chave = normalizar_texto(etapa["titulo"]).replace(" ", "_")
+            base[chave] = etapa["texto"]
+        # Alimenta as chaves canônicas usadas pelos templates de etapas
+        for etapa in etapas_mat:
+            titulo_norm = normalizar_texto(etapa["titulo"])
+            mapa_chaves = {
+                "para comecar": "para_comecar",
+                "relembre": "para_comecar",
+                "abertura": "abertura",
+                "pratica na khan academy": "pratica_khan",
+                "fechamento": "fechamento_khan",
+                "foco no conteudo": "foco",
+                "de olho no modelo": "de_olho_modelo",
+                "pause e responda": "pause",
+                "na pratica": "pratica",
+                "encerramento": "encerramento",
+            }
+            for titulo_key, chave_canon in mapa_chaves.items():
+                if titulo_key in titulo_norm:
+                    base[chave_canon] = etapa["texto"]
+                    break
 
     elif perfil == "tecnologia_inovacao":
         base["para_comecar"] = (

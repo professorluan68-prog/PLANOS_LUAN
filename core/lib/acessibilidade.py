@@ -71,8 +71,8 @@ CATALOGO_ESTRATEGIAS = {
 
 _FALLBACK_POR_PERFIL = {
     "matematica": [
-        "Utilizar resolução comentada, apoio visual e exemplos graduados para favorecer a compreensão do problema, dos procedimentos e das relações matemáticas envolvidas.",
-        "Organizar a atividade em etapas curtas, com retomadas coletivas, comparação de estratégias e destaque para dados, operações e representações essenciais.",
+        "Disponibilizar resolução comentada e exemplos graduados para favorecer a compreensão dos procedimentos e das relações matemáticas envolvidas.",
+        "Organizar a atividade em etapas curtas com retomadas coletivas, comparando estratégias e destacando dados, operações e representações essenciais.",
         "Oferecer mediação individual durante os registros e cálculos, permitindo diferentes formas de resolução, conferência e explicação das respostas.",
     ],
     "lingua_portuguesa_ef": [
@@ -516,6 +516,51 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
     ]
 
 
+
+def _acessibilidade_matematica(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Gera acessibilidade específica para Matemática, diferenciada por tipo de aula."""
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    # Aula Khan ou Verificação
+    if any(k in base for k in ["khan", "khanmigo", "bit.ly", "verificacao", "revisao", "relembre", "retomar", "consolidar"]):
+        return [
+            "Organizar atividades paralelas no caderno para estudantes sem acesso ao dispositivo ou com dificuldade de navegação no aplicativo.",
+            "Oferecer orientação individual sobre como interpretar os feedbacks do aplicativo e utilizá-los para corrigir estratégias.",
+            "Disponibilizar resolução comentada para os estudantes que precisarem de apoio adicional na atividade de revisão.",
+        ]
+
+    # Aula de Gráfico
+    if any(k in base for k in ["grafico", "representacao grafica", "plano cartesiano", "eixo", "pares ordenados", "tabela"]):
+        return [
+            "Ler coletivamente os eixos, legendas e títulos do gráfico ou tabela antes da análise individual.",
+            "Disponibilizar versão simplificada ou ampliada dos dados para apoiar a leitura e interpretação.",
+            "Organizar questões de leitura guiada para orientar os estudantes na interpretação dos dados e na elaboração das conclusões.",
+        ]
+
+    # Aula de Resolução de Problemas
+    if any(k in base for k in ["resolucao de problemas", "metodo de polya", "polya", "todo mundo escreve"]):
+        return [
+            "Apresentar resolucao comentada de um problema similar para servir como referência orientadora antes da atividade individual.",
+            "Organizar a resolução em etapas curtas e visuais: identificação dos dados, escolha da estratégia, cálculo e verificação do resultado.",
+            "Permitir o uso de calculadora, tabuada ou material manipulável para estudantes com dificuldade de cálculo, focando na compreensão do método.",
+        ]
+
+    # Aula de Tecnologia (GeoGebra, calculadora científica)
+    if any(k in base for k in ["geogebra", "calculadora cientifica", "geometria dinamica", "acesse o site"]):
+        return [
+            "Demonstrar cada etapa do uso da ferramenta no projetor antes da exploração individual ou em dupla.",
+            "Organizar roteiro com instruções visuais passo a passo para apoiar estudantes com dificuldade de navegação na ferramenta.",
+            "Permitir que estudantes com dificuldade de acesso ao equipamento participem em dupla ou utilizem recursos impressos equivalentes.",
+        ]
+
+    # Padrão: conceito_novo e modelagem
+    return [
+        "Disponibilizar resolução comentada e exemplos graduados para favorecer a compreensão dos procedimentos e das relações matemáticas envolvidas.",
+        "Organizar a atividade em etapas curtas com retomadas coletivas, comparando estratégias e destacando dados, operações e representações essenciais.",
+        "Oferecer mediação individual durante os registros e cálculos, permitindo diferentes formas de resolução, conferência e explicação das respostas.",
+    ]
+
+
 def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
     saida = []
     for texto in itens or []:
@@ -564,6 +609,13 @@ def gerar_acessibilidade_aprimorada(
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _limitar_itens(
             _acessibilidade_lingua_portuguesa(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "matematica":
+        return _limitar_itens(
+            _acessibilidade_matematica(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

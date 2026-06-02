@@ -246,7 +246,7 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
 
 
 _TIPOS_MATEMATICA = [
-    ("modelagem", ["modelagem", "modelar situacoes", "metodo de polya", "polya", "representar matematicamente", "sentenca matematica"]),
+    ("modelagem", ["modelagem", "modelar situacoes", "metodo de polya", "polya", "representar matematicamente", "sentenca matematica", "modelo matematico", "lei de formacao", "representacao algebrica", "equacionamento", "funcao como modelo"]),
     ("grandezas_medidas", ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]),
     ("algebra", ["equac", "equa", "variavel", "incognita", "express", "polinom", "sistema", "inequac", "logarit", "1 grau", "2 grau", "modulo"]),
     ("funcoes", ["func", "f(x)", "lei de formacao", "dominio", "imagem", "grafico de funcao", "taxa de variacao"]),
@@ -255,6 +255,63 @@ _TIPOS_MATEMATICA = [
     ("geometria", ["geometr", "area", "perimetro", "volume", "angulo", "triangulo", "figura", "solido", "pitagoras", "malha", "trigonom"]),
     ("numeros_operacoes", ["numero", "fracao", "decimal", "porcentagem", "potencia", "raiz", "divisibilidade", "operacao", "mmc", "mdc", "primo"]),
 ]
+
+
+# ── Palavras-chave para classificação de tipo de aula de Matemática ─────────
+
+_MAT_KHAN = ["khan", "bit.ly", "khanmigo", "khan academy", "proficiencia", "login"]
+_MAT_VERIFICACAO = ["verificacao", "revisao", "relembre", "retomar", "consolidar", "sanar duvidas"]
+_MAT_TECNOLOGIA = ["geogebra", "calculadora cientifica", "acesse o site", "geometria dinamica", "aplicativo"]
+_MAT_MODELAGEM = ["modelagem", "modelo matematico", "lei de formacao", "representacao algebrica", "modelar"]
+_MAT_GRAFICO = ["grafico", "representacao grafica", "plano cartesiano", "pares ordenados", "construindo graficos"]
+_MAT_RESOLUCAO = ["resolucao de problemas", "metodo de polya"]
+
+
+def _tipo_aula_matematica(titulo: str, texto: str) -> str:
+    """
+    Classifica o tipo de aula de Matemática com base no título e texto do PDF.
+
+    Retorna: 'khan', 'verificacao', 'tecnologia', 'modelagem', 'grafico',
+             'resolucao_problemas' ou 'conceito_novo'.
+
+    Prioridades:
+        1. khan  — estrutura completamente diferente, identificado por link/nome
+        2. verificacao  — sem conceito novo, começa pela retomada
+        3. tecnologia  — uso de GeoGebra, calculadora científica ou site
+        4. modelagem  — tradução de situação real para linguagem algébrica
+        5. grafico  — construção e leitura de representação gráfica
+        6. resolucao_problemas  — método de Polya ou múltiplas atividades TME
+        7. conceito_novo  — padrão quando nenhuma regra anterior se aplica
+    """
+    t = normalizar_texto(titulo)
+    tx = normalizar_texto(texto)
+
+    # 1. Aula Khan (prioridade máxima — estrutura completamente diferente)
+    if contem_termos(t, _MAT_KHAN) or contem_termos(tx, ["bit.ly", "khanmigo"]):
+        return "khan"
+
+    # 2. Aula de verificação/revisão
+    if contem_termos(t, _MAT_VERIFICACAO):
+        return "verificacao"
+
+    # 3. Aula com tecnologia
+    if contem_termos(tx, _MAT_TECNOLOGIA):
+        return "tecnologia"
+
+    # 4. Aula de modelagem algébrica
+    if contem_termos(t, _MAT_MODELAGEM):
+        return "modelagem"
+
+    # 5. Aula de representação gráfica
+    if contem_termos(t, _MAT_GRAFICO):
+        return "grafico"
+
+    # 6. Aula de resolução de problemas
+    if contem_termos(t, _MAT_RESOLUCAO) or tx.count("todo mundo escreve") >= 4:
+        return "resolucao_problemas"
+
+    # Padrão: aula de conceito novo
+    return "conceito_novo"
 
 _TIPOS_EDUCACAO_FINANCEIRA = [
     ("credito_endividamento", ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]),
@@ -387,7 +444,16 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_EDUCACAO_FINANCEIRA, "decisao_financeira")
 
     if perfil == "matematica":
-        return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_MATEMATICA, "resolucao_problemas")
+        # Classificador especializado por tipo de aula (khan, verificacao, tecnologia,
+        # modelagem, grafico, resolucao_problemas, conceito_novo)
+        tipo_mat = _tipo_aula_matematica(tema, texto)
+        # Se o classificador especializado retornou um tipo metodológico, usa-o.
+        # Para conteúdo matemático (algebra, funcoes etc.) complementa com catálogo.
+        if tipo_mat != "conceito_novo":
+            return tipo_mat
+        # Para conceito_novo, tenta refinar o sub-tipo de conteúdo via catálogo.
+        tipo_conteudo = _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_MATEMATICA, "")
+        return tipo_conteudo if tipo_conteudo else tipo_mat
 
     if perfil == "tecnologia_inovacao":
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_TECNOLOGIA_INOVACAO, "tecnologia_geral")
