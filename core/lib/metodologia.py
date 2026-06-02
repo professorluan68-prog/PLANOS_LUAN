@@ -39,6 +39,80 @@ class ValidadorQualidade:
 def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
     """Define as etapas metodológicas adequadas ao perfil e tipo de aula."""
 
+    if perfil == "ingles":
+        if tipo == "leitura_em":
+            return [
+                ("Para começar", "para_comecar_virem_e_conversem"),
+                ("Vocabulário", "vocabulario_pre_leitura"),
+                ("Hora da leitura", "leitura_texto_principal"),
+                ("Foco no conteúdo", "foco_conteudo_estrategia"),
+                ("Pause e responda", "pause_e_responda"),
+                ("Na prática", "questoes_vestibular"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "gramatica":
+            return [
+                ("Relembre", "relembre_ou_para_comecar"),
+                ("Na prática — Vocabulário", "listening_ou_vocabulario"),
+                ("Foco no conteúdo", "foco_conteudo_gramatica"),
+                ("Pause e responda", "pause_e_responda"),
+                ("Na prática — Exercícios", "exercicios_estruturados"),
+                ("Produção oral", "producao_oral_duplas"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "listening":
+            return [
+                ("Para começar", "para_comecar_virem_e_conversem"),
+                ("Vocabulário", "vocabulario_pre_escuta"),
+                ("Na prática", "listening_atividade"),
+                ("Foco no conteúdo", "foco_conteudo"),
+                ("Pause e responda", "pause_e_responda"),
+                ("Na prática", "pratica_adicional"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "producao_oral":
+            return [
+                ("Relembre", "relembre"),
+                ("Vocabulário", "vocabulario_expressoes"),
+                ("De olho no modelo", "modelo_dialogo"),
+                ("Na prática", "pratica_em_duplas"),
+                ("Produção própria", "producao_propria"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "leitura_literaria":
+            return [
+                ("Para começar", "para_comecar_virem_e_conversem"),
+                ("Foco no conteúdo", "foco_conteudo_estrategia_literaria"),
+                ("Pause e responda", "pause_e_responda"),
+                ("Na prática", "atividades_leitura"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "musica":
+            return [
+                ("Relembre", "relembre_ou_para_comecar"),
+                ("Na prática", "listening_musica"),
+                ("De olho no modelo", "analise_letra"),
+                ("Foco no conteúdo", "foco_conteudo_gramatica"),
+                ("Pause e responda", "pause_e_responda"),
+                ("Na prática", "exercicios_pratica"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        if tipo == "revisao":
+            return [
+                ("Relembre", "relembre_sintese"),
+                ("Na prática", "atividades_revisao_multiplas"),
+                ("Encerramento", "encerramento_com_suas_palavras")
+            ]
+        # vocabulario e fallback geral
+        return [
+            ("Para começar", "para_comecar"),
+            ("Vocabulário", "vocabulario"),
+            ("Foco no conteúdo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na prática", "pratica"),
+            ("Encerramento", "encerramento")
+        ]
+
     if perfil == "matematica":
         if tipo == "khan":
             return [
@@ -940,6 +1014,227 @@ def _metodologia_projeto_vida(texto_base: str, tema: str, tipo: str) -> list[dic
     return _metodologia_projeto_vida(texto_base, tema, "autoconhecimento")
 
 
+def _metodologia_ingles(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "") -> dict[str, str] | None:
+    import re
+    texto_norm = normalizar_texto(texto_base)
+
+    # Extrair perguntas se houver
+    perguntas = re.findall(r"([^?\n]{15,100}\?)", texto_base)
+    pergunta_str = f" \"{perguntas[0].strip()}\"" if perguntas else ""
+
+    atividade = atividade_extraida or "as atividades propostas"
+
+    if tipo == "leitura_em":
+        return {
+            "para_comecar_virem_e_conversem": (
+                f"Iniciar a aula com a técnica Virem e conversem, propondo perguntas sobre {tema} para ativar o conhecimento "
+                f"prévio dos estudantes:{pergunta_str if pergunta_str else ' como o tema se relaciona com o cotidiano deles?'} "
+                f"Socializar as respostas com a turma antes de avançar para o texto principal."
+            ),
+            "vocabulario_pre_leitura": (
+                f"Apresentar o vocabulário temático da aula com apoio visual e prática de pronúncia (listen and repeat), "
+                f"incentivando os estudantes a registrarem as novas palavras no caderno. Destacar palavras cognatas e falsos amigos."
+            ),
+            "leitura_texto_principal": (
+                f"Conduzir a leitura orientada do texto da aula sobre {tema}, explorando cognatas, palavras-chave e estratégias "
+                f"de inferência pelo contexto. Atividade central: {atividade}."
+            ),
+            "foco_conteudo_estrategia": (
+                f"Apresentar e praticar as estratégias de leitura para o tipo de texto da aula: identificação de cognatas, "
+                f"busca por palavras-chave, inferência pelo contexto e análise das imagens para consolidar a compreensão."
+            ),
+            "pause_e_responda": (
+                f"Realizar uma pausa de verificação da aprendizagem com a questão de múltipla escolha do material, "
+                f"solicitando que os estudantes respondam individualmente e justifiquem sua escolha antes da correção coletiva."
+            ),
+            "questoes_vestibular": (
+                f"Propor a resolução de questão de vestibular (ENEM/SARESP/UNESP) presente no material sobre {tema}, "
+                f"orientando os estudantes a aplicar as estratégias de leitura estudadas (eliminação de alternativas e busca de evidências)."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Encerrar a aula com a técnica Com suas palavras, solicitando que os estudantes respondam em inglês "
+                f"às perguntas de síntese do material. Registrar os pontos que precisarão ser retomados."
+            )
+        }
+
+    if tipo == "gramatica":
+        conteudo_gramatica = conceito or tema
+        return {
+            "relembre_ou_para_comecar": (
+                f"Retomar com a turma os principais conceitos ou vocabulário trabalhados na aula anterior relacionados a {tema}, "
+                f"com exemplos e síntese visual no quadro."
+            ),
+            "listening_ou_vocabulario": (
+                f"Conduzir a escuta do áudio de introdução ou apresentar o vocabulário inicial de {tema}, "
+                f"praticando a pronúncia das palavras novas com a técnica listen and repeat."
+            ),
+            "foco_conteudo_gramatica": (
+                f"Retomar os exemplos do texto/áudio e identificar com a turma a estrutura gramatical de {conteudo_gramatica}. "
+                f"Apresentar a regra de forma clara e contextualizada, com exemplos retirados do material."
+            ),
+            "pause_e_responda": (
+                f"Realizar uma pausa de verificação com a questão do material, solicitando que os estudantes decidam "
+                f"e justifiquem a resposta antes da correção coletiva."
+            ),
+            "exercicios_estruturados": (
+                f"Conduzir as atividades de fixação (fill in the blanks, matching ou reorganização de frases) no caderno, "
+                f"orientando o uso do material de apoio. Atividade: {atividade}."
+            ),
+            "producao_oral_duplas": (
+                f"Organizar os estudantes em duplas para a prática oral utilizando o modelo de diálogo e o banco de palavras "
+                f"do material (técnica In pairs), estimulando a troca de papéis."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Encerrar a aula com a técnica Com suas palavras, solicitando que os estudantes produzam uma frase curta "
+                f"em inglês usando a estrutura gramatical trabalhada ({conteudo_gramatica})."
+            )
+        }
+
+    if tipo == "listening":
+        return {
+            "para_comecar_virem_e_conversem": (
+                f"Iniciar com a técnica Virem e conversem para que os estudantes compartilhem o que já sabem sobre o tema {tema}, "
+                f"levantando hipóteses a partir de imagens."
+            ),
+            "vocabulario_pre_escuta": (
+                f"Apresentar as palavras-chave do áudio de {tema} com foco na pronúncia e no significado, preparando a turma "
+                f"para a escuta atenta."
+            ),
+            "listening_atividade": (
+                f"Conduzir a escuta atenta do áudio (técnica Listen to the audio), orientando os estudantes a identificar informações "
+                f"específicas da atividade: {atividade}. Garantir script para estudantes surdos."
+            ),
+            "foco_conteudo": (
+                f"Explicar as estruturas gramaticais e expressões centrais identificadas na conversa gravada, conectando ao uso prático."
+            ),
+            "pause_e_responda": (
+                f"Realizar uma pausa de checagem de compreensão com questão rápida do material antes de avançar para as demais atividades."
+            ),
+            "pratica_adicional": (
+                f"Propor atividade prática baseada no áudio (exercício de true/false ou preenchimento de tabela), em duplas ou individualmente."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Encerrar solicitando que os estudantes citem pelo menos duas informações-chave ouvidas no áudio, utilizando o inglês "
+                f"para sintetizar."
+            )
+        }
+
+    if tipo == "producao_oral":
+        return {
+            "relembre": (
+                f"Relembrar expressões e vocabulário úteis para situações cotidianas semelhantes a {tema}, "
+                f"praticando brevemente a pronúncia com a classe."
+            ),
+            "vocabulario_expressoes": (
+                f"Apresentar as expressões idiomáticas ou alterações de conversação do material úteis para a interação oral sobre {tema}."
+            ),
+            "modelo_dialogo": (
+                f"Apresentar o modelo de diálogo do material e conduzir a leitura em voz alta com toda a classe (listen and repeat) "
+                f"para fixar entonação e pronúncia."
+            ),
+            "pratica_em_duplas": (
+                f"Organizar a prática oral do diálogo em duplas (In pairs), orientando que troquem de papéis e variem as informações "
+                f"do diálogo conforme as opções do material."
+            ),
+            "producao_propria": (
+                f"Propor que as duplas criem e encenem sua própria versão do diálogo ou realizem a produção oral solicitada: {atividade}."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Pedir que algumas duplas voluntárias encenem o diálogo para a classe. Valorizar a comunicação e o esforço de fala em inglês."
+            )
+        }
+
+    if tipo == "leitura_literaria":
+        return {
+            "para_comecar_virem_e_conversem": (
+                f"Iniciar a aula ativando o conhecimento dos alunos sobre o autor ou gênero literário do trecho a ser lido em {tema}, "
+                f"propondo hipóteses com base em ilustrações ou títulos."
+            ),
+            "foco_conteudo_estrategia_literaria": (
+                f"Apresentar estratégias de leitura literária: identificação de personagens, cenários, adjetivos de descrição "
+                f"física ou psicológica, e análise do tom positivo ou negativo do autor."
+            ),
+            "pause_e_responda": (
+                f"Realizar uma pausa de verificação sobre o fragmento literário lido, pedindo que os estudantes justifiquem "
+                f"a resposta correta."
+            ),
+            "atividades_leitura": (
+                f"Orientar a análise detalhada do trecho literário proposto, localizando adjetivos e descrições cruciais. "
+                f"Atividade principal: {atividade}."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Encerrar pedindo que os estudantes resumam o conflito do personagem ou a ideia principal do trecho literário "
+                f"com suas palavras em inglês."
+            )
+        }
+
+    if tipo == "musica":
+        return {
+            "relembre_ou_para_comecar": (
+                f"Iniciar a aula conectando com o artista ou tema da canção de hoje relacionada a {tema}, "
+                f"despertando o interesse e a familiaridade dos estudantes com a música."
+            ),
+            "listening_musica": (
+                f"Conduzir a escuta de um fragmento ou da música completa (usando lyric video no YouTube), incentivando "
+                f"a turma a acompanhar a letra e cantar junto."
+            ),
+            "analise_letra": (
+                f"Conduzir a leitura e análise de trechos da letra da música, identificando o tema central e os novos "
+                f"vocabulários no contexto lírico."
+            ),
+            "foco_conteudo_gramatica": (
+                f"Destacar a estrutura gramatical de {conceito or tema} presente nos versos da canção, analisando a regra a partir do uso real."
+            ),
+            "pause_e_responda": (
+                f"Realizar uma pausa formativa para discutir o significado de versos específicos da música ou sobre a estrutura gramatical estudada."
+            ),
+            "exercicios_pratica": (
+                f"Propor exercícios práticos como matching de versos, completar lacunas da letra da música (fill in the blanks) "
+                f"ou ordenação de estrofes. Atividade: {atividade}."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Encerrar pedindo aos alunos para expressarem sua opinião sobre a música usando uma frase simples em inglês "
+                f"(ex: 'I like this song because...')."
+            )
+        }
+
+    if tipo == "revisao":
+        return {
+            "relembre_sintese": (
+                f"Iniciar a aula revisando os principais pontos lexicais e gramaticais trabalhados nas últimas aulas relacionados a {tema}, "
+                f"usando esquemas resumidos no quadro."
+            ),
+            "atividades_revisao_multiplas": (
+                f"Conduzir a resolução das atividades de revisão e consolidação do bloco (exercícios práticos e simulados). Atividade: {atividade}."
+            ),
+            "encerramento_com_suas_palavras": (
+                f"Pedir que os estudantes citem pelo menos 3 coisas (regras, palavras ou frases) que aprenderam a fazer em inglês neste bloco."
+            )
+        }
+
+    # Fallback / Vocabulário
+    return {
+        "para_comecar": (
+            f"Iniciar a aula ativando os conhecimentos prévios sobre o vocabulário de {tema}. Propor discussão rápida em duplas."
+        ),
+        "vocabulario": (
+            f"Apresentar o vocabulário de {tema} com apoio de imagens e prática de pronúncia usando a técnica listen and repeat."
+        ),
+        "foco": (
+            f"Formalizar o vocabulário e as expressões do material no quadro, explicando classe gramatical e usos."
+        ),
+        "pause": (
+            f"Realizar uma pausa para checagem rápida de vocabulário com perguntas direcionadas aos estudantes."
+        ),
+        "pratica": (
+            f"Conduzir a atividade prática com o banco de palavras e exercícios do material. Atividade: {atividade}."
+        ),
+        "encerramento": (
+            f"Encerrar pedindo aos estudantes que usem 3 palavras novas da aula de hoje em inglês em frases curtas no caderno."
+        )
+    }
+
+
 
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
@@ -997,6 +1292,12 @@ def _frases_por_contexto(
     _ajustar_por_recurso(base, recurso_principal, tema, atividade_extraida)
 
     # Ajustes por perfil
+    if perfil == "ingles":
+        _frases_ingles = _metodologia_ingles(texto_base, tema, tipo, conceito, atividade_extraida)
+        if _frases_ingles is not None:
+            base.update(_frases_ingles)
+            return base
+
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         # Delegar para o gerador especializado de LP se o tipo for reconhecido
         _frases_lp = _metodologia_lingua_portuguesa(texto_base, tema, tipo)

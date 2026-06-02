@@ -701,6 +701,73 @@ def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: st
     ]
 
 
+def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 itens específicos com ☑.
+
+    Cobre as 8 tipologias:
+    - leitura_em
+    - gramatica
+    - listening
+    - vocabulario
+    - producao_oral
+    - leitura_literaria
+    - musica
+    - revisao
+    """
+    from core.lib.classificador import detectar_tipo_aula
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Língua Inglesa")
+    conteudo = tema
+
+    if tipo == "leitura_em":
+        return [
+            f"☑ Verificar se os estudantes identificam corretamente as informações gerais e específicas do texto sobre {conteudo}, localizando evidências no texto para justificar as respostas.",
+            "☑ Acompanhar se a turma aplica as estratégias de leitura apresentadas (palavras-chave, cognatas, inferência pelo contexto) para resolver as questões de múltipla escolha.",
+            "☑ Observar se os estudantes conseguem eliminar as alternativas incorretas com base em trechos do texto, explicando o raciocínio utilizado."
+        ]
+    elif tipo == "gramatica":
+        return [
+            f"☑ Verificar se os estudantes identificam e utilizam corretamente a estrutura gramatical de {conteudo} nos exercícios propostos.",
+            f"☑ Acompanhar se a turma consegue produzir frases em inglês usando {conteudo} de forma comunicativa, não apenas mecânica.",
+            "☑ Observar se os estudantes reconhecem os exemplos da estrutura gramatical em textos e áudios autênticos, conectando a regra ao uso real."
+        ]
+    elif tipo == "listening":
+        return [
+            f"☑ Verificar se os estudantes identificam as informações gerais e específicas solicitadas durante a escuta do áudio sobre {conteudo}.",
+            "☑ Acompanhar se a turma utiliza o vocabulário apresentado antes da escuta para compreender o áudio, sem depender de tradução.",
+            "☑ Observar se os estudantes conseguem completar as atividades de compreensão oral com base no que ouviram, justificando as respostas."
+        ]
+    elif tipo == "producao_oral":
+        return [
+            f"☑ Verificar se os estudantes produzem frases e diálogos em inglês sobre {conteudo} de forma comunicativa, utilizando o vocabulário e as estruturas trabalhadas.",
+            "☑ Acompanhar se a turma pratica a pronúncia correta das palavras e expressões novas durante as atividades orais.",
+            "☑ Observar se os estudantes interagem em inglês com os colegas durante as atividades em duplas, demonstrando iniciativa comunicativa."
+        ]
+    elif tipo == "leitura_literaria":
+        return [
+            f"☑ Verificar se os estudantes identificam elementos do texto literário sobre {conteudo}, analisando a caracterização de personagens e cenários.",
+            "☑ Acompanhar se a turma utiliza as estratégias de leitura literária apresentadas para analisar o tom das descrições.",
+            "☑ Observar se os estudantes conseguem explicar o conflito do trecho literário com suas palavras em inglês."
+        ]
+    elif tipo == "musica":
+        return [
+            f"☑ Verificar se os estudantes identificam a estrutura gramatical ou o vocabulário trabalhado na letra da música sobre {conteudo}.",
+            "☑ Acompanhar se os estudantes compreendem o tema central da canção através da leitura e audição da letra.",
+            "☑ Observar se a turma participa ativamente da escuta e da prática musical, realizando os exercícios de fixação propostos."
+        ]
+    elif tipo == "revisao":
+        return [
+            f"☑ Verificar se os estudantes revisam e consolidam os principais pontos lexicais e gramaticais sobre {conteudo} trabalhados no bloco.",
+            "☑ Acompanhar se os estudantes demonstram autonomia na resolução das atividades variadas de prática e revisão.",
+            "☑ Observar se a turma consegue apontar em inglês o que aprendeu a fazer ao longo deste bloco de aulas."
+        ]
+    # vocabulario e fallback geral
+    return [
+        f"☑ Verificar se os estudantes compreendem e utilizam o vocabulário ou conteúdo de {conteudo} nas atividades propostas.",
+        "☑ Acompanhar se a turma produz em inglês (oral ou escrito) usando os recursos linguísticos trabalhados na aula.",
+        f"☑ Observar se os estudantes conseguem explicar com suas palavras o que aprenderam sobre {conteudo}, em inglês."
+    ]
+
+
 def gerar_acompanhamento_aprimorado(
     tema: str,
     aprendizagem: str = "",
@@ -727,6 +794,13 @@ def gerar_acompanhamento_aprimorado(
     especifico = _acompanhamento_especifico_por_aula(tema, aprendizagem, desenvolvimento)
     if especifico:
         return _limitar_itens(especifico, minimo=2, maximo=3)
+
+    if perfil == "ingles":
+        return _limitar_itens(
+            _acompanhamento_ingles(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
 
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _limitar_itens(

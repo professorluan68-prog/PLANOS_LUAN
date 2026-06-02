@@ -63,7 +63,7 @@ def perfil_disciplina(disciplina: str) -> str:
         return "historia"
     if contem_termo_exato(base, ["geografia"]):
         return "geografia"
-    if contem_termo_exato(base, ["ingles", "lingua inglesa"]):
+    if "ingles" in base or "english" in base:
         return "ingles"
     if contem_termo_exato(base, ["arte"]):
         return "arte"
@@ -198,6 +198,59 @@ def _tipo_aula_projeto_de_vida(titulo: str, texto: str) -> str:
 
 # Alias para compatibilidade com nomes alternativos usados em outros módulos
 _tipo_aula_projeto_vida = _tipo_aula_projeto_de_vida
+
+
+# ── Palavras-chave e função de classificação para Língua Inglesa ──────────
+
+_INGLES_MUSICA = ["song", "lyrics", "listen to the song", "sing along", "youtube", "music video"]
+_INGLES_LEITURA_LITERARIA = ["literary", "novel", "character", "setting", "description", "golding", "montgomery", "lewis", "stoker", "rowling", "dahl"]
+_INGLES_REVISAO = ["review", "revisao", "relembre", "retomar", "let's review", "remember", "last class", "aula anterior"]
+_INGLES_LEITURA_EM = ["vestibular", "enem", "unesp", "unicamp", "saresp", "comic strip", "tirinha", "reading strategies", "multiple choice", "keywords", "cognates", "cognatas"]
+_INGLES_LISTENING = ["listen to the audio", "listen to the conversation", "luvvoice", "fish audio", "script para o estudante surdo", "script", "surdo"]
+_INGLES_PRODUCAO_ORAL = ["in pairs", "em duplas", "talk to your classmate", "speak in english", "tongue twister", "dialogue", "conversation", "dialogo"]
+_INGLES_GRAMATICA = ["grammar", "gramatica", "simple past", "will", "going to", "conditional", "if clause", "irregular verbs", "regular verbs", "present simple", "like to", "to be"]
+_INGLES_VOCABULARIO = ["learn these words", "practice pronunciation", "listen and repeat", "word bank", "banco de palavras", "glossario"]
+
+
+def _tipo_aula_ingles(titulo: str, texto: str) -> str:
+    """
+    Classifica o tipo de aula de Língua Inglesa com base no título e texto.
+
+    Retorna: 'musica', 'leitura_literaria', 'revisao', 'leitura_em', 'listening',
+             'producao_oral', 'gramatica', 'vocabulario' ou 'leitura_em'.
+
+    Prioridades (do mais específico ao mais genérico):
+        1. musica             — referência a song, lyrics, etc.
+        2. leitura_literaria  — termos literários ou autores específicos.
+        3. revisao            — revisão, relembre, review, etc.
+        4. leitura_em         — vestibular, enem, tirinhas, etc.
+        5. listening          — áudio, listen to the audio, etc.
+        6. producao_oral      — em duplas, in pairs, etc.
+        7. gramatica          — grammar, simple past, conditional, etc.
+        8. vocabulario        — learn these words, listen and repeat, etc.
+        9. leitura_em         — padrão de fallback.
+    """
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    if contem_termos(base_norm, _INGLES_MUSICA):
+        return "musica"
+    if contem_termos(base_norm, _INGLES_LEITURA_LITERARIA):
+        return "leitura_literaria"
+    if contem_termos(titulo_norm, _INGLES_REVISAO) or base_norm.count("relembre") >= 2:
+        return "revisao"
+    if contem_termos(base_norm, _INGLES_LEITURA_EM):
+        return "leitura_em"
+    if contem_termos(base_norm, _INGLES_LISTENING):
+        return "listening"
+    if contem_termos(base_norm, _INGLES_PRODUCAO_ORAL):
+        return "producao_oral"
+    if contem_termos(base_norm, _INGLES_GRAMATICA):
+        return "gramatica"
+    if contem_termos(base_norm, _INGLES_VOCABULARIO):
+        return "vocabulario"
+    return "leitura_em"
 
 
 # ── Palavras-chave e função de classificação para Língua Portuguesa ────────
@@ -492,6 +545,10 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
 
     if perfil == "tecnologia_inovacao":
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_TECNOLOGIA_INOVACAO, "tecnologia_geral")
+
+    # Língua Inglesa — classificador especializado
+    if perfil == "ingles":
+        return _tipo_aula_ingles(tema, texto)
 
     # Língua Portuguesa — classificador especializado
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:

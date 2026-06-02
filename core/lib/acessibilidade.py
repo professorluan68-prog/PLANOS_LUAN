@@ -611,6 +611,55 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
     return saida[:maximo] if len(saida) >= minimo else saida
 
 
+def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 estratégias específicas com ☑.
+
+    Cobre as 8 tipologias:
+    - leitura_em
+    - gramatica
+    - listening
+    - vocabulario
+    - producao_oral
+    - leitura_literaria
+    - musica
+    - revisao
+    """
+    from core.lib.classificador import detectar_tipo_aula
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Língua Inglesa")
+    conteudo = tema
+
+    if tipo in ["leitura_em", "leitura_literaria"]:
+        return [
+            "☑ Disponibilizar o texto com glossário bilíngue (inglês-português) das palavras mais difíceis, apoiando estudantes com menor repertório lexical.",
+            "☑ Oferecer perguntas orientadoras em português para ajudar na localização das informações no texto, reduzindo a sobrecarga cognitiva.",
+            "☑ Permitir que estudantes com dificuldade de leitura respondam oralmente em português, com transcrição assistida pelo professor."
+        ]
+    elif tipo in ["gramatica", "musica"]:
+        return [
+            f"☑ Disponibilizar tabela de referência com a estrutura gramatical de {conteudo} e exemplos em inglês e português para consulta durante as atividades.",
+            "☑ Oferecer banco de palavras e modelos de frases como apoio para estudantes com dificuldade de produção escrita em inglês.",
+            "☑ Permitir que estudantes com dificuldade de escrita respondam oralmente ou por meio de esquemas visuais antes do registro escrito."
+        ]
+    elif tipo == "listening":
+        return [
+            "☑ Disponibilizar o script do áudio para estudantes surdos ou com dificuldade de compreensão auditiva, garantindo acesso ao conteúdo.",
+            "☑ Oferecer o vocabulário temático com tradução e imagens antes da escuta, reduzindo a dificuldade de compreensão.",
+            "☑ Permitir que estudantes com dificuldade auditiva realizem a atividade com base no script, participando das mesmas tarefas de compreensão."
+        ]
+    elif tipo == "producao_oral":
+        return [
+            "☑ Oferecer modelo de diálogo e banco de palavras/expressões em inglês para apoiar estudantes com menor proficiência oral.",
+            "☑ Permitir que estudantes com dificuldade de fala participem da atividade por escrito, produzindo o diálogo no caderno antes de apresentar.",
+            "☑ Organizar duplas heterogêneas, pareando estudantes com diferentes níveis de proficiência para apoio mútuo durante a prática oral."
+        ]
+    # vocabulario, revisao e fallback geral
+    return [
+        "☑ Oferecer apoio visual com palavras-chave, imagens e exemplos em inglês e português para facilitar a compreensão do conteúdo.",
+        "☑ Permitir diferentes formas de registro (oral, escrito, esquema visual) para estudantes com dificuldades específicas de aprendizagem.",
+        "☑ Disponibilizar o vocabulário temático com tradução e pronúncia para consulta durante as atividades, reduzindo a barreira lexical."
+    ]
+
+
 def gerar_acessibilidade_aprimorada(
     tema: str,
     aprendizagem: str = "",
@@ -641,6 +690,13 @@ def gerar_acessibilidade_aprimorada(
     )
     if especifico:
         return _limitar_itens(especifico, minimo=2, maximo=3)
+
+    if perfil == "ingles":
+        return _limitar_itens(
+            _acessibilidade_ingles(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
 
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _limitar_itens(
