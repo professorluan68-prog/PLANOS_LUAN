@@ -835,266 +835,32 @@ def _metodologia_projeto_de_vida(texto_base: str, tema: str, tipo: str, conceito
     }
 
 
-def _metodologia_projeto_vida(texto_base: str, tema: str, tipo: str) -> list[dict]:
-    """Gerador de metodologia para Projeto de Vida que retorna list[dict].
+def _metodologia_projeto_vida(
+    texto_base: str,
+    tema: str,
+    tipo: str,
+    conceito: str = "",
+    atividade_extraida: str = "",
+) -> list[dict]:
+    """Adapter de Projeto de Vida em `list[dict]`, com fonte unica de conteudo."""
 
-    Versão compatível com a interface de _metodologia_matematica, retornando
-    lista de {titulo, texto} por tipo de aula. Cobrem 6 tipos:
-    'autoconhecimento', 'futureme', 'producao_coletiva',
-    'convivencia', 'consciencia_social', 'encerramento'.
-    """
-    if tipo == "autoconhecimento":
-        return [
-            {
-                "titulo": "Ponto de partida",
-                "texto": (
-                    f"Iniciar a aula com música, vídeo ou pergunta provocadora que conecte o tema ao cotidiano "
-                    f"dos estudantes, convidando à reflexão sobre {tema}. Propor discussão em duplas e "
-                    f"compartilhamento com a turma."
-                ),
-            },
-            {
-                "titulo": "Construindo o conceito",
-                "texto": (
-                    f"Apresentar o conceito de {tema} de forma dialogada, convidando os estudantes a relacionarem "
-                    f"as ideias às suas próprias experiências, valores e percepções. Destacar os pontos centrais "
-                    f"do tema com perguntas que incentivem a participação."
-                ),
-            },
-            {
-                "titulo": "Colocando em prática",
-                "texto": (
-                    f"Propor a elaboração individual de mapa, lista ou registro sobre {tema}, orientando os "
-                    f"estudantes passo a passo. Circular pela sala apoiando quem tiver dificuldade e incentivando "
-                    f"o detalhamento das ideias."
-                ),
-            },
-            {
-                "titulo": "Virem e conversem",
-                "texto": (
-                    f"Organizar duplas para o compartilhamento das produções: cada estudante apresenta seu registro, "
-                    f"explica suas escolhas e ouve as percepções do colega sobre {tema}, praticando a escuta ativa."
-                ),
-            },
-            {
-                "titulo": "Refletindo sobre a jornada",
-                "texto": (
-                    f"Encerrar a aula com síntese pessoal escrita no caderno: o que você descobriu sobre {tema}? "
-                    f"O que esse aprendizado muda na forma como você pensa sobre seu futuro?"
-                ),
-            },
-        ]
+    tipo_normalizado = tipo or "autoconhecimento"
+    frases = _metodologia_projeto_de_vida(
+        texto_base=texto_base,
+        tema=tema,
+        tipo=tipo_normalizado,
+        conceito=conceito,
+        atividade_extraida=atividade_extraida,
+    )
+    if not frases:
+        return []
 
-    if tipo == "futureme":
-        return [
-            {
-                "titulo": "Ponto de partida",
-                "texto": (
-                    f"Iniciar a aula retomando a proposta de {tema} e convidando os estudantes a refletirem sobre "
-                    f"o que esperam descobrir sobre si mesmos. Conectar a atividade ao projeto bimestral de "
-                    f"autoconhecimento profissional."
-                ),
-            },
-            {
-                "titulo": "Construindo o conceito",
-                "texto": (
-                    f"Apresentar o conceito de {tema} de forma dialogada, esclarecendo que os resultados da "
-                    f"plataforma são pontos de partida para reflexão — não rótulos definitivos. Reforçar que "
-                    f"personalidade e habilidades se desenvolvem ao longo da vida."
-                ),
-            },
-            {
-                "titulo": "Colocando em prática",
-                "texto": (
-                    f"Orientar os estudantes a acessarem a plataforma FutureMe e seguirem o passo a passo para "
-                    f"{tema}. Garantir que todos consigam navegar com autonomia, apoiando individualmente quem "
-                    f"tiver dificuldade. Após a conclusão, pedir que leiam o relatório com atenção."
-                ),
-            },
-            {
-                "titulo": "Compartilhamento",
-                "texto": (
-                    f"Organizar trios para a troca dos resultados: em quais partes do relatório você mais se "
-                    f"reconheceu? O que não fez sentido? Com base no seu perfil, que tipos de profissões "
-                    f"parecem combinar mais com você? Alguns trios compartilham com a turma."
-                ),
-            },
-            {
-                "titulo": "Refletindo sobre a jornada",
-                "texto": (
-                    f"Encerrar com síntese: o relatório é apenas um ponto de partida. O que você pretende "
-                    f"investigar mais sobre {tema}? Propor registro individual no caderno."
-                ),
-            },
-        ]
-
-    if tipo == "producao_coletiva":
-        return [
-            {
-                "titulo": "Relembre",
-                "texto": (
-                    f"Retomar o projeto bimestral e o que foi produzido nas aulas anteriores, conectando ao foco "
-                    f"da aula: {tema}. Verificar onde cada grupo parou e o que precisa avançar."
-                ),
-            },
-            {
-                "titulo": "Foco no tema",
-                "texto": (
-                    f"Apresentar a proposta de {tema}, esclarecendo o produto esperado, os critérios de qualidade "
-                    f"e os próximos passos. Analisar coletivamente o modelo, identificando os elementos que devem "
-                    f"estar presentes na produção."
-                ),
-            },
-            {
-                "titulo": "Produção em grupos",
-                "texto": (
-                    f"Organizar a turma em grupos, distribuir materiais e orientar a produção passo a passo, "
-                    f"garantindo que todos participem com funções definidas. Circular pela sala apoiando os "
-                    f"grupos e incentivando o uso dos recursos indicados."
-                ),
-            },
-            {
-                "titulo": "Compartilhamento",
-                "texto": (
-                    f"Promover o compartilhamento das produções com a turma, valorizando as escolhas de cada "
-                    f"grupo. Propor avaliação coletiva com base nos critérios combinados."
-                ),
-            },
-            {
-                "titulo": "Refletindo sobre a jornada",
-                "texto": (
-                    f"Encerrar com registro individual: o que você aprendeu ao produzir {tema} em grupo? Como "
-                    f"esse processo se conecta à sua trajetória e projeto de vida?"
-                ),
-            },
-        ]
-
-    if tipo == "convivencia":
-        return [
-            {
-                "titulo": "Relembre",
-                "texto": (
-                    f"Retomar o Painel de Convivência ou produto anterior, revisitando os acordos coletivos e o "
-                    f"que foi discutido nas aulas anteriores sobre {tema}."
-                ),
-            },
-            {
-                "titulo": "Foco no tema",
-                "texto": (
-                    f"Apresentar o conceito de {tema} de forma dialogada, convidando os estudantes a relacionarem "
-                    f"às situações do cotidiano escolar e às suas experiências de convivência e tomada de "
-                    f"decisão coletiva."
-                ),
-            },
-            {
-                "titulo": "Círculo de convivência",
-                "texto": (
-                    f"Organizar a turma em círculo, definir os papéis (mediador, secretário, guardião do tempo) "
-                    f"e conduzir o debate sobre {tema} com rodadas de fala respeitosas, levantamento de soluções "
-                    f"e avaliação de consequências."
-                ),
-            },
-            {
-                "titulo": "Registro coletivo",
-                "texto": (
-                    f"Registrar a decisão coletiva no Painel de Convivência, garantindo que a voz de todos esteja "
-                    f"representada no produto final da aula."
-                ),
-            },
-            {
-                "titulo": "Refletindo sobre a jornada",
-                "texto": (
-                    f"Encerrar com compromisso individual escrito: o que você pode fazer concretamente para "
-                    f"contribuir com {tema} no cotidiano da escola e da sua comunidade?"
-                ),
-            },
-        ]
-
-    if tipo == "consciencia_social":
-        return [
-            {
-                "titulo": "Para começar",
-                "texto": (
-                    f"Iniciar com dinâmica corporal ou leitura de dados que evidenciem diferenças de condições de "
-                    f"vida relacionadas a {tema}. Conduzir sem julgamento individual, garantindo um ambiente de "
-                    f"respeito e acolhimento."
-                ),
-            },
-            {
-                "titulo": "Foco no tema",
-                "texto": (
-                    f"Apresentar dados e reportagens sobre {tema} de forma dialogada, conectando as informações à "
-                    f"realidade dos estudantes. Convidar à análise crítica sobre privilégios, desvantagens e o "
-                    f"papel de cada um como agente de transformação."
-                ),
-            },
-            {
-                "titulo": "Análise crítica",
-                "texto": (
-                    f"Propor atividade de análise: mapa do ambiente digital, leitura crítica de mídia, revisão "
-                    f"de HQ ou registro no livro sobre {tema}. Orientar os estudantes a identificar padrões, "
-                    f"questionar representações e propor perspectivas mais inclusivas."
-                ),
-            },
-            {
-                "titulo": "Produção",
-                "texto": (
-                    f"Propor registro individual ou coletivo sobre {tema}: o que mudou na sua forma de pensar? "
-                    f"Que ações concretas você pode tomar a partir desse reconhecimento?"
-                ),
-            },
-            {
-                "titulo": "Refletindo sobre a jornada",
-                "texto": (
-                    f"Encerrar com reflexão individual: reconhecer {tema} muda o que você faz? O que você pode "
-                    f"começar a fazer de diferente a partir de hoje?"
-                ),
-            },
-        ]
-
-    if tipo == "encerramento":
-        return [
-            {
-                "titulo": "Relembre",
-                "texto": (
-                    f"Abrir simbolicamente o projeto bimestral — caixa, painel ou mapa — revisitando o percurso "
-                    f"completo. Convidar os estudantes a lembrarem das aulas, das reflexões e das produções "
-                    f"realizadas ao longo do bimestre."
-                ),
-            },
-            {
-                "titulo": "Síntese do percurso",
-                "texto": (
-                    f"Propor síntese coletiva: o que aprendemos sobre {tema} neste bimestre? Quais foram os "
-                    f"momentos mais marcantes? O que mudou na forma de pensar sobre o futuro?"
-                ),
-            },
-            {
-                "titulo": "Produção final",
-                "texto": (
-                    f"Orientar a produção final do projeto bimestral — vídeo, mostra, pacto, post-it com "
-                    f"palavras-chave — garantindo que cada estudante contribua com sua perspectiva pessoal."
-                ),
-            },
-            {
-                "titulo": "Síntese pessoal",
-                "texto": (
-                    f"Reservar tempo para a síntese individual escrita, com perguntas que conectem o aprendizado "
-                    f"à vida fora da escola: o que você leva deste bimestre? O que pretende fazer de diferente?"
-                ),
-            },
-            {
-                "titulo": "Encerramento simbólico",
-                "texto": (
-                    f"Encerrar com ritual coletivo — depositar palavras na caixa, assinar o painel ou compartilhar "
-                    f"com a turma — reforçando que esse gesto representa um pacto pessoal e coletivo com os "
-                    f"aprendizados do bimestre."
-                ),
-            },
-        ]
-
-    # autoconhecimento (default)
-    return _metodologia_projeto_vida(texto_base, tema, "autoconhecimento")
+    etapas = []
+    for titulo, chave in _etapas_por_perfil("projeto_de_vida", tipo_normalizado):
+        texto = frases.get(chave)
+        if texto:
+            etapas.append({"titulo": titulo, "texto": texto})
+    return etapas
 
 
 def _metodologia_ingles(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "") -> dict[str, str] | None:
