@@ -109,16 +109,16 @@ def test_aula_por_pdf_orientacao_usa_etapa_por_indice(monkeypatch):
         total_aulas=4,
     )
 
-    assert aula_1["tema"] == "ETAPA 1"
-    assert aula_2["tema"] == "ETAPA 2"
-    assert aula_1["material"] == "ETAPA 1"
-    assert aula_2["material"] == "ETAPA 2"
-    assert "estratégias de leitura" in aula_1["aprendizagem"].lower()
+    assert aula_1["tema"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 1"
+    assert aula_2["tema"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 2"
+    assert aula_1["material"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 1"
+    assert aula_2["material"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 2"
+    assert "autonomia de estudo" in aula_1["aprendizagem"].lower()
 
     texto_1 = " ".join(item.get("texto", "") for item in aula_1["metodologia"] if isinstance(item, dict)).lower()
     texto_2 = " ".join(item.get("texto", "") for item in aula_2["metodologia"] if isinstance(item, dict)).lower()
 
-    assert "leitura" in texto_1
+    assert "cordel" in texto_1
     assert texto_1 != texto_2
 
 
@@ -134,4 +134,30 @@ def test_aula_por_pdf_orientacao_reaproveita_ultima_etapa_quando_sobra_aula(monk
         indice_aula=4,
         total_aulas=5,
     )
-    assert aula_5["tema"] == "ETAPA FINAL"
+    assert aula_5["tema"] == "MISSAO 11 - Um mergulho no cordel - ETAPA FINAL"
+
+
+def test_orientacao_estudos_usa_objetivos_da_missao_como_aprendizagem(monkeypatch):
+    texto = """
+MISSAO 10 - A voz da poesia
+Etapa 2
+Gente grande
+Leia o poema e identifique quem fala no texto.
+"""
+    monkeypatch.setattr(lote, "_extrair_texto_pdf", lambda caminho: texto)
+
+    aula = lote._aula_por_pdf(
+        "MISSAO10 - ETAPA 2.pdf",
+        "Orientação de Estudos",
+        "9º ano A",
+        "2º bimestre",
+        usar_ia=False,
+        provedor_ia="",
+        indice_aula=1,
+        total_aulas=4,
+    )
+
+    aprendizagem = aula["aprendizagem"]
+
+    assert "Compreender as características de um poema." in aprendizagem
+    assert "Analisar as marcas linguísticas de poemas para inferir quem é o eu lírico e com quem ele dialoga." in aprendizagem

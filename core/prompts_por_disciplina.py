@@ -22,7 +22,9 @@ PROMPTS_SISTEMA = {
         "informacoes, marcacao de palavras-chave, justificativa de respostas, organizacao do caderno e revisao das "
         "estrategias usadas. Respeite a sequencia real do material e transforme os passos do PDF em acoes docentes "
         "claras, sem descrever paginas ou copiar enunciados. Quando houver Missao, Jornada ou Trilha, preserve o foco "
-        "do titulo real do material. So mencione tecnicas ou blocos especiais quando estiverem presentes no PDF."
+        "do titulo real do material e da etapa correspondente. Organize a metodologia em blocos proximos de Para comecar, "
+        "Leitura e construcao do conteudo, Foco no conteudo, Na pratica e Encerramento. So mencione tecnicas ou blocos "
+        "especiais quando estiverem presentes no PDF."
     ),
 }
 
@@ -44,9 +46,10 @@ ORIENTACOES_DISCIPLINA = {
     "orientacao de estudos": (
         "Para Orientacao de Estudos, a metodologia deve seguir a logica de ensinar como estudar o material. "
         "Organize a aula com blocos proximos de: Para comecar, Leitura e construcao do conteudo, Foco no conteudo, "
-        "Na pratica, Pause e responda e Encerramento. Destaque procedimentos como localizar informacoes, interpretar "
+        "Na pratica e Encerramento. Destaque procedimentos como localizar informacoes, interpretar "
         "comandos, marcar palavras-chave, justificar respostas, organizar registros e revisar estrategias de estudo. "
-        "Se houver producao textual, inclua planejamento, rascunho e revisao. Se houver DE OLHO NO SAEB, trate esse "
+        "Preserve sempre o titulo da Missao, Trilha ou Jornada e a etapa efetivamente trabalhada. Se houver producao textual, "
+        "inclua planejamento, rascunho e revisao. Se houver DE OLHO NO SAEB, trate esse "
         "momento como apoio de leitura, interpretacao e resolucao guiada, sem transformar a aula em treino mecanico."
     ),
 }

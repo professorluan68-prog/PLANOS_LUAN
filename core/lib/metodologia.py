@@ -10,6 +10,7 @@ from core.lib.classificador import perfil_disciplina, detectar_tipo_aula, normal
 from core.lib.tecnicas import SeletorTecnicas
 from core.lib.progressao import ajustar_texto_por_posicao
 from core.lib.extrator_pdf import ExtratorPDF
+from core.orientacao_estudos_metodologia import montar_frases_orientacao_estudos
 from core.qualidade_metodologica import (
     corrigir_mojibake,
     naturalizar_texto_metodologico,
@@ -80,7 +81,6 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Leitura e construcao do conteudo", "leitura"),
             ("Foco no conteudo", "foco"),
             ("Na pratica", "pratica"),
-            ("Pause e responda", "pause"),
             ("Encerramento", "encerramento"),
         ]
 
@@ -296,30 +296,7 @@ def _frases_por_contexto(
             )
 
     elif perfil in {"orientacao_estudos"}:
-        base["para_comecar"] = (
-            f"Retomar conhecimentos previos sobre {tema} com perguntas curtas, exemplos proximos da rotina escolar e "
-            "registro no quadro das primeiras pistas que ajudarao a turma a estudar melhor o material."
-        )
-        base["leitura"] = (
-            "Realizar leitura guiada dos comandos, textos, imagens e orientacoes do material, fazendo pausas para localizar "
-            "informacoes importantes, esclarecer vocabulario e marcar palavras-chave que orientem o estudo."
-        )
-        base["foco"] = (
-            f"Trabalhar {conceito} como oportunidade para ensinar uma estrategia de estudo: interpretar comandos, "
-            "selecionar evidencias, justificar respostas e organizar registros que possam ser retomados em outras aulas."
-        )
-        base["pratica"] = (
-            f"Orientar a resolucao das atividades explicitando o passo a passo de estudo, usando {t_reg}: ler o comando, marcar "
-            "palavras-chave, buscar evidencias no material, responder com justificativa e revisar a propria resposta antes da socializacao."
-        )
-        base["pause"] = (
-            "Socializar respostas selecionadas e realizar correcao dialogada, retomando trechos do material, marcas feitas no texto "
-            "e os caminhos usados pelos estudantes para chegar as respostas."
-        )
-        base["encerramento"] = (
-            f"Finalizar com autoavaliacao breve sobre qual estrategia ajudou mais a compreender {tema} e como ela "
-            "pode ser aplicada em outras disciplinas, leituras e momentos de estudo."
-        )
+        base.update(montar_frases_orientacao_estudos(tema, texto_base))
         if recurso_principal == "producao_textual":
             base["foco"] = (
                 f"Retomar as caracteristicas da proposta relacionada a {tema}, mostrando como planejar a escrita, selecionar ideias "

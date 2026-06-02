@@ -15,6 +15,7 @@ def normalizar_texto(texto: str) -> str:
     """Remove acentos e normaliza espacos para comparacao."""
     texto = unicodedata.normalize("NFKD", str(texto or ""))
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"[^\w\s]", " ", texto, flags=re.UNICODE)
     return re.sub(r"\s+", " ", texto).strip().lower()
 
 
@@ -40,6 +41,8 @@ def perfil_disciplina(disciplina: str) -> str:
     """Retorna o perfil pedagogico da disciplina."""
     base = normalizar_texto(disciplina)
 
+    if ("orient" in base and "estud" in base) or "orienestudos" in base:
+        return "orientacao_estudos"
     if contem_termo_exato(base, ["orientacao de estudos", "orientacao estudos", "orienestudos"]):
         return "orientacao_estudos"
     if contem_termo_exato(base, ["redacao e leitura", "leitura e redacao"]):

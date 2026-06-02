@@ -13,6 +13,12 @@ def test_classificador_nao_contamina_por_termos_genericos():
     assert perfil_disciplina("Projeto de Vida") == "projeto_de_vida"
 
 
+def test_classificador_reconhece_orientacao_estudos_mesmo_com_texto_torto():
+    assert perfil_disciplina("Orientação de Estudos") == "orientacao_estudos"
+    assert perfil_disciplina("Orienta??o de Estudos") == "orientacao_estudos"
+    assert perfil_disciplina("ORIENTA??O DE ESTUDOS") == "orientacao_estudos"
+
+
 def test_extrator_prioriza_secao_na_pratica_para_atividade():
     texto = (
         "Para comecar\n"

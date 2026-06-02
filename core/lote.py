@@ -10,6 +10,10 @@ from config import PDF_TEXTO_LIMITE_CHARS
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
+from core.orientacao_estudos_objetivos import (
+    buscar_objetivos_orientacao_estudos,
+    formatar_objetivos_orientacao_estudos,
+)
 from core.qualidade_metodologica import detectar_contexto_metodologico, naturalizar_metodologia_professor, revisar_metodologia
 from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
@@ -4247,8 +4251,12 @@ def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict
             },
         ]
 
-    # 3. Se houver etapas extraídas, mapeá-las para enriquecer cada bloco
-    if etapas_pdf:
+    # 3. Enriquecimento via PDF desativado para Redação e Leitura.
+    # Os PDFs desta disciplina contêm fragmentos de instruções pedagógicas internas
+    # (ex: "l Que situações marcaram", "(cid:212) Nível 1 - Compreensão") que,
+    # quando extraídos, tornam a metodologia confusa e incoerente.
+    # O texto base gerado pelo modelo é completo e correto — não deve ser substituído.
+    if False and etapas_pdf:
         mapa_etapas = {i: [] for i in range(6)}
         
         for idx_e, e in enumerate(etapas_pdf):
@@ -4692,6 +4700,8 @@ def _material_digital_por_texto(texto: str, caminho_pdf: str, disciplina: str, t
     rotulo = _rotulo_aula_material(texto, caminho_pdf)
     titulo = (tema or _tema_por_texto(texto, caminho_pdf, disciplina)).strip()
     if _perfil_disciplina(disciplina) == "orientacao_estudos" and _titulo_ja_rotulado_orientacao_estudos(titulo):
+        if rotulo:
+            return f"{rotulo} - {titulo}"
         return titulo
     if rotulo and titulo:
         return f"{rotulo} - {titulo}"
@@ -5683,10 +5693,21 @@ def _aula_por_pdf(
         if etapas_orientacao:
             idx_etapa = min(max(indice_aula, 0), len(etapas_orientacao) - 1)
             etapa_atual = etapas_orientacao[idx_etapa]
+            titulo_base = material_digital or tema or _titulo_catalogado_orientacao_estudos(caminho_pdf, texto)
             texto = etapa_atual["texto"]
             rotulo_etapa = etapa_atual["titulo"].upper()
-            tema = rotulo_etapa
-            material_digital = rotulo_etapa
+            if titulo_base:
+                tema = f"{titulo_base} - {rotulo_etapa}"
+                material_digital = tema
+            else:
+                tema = rotulo_etapa
+                material_digital = rotulo_etapa
+    objetivos_orientacao = (
+        buscar_objetivos_orientacao_estudos(caminho_pdf=caminho_pdf, tema=tema)
+        if perfil == "orientacao_estudos"
+        else []
+    )
+    aprendizagem_orientacao = formatar_objetivos_orientacao_estudos(objetivos_orientacao)
     extracao_pdf = _extrator_lib.extrair(texto, tema)
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
     tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base)
@@ -5748,8 +5769,13 @@ def _aula_por_pdf(
             habilidade_pdf = extracao.get("habilidade", "")
             objetivos_secao = extracao.get("objetivos_secao") or []
             conteudos_secao = extracao.get("conteudos_secao") or []
+            if objetivos_orientacao:
+                objetivos_secao = list(objetivos_orientacao)
             if aprendizagem_pv:
                 aprendizagem = aprendizagem_pv
+            elif perfil == "orientacao_estudos" and aprendizagem_orientacao:
+                aprendizagem = aprendizagem_orientacao
+                habilidade_pdf = aprendizagem_orientacao
             else:
                 aprendizagem = _montar_aprendizagem_inteligente(
                     habilidade_pdf=habilidade_pdf or plano_ia.get("aprendizagem", ""),
@@ -5878,11 +5904,16 @@ def _aula_por_pdf(
     recursos = extracao.get("recursos_detectados", [])
     objetivos_secao = extracao.get("objetivos_secao") or []
     conteudos_secao = extracao.get("conteudos_secao") or []
+    if objetivos_orientacao:
+        objetivos_secao = list(objetivos_orientacao)
     
     # Se o extrator encontrou uma habilidade/BNCC no PDF, usa ela diretamente
     if aprendizagem_pv:
         aprendizagem = aprendizagem_pv
         habilidade = aprendizagem_pv
+    elif perfil == "orientacao_estudos" and aprendizagem_orientacao:
+        aprendizagem = aprendizagem_orientacao
+        habilidade = aprendizagem_orientacao
     else:
         aprendizagem = _montar_aprendizagem_inteligente(
             habilidade_pdf=habilidade,
@@ -5892,9 +5923,13 @@ def _aula_por_pdf(
             objetivos_secao=objetivos_secao,
             conteudos_secao=conteudos_secao,
         )
-    if perfil == "orientacao_estudos" and re.match(r"(?i)^etapa\s+(\d+|final)\b", str(tema or "").strip()):
+    if (
+        perfil == "orientacao_estudos"
+        and not aprendizagem_orientacao
+        and re.search(r"(?i)\betapa\s+(\d+|final)\b", str(tema or "").strip())
+    ):
         aprendizagem = (
-            f"Desenvolver estratégias de leitura, interpretação e registro na {tema}, "
+            f"Desenvolver estratégias de leitura, interpretação e registro em {tema}, "
             "com foco em autonomia de estudo e resolução orientada das atividades."
         )
 
