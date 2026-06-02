@@ -97,7 +97,9 @@ def test_cdp_nao_traz_tecnologia_na_metodologia():
     proibidos = ["youtube", "projetor", "datashow", "tv", "celular", "aplicativo", "plataforma", "internet", "assistir ao vídeo"]
     assert not [p for p in proibidos if p in metodologia]
     assert "lousa" in metodologia or "material impresso" in metodologia
-    assert "virem e conversem" in metodologia
+    assert "virem e conversem" not in metodologia
+    assert "todo mundo escreve" not in metodologia
+    assert "pause e responda" not in metodologia
 
 
 def test_cdp_historia_metodologia_de_historia_nao_de_portugues():

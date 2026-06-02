@@ -1064,6 +1064,34 @@ def _tema_truncado_cdp(texto: str) -> bool:
 def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
     base = _normalizar(f"{tema} {conceito}")
     if perfil == "matematica":
+        if _contem(base, ["sistema de numeracao decimal", "composicao e decomposicao", "composição e decomposição"]):
+            return "decimal_composicao_decomposicao"
+        if _contem(base, ["resolucao de problemas com sistema de numeracao decimal", "problemas com sistema de numeracao decimal"]):
+            return "problemas_sistema_decimal"
+        if _contem(base, ["comparacao e ordenacao de numeros naturais", "comparação e ordenação de números naturais"]):
+            return "comparacao_ordenacao_naturais"
+        if _contem(base, ["calculos mentais com numeros naturais", "cálculos mentais com números naturais"]):
+            return "calculo_mental_naturais"
+        if _contem(base, ["procedimentos de adicao com numeros naturais", "adição com números naturais", "procedimentos de adição com números naturais"]):
+            return "adicao_naturais"
+        if _contem(base, ["resolucao de problemas de adicao e subtracao", "resolução de problemas com adição e subtração de naturais", "resolução de problemas com adição e subtração"]):
+            return "problemas_adicao_subtracao_naturais"
+        if _contem(base, ["estrategias de multiplicacao com numeros naturais", "estratégias de multiplicação com números naturais", "multiplicacao de naturais"]):
+            return "multiplicacao_naturais"
+        if _contem(base, ["resolucao de problemas com multiplicacoes e divisoes", "resolução de problemas com multiplicação", "resolução de problemas com operações fundamentais", "operacoes fundamentais", "operações fundamentais"]):
+            return "problemas_operacoes_naturais"
+        if _contem(base, ["padroes e regularidades com multiplos", "padrões e regularidades com múltiplos", "explorando os multiplos", "explorando os múltiplos", "multiplos de um numero natural", "múltiplos de um número natural"]):
+            return "multiplos_regularidades"
+        if _contem(base, ["aula de verificacao operacoes fundamentais", "aula de verificação", "verificacao operacoes fundamentais", "verificação operações fundamentais"]):
+            return "verificacao_operacoes_fundamentais"
+        if _contem(base, ["adicao e subtracao com numeros inteiros", "adição e subtração com números inteiros", "divisao com numeros inteiros", "divisão com números inteiros"]):
+            return "numeros_inteiros"
+        if _contem(base, ["resolucao de problemas com adicao e subtracao de inteiros", "resolução de problemas com adição e subtração de inteiros"]):
+            return "problemas_numeros_inteiros"
+        if _contem(base, ["o que e uma fracao", "o que é uma fração", "ampliacao da compreensao sobre fracoes", "ampliação da compreensão sobre frações"]):
+            return "fracao_introducao_fundamental"
+        if _contem(base, ["resolucao de problemas com fracoes", "resolução de problemas com frações"]):
+            return "problemas_fracoes_fundamental"
         if _contem(base, ["reta numerica", "reta numerica", "localizacao na reta", "localizacao de racionais na reta"]):
             return "reta_numerica_racionais"
         if _contem(base, ["simetricos no plano cartesiano", "simetria no plano cartesiano"]):
@@ -1724,6 +1752,25 @@ def _tipos_matematica_eja_cdp() -> set[str]:
     }
 
 
+def _tipos_matematica_fundamental_cdp() -> set[str]:
+    return {
+        "decimal_composicao_decomposicao",
+        "problemas_sistema_decimal",
+        "comparacao_ordenacao_naturais",
+        "calculo_mental_naturais",
+        "adicao_naturais",
+        "problemas_adicao_subtracao_naturais",
+        "multiplicacao_naturais",
+        "problemas_operacoes_naturais",
+        "multiplos_regularidades",
+        "verificacao_operacoes_fundamentais",
+        "numeros_inteiros",
+        "problemas_numeros_inteiros",
+        "fracao_introducao_fundamental",
+        "problemas_fracoes_fundamental",
+    }
+
+
 def _metodologia_matematica_eja_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
     aberturas = {
         "reta_numerica_racionais": [
@@ -1844,6 +1891,227 @@ def _metodologia_matematica_eja_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
         return ""
     inicio = opcoes[indice_aula % len(opcoes)]
     return f"{inicio} {desenvolvimentos[tipo_cdp]}"
+
+
+def _metodologia_matematica_fundamental_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
+    aberturas = {
+        "decimal_composicao_decomposicao": [
+            "A aula começa com a escrita de um número na lousa para que a turma retome oralmente valor posicional, ordens e classes antes da explicação formal.",
+            "O professor inicia a aula retomando a leitura de um número natural e perguntando como ele pode ser separado em partes menores na lousa.",
+        ],
+        "problemas_sistema_decimal": [
+            "O professor apresenta um problema simples com números naturais e retoma oralmente o que deve ser observado primeiro no enunciado.",
+        ],
+        "comparacao_ordenacao_naturais": [
+            "A aula começa com dois ou três números escritos na lousa para que a turma compare qual é maior, menor ou vem antes na sequência.",
+        ],
+        "calculo_mental_naturais": [
+            "O professor inicia com cálculos orais curtos, retomando estratégias simples de adição, subtração ou decomposição antes dos registros no caderno.",
+        ],
+        "adicao_naturais": [
+            "A abertura retoma uma soma simples no quadro, destacando unidades, dezenas e a organização do algoritmo antes da atividade escrita.",
+        ],
+        "problemas_adicao_subtracao_naturais": [
+            "O professor lê um problema curto em voz alta e pergunta à turma quais dados já aparecem e o que precisa ser descoberto.",
+        ],
+        "multiplicacao_naturais": [
+            "A aula começa com uma situação concreta de grupos iguais, quantidades repetidas ou tabuadas conhecidas para retomar o sentido da multiplicação.",
+        ],
+        "problemas_operacoes_naturais": [
+            "O professor apresenta um enunciado matemático simples e conduz oralmente a identificação da operação mais adequada antes da resolução.",
+        ],
+        "multiplos_regularidades": [
+            "A abertura retoma oralmente o que é múltiplo e propõe uma sequência simples na lousa para a turma continuar com apoio do professor.",
+        ],
+        "verificacao_operacoes_fundamentais": [
+            "O professor retoma rapidamente na lousa os procedimentos principais de adição, subtração, multiplicação e divisão antes da verificação guiada.",
+        ],
+        "numeros_inteiros": [
+            "A aula começa com um exemplo do cotidiano, como temperatura, saldo ou pontuação, para retomar o significado dos números positivos e negativos.",
+        ],
+        "problemas_numeros_inteiros": [
+            "O professor lê em voz alta um problema com números inteiros e pergunta à turma como identificar o que aumenta, diminui ou muda de posição na reta numérica.",
+        ],
+        "fracao_introducao_fundamental": [
+            "A abertura retoma oralmente o significado de numerador, denominador e parte do todo com um desenho simples na lousa.",
+        ],
+        "problemas_fracoes_fundamental": [
+            "O professor apresenta uma situação com fração no cotidiano e retoma o que representa o todo antes de iniciar a resolução.",
+        ],
+    }
+    desenvolvimentos = {
+        "decimal_composicao_decomposicao": "Em seguida, o professor desenha ou organiza na lousa um quadro de ordens e classes, explica a composição e a decomposição do número passo a passo e resolve um exemplo completo antes da prática. Os estudantes copiam o modelo no caderno, realizam dois ou três exercícios graduais e acompanham a correção coletiva com retomada dos erros mais frequentes.",
+        "problemas_sistema_decimal": "Depois da leitura do enunciado, o professor identifica com a turma quais números são importantes, resolve o primeiro problema na lousa verbalizando cada passo e orienta a escrita organizada no caderno. Na prática, os estudantes resolvem um problema por vez, com acompanhamento individual e correção coletiva antes de avançar.",
+        "comparacao_ordenacao_naturais": "O professor registra na lousa os critérios de comparação, mostra como observar quantidade de algarismos e valor posicional e resolve exemplos simples antes da atividade. Os estudantes ordenam números no caderno, justificam oralmente algumas respostas e a correção coletiva retoma a leitura correta das ordens.",
+        "calculo_mental_naturais": "Na explicação guiada, o professor mostra estratégias curtas de cálculo mental, como decomposição, compensação e agrupamento, sempre com exemplos escritos na lousa e linguagem simples. Os estudantes resolvem cálculos no caderno, com pausas para conferência oral e correção passo a passo no quadro.",
+        "adicao_naturais": "O professor apresenta o algoritmo na lousa, organiza unidades, dezenas e centenas em colunas e verbaliza cada etapa da soma antes de pedir o registro no caderno. A turma resolve exercícios graduais e acompanha a correção coletiva, com atenção à organização do cálculo e ao transporte quando necessário.",
+        "problemas_adicao_subtracao_naturais": "Na lousa, o professor destaca dados, pergunta o que o problema quer descobrir e explica como escolher entre somar ou subtrair sem deixar a turma resolver sozinha desde o início. Os estudantes registram a operação e a resposta no caderno, com acompanhamento individual e correção coletiva de cada item.",
+        "multiplicacao_naturais": "O professor mostra na lousa a multiplicação como adição de parcelas iguais e resolve exemplos concretos antes de apresentar o algoritmo ou a estratégia principal da aula. Os estudantes acompanham um segundo exemplo, registram no caderno e resolvem atividades graduais com correção coletiva ao final.",
+        "problemas_operacoes_naturais": "O professor lê cada problema em voz alta, orienta a identificação dos dados e indica qual operação deve ser usada, evitando deixar todas as questões para resolução autônoma de uma vez. A prática acontece no caderno, com um problema por vez, acompanhamento individual e correção coletiva passo a passo na lousa.",
+        "multiplos_regularidades": "Em seguida, o professor constrói sequências na lousa, mostra como identificar regularidades e explica o que significa um número ser múltiplo de outro usando exemplos simples. Os estudantes completam sequências no caderno, identificam múltiplos e acompanham a correção coletiva com retomada do raciocínio usado.",
+        "verificacao_operacoes_fundamentais": "Depois da retomada inicial, a turma realiza atividades curtas de verificação no caderno, sempre com leitura oral do enunciado e orientação sobre o que observar em cada questão. O professor acompanha de perto, identifica quem precisa de mais apoio e corrige coletivamente os procedimentos principais antes do fechamento.",
+        "numeros_inteiros": "O professor desenha uma reta numérica na lousa, marca positivos e negativos e explica a regra principal com exemplos de temperatura, saldo ou deslocamento antes da atividade. Os estudantes registram a reta no caderno, resolvem exemplos guiados e acompanham a correção coletiva com retomada da regra de sinais quando necessário.",
+        "problemas_numeros_inteiros": "Na explicação, o professor retoma a reta numérica ou a regra de sinais, lê cada enunciado em voz alta e mostra como transformar a situação concreta em cálculo. Os estudantes resolvem um problema por vez no caderno, com acompanhamento individual e correção coletiva que retoma o significado do resultado.",
+        "fracao_introducao_fundamental": "O professor desenha figuras simples na lousa, mostra a divisão em partes iguais e explica a função do numerador e do denominador com exemplos concretos antes da atividade. Os estudantes copiam os desenhos, identificam frações e acompanham a correção coletiva com apoio visual na lousa.",
+        "problemas_fracoes_fundamental": "O professor lê o problema em voz alta, retoma a ideia de todo e parte e resolve um exemplo com desenho simples antes de liberar a atividade. Os estudantes registram fração, desenho e resposta no caderno, enquanto o professor acompanha individualmente e conduz a correção coletiva passo a passo.",
+    }
+    opcoes = aberturas.get(tipo_cdp)
+    if not opcoes or tipo_cdp not in desenvolvimentos:
+        return ""
+    inicio = opcoes[indice_aula % len(opcoes)]
+    return f"{inicio} {desenvolvimentos[tipo_cdp]} O fechamento da aula acontece com uma pergunta oral de síntese, seguida de breve retomada na lousa do que foi aprendido."
+
+
+def _acompanhamento_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
+    bancos = {
+        "decimal_composicao_decomposicao": [
+            "☑ Verificar se o estudante identifica ordens, classes e valor posicional ao compor e decompor números naturais.",
+            "☑ Observar se registra corretamente a decomposição no caderno sem trocar a posição dos algarismos.",
+            "☑ Acompanhar se relaciona a escrita numérica ao que foi organizado no quadro durante a explicação.",
+        ],
+        "problemas_sistema_decimal": [
+            "☑ Verificar se o estudante localiza os dados principais do enunciado antes de iniciar a conta.",
+            "☑ Observar se utiliza a composição ou decomposição do número para apoiar a resolução do problema.",
+            "☑ Acompanhar se registra a resposta final com coerência em relação ao que foi perguntado.",
+        ],
+        "comparacao_ordenacao_naturais": [
+            "☑ Verificar se o estudante compara números naturais observando quantidade de algarismos e valor posicional.",
+            "☑ Observar se organiza corretamente a ordem crescente ou decrescente nas atividades do caderno.",
+            "☑ Acompanhar as justificativas orais durante a correção coletiva para identificar dúvidas recorrentes.",
+        ],
+        "calculo_mental_naturais": [
+            "☑ Verificar se o estudante utiliza estratégias simples de cálculo mental sem depender apenas da contagem direta.",
+            "☑ Observar se explica oralmente como pensou para chegar ao resultado quando solicitado pelo professor.",
+            "☑ Acompanhar se os registros no caderno mantêm coerência com a estratégia trabalhada na lousa.",
+        ],
+        "adicao_naturais": [
+            "☑ Verificar se o estudante organiza corretamente as parcelas em colunas antes de somar.",
+            "☑ Observar se acompanha o algoritmo passo a passo sem perder unidades, dezenas e centenas.",
+            "☑ Acompanhar se registra o procedimento completo no caderno e não apenas o resultado final.",
+        ],
+        "problemas_adicao_subtracao_naturais": [
+            "☑ Verificar se o estudante identifica quando o problema pede adição ou subtração.",
+            "☑ Observar se separa os dados do enunciado antes de montar a operação no caderno.",
+            "☑ Acompanhar se relaciona a resposta ao contexto do problema na correção coletiva.",
+        ],
+        "multiplicacao_naturais": [
+            "☑ Verificar se o estudante compreende a multiplicação como adição de parcelas iguais ou agrupamento.",
+            "☑ Observar se aplica corretamente a estratégia principal apresentada na lousa.",
+            "☑ Acompanhar se os registros no caderno mostram organização do cálculo e compreensão do resultado.",
+        ],
+        "problemas_operacoes_naturais": [
+            "☑ Verificar se o estudante identifica a operação adequada em cada problema antes de começar a conta.",
+            "☑ Observar se resolve uma atividade por vez com atenção aos dados e ao que se quer descobrir.",
+            "☑ Acompanhar se corrige os próprios procedimentos após a resolução coletiva na lousa.",
+        ],
+        "multiplos_regularidades": [
+            "☑ Verificar se o estudante identifica padrões em sequências e reconhece múltiplos de um número natural.",
+            "☑ Observar se completa sequências no caderno sem perder a regularidade trabalhada na aula.",
+            "☑ Acompanhar se consegue explicar oralmente por que um número é múltiplo de outro.",
+        ],
+        "verificacao_operacoes_fundamentais": [
+            "☑ Verificar quais procedimentos de adição, subtração, multiplicação e divisão o estudante já realiza com mais autonomia.",
+            "☑ Observar se há dúvidas recorrentes na leitura do enunciado, escolha da operação ou organização dos registros.",
+            "☑ Acompanhar quais conteúdos precisam de retomada individual ou coletiva após a verificação guiada.",
+        ],
+        "numeros_inteiros": [
+            "☑ Verificar se o estudante compreende o significado de números positivos e negativos em situações concretas.",
+            "☑ Observar se utiliza a reta numérica ou a regra de sinais para justificar a resposta.",
+            "☑ Acompanhar se registra corretamente cálculos e comparações com números inteiros no caderno.",
+        ],
+        "problemas_numeros_inteiros": [
+            "☑ Verificar se o estudante identifica, no enunciado, quando a situação representa aumento, diminuição ou deslocamento na reta numérica.",
+            "☑ Observar se escolhe a operação adequada antes de iniciar o cálculo com números inteiros.",
+            "☑ Acompanhar se a resposta final faz sentido em relação ao contexto trabalhado pelo professor.",
+        ],
+        "fracao_introducao_fundamental": [
+            "☑ Verificar se o estudante identifica numerador, denominador e a ideia de parte do todo nas representações feitas na lousa.",
+            "☑ Observar se consegue relacionar desenho e escrita numérica da fração no caderno.",
+            "☑ Acompanhar se responde às perguntas de correção coletiva compreendendo o significado da divisão em partes iguais.",
+        ],
+        "problemas_fracoes_fundamental": [
+            "☑ Verificar se o estudante reconhece o todo e a parte indicada antes de resolver o problema com frações.",
+            "☑ Observar se usa desenho, escrita fracionária ou cálculo simples para organizar a resolução no caderno.",
+            "☑ Acompanhar se a resposta final está coerente com a situação concreta apresentada pelo professor.",
+        ],
+    }
+    return bancos.get(tipo_cdp, [])
+
+
+def _acessibilidade_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
+    bancos = {
+        "decimal_composicao_decomposicao": [
+            "☑ Organizar quadro de ordens e classes de forma ampliada na lousa para facilitar a leitura dos valores posicionais.",
+            "☑ Trabalhar um número por vez, com exemplos simples antes de ampliar a quantidade de algarismos.",
+            "☑ Oferecer tempo ampliado para copiar o esquema e concluir a decomposição no caderno.",
+        ],
+        "problemas_sistema_decimal": [
+            "☑ Ler o enunciado em voz alta e destacar oralmente os dados principais antes da resolução individual.",
+            "☑ Reescrever na lousa apenas as informações essenciais do problema para reduzir a sobrecarga de leitura.",
+            "☑ Apoiar individualmente estudantes com dificuldade de organizar a conta a partir do enunciado.",
+        ],
+        "comparacao_ordenacao_naturais": [
+            "☑ Escrever os números com espaçamento e alinhamento claros na lousa para facilitar a comparação visual.",
+            "☑ Utilizar exemplos com poucos números antes de ampliar a atividade de ordenação.",
+            "☑ Permitir registro por setas, sinais de maior e menor ou lista simples no caderno.",
+        ],
+        "calculo_mental_naturais": [
+            "☑ Apresentar uma estratégia de cada vez na lousa, evitando múltiplos caminhos simultâneos para o mesmo cálculo.",
+            "☑ Retomar oralmente o raciocínio passo a passo antes de pedir o registro no caderno.",
+            "☑ Oferecer exemplos extras para estudantes que ainda dependem da contagem direta.",
+        ],
+        "adicao_naturais": [
+            "☑ Organizar o algoritmo em colunas bem visíveis na lousa, com destaque para unidades, dezenas e centenas.",
+            "☑ Resolver um exemplo completo antes da atividade individual, mantendo o modelo no quadro durante a prática.",
+            "☑ Acompanhar individualmente estudantes com dificuldade de alinhamento e transporte no cálculo.",
+        ],
+        "problemas_adicao_subtracao_naturais": [
+            "☑ Explicar com palavras simples o que o problema está pedindo antes que os estudantes iniciem a resolução.",
+            "☑ Destacar na lousa palavras do enunciado que indicam juntar, tirar, comparar ou completar.",
+            "☑ Permitir que o estudante registre primeiro a operação e só depois produza a resposta final por escrito.",
+        ],
+        "multiplicacao_naturais": [
+            "☑ Utilizar exemplos concretos de grupos iguais na lousa antes do algoritmo formal.",
+            "☑ Resolver em etapas curtas, mantendo visível a relação entre adição repetida e multiplicação.",
+            "☑ Oferecer apoio individual na organização do cálculo e no uso da tabuada quando necessário.",
+        ],
+        "problemas_operacoes_naturais": [
+            "☑ Apresentar um problema por vez, com leitura mediada e orientação inicial antes da resolução no caderno.",
+            "☑ Registrar na lousa os dados e a pergunta principal de cada atividade para apoiar a compreensão.",
+            "☑ Realizar correção coletiva passo a passo antes de avançar para o próximo problema.",
+        ],
+        "multiplos_regularidades": [
+            "☑ Construir a sequência na lousa de forma ampliada para facilitar a identificação do padrão.",
+            "☑ Retomar oralmente o significado de múltiplo antes da atividade individual.",
+            "☑ Permitir completar sequências com apoio visual e registro parcial no caderno.",
+        ],
+        "verificacao_operacoes_fundamentais": [
+            "☑ Retomar oralmente os procedimentos principais antes da atividade de verificação, sem tratá-la como prova formal.",
+            "☑ Organizar as questões em etapas curtas, com acompanhamento individual de quem apresentar mais dificuldade.",
+            "☑ Corrigir coletivamente na lousa, valorizando o procedimento e não apenas o resultado final.",
+        ],
+        "numeros_inteiros": [
+            "☑ Desenhar reta numérica ampliada na lousa, com positivos e negativos destacados por cores ou marcações simples.",
+            "☑ Relacionar cada exemplo a situações concretas, como temperatura ou saldo, antes do cálculo abstrato.",
+            "☑ Permitir registro por seta, desenho ou marcação na reta antes da escrita formal da conta.",
+        ],
+        "problemas_numeros_inteiros": [
+            "☑ Ler cada problema em voz alta e explicar o contexto com linguagem simples antes da resolução.",
+            "☑ Reproduzir na lousa a reta numérica ou a regra de sinais como apoio durante a atividade.",
+            "☑ Oferecer tempo ampliado para organizar o raciocínio e registrar o cálculo no caderno.",
+        ],
+        "fracao_introducao_fundamental": [
+            "☑ Utilizar desenhos simples e ampliados na lousa para representar partes iguais e facilitar a visualização da fração.",
+            "☑ Retomar numerador e denominador com linguagem direta sempre que necessário durante a atividade.",
+            "☑ Permitir que o estudante responda primeiro pelo desenho e depois pela escrita numérica da fração.",
+        ],
+        "problemas_fracoes_fundamental": [
+            "☑ Ler o problema em voz alta e destacar o que representa o todo antes de trabalhar a parte solicitada.",
+            "☑ Resolver um exemplo com desenho na lousa para orientar estudantes com maior dificuldade de abstração.",
+            "☑ Acompanhar individualmente a passagem do desenho para o registro numérico no caderno.",
+        ],
+    }
+    return bancos.get(tipo_cdp, [])
 
 
 def _acompanhamento_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
@@ -2092,6 +2360,11 @@ def _metodologia_cdp_contextual(
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
     exemplo = _exemplo_concreto_cdp(tipo_cdp)
 
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_fundamental_cdp():
+        texto_especifico = _metodologia_matematica_fundamental_cdp(tipo_cdp, indice_aula)
+        if texto_especifico:
+            return [_limpar_texto_cdp_contextual(texto_especifico)]
+
     if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
         texto_especifico = _metodologia_matematica_eja_cdp(tipo_cdp, indice_aula)
         if texto_especifico:
@@ -2311,17 +2584,6 @@ def _metodologia_cdp_contextual(
         exemplo=exemplo,
         texto=texto,
     )
-    
-    tecnicas = []
-    if texto_pdf:
-        tecnicas = _detectar_tecnicas_lemov(texto_pdf, tema)
-    elif extracao_pdf and extracao_pdf.get("texto_prioritario"):
-        tecnicas = _detectar_tecnicas_lemov(extracao_pdf["texto_prioritario"], tema)
-
-    if tecnicas:
-        metodologia_temp = [{"titulo": "Abertura", "texto": texto}]
-        metodologia_temp = _garantir_tecnicas_lemov_na_metodologia(metodologia_temp, tecnicas)
-        texto = metodologia_temp[0]["texto"]
 
     return [_limpar_texto_cdp_contextual(texto)]
 
@@ -2432,6 +2694,10 @@ def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int 
 def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     conceito_frase = _conceito_cdp_contextual(perfil, tema, conceito)
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_fundamental_cdp():
+        itens = _acompanhamento_matematica_fundamental_cdp(tipo_cdp)
+        if itens:
+            return itens[:3]
     if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
         itens = _acompanhamento_matematica_eja_cdp(tipo_cdp)
         if itens:
@@ -2657,6 +2923,10 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
 
 def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
+    if perfil == "matematica" and tipo_cdp in _tipos_matematica_fundamental_cdp():
+        itens = _acessibilidade_matematica_fundamental_cdp(tipo_cdp)
+        if itens:
+            return itens[:3]
     if perfil == "matematica" and tipo_cdp in _tipos_matematica_eja_cdp():
         itens = _acessibilidade_matematica_eja_cdp(tipo_cdp)
         if itens:
