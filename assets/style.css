@@ -27,19 +27,30 @@ body,
     color: var(--pl-text);
 }
 
-/* Aplicar fonte customizada em todos os elementos, EXCETO ícones do Streamlit */
-[data-testid="stAppViewContainer"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not([data-testid="stIconMaterial"]),
-[data-testid="stSidebar"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not([data-testid="stIconMaterial"]) {
+/* Aplicar fonte customizada em todos os elementos, EXCETO ?cones do Streamlit */
+[data-testid="stAppViewContainer"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.material-symbols-sharp):not([data-testid="stIconMaterial"]):not([class*="material-symbols"]),
+[data-testid="stSidebar"] *:not(.material-icons):not(.material-icons-rounded):not(.material-icons-sharp):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.material-symbols-sharp):not([data-testid="stIconMaterial"]):not([class*="material-symbols"]) {
     font-family: inherit;
 }
 
-/* Garantir que ícones Material Design do Streamlit usem sua própria fonte */
+/* Garantir que ?cones Material Design do Streamlit usem sua pr?pria fonte */
 .material-icons,
 .material-icons-rounded,
 .material-icons-sharp,
+.material-symbols-rounded,
+.material-symbols-outlined,
+.material-symbols-sharp,
+[class*="material-symbols"],
 [data-testid="stIconMaterial"],
 span[class*="material"] {
-    font-family: "Material Icons", "Material Icons Rounded", "Material Icons Sharp" !important;
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Symbols Sharp", "Material Icons", "Material Icons Rounded", "Material Icons Sharp" !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
 }
 
 /* Títulos */

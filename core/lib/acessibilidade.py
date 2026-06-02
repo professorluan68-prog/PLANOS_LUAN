@@ -611,6 +611,44 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
     return saida[:maximo] if len(saida) >= minimo else saida
 
 
+def _acessibilidade_ciencias(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    if any(k in base for k in ["producao_projeto", "seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+        return [
+            "Disponibilizar roteiro simples com criterios da producao: conceito cientifico, exemplo, explicacao e organizacao visual.",
+            "Permitir que a apresentacao seja feita com apoio de topicos, cartaz, leitura parcial ou fala compartilhada entre integrantes.",
+            "Oferecer tempo para revisao orientada antes da socializacao, retomando vocabulario cientifico essencial.",
+        ]
+
+    if any(k in base for k in ["estudo_caso", "estudo de caso", "situacao-problema", "situacao problema", "caso"]):
+        return [
+            "Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidencias, explicar causas e registrar conclusao.",
+            "Disponibilizar esquema de causa e consequencia para apoiar a organizacao do raciocinio cientifico.",
+            "Permitir respostas em topicos, setas, desenho explicativo ou explicacao oral antes do registro final.",
+        ]
+
+    if any(k in base for k in ["leitura_analise", "noticia", "reportagem", "dados", "inpe", "ibge", "fonte", "hora da leitura"]):
+        return [
+            "Realizar leitura mediada do texto ou dado, destacando fonte, tema, informacoes centrais e vocabulario cientifico.",
+            "Disponibilizar perguntas orientadoras para localizar evidencias e relacionar o texto aos conceitos da aula.",
+            "Permitir registro em frases curtas ou topicos antes da resposta discursiva completa.",
+        ]
+
+    if any(k in base for k in ["revisao_retomada", "relembre", "exercicio resolvido", "retomar"]):
+        return [
+            "Apresentar um exemplo resolvido no quadro antes da atividade individual, explicitando cada etapa do raciocinio.",
+            "Disponibilizar quadro de palavras-chave e conceitos ja estudados para consulta durante a retomada.",
+            "Organizar pares de apoio para comparar respostas e revisar justificativas antes da correcao coletiva.",
+        ]
+
+    return [
+        "Utilizar imagens, esquemas, tabelas e exemplos do cotidiano para tornar o conceito cientifico mais concreto.",
+        "Organizar o registro em etapas curtas: hipotese inicial, conceito estudado, evidencia observada e sintese final.",
+        "Permitir diferentes formas de resposta, como topicos, desenho, setas, frases curtas ou explicacao oral mediada.",
+    ]
+
+
 def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 estratégias específicas com ☑.
 
@@ -708,6 +746,13 @@ def gerar_acessibilidade_aprimorada(
     if perfil == "matematica":
         return _limitar_itens(
             _acessibilidade_matematica(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "ciencias_ef":
+        return _limitar_itens(
+            _acessibilidade_ciencias(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

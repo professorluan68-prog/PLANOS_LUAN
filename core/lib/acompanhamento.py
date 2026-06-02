@@ -701,6 +701,44 @@ def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: st
     ]
 
 
+def _acompanhamento_ciencias(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+
+    if any(k in base for k in ["producao_projeto", "seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+        return [
+            "Verificar se a producao apresenta informacoes cientificas corretas, organizadas e relacionadas ao tema estudado.",
+            "Observar se os estudantes explicam as escolhas feitas no trabalho usando vocabulario cientifico adequado.",
+            "Acompanhar a participacao dos grupos, considerando clareza, colaboracao e capacidade de responder perguntas da turma.",
+        ]
+
+    if any(k in base for k in ["estudo_caso", "estudo de caso", "situacao-problema", "situacao problema", "caso"]):
+        return [
+            "Verificar se os estudantes identificam o problema central do caso e selecionam evidencias relevantes para a analise.",
+            "Observar se relacionam causa, consequencia e conceito cientifico ao justificar as respostas.",
+            "Acompanhar os registros escritos, considerando coerencia da explicacao e uso adequado dos conceitos da aula.",
+        ]
+
+    if any(k in base for k in ["leitura_analise", "noticia", "reportagem", "dados", "inpe", "ibge", "fonte", "hora da leitura"]):
+        return [
+            "Verificar se os estudantes localizam informacoes centrais no texto, dado ou fonte apresentada.",
+            "Observar se conseguem relacionar a leitura aos conceitos cientificos e a questoes de saude, ambiente ou sociedade.",
+            "Acompanhar as respostas escritas, considerando uso de evidencias e justificativas fundamentadas.",
+        ]
+
+    if any(k in base for k in ["revisao_retomada", "relembre", "exercicio resolvido", "retomar"]):
+        return [
+            "Verificar se os estudantes recuperam conceitos estudados anteriormente e reconhecem conexoes com a atividade atual.",
+            "Observar se acompanham o exemplo resolvido e aplicam o mesmo raciocinio em novas questoes.",
+            "Acompanhar os registros, identificando lacunas que precisam de retomada coletiva ou mediacao individual.",
+        ]
+
+    return [
+        "Verificar se os estudantes compreendem o conceito cientifico central e conseguem relaciona-lo a exemplos do cotidiano.",
+        "Observar a participacao no Pause e responda, considerando justificativas e correcao dialogada.",
+        "Acompanhar a atividade escrita, conferindo se as respostas usam evidencias, vocabulario cientifico e sintese propria.",
+    ]
+
+
 def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     """Detecta o tipo de aula de Língua Inglesa pelo contexto e retorna 3 itens específicos com ☑.
 
@@ -812,6 +850,13 @@ def gerar_acompanhamento_aprimorado(
     if perfil == "matematica":
         return _limitar_itens(
             _acompanhamento_matematica(tema, aprendizagem, desenvolvimento),
+            minimo=2,
+            maximo=3,
+        )
+
+    if perfil == "ciencias_ef":
+        return _limitar_itens(
+            _acompanhamento_ciencias(tema, aprendizagem, desenvolvimento),
             minimo=2,
             maximo=3,
         )

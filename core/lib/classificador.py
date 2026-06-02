@@ -333,6 +333,54 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
     return "leitura_literaria"
 
 
+_CIENCIAS_PRODUCAO_PROJETO = [
+    "producao", "projeto", "seminario", "apresentacao", "cartilha",
+    "campanha", "folder", "modelo", "de olho no modelo", "produto final",
+]
+
+_CIENCIAS_REVISAO = [
+    "relembre", "retomar", "revisao", "anteriormente", "aulas anteriores",
+    "exercicio resolvido", "no 1 bimestre estudamos", "consolidar",
+]
+
+_CIENCIAS_ESTUDO_CASO = [
+    "estudo de caso", "situacao-problema", "situacao problema", "caso",
+    "cenario", "analise o caso", "explique as consequencias", "fadiga",
+    "radiacao", "atleta", "mitocondria", "cesio-137", "dna",
+]
+
+_CIENCIAS_LEITURA_ANALISE = [
+    "hora da leitura", "texto", "noticia", "reportagem", "artigo",
+    "dados do inpe", "dados do ibge", "agencia fapesp", "jornal da usp",
+    "g1", "cnn brasil", "lei n", "anvisa", "fiocruz", "fonte",
+]
+
+_CIENCIAS_CONCEITO_NOVO = [
+    "conceito", "definicao", "classificacao", "tipos de", "camadas",
+    "estrutura", "composicao", "macronutrientes", "biosfera", "celula",
+    "sistema", "orgao", "ciclo da agua", "solo", "energia", "nutrientes",
+]
+
+
+def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
+    """Classifica aulas de Ciencias EF conforme a analise metodologica."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    if contem_termos(base_norm, _CIENCIAS_PRODUCAO_PROJETO):
+        return "producao_projeto"
+    if contem_termos(base_norm, _CIENCIAS_REVISAO):
+        return "revisao_retomada"
+    if contem_termos(base_norm, _CIENCIAS_ESTUDO_CASO):
+        return "estudo_caso"
+    if contem_termos(base_norm, _CIENCIAS_LEITURA_ANALISE):
+        return "leitura_analise"
+    if contem_termos(base_norm, _CIENCIAS_CONCEITO_NOVO):
+        return "conceito_novo"
+    return "conceito_novo"
+
+
 _TIPOS_MATEMATICA = [
     ("modelagem", ["modelagem", "modelar situacoes", "metodo de polya", "polya", "representar matematicamente", "sentenca matematica", "modelo matematico", "lei de formacao", "representacao algebrica", "equacionamento", "funcao como modelo"]),
     ("grandezas_medidas", ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]),
@@ -547,6 +595,9 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_TECNOLOGIA_INOVACAO, "tecnologia_geral")
 
     # Língua Inglesa — classificador especializado
+    if perfil == "ciencias_ef":
+        return _tipo_aula_ciencias(tema, texto)
+
     if perfil == "ingles":
         return _tipo_aula_ingles(tema, texto)
 

@@ -10,6 +10,7 @@ from config import PDF_TEXTO_LIMITE_CHARS
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
+from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
     formatar_objetivos_orientacao_estudos,
@@ -4153,7 +4154,8 @@ def _extrair_etapas_redacao_leitura(texto: str) -> list[dict]:
     return etapas
 
 
-def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str) -> list[dict]:
+def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str, turma: str = "") -> list[dict]:
+    return gerar_metodologia_redacao_leitura(texto_base, tema, turma=turma)
     genero = _genero_textual_redacao(texto_base, tema)
     objetivo = _objetivo_pedagogico_redacao(texto_base, tema, genero)
     perguntas = _perguntas_analise_redacao(genero, tema)
@@ -4565,7 +4567,7 @@ def _montar_etapas_metodologia(
 ) -> list[dict]:
     perfil = _perfil_disciplina(disciplina)
     if perfil == "leitura_redacao":
-        return _metodologia_leitura_redacao_modelo(texto, tema)
+        return _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
 
     metodologia = _motor_metodologico.gerar(
         texto_pdf=texto,
@@ -5836,7 +5838,7 @@ def _aula_por_pdf(
                 metodologia = plano_ia.get("metodologia", [])
                 tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
                 if perfil == "leitura_redacao":
-                    metodologia = _metodologia_leitura_redacao_modelo(texto, tema)
+                    metodologia = _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
                 if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
                     metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
                 metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)

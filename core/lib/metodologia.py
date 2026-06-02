@@ -223,6 +223,50 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Encerramento", "encerramento"),
         ]
 
+    if perfil == "ciencias_ef":
+        if tipo == "revisao_retomada":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco"),
+                ("Exercicio resolvido", "modelo"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "producao_projeto":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco"),
+                ("Na pratica", "producao"),
+                ("Compartilhamento", "compartilhamento"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "leitura_analise":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Hora da leitura", "leitura"),
+                ("Foco no conteudo", "foco"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "estudo_caso":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco"),
+                ("Estudo de caso", "estudo_caso"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+
     if perfil == "educacao_financeira":
         etapas = [
             ("Para começar", "para_comecar"),
@@ -1236,6 +1280,122 @@ def _metodologia_ingles(texto_base: str, tema: str, tipo: str, conceito: str = "
 
 
 
+def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "") -> dict[str, str] | None:
+    """Gerador especializado de frases para Ciencias EF."""
+    base = normalizar_texto(" ".join([tema, texto_base, atividade_extraida]))
+    conceito_seguro = conceito if normalizar_texto(conceito) not in {"ciencias", "ciencia", "geral"} else tema
+    atividade = atividade_extraida or "as atividades propostas no material"
+
+    contexto = "uma situacao concreta do cotidiano, imagem, noticia ou dado apresentado no material"
+    if any(k in base for k in ["inpe", "ibge", "detran", "fapesp", "jornal da usp", "g1", "cnn", "onu", "anvisa", "fiocruz"]):
+        contexto = "o dado ou a fonte real apresentada no material"
+    elif any(k in base for k in ["sao paulo", "cantareira", "aricanduva", "praca da se", "goiania", "brasil"]):
+        contexto = "o exemplo local ou brasileiro apresentado no material"
+
+    if tipo == "revisao_retomada":
+        return {
+            "relembre": (
+                f"Retomar com a turma os conceitos ja estudados sobre {tema}, usando uma pergunta curta em duplas para identificar o que ficou consolidado e o que precisa ser aprofundado."
+            ),
+            "foco": (
+                f"Reorganizar {conceito_seguro} de forma progressiva, estabelecendo conexoes entre os conteudos anteriores, exemplos do material e novas aplicacoes cientificas."
+            ),
+            "modelo": (
+                "Apresentar o exercicio resolvido ou exemplo comentado passo a passo, destacando o raciocinio cientifico usado para interpretar dados, esquemas ou situacoes-problema."
+            ),
+            "pause": (
+                "Propor uma verificacao formativa rapida, com questao objetiva, verdadeiro ou falso ou pergunta curta, e corrigir coletivamente antes de seguir para a atividade."
+            ),
+            "pratica": (
+                f"Orientar a atividade de retomada com registro escrito, solicitando que os estudantes justifiquem as respostas com base nos conceitos revisados. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Encerrar com sintese em linguagem propria, pedindo que os estudantes expliquem a relacao entre {tema} e os conceitos retomados na aula."
+            ),
+        }
+
+    if tipo == "leitura_analise":
+        return {
+            "para_comecar": (
+                f"Apresentar {contexto} sobre {tema} e propor que os estudantes levantem hipoteses em duplas, relacionando o assunto ao cotidiano e a questoes de ciencia, sociedade, saude ou ambiente."
+            ),
+            "leitura": (
+                f"Realizar leitura compartilhada do texto, noticia, dado ou fonte sobre {tema}, identificando informacoes centrais, vocabulario cientifico e evidencias usadas para sustentar as ideias."
+            ),
+            "foco": (
+                f"Explicar {conceito_seguro} articulando o texto lido aos conceitos cientificos, destacando relacoes de causa, consequencia, comparacao e impacto social ou ambiental."
+            ),
+            "pause": (
+                "Fazer uma pausa de verificacao com pergunta objetiva ou verdadeiro/falso, solicitando que os estudantes justifiquem a resposta antes da correcao coletiva."
+            ),
+            "pratica": (
+                f"Propor atividade escrita de interpretacao e analise critica, orientando a retomada do texto para localizar evidencias e construir respostas fundamentadas. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Retomar as hipoteses iniciais e solicitar uma sintese curta sobre o que o texto ajudou a compreender a respeito de {tema}."
+            ),
+        }
+
+    if tipo == "estudo_caso":
+        return {
+            "para_comecar": (
+                f"Apresentar o caso ou situacao-problema relacionado a {tema}, pedindo que os estudantes identifiquem o problema central e levantem explicacoes iniciais."
+            ),
+            "foco": (
+                f"Sistematizar os conceitos necessarios para analisar o caso, explicando {conceito_seguro} com apoio de esquemas, dados ou exemplos do material."
+            ),
+            "estudo_caso": (
+                "Conduzir a analise do caso em etapas: identificar os elementos envolvidos, explicar as relacoes cientificas e discutir consequencias para a saude, o ambiente ou a sociedade."
+            ),
+            "pause": (
+                "Realizar checagem formativa antes da resposta final, verificando se a turma compreendeu quais evidencias sustentam a explicacao do caso."
+            ),
+            "pratica": (
+                f"Orientar o registro escrito da solucao ou explicacao do caso, solicitando justificativa cientifica e retomada dos conceitos estudados. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Fechar a aula socializando algumas respostas e destacando como o raciocinio cientifico ajudou a interpretar {tema}."
+            ),
+        }
+
+    if tipo == "producao_projeto":
+        return {
+            "relembre": (
+                f"Retomar com a turma o percurso ja realizado sobre {tema}, recuperando os conceitos e criterios que deverao aparecer na producao ou apresentacao."
+            ),
+            "foco": (
+                f"Explicar os criterios de qualidade da producao cientifica, destacando clareza das informacoes, uso correto de {conceito_seguro}, organizacao visual e relacao com a vida cotidiana."
+            ),
+            "producao": (
+                f"Organizar os estudantes em grupos ou individualmente para finalizar, revisar ou apresentar a producao proposta no material. Atividade central: {atividade}."
+            ),
+            "compartilhamento": (
+                "Promover socializacao das producoes, garantindo escuta da turma, perguntas breves e retomada dos criterios combinados."
+            ),
+            "encerramento": (
+                f"Conduzir reflexao final sobre o que foi aprendido durante a producao e como esse conhecimento se relaciona a ciencia, sociedade, saude ou ambiente."
+            ),
+        }
+
+    return {
+        "para_comecar": (
+            f"Iniciar a aula com {contexto} sobre {tema}, propondo que os estudantes discutam em duplas o que ja sabem e quais hipoteses conseguem levantar."
+        ),
+        "foco": (
+            f"Apresentar o conceito de {conceito_seguro}, partindo dos exemplos do material e construindo progressivamente a definicao cientifica com esquemas, imagens ou comparacoes."
+        ),
+        "pause": (
+            "Propor questao objetiva, verdadeiro/falso ou pergunta curta para verificar a compreensao do conceito antes da atividade pratica, com correcao dialogada."
+        ),
+        "pratica": (
+            f"Orientar atividade escrita de aplicacao, garantindo que todos registrem respostas e justificativas com base no conceito estudado. Atividade central: {atividade}."
+        ),
+        "encerramento": (
+            f"Encerrar com Com suas palavras, solicitando que os estudantes sintetizem o que aprenderam sobre {tema} e retomem as hipoteses iniciais."
+        ),
+    }
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
     turma: str, tecnicas: dict, texto_base: str = "",
@@ -1360,7 +1520,13 @@ def _frases_por_contexto(
                 "o enunciado, localizar pistas e revisar alternativas sem transformar a aula em treino mecanico."
             )
 
-    elif perfil in {"ciencias_ef", "biologia", "quimica", "fisica"}:
+    elif perfil == "ciencias_ef":
+        _frases_ciencias = _metodologia_ciencias(texto_base, tema, tipo, conceito, atividade_extraida)
+        if _frases_ciencias is not None:
+            base.update(_frases_ciencias)
+            return base
+
+    elif perfil in {"biologia", "quimica", "fisica"}:
         base["para_comecar"] = (
             f"Contextualizar {tema} com uma situação-problema, imagem, dado ou exemplo do cotidiano. Propor "
             f"{t_disc} para que os estudantes antecipem explicações e levantem evidências."
