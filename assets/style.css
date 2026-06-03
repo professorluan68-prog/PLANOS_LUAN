@@ -499,3 +499,64 @@ section[data-testid="stFileUploadDropzone"]:hover {
     border-color: #3b82f6 !important;
     background-color: #eff6ff !important;
 }
+
+/* CDP preview */
+.cdp-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin: 10px 0 6px;
+}
+
+.cdp-preview-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f5fbff 100%);
+    border: 1px solid var(--pl-border-soft);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: var(--pl-shadow-sm);
+}
+
+.cdp-preview-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.cdp-preview-card__ordem {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--pl-primary);
+}
+
+.cdp-preview-card__aula {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--pl-text-soft);
+    background: #e8f3ff;
+    border: 1px solid #cfe4fb;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.cdp-preview-card__disciplina {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--pl-text);
+    margin-bottom: 4px;
+}
+
+.cdp-preview-card__planilha {
+    font-size: 0.84rem;
+    color: var(--pl-text-soft);
+    margin-bottom: 8px;
+}
+
+.cdp-preview-card__titulo {
+    font-size: 0.95rem;
+    line-height: 1.42;
+    color: var(--pl-text);
+}

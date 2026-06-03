@@ -36,7 +36,7 @@ from core.lote import processar_varios_pdfs
 from core.validador_plano import validar_aulas_geradas
 from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP
 from docx_generator.preencher import preencher_documento
-from docx_generator.preencher_cdp import preencher_documento_cdp
+from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import horario_para_plano, montar_relatorio_geracao, texto_lista as _texto_lista
 from core.database import (
     atualizar_vinculo_professor,
@@ -2188,6 +2188,42 @@ if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
 def _resumo_tela(valor: str, fallback: str = "Não definido") -> str:
     return str(valor).strip() if str(valor or "").strip() else fallback
 
+
+def _render_previa_aulas_cdp(preview: list[dict]):
+    if not preview:
+        st.warning("Não consegui localizar as aulas do CDP no modelo atual.")
+        return
+
+    st.markdown('<div class="section-subtitle">Prévia das aulas que serão puxadas da planilha</div>', unsafe_allow_html=True)
+    st.info(
+        "No CDP, a aula inicial é aplicada dentro de cada disciplina que aparece no modelo. A prévia abaixo mostra qual disciplina e qual aula da planilha entrarão em cada bloco.",
+        icon="ℹ️",
+    )
+
+    cards = []
+    for item in preview[:6]:
+        aula_planilha = f"Aula {item.get('aula_planilha')}" if str(item.get("aula_planilha") or "").strip() else "Aula sem número"
+        titulo = str(item.get("titulo") or "").strip() or "Sem título identificado"
+        disciplina = str(item.get("disciplina") or "").strip() or "Disciplina não identificada"
+        planilha = str(item.get("componente_planilha") or disciplina).strip()
+        cards.append(
+            (
+                f'<div class="cdp-preview-card">'
+                f'<div class="cdp-preview-card__top">'
+                f'<span class="cdp-preview-card__ordem">Bloco {item.get("ordem")}</span>'
+                f'<span class="cdp-preview-card__aula">{aula_planilha}</span>'
+                f'</div>'
+                f'<div class="cdp-preview-card__disciplina">{disciplina}</div>'
+                f'<div class="cdp-preview-card__planilha">Planilha: {planilha}</div>'
+                f'<div class="cdp-preview-card__titulo">{titulo}</div>'
+                f'</div>'
+            )
+        )
+
+    st.markdown(f'<div class="cdp-preview-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
+    if len(preview) > 6:
+        st.caption(f"Mostrando os 6 primeiros blocos do modelo. Total identificado: {len(preview)}.")
+
 semana = ""
 observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
@@ -2245,6 +2281,19 @@ if disciplina_cdp:
         with col1: turma_cdp = st.selectbox("Turma filtro", TURMAS_CDP_MULTISSERIADA, key="turma_cdp")
         with col2: cdp_aula_inicial = st.number_input("Aula inicial", min_value=1, value=1, key="cdp_aula_inicial")
     else: cdp_aula_inicial = st.number_input("Aula inicial", min_value=1, value=1, key="cdp_aula_inicial")
+    if modelo_bytes:
+        try:
+            previa_cdp = prever_aulas_cdp(
+                BytesIO(modelo_bytes),
+                aula_inicial=int(cdp_aula_inicial or 1),
+                fundamental=eh_cdp_fundamental(disciplina),
+                multisseriada=eh_cdp_multisseriada(disciplina),
+                serie_cdp=turma_cdp if eh_cdp_multisseriada(disciplina) else "",
+                bimestre=bimestre,
+            )
+            _render_previa_aulas_cdp(previa_cdp)
+        except Exception:
+            st.warning("Não consegui montar a prévia das aulas do CDP com o modelo atual.")
 else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
     dividir_metodologia_atual = st.session_state.get("dividir_metodologia", False)

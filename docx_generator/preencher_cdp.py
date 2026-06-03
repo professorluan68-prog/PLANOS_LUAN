@@ -5,6 +5,7 @@ from typing import Dict
 from docx import Document
 
 from core.cdp import (
+    componente_da_linha_multisseriada,
     disciplina_da_linha,
     habilidade_item_cdp,
     montar_acessibilidade_cdp,
@@ -139,6 +140,59 @@ def _material(disciplina: str, item: Dict[str, str]) -> str:
 
 def _metodologia_dict(texto: str):
     return [{"titulo": "", "texto": texto}]
+
+
+def prever_aulas_cdp(
+    modelo_docx,
+    aula_inicial: int = 1,
+    fundamental: bool = False,
+    multisseriada: bool = False,
+    serie_cdp: str = "",
+    componente_cdp: str = "",
+    bimestre: str = "",
+) -> list[Dict[str, str]]:
+    doc = Document(modelo_docx)
+    contadores: Dict[str, int] = {}
+    preview: list[Dict[str, str]] = []
+
+    for table in doc.tables:
+        for row in table.rows:
+            if not _linha_de_aula_cdp(row):
+                continue
+
+            idxs = _indices_cdp(row)
+            material_modelo = (row.cells[idxs["material"]].text or "").strip()
+            disciplina = disciplina_da_linha(material_modelo)
+            turma_selecao = serie_cdp or ""
+            contador = contadores.get(disciplina, 0)
+            item = selecionar_item(
+                disciplina,
+                contador,
+                turma=turma_selecao,
+                bimestre=bimestre,
+                aula_inicial=aula_inicial,
+                fundamental=fundamental,
+                multisseriada=multisseriada,
+                componente_cdp=componente_cdp,
+            )
+            contadores[disciplina] = contadores.get(disciplina, 0) + 1
+
+            aula_planilha = str(item.get("AULA", "") or "").strip()
+            titulo = titulo_item_cdp(item)
+            habilidade = habilidade_item_cdp(item)
+            preview.append(
+                {
+                    "ordem": str(len(preview) + 1),
+                    "disciplina": _disciplina_exibicao(disciplina),
+                    "componente_planilha": componente_da_linha_multisseriada(material_modelo) if multisseriada else _disciplina_exibicao(disciplina),
+                    "material_modelo": material_modelo,
+                    "aula_planilha": aula_planilha,
+                    "titulo": titulo,
+                    "habilidade": habilidade,
+                }
+            )
+
+    return preview
 
 
 def _preencher_cabecalhos_cdp(
