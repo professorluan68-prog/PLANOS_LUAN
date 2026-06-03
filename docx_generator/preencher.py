@@ -12,7 +12,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 from core.helpers import texto_lista
-from core.qualidade_metodologica import corrigir_mojibake
+from core.qualidade_metodologica import corrigir_mojibake, corrigir_ortografia_basica
 
 
 DESTAQUES_TEXTO = {
@@ -386,6 +386,7 @@ def _polir_texto_docx(texto: str) -> str:
             texto_final,
             flags=re.I,
         )
+    texto_final = corrigir_ortografia_basica(texto_final)
     return corrigir_mojibake(texto_final)
 
 

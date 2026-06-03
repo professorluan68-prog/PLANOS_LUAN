@@ -20,6 +20,161 @@ _CORRECOES_PONTUAIS_MOJIBAKE = {
     "pr?tica": "prática",
     "tecnol?gica": "tecnológica",
 }
+_CORRECOES_ORTOGRAFIA = {
+    "acolhimento": "acolhimento",
+    "ativacao": "ativação",
+    "analise": "análise",
+    "analises": "análises",
+    "aplicacao": "aplicação",
+    "aplicacoes": "aplicações",
+    "apreciacao": "apreciação",
+    "artisticas": "artísticas",
+    "classificacao": "classificação",
+    "classificacoes": "classificações",
+    "comentarios": "comentários",
+    "compreensao": "compreensão",
+    "conexao": "conexão",
+    "conteudo": "conteúdo",
+    "conteudos": "conteúdos",
+    "contextualizacao": "contextualização",
+    "correcao": "correção",
+    "correcoes": "correções",
+    "criterios": "critérios",
+    "demonstracao": "demonstração",
+    "detextos": "de textos",
+    "discussao": "discussão",
+    "discussoes": "discussões",
+    "duvidas": "dúvidas",
+    "equacao": "equação",
+    "equacoes": "equações",
+    "estrategia": "estratégia",
+    "estrategias": "estratégias",
+    "evidencias": "evidências",
+    "exercicios": "exercícios",
+    "explicacao": "explicação",
+    "explicacoes": "explicações",
+    "exploracao": "exploração",
+    "expressao": "expressão",
+    "genero": "gênero",
+    "generos": "gêneros",
+    "grafico": "gráfico",
+    "graficos": "gráficos",
+    "hipoteses": "hipóteses",
+    "horarios": "horários",
+    "identificacao": "identificação",
+    "identificacoes": "identificações",
+    "ideia": "ideia",
+    "ideias": "ideias",
+    "importancia": "importância",
+    "informacoes": "informações",
+    "interpretacao": "interpretação",
+    "interpretacoes": "interpretações",
+    "intervencoes": "intervenções",
+    "leitura": "leitura",
+    "linguisticas": "linguísticas",
+    "linguisticos": "linguísticos",
+    "manifestacoes": "manifestações",
+    "matematica": "matemática",
+    "matematicas": "matemáticas",
+    "mediacao": "mediação",
+    "mediacoes": "mediações",
+    "municipio": "município",
+    "observacao": "observação",
+    "observacoes": "observações",
+    "organizacao": "organização",
+    "participacao": "participação",
+    "pontuacao": "pontuação",
+    "pratica": "prática",
+    "praticas": "práticas",
+    "previos": "prévios",
+    "proximo": "próximo",
+    "proximos": "próximos",
+    "producao": "produção",
+    "producoes": "produções",
+    "realizacao": "realização",
+    "relacao": "relação",
+    "relacoes": "relações",
+    "resolucao": "resolução",
+    "resolucoes": "resoluções",
+    "revisao": "revisão",
+    "revisoes": "revisões",
+    "sensibilizacao": "sensibilização",
+    "simbolo": "símbolo",
+    "simbolos": "símbolos",
+    "sintese": "síntese",
+    "sinteses": "sínteses",
+    "situacao": "situação",
+    "situacoes": "situações",
+    "socializacao": "socialização",
+    "tecnologica": "tecnológica",
+    "tecnologicas": "tecnológicas",
+    "titulo": "título",
+    "titulos": "títulos",
+    "utilizacao": "utilização",
+    "vocabulario": "vocabulário",
+}
+_CORRECOES_ORTOGRAFIA_QUEBRADA = {
+    "ativa??o": "ativação",
+    "an?lise": "análise",
+    "aplica??o": "aplicação",
+    "aprecia??o": "apreciação",
+    "art?sticas": "artísticas",
+    "classifica??o": "classificação",
+    "coment?rios": "comentários",
+    "compreens?o": "compreensão",
+    "conex?o": "conexão",
+    "contextualiza??o": "contextualização",
+    "corre??o": "correção",
+    "cr?ticos": "críticos",
+    "discuss?o": "discussão",
+    "discuss?es": "discussões",
+    "d?vidas": "dúvidas",
+    "equa??o": "equação",
+    "equa??es": "equações",
+    "estrat?gias": "estratégias",
+    "evid?ncias": "evidências",
+    "exerc?cios": "exercícios",
+    "explica??o": "explicação",
+    "explora??o": "exploração",
+    "express?o": "expressão",
+    "g?nero": "gênero",
+    "gr?fico": "gráfico",
+    "gr?ficos": "gráficos",
+    "hip?teses": "hipóteses",
+    "hor?rios": "horários",
+    "identifica??o": "identificação",
+    "informa??es": "informações",
+    "interpreta??o": "interpretação",
+    "interven??es": "intervenções",
+    "lingu?sticas": "linguísticas",
+    "manifesta??es": "manifestações",
+    "matem?tica": "matemática",
+    "media??o": "mediação",
+    "munic?pio": "município",
+    "observa??o": "observação",
+    "organiza??o": "organização",
+    "participa??o": "participação",
+    "pontua??o": "pontuação",
+    "pr?tica": "prática",
+    "pr?vios": "prévios",
+    "pr?ximo": "próximo",
+    "produ??o": "produção",
+    "realiza??o": "realização",
+    "rela??o": "relação",
+    "rela??es": "relações",
+    "resolu??o": "resolução",
+    "revis?o": "revisão",
+    "sensibiliza??o": "sensibilização",
+    "s?mbolo": "símbolo",
+    "s?ntese": "síntese",
+    "situa??o": "situação",
+    "situa??es": "situações",
+    "socializa??o": "socialização",
+    "tecnol?gica": "tecnológica",
+    "t?tulo": "título",
+    "utiliza??o": "utilização",
+    "vocabul?rio": "vocabulário",
+}
 _FINAIS_CONECTIVOS = {
     "a",
     "as",
@@ -45,6 +200,35 @@ def tem_mojibake(texto: str) -> bool:
     )
 
 
+def _capitalizar_como_modelo(modelo: str, novo: str) -> str:
+    if modelo.isupper():
+        return novo.upper()
+    if modelo[:1].isupper():
+        return novo[:1].upper() + novo[1:]
+    return novo
+
+
+def corrigir_ortografia_basica(texto: str) -> str:
+    texto_final = str(texto or "")
+    if not texto_final:
+        return ""
+
+    for errado, certo in _CORRECOES_ORTOGRAFIA_QUEBRADA.items():
+        texto_final = texto_final.replace(errado, certo)
+        texto_final = texto_final.replace(errado.capitalize(), certo[:1].upper() + certo[1:])
+        texto_final = texto_final.replace(errado.upper(), certo.upper())
+
+    for sem_acento, com_acento in _CORRECOES_ORTOGRAFIA.items():
+        texto_final = re.sub(
+            rf"\b{re.escape(sem_acento)}\b",
+            lambda m, novo=com_acento: _capitalizar_como_modelo(m.group(0), novo),
+            texto_final,
+            flags=re.I,
+        )
+
+    return texto_final
+
+
 def corrigir_mojibake(texto: str) -> str:
     texto_original = str(texto or "")
     if not texto_original:
@@ -66,7 +250,7 @@ def corrigir_mojibake(texto: str) -> str:
     melhor = min(candidatos, key=pontuar)
     for errado, certo in _CORRECOES_PONTUAIS_MOJIBAKE.items():
         melhor = melhor.replace(errado, certo)
-    return melhor
+    return corrigir_ortografia_basica(melhor)
 
 
 def limitar_texto_natural(texto: str, limite: int = 220) -> str:
