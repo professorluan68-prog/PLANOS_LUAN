@@ -363,19 +363,19 @@ def _blocos_especificos_jornada_14(texto_pdf: str) -> dict[str, str] | None:
 
     if any(chave in base for chave in ["tipo de variacao linguistica", "macaxeira", "mandioca", "registro formal", "quarto de despejo", "decolonialidade"]):
         return {
-            "para_comecar": "Iniciar com uma conversa sobre como a língua muda ao longo do tempo e também se adapta aos lugares, grupos sociais e situações de comunicação. Retomar com a turma exemplos conhecidos de palavras que variam de uma região para outra ou de contextos em que se usa linguagem mais formal ou mais informal.",
-            "leitura": "Realizar a leitura orientada dos textos da aula, destacando a comparação entre relato científico e diário, as diferenças de registro e as explicações sobre tipos de variação linguística. Durante a leitura, orientar os estudantes a observar marcas de formalidade, subjetividade, oralidade e contexto social dos textos.",
-            "foco": "Explicar que a língua apresenta variações históricas, geográficas, sociais e situacionais, e que essas diferenças aparecem em gêneros diversos, como artigo científico, diário e textos de circulação cotidiana. Relacionar essa ideia aos materiais lidos, mostrando que reconhecer essas marcas ajuda a compreender melhor os efeitos de sentido e o contexto de produção.",
-            "pratica": "Orientar a resolução das atividades, pedindo que os estudantes comparem os gêneros lidos, identifiquem usos de registro formal e informal e localizem exemplos de variação linguística. Auxiliar a turma a justificar as respostas com base nas características do texto e na situação comunicativa apresentada.",
-            "encerramento": "Corrigir as respostas de forma dialogada e sistematizar com a turma os principais tipos de variação linguística observados na aula. Finalizar reforçando que estudar a língua também é compreender como ela circula na vida real e como seus usos revelam identidades e contextos.",
+            "para_comecar": "Iniciar com uma conversa sobre como a lingua muda ao longo do tempo e tambem se adapta aos lugares, grupos sociais e situacoes de comunicacao. Retomar com a turma exemplos conhecidos de palavras que variam de uma regiao para outra ou de contextos em que se usa linguagem mais formal ou mais informal.",
+            "leitura": "Realizar a leitura orientada dos textos da aula, destacando a comparacao entre relato cientifico e diario, as diferencas de registro e as explicacoes sobre tipos de variacao linguistica. Durante a leitura, orientar os estudantes a observar marcas de formalidade, subjetividade, oralidade e contexto social dos textos.",
+            "foco": "Explicar que a lingua apresenta variacoes historicas, geograficas, sociais e situacionais, e que essas diferencas aparecem em generos diversos, como artigo cientifico, diario e textos de circulacao cotidiana. Relacionar essa ideia aos materiais lidos, mostrando que reconhecer essas marcas ajuda a compreender melhor os efeitos de sentido e o contexto de producao.",
+            "pratica": "Orientar a resolucao das atividades, pedindo que os estudantes comparem os generos lidos, identifiquem usos de registro formal e informal e localizem exemplos de variacao linguistica. Auxiliar a turma a justificar as respostas com base nas caracteristicas do texto e na situacao comunicativa apresentada.",
+            "encerramento": "Corrigir as respostas de forma dialogada e sistematizar com a turma os principais tipos de variacao linguistica observados na aula. Finalizar reforcando que estudar a lingua tambem significa compreender suas transformacoes e respeitar os diferentes modos de expressao presentes na sociedade.",
         }
 
     return {
-        "para_comecar": "Retomar com a turma que a língua portuguesa não é fixa nem única em todos os contextos, mas se transforma conforme o tempo, os lugares, os grupos e as necessidades de comunicação. Incentivar os estudantes a comentar exemplos de palavras, expressões ou modos de falar que conhecem em diferentes situações.",
-        "leitura": "Realizar a leitura orientada dos textos da aula, destacando exemplos de variedades linguísticas, registros formais e informais e situações em que a língua revela identidade, pertencimento ou preconceito. Durante a leitura, orientar os estudantes a observar como os textos tratam a diversidade linguística.",
-        "foco": "Explicar que a variação linguística é parte do funcionamento da língua viva e aparece em diferentes gêneros, suportes e contextos sociais. Relacionar essa ideia aos materiais lidos, mostrando que compreender essas variações ajuda a ler com mais criticidade e respeito às diferentes formas de expressão.",
-        "pratica": "Acompanhar a resolução das atividades, pedindo que os estudantes identifiquem marcas de variação, analisem situações comunicativas e comparem usos formais e informais da língua. Incentivar justificativas com base nos textos e nas pistas linguísticas encontradas.",
-        "encerramento": "Corrigir as respostas de forma dialogada e finalizar retomando que conhecer variedades linguísticas não significa abandonar a norma-padrão, mas entender quando e por que diferentes usos da língua aparecem. Destacar que essa compreensão ajuda a combater preconceitos e ampliar a leitura de mundo.",
+        "para_comecar": "Retomar com a turma que a lingua portuguesa nao e fixa nem unica em todos os contextos, mas se transforma conforme o tempo, os lugares, os grupos e as necessidades de comunicacao. Incentivar os estudantes a comentar exemplos de palavras, expressoes ou modos de falar que conhecem em diferentes situacoes.",
+        "leitura": "Realizar a leitura orientada dos textos da aula, destacando exemplos de variedades linguisticas, registros formais e informais e situacoes em que a lingua revela identidade, pertencimento ou preconceito. Durante a leitura, orientar os estudantes a observar como os textos tratam a diversidade linguistica.",
+        "foco": "Explicar que a variacao linguistica e parte do funcionamento da lingua viva e aparece em diferentes generos, suportes e contextos sociais. Relacionar essa ideia aos materiais lidos, mostrando que compreender essas variacoes ajuda a ler com mais criticidade e respeito as diferentes formas de expressao.",
+        "pratica": "Acompanhar a resolucao das atividades, pedindo que os estudantes identifiquem marcas de variacao, analisem situacoes comunicativas e comparem usos formais e informais da lingua. Incentivar justificativas com base nos textos e nas pistas linguisticas encontradas.",
+        "encerramento": "Corrigir as respostas de forma dialogada e finalizar retomando que conhecer variedades linguisticas nao significa abandonar a norma-padrao, mas entender quando e por que diferentes usos da lingua aparecem. Destacar que essa compreensao ajuda a combater preconceitos e ampliar a leitura de mundo.",
     }
 
 
@@ -383,30 +383,24 @@ def montar_frases_orientacao_estudos(tema: str, texto_pdf: str) -> dict[str, str
     etapa = _detectar_etapa(tema, texto_pdf)
     tema_norm = _normalizar(_limpar_tema(tema))
 
+    blocos = None
     if "missao 6 - uma palavra puxa a outra" in tema_norm:
         blocos = _blocos_especificos_missao_6(etapa)
-        if blocos:
-            return blocos
-    if "missao 7 - a trama do texto" in tema_norm:
+    elif "missao 7 - a trama do texto" in tema_norm:
         blocos = _blocos_especificos_missao_7(etapa)
-        if blocos:
-            return blocos
-    if "missao 10 - a voz da poesia" in tema_norm:
+    elif "missao 10 - a voz da poesia" in tema_norm:
         blocos = _blocos_especificos_missao_10(etapa)
-        if blocos:
-            return blocos
-    if "missao 11 - um mergulho no cordel" in tema_norm:
+    elif "missao 11 - um mergulho no cordel" in tema_norm:
         blocos = _blocos_especificos_missao_11(etapa)
-        if blocos:
-            return blocos
-    if "jornada 13" in tema_norm and "recursos midi" in tema_norm:
+    elif "jornada 13" in tema_norm and "recursos midi" in tema_norm:
         blocos = _blocos_especificos_jornada_13(texto_pdf)
-        if blocos:
-            return blocos
-    if "jornada 14" in tema_norm and "variedades lingu" in tema_norm:
+    elif "jornada 14" in tema_norm and "variedades lingu" in tema_norm:
         blocos = _blocos_especificos_jornada_14(texto_pdf)
-        if blocos:
-            return blocos
+
+    if blocos:
+        res = dict(blocos)
+        res["_e_especifico"] = True
+        return res
 
     perfil = _perfil_generico(tema)
     titulo_legivel = _titulo_legivel(tema)
@@ -415,33 +409,36 @@ def montar_frases_orientacao_estudos(tema: str, texto_pdf: str) -> dict[str, str
     foco = perfil["foco"]
 
     if etapa == "etapa 2":
-        return {
+        res = {
             "para_comecar": f"Retomar com a turma a leitura e os registros da etapa anterior, recuperando o que ja foi observado sobre {objeto} e quais pistas ajudaram na compreensao do material.",
             "leitura": f"Orientar a releitura de trechos, enunciados e exemplos presentes em {referencia}, ajudando os estudantes a localizar informacoes, identificar detalhes importantes e perceber como as questoes retomam o texto.",
             "foco": f"Explicar com a turma os aspectos centrais de {foco}, mostrando como eles aparecem no material e como podem ser usados para interpretar melhor as questoes propostas.",
             "pratica": "Acompanhar a resolucao das atividades de analise, pedindo que os alunos retornem aos trechos lidos para justificar as respostas e explicitem o caminho que seguiram para chegar a cada conclusao.",
             "encerramento": "Corrigir as respostas de forma dialogada e sistematizar no quadro os principais aprendizados da etapa, reforcando as estrategias de leitura e estudo usadas pela turma.",
         }
-    if etapa == "etapa 3":
-        return {
+    elif etapa == "etapa 3":
+        res = {
             "para_comecar": f"Introduzir a nova situacao de leitura da etapa e relaciona-la ao que ja foi estudado sobre {objeto}, incentivando os estudantes a antecipar o que podem observar ou comparar no novo material.",
             "leitura": f"Realizar a leitura orientada de {referencia}, destacando o tema central, as informacoes principais e os elementos que ajudam a ampliar ou aplicar o conhecimento construido nas etapas anteriores.",
-            "foco": f"Retomar {foco} a partir do novo texto ou situacao apresentada, ajudando a turma a perceber continuidades, diferencas e novas possibilidades de interpretacao.",
+            "foco": f"Retomar {foco} a partir do novo texto or situacao apresentada, ajudando a turma a perceber continuidades, diferencas e novas possibilidades de interpretacao.",
             "pratica": "Orientar a resolucao das atividades com leitura atenta, comparacao de trechos, justificativa de respostas e retomada de evidencias do material sempre que necessario.",
             "encerramento": "Socializar algumas respostas e fechar a etapa destacando como as estrategias de leitura, registro e revisao ajudam a compreender melhor o material e a responder com mais autonomia.",
         }
-    if etapa == "etapa final":
-        return {
+    elif etapa == "etapa final":
+        res = {
             "para_comecar": f"Retomar com a turma o percurso de {titulo_legivel}, lembrando o que foi estudado nas etapas anteriores e quais estrategias mais ajudaram na leitura, na interpretacao e na organizacao das respostas.",
             "leitura": f"Orientar a leitura dos enunciados e desafios finais presentes em {referencia}, explicando o objetivo da sintese, da producao ou da atividade de fechamento proposta pelo material.",
             "foco": f"Reforcar com a turma os aspectos centrais de {foco}, mostrando como eles aparecem no fechamento da missao ou trilha e como podem ser retomados em outras situacoes de estudo.",
             "pratica": "Acompanhar a realizacao da atividade final, orientando a retomada de anotacoes, a revisao das respostas e a organizacao de uma producao clara, coerente e ligada ao percurso desenvolvido ao longo da aula.",
             "encerramento": "Finalizar com uma socializacao breve e uma sintese coletiva do que foi aprendido, destacando como as estrategias praticadas podem ser aplicadas em outros textos, aulas e momentos de estudo.",
         }
-    return {
-        "para_comecar": f"Retomar com a turma conhecimentos previos sobre {objeto}, aproximando o tema da experiencia dos estudantes e registrando no quadro pistas iniciais que possam orientar o estudo do material.",
-        "leitura": f"Realizar a leitura orientada de {referencia}, destacando o tema central, a finalidade do texto e as informacoes mais importantes. Durante a leitura, orientar os estudantes a marcar palavras-chave e trechos que ajudem na compreensao.",
-        "foco": f"Explicar {foco}, relacionando o conteudo ao material lido e mostrando como ele pode ser estudado com mais autonomia, por meio de leitura atenta, localizacao de informacoes e justificativa de respostas.",
-        "pratica": "Orientar a resolucao das atividades, pedindo que os alunos voltem ao texto para localizar evidencias, interpretar os comandos e organizar respostas completas. Auxiliar os estudantes com mais dificuldade por meio de perguntas simples e retomadas coletivas.",
-        "encerramento": "Corrigir as respostas de forma dialogada e retomar a ideia central da aula, destacando quais estrategias de leitura e estudo ajudaram mais a turma a compreender o material e a se organizar para aprender.",
-    }
+    else:
+        res = {
+            "para_comecar": f"Retomar com a turma conhecimentos previos sobre {objeto}, aproximando o tema da experiencia dos estudantes e registrando no quadro pistas iniciais que possam orientar o estudo do material.",
+            "leitura": f"Realizar a leitura orientada de {referencia}, destacando o tema central, a finalidade do texto e as informacoes mais importantes. Durante a leitura, orientar os estudantes a marcar palavras-chave e trechos que ajudem na compreensao.",
+            "foco": f"Explicar {foco}, relacionando o conteudo ao material lido e mostrando como ele pode ser estudado com mais autonomia, por meio de leitura atenta, localizacao de informacoes e justificativa de respostas.",
+            "pratica": "Orientar a resolucao das atividades, pedindo que os alunos voltem ao texto para localizar evidencias, interpretar os comandos e organizar respostas completas. Auxiliar os estudantes com mais dificuldade por meio de perguntas simples e retomadas coletivas.",
+            "encerramento": "Corrigir as respostas de forma dialogada e retomar a ideia central da aula, destacando quais estrategias de leitura e estudo ajudaram mais a turma a compreender o material e a se organizar para aprender.",
+        }
+    res["_e_especifico"] = False
+    return res

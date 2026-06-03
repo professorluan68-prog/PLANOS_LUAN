@@ -37,6 +37,8 @@ from core.cdp.gerador_cdp import (
     _tipo_conteudo_cdp,
     _tema_cdp_seguro,
     _limpar_tema_cdp_contextual,
+    _limpar_texto_cdp_contextual,
+    _conceito_cdp_contextual,
 )
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
 

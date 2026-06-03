@@ -1,3 +1,4 @@
+import hashlib
 import re
 import unicodedata
 from pathlib import Path
@@ -1815,6 +1816,14 @@ def _expandir_metodologia_cdp_contextual(
             )
 
     return base
+
+
+def _indice_variacao(partes: list[str], total: int) -> int:
+    if total <= 1:
+        return 0
+    chave = "|".join(str(parte or "") for parte in partes)
+    digest = hashlib.blake2b(chave.encode("utf-8", errors="ignore"), digest_size=2).hexdigest()
+    return int(digest, 16) % total
 
 
 def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int = 3) -> list[str]:
