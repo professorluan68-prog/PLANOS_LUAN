@@ -240,6 +240,51 @@ def _substituir_frases_problematicas(texto: str, tema: str) -> str:
     return texto_final
 
 
+def _ajustar_texto_matematica(texto: str) -> str:
+    texto_final = str(texto or "")
+    substituicoes = [
+        (r"\bmaterial impresso,\s*quadro e registro no caderno\s+discada e banda larga\b", "internet discada e banda larga"),
+        (r"\bmaterial impresso,\s*quadro e registro no caderno\b", "o material da aula"),
+        (r"situa[cç][aã]o do acesso [àa]?\s+o material da aula", "situação do cotidiano apresentada no material"),
+        (r"acesso [àa]?\s+o material da aula", "situação do cotidiano apresentada no material"),
+        (r"diferen[cç]as entre o material da aula discada e banda larga", "diferenças entre internet discada e banda larga"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Virem e conversem["\']?(?:\s+para)?', "Promover conversa inicial em duplas para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Todo mundo escreve["\']?(?:\s+para)?', "Solicitar registro individual no caderno para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Com suas palavras["\']?(?:\s+para)?', "Solicitar síntese oral ou escrita para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?De olho no modelo["\']?(?:\s+para)?', "Apresentar um exemplo comentado para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Hora da leitura["\']?(?:\s+para)?', "Conduzir leitura orientada para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Um passo de cada vez["\']?(?:\s+para)?', "Organizar a explicação em etapas para"),
+        (r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?Pause e responda["\']?(?:\s+para)?', "Realizar uma pausa de checagem para"),
+        (r"\bVirem e conversem\b", "conversa inicial em duplas"),
+        (r"\bTodo mundo escreve\b", "registro individual no caderno"),
+        (r"\bCom suas palavras\b", "síntese oral ou escrita"),
+        (r"\bDe olho no modelo\b", "exemplo comentado"),
+        (r"\bHora da leitura\b", "leitura orientada"),
+        (r"\bUm passo de cada vez\b", "explicação em etapas"),
+        (r"\bPause e responda\b", "pausa de checagem"),
+        (r"\bum o material da aula\b", "material de estudo"),
+        (r"\buma o material da aula\b", "o material da aula"),
+        (r"(?:utilizando|usando|com)\s+a\s+t[eé]cnica\s+conversa inicial em duplas", "promovendo uma conversa inicial em duplas"),
+        (r"(?:Aplicar|Utilizar|Usar|Incorporar)\s+a\s+t[eé]cnica\s+explica[cç][aã]o em etapas", "Organizar a explicação em etapas"),
+        (r"Realizar o momento pausa de checagem", "Realizar uma pausa de checagem"),
+        (r"Solicitar s[ií]ntese oral ou escrita para que os estudantes expliquem oralmente ou por escrito o que compreenderam", "Solicitar que os estudantes expliquem, oralmente ou por escrito, o que compreenderam"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+registro individual no caderno", "solicitando registro individual no caderno"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+s[ií]ntese oral ou escrita", "pedindo síntese oral ou escrita"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+explica[cç][aã]o em etapas", "organizando a explicação em etapas"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+exemplo comentado", "apresentando um exemplo comentado"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+leitura orientada", "conduzindo leitura orientada"),
+        (r"(?:aplicando|utilizando|empregando|implementando)\s+(?:a\s+)?t[eé]cnica\s+pausa de checagem", "realizando uma pausa de checagem"),
+        (r"com a t[eé]cnica explica[cç][aã]o em etapas", "com explicação em etapas"),
+        (r"Conduzir leitura orientada para conduzir a leitura orientada do material", "Conduzir leitura orientada do material"),
+        (r"Empregar a t[eé]cnica s[ií]ntese oral ou escrita,\s*solicitando", "Solicitar"),
+        (r"Apresentar um exemplo comentado para ao desenvolvimento da aula", "Incorporar um exemplo comentado ao desenvolvimento da aula"),
+    ]
+    for padrao, substituicao in substituicoes:
+        texto_final = re.sub(padrao, substituicao, texto_final, flags=re.I)
+    texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
+    return texto_final
+
+
 def sanitizar_texto_metodologico(
     texto: str,
     perfil: str = "geral",
@@ -265,6 +310,9 @@ def sanitizar_texto_metodologico(
             texto_final,
             flags=re.I,
         )
+
+    if perfil in {"matematica", "educacao_financeira"}:
+        texto_final = _ajustar_texto_matematica(texto_final)
 
     if perfil == "projeto_de_vida":
         texto_norm = normalizar_texto(texto_final)

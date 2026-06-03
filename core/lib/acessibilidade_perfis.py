@@ -227,11 +227,18 @@ def _acessibilidade_projeto_vida(tema: str, aprendizagem: str, desenvolvimento: 
 def _acessibilidade_matematica(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
 
-    if any(k in base for k in ["khan", "khanmigo", "bit.ly", "verificacao", "revisao", "relembre", "retomar", "consolidar"]):
+    if any(k in base for k in ["khan", "khanmigo", "bit.ly", "aplicativo", "plataforma", "site", "link", "login", "senha"]):
         return [
             "Organizar atividades paralelas no caderno para estudantes sem acesso ao dispositivo ou com dificuldade de navegação no aplicativo.",
             "Oferecer orientação individual sobre como interpretar os feedbacks do aplicativo e utilizá-los para corrigir estratégias.",
             "Disponibilizar resolução comentada para os estudantes que precisarem de apoio adicional na atividade de revisão.",
+        ]
+
+    if any(k in base for k in ["verificacao", "revisao", "relembre", "retomar", "consolidar"]):
+        return [
+            "Apresentar um exemplo resolvido no quadro antes da atividade individual, destacando cada etapa do raciocínio.",
+            "Disponibilizar uma sequência de apoio com dados, operação esperada e espaço para conferência do resultado.",
+            "Oferecer mediação individual durante a retomada, permitindo registro por etapas e revisão das respostas antes da correção coletiva.",
         ]
 
     if any(k in base for k in ["grafico", "representacao grafica", "plano cartesiano", "eixo", "pares ordenados", "tabela"]):

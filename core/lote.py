@@ -13,8 +13,8 @@ from core.orientacao_estudos_objetivos import (
 )
 from core.qualidade_metodologica import detectar_contexto_metodologico, naturalizar_metodologia_professor, revisar_metodologia
 from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas
-from core.lib.classificador import perfil_disciplina as _perfil_disciplina_catalogo
-from core.lib.extrator_pdf import extrair_texto_pdf as _extrair_texto_pdf, limpar_linhas as _limpar_linhas, normalizar_texto as _normalizar
+from core.lib.classificador import normalizar_texto as _normalizar, perfil_disciplina as _perfil_disciplina, contem_termos as _contem
+from core.lib.extrator_pdf import extrair_texto_pdf as _extrair_texto_pdf, limpar_linhas as _limpar_linhas
 from core.lib.extrator_titulo import (
     _extrair_titulo_multilinha,
     _juntar_partes_titulo,
@@ -26,7 +26,9 @@ from core.lib.extrator_titulo import (
     _titulo_deve_juntar_continuacao,
     _titulo_em_linha_aula,
 )
-from core.eja.adaptador_eja import adaptar_metodologia_eja as _adaptar_metodologia_eja, perfil_suporta_eja as _perfil_suporta_eja
+from core.eja.adaptador_eja import perfil_suporta_eja as _perfil_suporta_eja
+from core.lib.modalidades import adaptar_metodologia_eja as _adaptar_metodologia_eja, garantir_tecnicas_lemov_na_metodologia as _garantir_tecnicas_lemov_na_metodologia
+from core.orientacao_estudos_metodologia import extrair_etapas_orientacao_estudos as _extrair_etapas_orientacao_estudos
 from core.cdp.gerador_cdp import (
     _acessibilidade_cdp_contextual,
     _acompanhamento_cdp_contextual,
@@ -122,90 +124,6 @@ def _titulo_ja_rotulado_orientacao_estudos(titulo: str) -> bool:
     return bool(re.match(r"^(missao|trilha|jornada)\s+\d+\s+-\s+", _normalizar(titulo)))
 
 
-def _extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
-    """
-    Extrai blocos por etapa em materiais de Orientacao de Estudos.
-    Exemplo esperado no PDF: Etapa 1, Etapa 2, Etapa 3, Etapa final.
-    """
-    bruto = str(texto or "")
-    if not bruto.strip():
-        return []
-
-    linhas = bruto.splitlines()
-    if not linhas:
-        return []
-
-    def _normalizar_rotulo_etapa(rotulo: str) -> str:
-        rotulo = rotulo.strip().lower()
-        if rotulo == "final":
-            return "final"
-        roman_map = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6"}
-        if rotulo in roman_map:
-            return roman_map[rotulo]
-        match_digit = re.search(r"\d+", rotulo)
-        if match_digit:
-            return str(int(match_digit.group(0)))
-        return rotulo
-
-    marcadores = []
-    for i, linha in enumerate(linhas):
-        atual = re.sub(r"\s+", " ", str(linha or "")).strip().lower()
-        if not atual:
-            continue
-
-        match_p1 = re.match(r"^etapa\s+(final|[ivxldcm]+|\d+)\b", atual)
-        match_p2 = re.match(r"^(\d+)\s*(?:a|o|ª|º|°)?\s*etapa\b", atual)
-        
-        if match_p1:
-            rotulo = _normalizar_rotulo_etapa(match_p1.group(1))
-            marcadores.append((i, rotulo))
-            continue
-        elif match_p2:
-            rotulo = _normalizar_rotulo_etapa(match_p2.group(1))
-            marcadores.append((i, rotulo))
-            continue
-
-        if atual == "etapa":
-            prox = re.sub(r"\s+", " ", str(linhas[i + 1] if i + 1 < len(linhas) else "")).strip().lower()
-            ant = re.sub(r"\s+", " ", str(linhas[i - 1] if i - 1 >= 0 else "")).strip().lower()
-            if re.fullmatch(r"\d+", prox) or prox in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
-                marcadores.append((i, _normalizar_rotulo_etapa(prox)))
-            elif re.fullmatch(r"\d+", ant) or ant in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
-                marcadores.append((i, _normalizar_rotulo_etapa(ant)))
-
-    if not marcadores:
-        return []
-
-    # remove duplicatas sequenciais de mesmo rotulo
-    compactos = []
-    for marcador in marcadores:
-        if compactos and compactos[-1][1] == marcador[1] and abs(compactos[-1][0] - marcador[0]) <= 2:
-            continue
-        compactos.append(marcador)
-    marcadores = compactos
-
-    etapas = []
-    for idx, (linha_inicio, rotulo) in enumerate(marcadores):
-        linha_fim = marcadores[idx + 1][0] if idx + 1 < len(marcadores) else len(linhas)
-        bloco_linhas = list(linhas[linha_inicio:linha_fim])
-        bloco = "\n".join(bloco_linhas).strip()
-        if not bloco:
-            continue
-
-        titulo = "Etapa final" if rotulo == "final" else f"Etapa {rotulo}"
-        texto_etapa = re.sub(r"\s+", " ", bloco).strip()
-        texto_etapa = re.sub(r"(?i)^\s*(?:etapa\s*(?:final|[ivxldcm]+|\d+)?|(?:\d+)\s*(?:a|o|ª|º|°)?\s*etapa)\s*[-:–]?\s*", "", texto_etapa).strip()
-        if len(texto_etapa) < 20:
-            continue
-        etapas.append({"titulo": titulo, "texto": texto_etapa})
-
-    return etapas
-
-
-def _contem(base: str, termos: list[str]) -> bool:
-    return any(termo in base for termo in termos)
-
-
 def _detectar_tecnicas_matematica(texto: str, tema: str) -> set[str]:
     base = _normalizar(f"{tema} {texto}")
     tecnicas = set()
@@ -244,78 +162,6 @@ def _detectar_tecnicas_lemov(texto: str, tema: str = "") -> list[str]:
         if any(termo in base for termo in termos):
             tecnicas.append(nome)
     return tecnicas
-
-
-def _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str]):
-    if not metodologia or not tecnicas_pdf:
-        return metodologia
-
-    metodologia_ajustada = []
-    textos_norm = []
-    for item in metodologia:
-        if isinstance(item, dict):
-            textos_norm.append(_normalizar(item.get("texto", "")))
-        else:
-            textos_norm.append(_normalizar(str(item)))
-
-    faltantes = [tecnica for tecnica in tecnicas_pdf if not any(_normalizar(tecnica) in texto for texto in textos_norm)]
-    if not faltantes:
-        return metodologia
-
-    for indice, item in enumerate(metodologia):
-        if not isinstance(item, dict):
-            metodologia_ajustada.append(item)
-            continue
-
-        novo_item = dict(item)
-        titulo = _normalizar(novo_item.get("titulo", ""))
-        texto = str(novo_item.get("texto", "")).strip()
-
-        if faltantes and titulo in {"para comecar", "primeiro momento", "abertura", "relembre"}:
-            tecnica = faltantes.pop(0)
-            if tecnica == "VIREM E CONVERSEM":
-                acrescimo = " Aplicar a tecnica VIREM E CONVERSEM para que os estudantes compartilhem percepcoes, levantem hipoteses e retomem conhecimentos previos."
-            elif tecnica == "TODO MUNDO ESCREVE":
-                acrescimo = " Utilizar a tecnica TODO MUNDO ESCREVE para garantir o registro individual de hipoteses, ideias centrais ou respostas iniciais."
-            elif tecnica == "HORA DA LEITURA":
-                acrescimo = " Utilizar a tecnica HORA DA LEITURA para conduzir a leitura orientada do material, com pausas para destacar informacoes importantes."
-            elif tecnica == "DE OLHO NO MODELO":
-                acrescimo = " Aplicar a tecnica DE OLHO NO MODELO, apresentando um exemplo comentado antes da atividade individual."
-            elif tecnica == "PAUSE E RESPONDA":
-                acrescimo = " Realizar o momento PAUSE E RESPONDA para checar a compreensao, retomar respostas da turma e esclarecer duvidas antes de avancar."
-            elif tecnica == "UM PASSO DE CADA VEZ":
-                acrescimo = " Utilizar a tecnica UM PASSO DE CADA VEZ para organizar a explicacao em etapas curtas antes de avancar."
-            elif tecnica == "COM SUAS PALAVRAS":
-                acrescimo = " Aplicar a tecnica COM SUAS PALAVRAS para que os estudantes expliquem oralmente ou por escrito o que compreenderam."
-            else:
-                acrescimo = f" Incorporar a tecnica {tecnica} ao desenvolvimento da aula, articulando-a aos exemplos, registros e intervencoes do professor."
-            if _normalizar(acrescimo) not in _normalizar(texto):
-                novo_item["texto"] = f"{texto}{acrescimo}".strip()
-
-        metodologia_ajustada.append(novo_item)
-
-    if faltantes:
-        for item in metodologia_ajustada:
-            if not isinstance(item, dict):
-                continue
-            titulo = _normalizar(item.get("titulo", ""))
-            texto = str(item.get("texto", "")).strip()
-            if titulo in {"na pratica", "foco no conteudo", "desenvolvimento", "encerramento", "segundo momento"}:
-                tecnica = faltantes.pop(0)
-                if tecnica == "TODO MUNDO ESCREVE":
-                    acrescimo = " Utilizar a tecnica TODO MUNDO ESCREVE para que cada estudante organize por escrito a resolucao ou as ideias centrais da aula."
-                elif tecnica == "COM SUAS PALAVRAS":
-                    acrescimo = " Aplicar a tecnica COM SUAS PALAVRAS para que os estudantes retomem os pontos principais trabalhados."
-                elif tecnica == "PAUSE E RESPONDA":
-                    acrescimo = " Realizar o momento PAUSE E RESPONDA para conferir a compreensao da turma antes de avancar."
-                else:
-                    acrescimo = f" Incorporar a tecnica {tecnica} ao desenvolvimento da aula, articulando-a aos exemplos, registros e intervencoes do professor."
-                if _normalizar(acrescimo) not in _normalizar(texto):
-                    item["texto"] = f"{texto}{acrescimo}".strip()
-                if not faltantes:
-                    break
-
-    return metodologia_ajustada
 
 
 def _linhas_secao_matematica(texto: str, marcador: str) -> list[str]:
@@ -514,10 +360,6 @@ def _aprendizagem_matematica(tema: str, tipo: str, texto: str) -> str:
     if tipo == "algebra":
         return "Resolver e interpretar situações-problema por meio de equações do 1º grau, identificando incógnitas, organizando procedimentos e verificando a coerência das soluções."
     return f"Compreender e aplicar conceitos relacionados a {tema}."
-
-
-def _perfil_disciplina(disciplina: str) -> str:
-    return _perfil_disciplina_catalogo(disciplina)
 
 
 def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:

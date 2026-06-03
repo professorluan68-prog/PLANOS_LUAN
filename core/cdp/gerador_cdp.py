@@ -18,10 +18,7 @@ def _normalizar(texto: str) -> str:
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return re.sub(r"\s+", " ", texto).strip().lower()
 
-
-def _contem(base: str, termos: list[str]) -> bool:
-    base = _normalizar(base)
-    return any(_normalizar(termo) in base for termo in termos)
+from core.lib.classificador import contem_termos as _contem
 
 
 def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:

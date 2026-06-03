@@ -442,3 +442,83 @@ def montar_frases_orientacao_estudos(tema: str, texto_pdf: str) -> dict[str, str
         }
     res["_e_especifico"] = False
     return res
+
+
+def extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
+    """
+    Extrai blocos por etapa em materiais de Orientacao de Estudos.
+    Exemplo esperado no PDF: Etapa 1, Etapa 2, Etapa 3, Etapa final.
+    """
+    bruto = str(texto or "")
+    if not bruto.strip():
+        return []
+
+    linhas = bruto.splitlines()
+    if not linhas:
+        return []
+
+    def normalizar_rotulo_etapa(rotulo: str) -> str:
+        rotulo = rotulo.strip().lower()
+        if rotulo == "final":
+            return "final"
+        roman_map = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6"}
+        if rotulo in roman_map:
+            return roman_map[rotulo]
+        match_digit = re.search(r"\d+", rotulo)
+        if match_digit:
+            return str(int(match_digit.group(0)))
+        return rotulo
+
+    marcadores = []
+    for i, linha in enumerate(linhas):
+        atual = re.sub(r"\s+", " ", str(linha or "")).strip().lower()
+        if not atual:
+            continue
+
+        match_p1 = re.match(r"^etapa\s+(final|[ivxldcm]+|\d+)\b", atual)
+        match_p2 = re.match(r"^(\d+)\s*(?:a|o|ª|º|°)?\s*etapa\b", atual)
+        
+        if match_p1:
+            rotulo = normalizar_rotulo_etapa(match_p1.group(1))
+            marcadores.append((i, rotulo))
+            continue
+        elif match_p2:
+            rotulo = normalizar_rotulo_etapa(match_p2.group(1))
+            marcadores.append((i, rotulo))
+            continue
+
+        if atual == "etapa":
+            prox = re.sub(r"\s+", " ", str(linhas[i + 1] if i + 1 < len(linhas) else "")).strip().lower()
+            ant = re.sub(r"\s+", " ", str(linhas[i - 1] if i - 1 >= 0 else "")).strip().lower()
+            if re.fullmatch(r"\d+", prox) or prox in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
+                marcadores.append((i, normalizar_rotulo_etapa(prox)))
+            elif re.fullmatch(r"\d+", ant) or ant in ["i", "ii", "iii", "iv", "v", "vi", "final"]:
+                marcadores.append((i, normalizar_rotulo_etapa(ant)))
+
+    if not marcadores:
+        return []
+
+    # remove duplicatas sequenciais de mesmo rotulo
+    compactos = []
+    for marcador in marcadores:
+        if compactos and compactos[-1][1] == marcador[1] and abs(compactos[-1][0] - marcador[0]) <= 2:
+            continue
+        compactos.append(marcador)
+    marcadores = compactos
+
+    etapas = []
+    for idx, (linha_inicio, rotulo) in enumerate(marcadores):
+        linha_fim = marcadores[idx + 1][0] if idx + 1 < len(marcadores) else len(linhas)
+        bloco_linhas = list(linhas[linha_inicio:linha_fim])
+        bloco = "\n".join(bloco_linhas).strip()
+        if not bloco:
+            continue
+
+        titulo = "Etapa final" if rotulo == "final" else f"Etapa {rotulo}"
+        texto_etapa = re.sub(r"\s+", " ", bloco).strip()
+        texto_etapa = re.sub(r"(?i)^\s*(?:etapa\s*(?:final|[ivxldcm]+|\d+)?|(?:\d+)\s*(?:a|o|ª|º|°)?\s*etapa)\s*[-:–]?\s*", "", texto_etapa).strip()
+        if len(texto_etapa) < 20:
+            continue
+        etapas.append({"titulo": titulo, "texto": texto_etapa})
+
+    return etapas

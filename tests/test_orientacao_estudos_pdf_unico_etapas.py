@@ -113,7 +113,7 @@ def test_aula_por_pdf_orientacao_usa_etapa_por_indice(monkeypatch):
     assert aula_2["tema"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 2"
     assert aula_1["material"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 1"
     assert aula_2["material"] == "MISSAO 11 - Um mergulho no cordel - ETAPA 2"
-    assert "autonomia de estudo" in aula_1["aprendizagem"].lower()
+    assert "cordel" in aula_1["aprendizagem"].lower()
 
     texto_1 = " ".join(item.get("texto", "") for item in aula_1["metodologia"] if isinstance(item, dict)).lower()
     texto_2 = " ".join(item.get("texto", "") for item in aula_2["metodologia"] if isinstance(item, dict)).lower()

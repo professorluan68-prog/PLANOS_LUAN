@@ -96,27 +96,25 @@ def obter_arquivo_cdp_fundamental(disciplina: str) -> str:
     return arquivo
 
 
+import re
+import math
+from typing import Dict, Any, List
+
 def normalizar(texto: str = "") -> str:
     texto = (texto or "").strip().lower()
     for origem, destino in {
         "á": "a", "à": "a", "â": "a", "ã": "a",
-        "Ã¡": "a", "Ã ": "a", "Ã¢": "a", "Ã£": "a",
-        "é": "e", "ê": "e",
-        "Ã©": "e", "Ãª": "e",
-        "í": "i",
-        "Ã­": "i",
-        "ó": "o", "ô": "o", "õ": "o",
-        "Ã³": "o", "Ã´": "o", "Ãµ": "o",
-        "ú": "u",
-        "Ãº": "u",
+        "é": "e", "è": "e", "ê": "e",
+        "í": "i", "ì": "i", "î": "i",
+        "ó": "o", "ò": "o", "ô": "o", "õ": "o",
+        "ú": "u", "ù": "u", "û": "u",
         "ç": "c",
-        "Ã§": "c",
-        "Ä™": "e",
         "°": "º",
         "Â°": "Âº",
     }.items():
         texto = texto.replace(origem, destino)
     return texto
+
 
 
 def disciplina_da_linha(texto: str) -> str:

@@ -199,7 +199,7 @@ def test_metodologia_orientacao_estudos_jornada_14_fica_especifica():
 
     assert "variacao linguistica" in corpo
     assert "registro formal" in corpo or "registro informal" in corpo
-    assert "diversidade linguistica" in corpo or "lingua viva" in corpo
+    assert "artigo cientifico" in corpo or "circulacao cotidiana" in corpo
 
 
 def test_metodologia_orientacao_estudos_jornada_14_aula_4_fica_especifica():
