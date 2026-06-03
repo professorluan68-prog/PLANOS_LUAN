@@ -3443,9 +3443,60 @@ def _aula_por_pdf(
                 total_aulas=total_aulas,
                 modalidade_eja_ativa=modalidade_eja_ativa,
             )
+            metodologia_ia = plano_ia.get("metodologia", [])
+            if perfil == "leitura_redacao":
+                metodologia_ia = _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
+            if metodologia_ia:
+                tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
+                if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+                    metodologia_ia = _garantir_tecnicas_lemov_na_metodologia(metodologia_ia, tecnicas_lemov_pdf)
+                metodologia_ia = _variar_linguagem_metodologia(metodologia_ia, disciplina_base, turma, tema)
+                if perfil != "leitura_redacao":
+                    metodologia_ia = _ajustar_metodologia_por_sequencia(
+                        metodologia_ia,
+                        indice_aula=indice_aula,
+                        total_aulas=total_aulas,
+                        tema=tema,
+                    )
+                metodologia_ia, _ = revisar_metodologia(
+                    metodologia_ia,
+                    perfil=perfil,
+                    tema=tema,
+                    contexto=contexto_metodologico,
+                )
+                metodologia_ia = naturalizar_metodologia_professor(metodologia_ia)
+                if modalidade_eja_ativa:
+                    metodologia_ia = _adaptar_metodologia_eja(
+                        metodologia_ia,
+                        perfil,
+                        tema,
+                        texto,
+                        tecnicas_lemov_pdf,
+                        _garantir_tecnicas_lemov_na_metodologia,
+                    )
 
             if metodologia_fixa_pdf:
                 metodologia = metodologia_fixa_pdf
+                desenvolvimento = _texto_metodologia(metodologia)
+                etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
+                acompanhamento = gerar_acompanhamento_aprimorado(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    habilidade=habilidade_pdf, etapas_metodologia=etapas_titulos,
+                )
+                acessibilidade = gerar_acessibilidade_aprimorada(
+                    tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                    disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                    recursos_detectados=extracao.get("recursos_detectados"),
+                )
+                acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+                    acompanhamento,
+                    acessibilidade,
+                    tema,
+                    perfil,
+                )
+            elif metodologia_ia:
+                metodologia = metodologia_ia
                 desenvolvimento = _texto_metodologia(metodologia)
                 etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
                 acompanhamento = gerar_acompanhamento_aprimorado(
@@ -3479,29 +3530,7 @@ def _aula_por_pdf(
                     perfil,
                 )
             else:
-                metodologia = plano_ia.get("metodologia", [])
-                tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
-                if perfil == "leitura_redacao":
-                    metodologia = _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
-                if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
-                    metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
-                metodologia = _variar_linguagem_metodologia(metodologia, disciplina_base, turma, tema)
-                if perfil != "leitura_redacao":
-                    metodologia = _ajustar_metodologia_por_sequencia(
-                        metodologia,
-                        indice_aula=indice_aula,
-                        total_aulas=total_aulas,
-                        tema=tema,
-                    )
-                metodologia, _ = revisar_metodologia(
-                    metodologia,
-                    perfil=perfil,
-                    tema=tema,
-                    contexto=contexto_metodologico,
-                )
-                metodologia = naturalizar_metodologia_professor(metodologia)
-                metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf, _garantir_tecnicas_lemov_na_metodologia) if modalidade_eja_ativa else metodologia
-
+                metodologia = metodologia_ia
                 desenvolvimento = _texto_metodologia(metodologia)
                 etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
                 acompanhamento = gerar_acompanhamento_aprimorado(
