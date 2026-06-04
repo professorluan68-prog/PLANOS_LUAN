@@ -30,19 +30,27 @@ from core.eja.adaptador_eja import perfil_suporta_eja as _perfil_suporta_eja
 from core.lib.modalidades import adaptar_metodologia_eja as _adaptar_metodologia_eja, garantir_tecnicas_lemov_na_metodologia as _garantir_tecnicas_lemov_na_metodologia
 from core.orientacao_estudos_metodologia import extrair_etapas_orientacao_estudos as _extrair_etapas_orientacao_estudos
 from core.cdp.gerador_cdp import (
-    _acessibilidade_cdp_contextual,
-    _acompanhamento_cdp_contextual,
-    _disciplina_base_cdp_contextual,
-    _eh_cdp_contextual_disciplina,
-    _formatar_material_cdp_contextual,
-    _metodologia_cdp_contextual,
+    acessibilidade_cdp_contextual,
+    acompanhamento_cdp_contextual,
+    disciplina_base_cdp_contextual,
+    eh_cdp_contextual_disciplina,
+    formatar_material_cdp_contextual,
+    metodologia_cdp_contextual,
     _tipo_conteudo_cdp,
     _tema_cdp_seguro,
-    _limpar_tema_cdp_contextual,
+    limpar_tema_cdp_contextual,
     _limpar_texto_cdp_contextual,
     _conceito_cdp_contextual,
 )
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
+
+_eh_cdp_contextual_disciplina = eh_cdp_contextual_disciplina
+_disciplina_base_cdp_contextual = disciplina_base_cdp_contextual
+_limpar_tema_cdp_contextual = limpar_tema_cdp_contextual
+_formatar_material_cdp_contextual = formatar_material_cdp_contextual
+_metodologia_cdp_contextual = metodologia_cdp_contextual
+_acompanhamento_cdp_contextual = acompanhamento_cdp_contextual
+_acessibilidade_cdp_contextual = acessibilidade_cdp_contextual
 
 
 _ORIENTACAO_ESTUDOS_TITULOS = {
@@ -3173,8 +3181,8 @@ def _aula_por_pdf(
     tema = _tema_por_texto(texto, caminho_pdf, disciplina)
     material_digital = _material_digital_por_texto(texto, caminho_pdf, disciplina, tema)
     numero_aula = _rotulo_aula_material(texto, caminho_pdf).replace("AULA", "", 1).strip()
-    cdp_contextual = _eh_cdp_contextual_disciplina(disciplina)
-    disciplina_base = _disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
+    cdp_contextual = eh_cdp_contextual_disciplina(disciplina)
+    disciplina_base = disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
     perfil = _perfil_disciplina(disciplina_base)
     if perfil == "orientacao_estudos":
         etapas_orientacao = _extrair_etapas_orientacao_estudos(texto)
@@ -3216,17 +3224,17 @@ def _aula_por_pdf(
             aprendizagem_cdp = habilidade_cdp
         else:
             foco_cdp = _foco_limpo_aprendizagem(
-                _limpar_tema_cdp_contextual(tema, disciplina_base),
-                _limpar_tema_cdp_contextual(conceito_cdp, disciplina_base),
+                limpar_tema_cdp_contextual(tema, disciplina_base),
+                limpar_tema_cdp_contextual(conceito_cdp, disciplina_base),
             )
             aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resoluções com apoio do professor."
         return {
             "disciplina": disciplina_base,
             "tema": tema,
-            "material": _formatar_material_cdp_contextual(tema, disciplina_base),
+            "material": formatar_material_cdp_contextual(tema, disciplina_base),
             "numero_aula": numero_aula,
             "aprendizagem": _sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil),
-            "metodologia": _metodologia_cdp_contextual(
+            "metodologia": metodologia_cdp_contextual(
                 perfil,
                 tipo,
                 tema,
@@ -3236,8 +3244,8 @@ def _aula_por_pdf(
                 extracao_pdf=extracao_pdf,
                 disciplina_base=disciplina_base,
             ),
-            "acompanhamento": _acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
-            "acessibilidade": _acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
+            "acompanhamento": acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
+            "acessibilidade": acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
             "ia_usada": False,
             "ia_provedor": "",
             "ia_erro": "",

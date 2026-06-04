@@ -12,7 +12,11 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 from core.helpers import texto_lista
-from core.qualidade_metodologica import corrigir_mojibake, corrigir_ortografia_basica
+from core.qualidade_metodologica import (
+    CORRECOES_ORTOGRAFIA,
+    corrigir_mojibake,
+    corrigir_ortografia_basica,
+)
 
 
 DESTAQUES_TEXTO = {
@@ -120,124 +124,7 @@ _PADRAO_TURMA_METODOLOGIA = re.compile(
     flags=re.I,
 )
 
-_CORRECOES_TEXTO_FINAL = {
-    "participacao": "participação",
-    "discussoes": "discussões",
-    "discussao": "discussão",
-    "analises": "análises",
-    "analise": "análise",
-    "interpretacao": "interpretação",
-    "argumentacao": "argumentação",
-    "ampliacao": "ampliação",
-    "estrategias": "estratégias",
-    "estrategia": "estratégia",
-    "producao": "produção",
-    "producoes": "produções",
-    "vocabulario": "vocabulário",
-    "relacoes": "relações",
-    "necessarias": "necessárias",
-    "necessarios": "necessários",
-    "criterios": "critérios",
-    "organizacao": "organização",
-    "construcao": "constru\u00e7\u00e3o",
-    "construcoes": "constru\u00e7\u00f5es",
-    "correcao": "corre\u00e7\u00e3o",
-    "correcoes": "corre\u00e7\u00f5es",
-    "questao": "quest\u00e3o",
-    "questoes": "quest\u00f5es",
-    "solucao": "solu\u00e7\u00e3o",
-    "solucoes": "solu\u00e7\u00f5es",
-    "explicacao": "explica\u00e7\u00e3o",
-    "explicacoes": "explica\u00e7\u00f5es",
-    "pratica": "pr\u00e1tica",
-    "praticas": "pr\u00e1ticas",
-    "conteudos": "conte\u00fados",
-    "mediacao": "mediação",
-    "mediacoes": "mediações",
-    "flexibilizacao": "flexibilização",
-    "linguisticos": "linguísticos",
-    "linguisticas": "linguísticas",
-    "situacoes": "situações",
-    "compreensao": "compreensão",
-    "conteudo": "conteúdo",
-    "genero": "gênero",
-    "publico": "público",
-    "previos": "prévios",
-    "hipoteses": "hipóteses",
-    "duvidas": "dúvidas",
-    "sintese": "síntese",
-    "sinteses": "sínteses",
-    "importancia": "importância",
-    "situacao": "situação",
-    "equacao": "equação",
-    "equacoes": "equações",
-    "resolucao": "resolução",
-    "resolucoes": "resoluções",
-    "verificacao": "verificação",
-    "conferencia": "conferência",
-    "coerencia": "coerência",
-    "incognita": "incógnita",
-    "grafico": "gráfico",
-    "graficos": "gráficos",
-    "matematica": "matemática",
-    "matematicas": "matemáticas",
-    "calculos": "cálculos",
-    "calculo": "cálculo",
-    "validacao": "validação",
-    "informacoes": "informações",
-    "interpretacoes": "interpretações",
-    "conclusoes": "conclusões",
-    "proporcao": "proporção",
-    "proporcoes": "proporções",
-    "representacao": "representação",
-    "representacoes": "representações",
-    "dependencia": "dependência",
-    "relacao": "relação",
-    "comparacao": "comparação",
-    "comparacoes": "comparações",
-    "aplicacao": "aplicação",
-    "aplicacoes": "aplicações",
-    "responsaveis": "responsáveis",
-    "responsavel": "responsável",
-    "orcamento": "orçamento",
-    "orcamentos": "orçamentos",
-    "preco": "preço",
-    "precos": "preços",
-    "decisao": "decisão",
-    "decisoes": "decisões",
-    "experiencias": "experiências",
-    "simulacoes": "simulações",
-    "servico": "serviço",
-    "servicos": "serviços",
-    "credito": "crédito",
-    "creditos": "créditos",
-    "divida": "dívida",
-    "dividas": "dívidas",
-    "emprestimo": "empréstimo",
-    "emprestimos": "empréstimos",
-    "instituicao": "instituição",
-    "instituicoes": "instituições",
-    "movimentacao": "movimentação",
-    "poupanca": "poupança",
-    "emergencia": "emergência",
-    "familiares": "familiares",
-    "habitos": "hábitos",
-    "julgamentos": "julgamentos",
-    "necessario": "necessário",
-    "necessaria": "necessária",
-    "ja": "já",
-    "possivel": "possível",
-    "possiveis": "possíveis",
-    "consequencia": "consequência",
-    "consequencias": "consequências",
-    "sistematizacao": "sistematização",
-    "construido": "construído",
-    "construidos": "construídos",
-    "vocabulario": "vocabulário",
-    "aplicacao": "aplicação",
-    "orcamentario": "orçamentário",
-    "orcamentaria": "orçamentária",
-}
+_CORRECOES_TEXTO_FINAL = dict(CORRECOES_ORTOGRAFIA)
 
 
 def _aplicar_fonte(run, nome=_FONTE_PADRAO, tamanho=_TAMANHO_PADRAO, bold=None, color=None):
@@ -388,6 +275,13 @@ def _polir_texto_docx(texto: str) -> str:
         )
     texto_final = corrigir_ortografia_basica(texto_final)
     return corrigir_mojibake(texto_final)
+
+
+def _validar_docx_gerado(buffer: BytesIO) -> BytesIO:
+    conteudo = buffer.getvalue()
+    Document(BytesIO(conteudo))
+    buffer.seek(0)
+    return buffer
 
 
 def _titulo_exibicao(titulo: str) -> str:
@@ -1112,5 +1006,4 @@ def preencher_documento(
 
     saida = BytesIO()
     documento.save(saida)
-    saida.seek(0)
-    return saida
+    return _validar_docx_gerado(saida)

@@ -175,6 +175,8 @@ _CORRECOES_ORTOGRAFIA_QUEBRADA = {
     "utiliza??o": "utilização",
     "vocabul?rio": "vocabulário",
 }
+CORRECOES_ORTOGRAFIA = dict(_CORRECOES_ORTOGRAFIA)
+CORRECOES_ORTOGRAFIA_QUEBRADA = dict(_CORRECOES_ORTOGRAFIA_QUEBRADA)
 _FINAIS_CONECTIVOS = {
     "a",
     "as",

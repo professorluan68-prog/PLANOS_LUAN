@@ -2290,3 +2290,22 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
         "☑ Tempo ampliado para leitura, cópia e conclusão das atividades.",
     ]
     return _selecionar_itens_cdp(bancos.get(tipo_cdp, padrao), [perfil, tema, conceito, indice_aula, "acessibilidade"], 3)
+
+
+eh_cdp_contextual_disciplina = _eh_cdp_contextual_disciplina
+disciplina_base_cdp_contextual = _disciplina_base_cdp_contextual
+limpar_tema_cdp_contextual = _limpar_tema_cdp_contextual
+formatar_material_cdp_contextual = _formatar_material_cdp_contextual
+metodologia_cdp_contextual = _metodologia_cdp_contextual
+acompanhamento_cdp_contextual = _acompanhamento_cdp_contextual
+acessibilidade_cdp_contextual = _acessibilidade_cdp_contextual
+
+__all__ = [
+    "eh_cdp_contextual_disciplina",
+    "disciplina_base_cdp_contextual",
+    "limpar_tema_cdp_contextual",
+    "formatar_material_cdp_contextual",
+    "metodologia_cdp_contextual",
+    "acompanhamento_cdp_contextual",
+    "acessibilidade_cdp_contextual",
+]

@@ -138,6 +138,13 @@ def _material(disciplina: str, item: Dict[str, str]) -> str:
     return f"TEMA:\n{titulo}"
 
 
+def _validar_docx_gerado(buffer: BytesIO) -> BytesIO:
+    conteudo = buffer.getvalue()
+    Document(BytesIO(conteudo))
+    buffer.seek(0)
+    return buffer
+
+
 def _metodologia_dict(texto: str):
     return [{"titulo": "", "texto": texto}]
 
@@ -336,5 +343,4 @@ def preencher_documento_cdp(
 
     out = BytesIO()
     doc.save(out)
-    out.seek(0)
-    return out
+    return _validar_docx_gerado(out)
