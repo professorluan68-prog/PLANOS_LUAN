@@ -7,6 +7,15 @@ def horario_para_plano(horario) -> str:
     return str(horario or "")
 
 
+def arquivos_na_ordem_de_envio(arquivos) -> list:
+    """Preserva a ordem exata em que os arquivos chegam da interface.
+
+    Em alguns planos a sequência pedagógica não acompanha a numeração do
+    material. Por isso, o sistema não deve reordenar os PDFs pelo nome.
+    """
+    return list(arquivos or [])
+
+
 def texto_lista(valor) -> str:
     if valor is None:
         return ""
@@ -39,4 +48,3 @@ def montar_relatorio_geracao(aulas, disciplina: str, turma: str, bimestre: str, 
             ]
         )
     return "\n".join(linhas)
-

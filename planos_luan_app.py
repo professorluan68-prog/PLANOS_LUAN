@@ -37,7 +37,12 @@ from core.validador_plano import validar_aulas_geradas
 from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP
 from docx_generator.preencher import preencher_documento
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
-from core.helpers import horario_para_plano, montar_relatorio_geracao, texto_lista as _texto_lista
+from core.helpers import (
+    arquivos_na_ordem_de_envio,
+    horario_para_plano,
+    montar_relatorio_geracao,
+    texto_lista as _texto_lista,
+)
 from core.database import (
     atualizar_vinculo_professor,
     duplicar_vinculo_professor,
@@ -62,6 +67,11 @@ from core.professores_planos import (
 from core.modelos_docx import (
     caminho_template_central,
     template_id_por_contexto,
+)
+from core.ae_priorizado import (
+    aplicar_ae_priorizado_nas_aulas,
+    contexto_ae_priorizado_disponivel,
+    disciplina_ae_priorizado_teste,
 )
 
 BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
@@ -168,6 +178,7 @@ CAMPOS_TELA = {
     "novo_arquivo_modelo",
     "observacao",
     "modalidade_eja",
+    "usar_ae_priorizado",
     "auto_repetir_semana",
     "dividir_metodologia",
     "geracao_em_andamento",
@@ -1101,11 +1112,6 @@ def _salvar_pdf_temporario(pdf_file) -> str:
         
     return caminho_completo
 
-def _chave_ordenacao_pdf(uploaded_file):
-    nome = getattr(uploaded_file, "name", "") or ""
-    partes = re.split(r"(\d+)", nome.lower())
-    return [int(parte) if parte.isdigit() else parte for parte in partes]
-
 def _proxima_data_pelo_dia(dia_nome: str, data_referencia: date) -> date:
     dias = {"segunda": 0, "terça": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "domingo": 6}
     dia_alvo = dias.get(dia_nome.lower().strip(), 0)
@@ -1915,7 +1921,7 @@ def _metodologia_app_para_blocos(texto: str):
         blocos.append(atual)
     return blocos or [str(texto or "").strip()]
 
-def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False):
+def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False, usar_ae_priorizado: bool = False):
     temp_paths = []
     try:
         dados_aulas = []
@@ -1938,6 +1944,15 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
             falhas_ia = _falhas_ia(aulas, exigir_ia=not eh_cdp_contextual(disciplina))
             if falhas_ia: raise RuntimeError("Falha de IA detectada:\n" + "\n".join(falhas_ia))
         
+        avisos_ae = []
+        if usar_ae_priorizado:
+            aulas, avisos_ae = aplicar_ae_priorizado_nas_aulas(
+                aulas,
+                disciplina=disciplina,
+                turma=turma_atual,
+                bimestre=bimestre,
+            )
+
         for aula, dados in zip(aulas, dados_aulas): aula.update(dados)
         cdp_contextual = eh_cdp_contextual(disciplina)
         problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
@@ -1955,7 +1970,7 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
                     item["texto"] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item["texto"]))).strip()
                 elif isinstance(item, str):
                     metodologia[i] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item))).strip()
-        return {"aulas": aulas, "avisos_repeticao": avisos_repeticao}
+        return {"aulas": aulas, "avisos_repeticao": avisos_repeticao, "avisos_ae": avisos_ae}
     finally:
         for caminho_temp in temp_paths:
             if caminho_temp:
@@ -2185,6 +2200,23 @@ modalidade_eja = False
 if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
     modalidade_eja = st.selectbox("Modalidade", ["Regular", "EJA"], key="modalidade_eja") == "EJA"
 
+usar_ae_priorizado = False
+if disciplina_ae_priorizado_teste(disciplina):
+    contexto_ae_ok = contexto_ae_priorizado_disponivel(disciplina, turma, bimestre)
+    usar_ae_priorizado = st.checkbox(
+        "Usar AE no lugar da habilidade",
+        value=bool(st.session_state.get("usar_ae_priorizado", False)),
+        key="usar_ae_priorizado",
+        disabled=not contexto_ae_ok,
+        help="Teste atual: disponível apenas para Português no Ensino Médio, 2º bimestre. Quando ativado, o sistema tenta trocar a coluna de aprendizagem pelo AE correspondente do guia priorizado.",
+    )
+    if contexto_ae_ok:
+        st.caption("Teste ativo apenas para Português EM no 2º bimestre. Se alguma aula não estiver no mapa, o sistema mantém a habilidade normal.")
+    else:
+        st.caption("Esta opção de teste fica disponível apenas em Português do Ensino Médio no 2º bimestre.")
+else:
+    st.session_state["usar_ae_priorizado"] = False
+
 def _resumo_tela(valor: str, fallback: str = "Não definido") -> str:
     return str(valor).strip() if str(valor or "").strip() else fallback
 
@@ -2347,7 +2379,9 @@ else:
             label_uploader = f"PDFs (Adicione exatamente {est_necessarios} PDF(s) para as {linhas_modelo} aulas do mês)"
 
         pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
-        if pdfs_aulas_files: pdfs_aulas_files = sorted(pdfs_aulas_files, key=_chave_ordenacao_pdf)
+        pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
+        if pdfs_aulas_files:
+            st.caption("A sequência dos PDFs será mantida exatamente na ordem em que você adicionou.")
         qtd_aulas = len(pdfs_aulas_files)
 
     if bool(len(datas_horarios_mes or [])):
@@ -2441,9 +2475,12 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
         with st.status("🚀 Extraindo...", expanded=True) as status:
             try:
                 for t, a in [(turma, aulas_envio)] + ([(turma_espelho, aulas_envio_espelho)] if gerar_turma_espelho else []):
-                    res = _extrair_aulas_dos_pdfs(a, disciplina, t, bimestre, modo_ia, modelo_openai, modelo_gemini, dividir_metodologia, modalidade_eja)
+                    res = _extrair_aulas_dos_pdfs(a, disciplina, t, bimestre, modo_ia, modelo_openai, modelo_gemini, dividir_metodologia, modalidade_eja, usar_ae_priorizado=usar_ae_priorizado)
                     turmas_processadas.append({"turma": t, "aulas": res["aulas"]})
-                    if res.get("avisos_repeticao"): avisos.append({"turma": t, "avisos": res["avisos_repeticao"]})
+                    avisos_turma = []
+                    if res.get("avisos_repeticao"): avisos_turma.extend(res["avisos_repeticao"])
+                    if res.get("avisos_ae"): avisos_turma.extend(res["avisos_ae"])
+                    if avisos_turma: avisos.append({"turma": t, "avisos": avisos_turma})
                 status.update(label="✅ Extraído!", state="complete", expanded=False)
                 st.session_state["turmas_processadas"] = turmas_processadas
                 st.session_state["avisos_processamento"] = avisos
@@ -2453,6 +2490,13 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
             st.session_state["geracao_em_andamento"] = False; st.rerun()
 
 if st.session_state.get("turmas_processadas"):
+    avisos_processamento = st.session_state.get("avisos_processamento") or []
+    for bloco in avisos_processamento:
+        turma_aviso = str(bloco.get("turma") or "").strip()
+        avisos_turma = [str(aviso).strip() for aviso in bloco.get("avisos", []) if str(aviso).strip()]
+        if avisos_turma:
+            prefixo = f"{turma_aviso}: " if turma_aviso else ""
+            st.warning(prefixo + " | ".join(avisos_turma))
     st.markdown('<div class="section-title">✏️ Passo 2: Revisão</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-subtitle">Ajuste tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes de montar o arquivo final.</div>', unsafe_allow_html=True)
     total_turmas_revisao = len(st.session_state["turmas_processadas"])

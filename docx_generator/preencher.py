@@ -118,6 +118,11 @@ _FONTE_PADRAO = "Arial"
 _TAMANHO_PADRAO = Pt(10)
 _COR_VERMELHA = RGBColor(0xEE, 0x00, 0x00)
 _LARGURAS_TABELA_AULAS = [900, 2100, 2350, 6100, 1900, 2050]
+_TURNOS_REFERENCIA_AULAS = (
+    ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20"],
+    ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
+    ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
+)
 _PADRAO_BNCC = re.compile(r'(\([A-Z]{2}\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\))')
 _PADRAO_TURMA_METODOLOGIA = re.compile(
     r"\b(da turma|com a turma)\s+\d{1,2}\s*[º°oªa?]?\s*(?:ano|s[ée]rie|em|ef)?\s*[A-Z]?\b",
@@ -620,6 +625,42 @@ def _formatar_data_horario(aula: dict) -> str:
     return data
 
 
+def _extrair_horarios_do_texto(texto: str) -> list[str]:
+    horarios = []
+    for hora, minuto in re.findall(r"\b0?(\d{1,2})h(\d{2})?\b", str(texto or ""), flags=re.I):
+        horarios.append(f"{int(hora):02d}h{minuto or ''}")
+    return horarios
+
+
+def _quantidade_aulas_por_horario(horario) -> int:
+    texto = str(horario or "").strip()
+    if not texto:
+        return 0
+
+    horarios = _extrair_horarios_do_texto(texto)
+    if len(horarios) >= 2:
+        inicio, fim = horarios[0], horarios[1]
+        for slots in _TURNOS_REFERENCIA_AULAS:
+            if inicio in slots and fim in slots:
+                inicio_idx = slots.index(inicio)
+                fim_idx = slots.index(fim)
+                if fim_idx > inicio_idx:
+                    return fim_idx - inicio_idx
+
+    numeros = [int(valor) for valor in re.findall(r"\b(\d+)\s*(?:ª|º|a|o)\b", texto.lower())]
+    if numeros:
+        return max(numeros) - min(numeros) + 1
+
+    return 1
+
+
+def _quantidade_aulas_semana(aulas_da_semana) -> int:
+    total = 0
+    for _, aula in aulas_da_semana or []:
+        total += _quantidade_aulas_por_horario((aula or {}).get("horario"))
+    return total
+
+
 def _data_ddmm(texto: str):
     if isinstance(texto, datetime):
         return date(2000, texto.month, texto.day)
@@ -920,7 +961,13 @@ def _preencher_tabelas_modelo(
         _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
         aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
-        aulas_previstas = str(aulas_previstas_manual or len([a for a in aulas_da_semana if a])).strip()
+        quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
+        if quantidade_semana > 0:
+            aulas_previstas = str(quantidade_semana)
+        elif aulas_da_semana:
+            aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
+        else:
+            aulas_previstas = "0"
         semana_cabecalho = (
             _semana_automatica_por_aulas(aulas_da_semana)
             or _semana_atual_cabecalho(cabecalho)
