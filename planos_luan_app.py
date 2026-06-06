@@ -4,6 +4,7 @@ import re
 import os
 import json
 import base64
+import html
 import math
 import traceback
 import zipfile
@@ -39,9 +40,15 @@ from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROF
 from docx_generator.preencher import preencher_documento
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
+    LocalFileWrapper,
     arquivos_na_ordem_de_envio,
     horario_para_plano,
     montar_relatorio_geracao,
+    normalizar_para_pasta,
+    numeros_pdfs_faltantes,
+    ordenar_pdfs_por_numero,
+    ordenar_pdfs_por_sequencia,
+    resolver_pasta_pdfs,
     texto_lista as _texto_lista,
 )
 from core.database import (
@@ -2234,13 +2241,13 @@ if disciplina_ae_priorizado_teste(disciplina):
         value=bool(st.session_state.get("usar_ae_priorizado", False)),
         key="usar_ae_priorizado",
         disabled=not contexto_ae_ok,
-        help="Teste atual: disponível apenas para Português no Ensino Médio, 2º bimestre. Quando ativado, o sistema tenta trocar a coluna de aprendizagem pelo AE correspondente do guia priorizado.",
+        help="Quando ativado, o sistema troca a coluna de aprendizagem pelo AE correspondente do guia priorizado, quando houver base cadastrada para a disciplina, turma e bimestre.",
     )
     usar_ae_priorizado = bool(contexto_ae_ok and st.session_state.get("usar_ae_priorizado", False))
     if contexto_ae_ok:
-        st.caption("Teste ativo apenas para Português EM no 2º bimestre. Se alguma aula não estiver no mapa, o sistema mantém a habilidade normal.")
+        st.caption("Base AE encontrada para este contexto. Se alguma aula não estiver no mapa, o sistema mantém a habilidade normal.")
     else:
-        st.caption("Esta opção de teste fica disponível apenas em Português do Ensino Médio no 2º bimestre.")
+        st.caption("Esta opção fica disponível quando existe base AE para a disciplina, série e bimestre selecionados.")
 else:
     st.session_state["usar_ae_priorizado"] = False
 
@@ -2266,6 +2273,93 @@ def _limitar_sequencia_ae(numeros: list[int], limite: int | None = None) -> list
     if limite_int <= 0:
         return list(numeros or [])
     return list(numeros or [])[:limite_int]
+
+
+def _nome_pdf_para_tela(arquivo) -> str:
+    return html.escape(str(getattr(arquivo, "name", None) or Path(str(arquivo)).name))
+
+
+def _render_painel_pdfs(
+    *,
+    modo: str,
+    necessarios: int,
+    carregados: int,
+    encontrados: int = 0,
+    pasta: str = "",
+    selecionados=None,
+    faltantes_ae=None,
+) -> None:
+    selecionados = list(selecionados or [])
+    faltantes_ae = list(faltantes_ae or [])
+    necessarios = max(0, int(necessarios or 0))
+    carregados = max(0, int(carregados or 0))
+    encontrados = max(0, int(encontrados or 0))
+    faltam = max(necessarios - carregados, 0)
+    excedentes = max(carregados - necessarios, 0)
+    progresso = 0 if necessarios <= 0 else min(100, int(round((carregados / necessarios) * 100)))
+
+    if necessarios <= 0:
+        status_texto = "Aguardando modelo"
+        status_classe = "neutral"
+        orientacao = "Selecione professor, turma e modelo para o sistema calcular quantos PDFs serao usados."
+    elif faltam > 0:
+        status_texto = f"Faltam {faltam}"
+        status_classe = "warning"
+        orientacao = f"Adicione mais {faltam} PDF(s) para completar o plano."
+    elif excedentes > 0:
+        status_texto = f"{excedentes} a mais"
+        status_classe = "warning"
+        orientacao = "Revise a selecao: ha mais PDFs do que aulas previstas."
+    else:
+        status_texto = "Completo"
+        status_classe = "success"
+        orientacao = "Tudo certo: a quantidade de PDFs bate com as aulas previstas."
+
+    chips = "".join(
+        f'<span class="pdf-order-chip">{indice}. {nome}</span>'
+        for indice, nome in enumerate((_nome_pdf_para_tela(item) for item in selecionados), start=1)
+    )
+    if not chips:
+        chips = '<span class="pdf-order-empty">Nenhum PDF selecionado ainda.</span>'
+
+    faltantes_html = ""
+    if faltantes_ae:
+        faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
+        faltantes_html = f'<div class="pdf-dashboard__alert">PDFs AE nao encontrados: {html.escape(faltantes_txt)}</div>'
+
+    pasta_html = ""
+    if pasta:
+        pasta_html = f'<div class="pdf-dashboard__path">Pasta automatica: {html.escape(str(pasta))}</div>'
+
+    st.markdown(
+        f"""<div class="pdf-dashboard">
+<div class="pdf-dashboard__header">
+<div>
+<div class="pdf-dashboard__eyebrow">Painel dos PDFs</div>
+<div class="pdf-dashboard__title">Organizacao das aulas</div>
+<div class="pdf-dashboard__subtitle">{html.escape(orientacao)}</div>
+</div>
+<div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">{html.escape(status_texto)}</div>
+</div>
+<div class="pdf-dashboard__stats">
+<div class="pdf-stat"><span>Modo</span><strong>{html.escape(str(modo or "-"))}</strong></div>
+<div class="pdf-stat"><span>Necessarios</span><strong>{necessarios}</strong></div>
+<div class="pdf-stat"><span>Selecionados</span><strong>{carregados}</strong></div>
+<div class="pdf-stat"><span>Encontrados</span><strong>{encontrados}</strong></div>
+</div>
+<div class="pdf-progress">
+<div class="pdf-progress__bar" style="width: {progresso}%"></div>
+</div>
+<div class="pdf-dashboard__meta">{carregados}/{necessarios or 0} PDF(s) prontos para processamento</div>
+{pasta_html}
+{faltantes_html}
+<div class="pdf-order">
+<div class="pdf-order__title">Ordem que sera processada</div>
+<div class="pdf-order__chips">{chips}</div>
+</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
 
 
 sequencia_ae_contexto = []
@@ -2321,52 +2415,8 @@ observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
 turma_espelho = _selecionar_turma("2ª Série/Turma", "turma_espelho_select", "turma_espelho") if gerar_turma_espelho else ""
 
-st.markdown(
-    f"""
-    <div class="summary-grid">
-        <div class="summary-card">
-            <span class="summary-card__label">Professor</span>
-            <span class="summary-card__value">{_resumo_tela(professor, "Selecione o professor")}</span>
-        </div>
-        <div class="summary-card">
-            <span class="summary-card__label">Disciplina</span>
-            <span class="summary-card__value">{_resumo_tela(disciplina, "Selecione a disciplina")}</span>
-        </div>
-        <div class="summary-card">
-            <span class="summary-card__label">Turma</span>
-            <span class="summary-card__value">{_resumo_tela(turma, "Selecione a turma")}</span>
-        </div>
-        <div class="summary-card">
-            <span class="summary-card__label">Mês / Bimestre</span>
-            <span class="summary-card__value">{_resumo_tela(mes, "Mês")} • {_resumo_tela(bimestre, "Bimestre")}</span>
-        </div>
-        <div class="summary-card">
-            <span class="summary-card__label">Escola</span>
-            <span class="summary-card__value">{_resumo_tela(escola)}</span>
-        </div>
-        <div class="summary-card">
-            <span class="summary-card__label">Componente</span>
-            <span class="summary-card__value">{_resumo_tela(componente_curricular, "Usando a disciplina")}</span>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-    <div class="step-strip">
-        <span class="step-pill step-pill--active">1. Configurar dados</span>
-        <span class="step-pill">2. Processar PDFs</span>
-        <span class="step-pill">3. Revisar conteúdo</span>
-        <span class="step-pill">4. Gerar DOCX</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 st.markdown('<div class="section-title">📚 Gestão das Aulas</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Defina o modo de envio e organize as aulas que serão processadas neste plano.</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Confira os PDFs necessários, a ordem de processamento e o que ainda falta antes de gerar o plano.</div>', unsafe_allow_html=True)
 if disciplina_cdp:
     if eh_cdp_multisseriada(disciplina):
         col1, col2 = st.columns([2, 1])
@@ -2391,11 +2441,29 @@ else:
     dividir_metodologia_atual = st.session_state.get("dividir_metodologia", False)
     sequencia_pdf_esperada_ae = []
 
-    # Seletor de modo de upload removido, utilizando sempre fluxo unificado com seleção automática
-    modo_upload_individual = False
+    opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
+    if st.session_state.get("modo_upload_pdf") not in opcoes_modo_upload:
+        st.session_state["modo_upload_pdf"] = "Automatico"
+    modo_upload_pdf = st.radio(
+        "Modo de envio dos PDFs",
+        opcoes_modo_upload,
+        horizontal=True,
+        key="modo_upload_pdf",
+        help=(
+            "Automatico: busca os PDFs em D:\\PDF novos e aplica a ordem do sistema.\n"
+            "Todos de uma vez: envie os arquivos manualmente em lote.\n"
+            "Um por aula: envie o PDF diretamente em cada card."
+        ),
+    )
+    modo_upload_individual = modo_upload_pdf == "Um por aula"
+    modo_upload_automatico = modo_upload_pdf == "Automatico"
 
     pdfs_aulas_files = []
     qtd_aulas = 0
+    pdfs_auto_total = 0
+    pasta_pdfs_auto = ""
+    faltantes_ae_auto = []
+    pdfs_selecionados_tela = []
 
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
@@ -2443,38 +2511,77 @@ else:
             )
             st.caption("Envie os arquivos nessa ordem do guia priorizado.")
 
-        from core.helpers import resolver_pasta_pdfs, LocalFileWrapper
-        base_pdfs_dir = r"D:\PDF novos"
-        pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre)
-        
-        pdf_files_disponiveis = []
-        if pasta_pdfs.exists():
-            pdf_files_disponiveis = sorted(pasta_pdfs.glob("*.pdf"), key=lambda p: p.name)
-            
-        if pdf_files_disponiveis:
-            st.success(f"Encontrados {len(pdf_files_disponiveis)} PDFs mapeados automaticamente para a turma {turma} ({bimestre}).")
-            
-            # Tenta pre-selecionar a quantidade exata se houver
-            default_selection = None
-            if est_necessarios > 0 and len(pdf_files_disponiveis) >= est_necessarios:
-                default_selection = pdf_files_disponiveis[:est_necessarios]
-                
-            selecionados = st.multiselect(
-                "Selecione as aulas para o plano (na ordem que deseja utilizar):",
-                options=pdf_files_disponiveis,
-                format_func=lambda p: p.name,
-                default=default_selection,
-                key="pdfs_aulas_files_auto"
-            )
-            pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
+        # Busca automatica de PDFs locais ou envio manual, conforme modo escolhido.
+        if modo_upload_automatico:
+            base_pdfs_dir = r"D:\PDF novos"
+            pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre)
+            pasta_pdfs_auto = str(pasta_pdfs)
+
+            pdf_files_disponiveis = []
+            if pasta_pdfs.exists():
+                pdfs_encontrados = list(pasta_pdfs.glob("*.pdf"))
+                pdfs_auto_total = len(pdfs_encontrados)
+                if sequencia_pdf_esperada_ae:
+                    pdf_files_disponiveis = ordenar_pdfs_por_sequencia(pdfs_encontrados, sequencia_pdf_esperada_ae)
+                else:
+                    pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_encontrados)
+
+            if pdf_files_disponiveis:
+                default_selection = []
+                if est_necessarios > 0:
+                    if sequencia_pdf_esperada_ae:
+                        default_selection = ordenar_pdfs_por_sequencia(
+                            pdf_files_disponiveis,
+                            sequencia_pdf_esperada_ae,
+                            limite=est_necessarios,
+                        )
+                    else:
+                        default_selection = pdf_files_disponiveis[:est_necessarios]
+
+                faltantes_ae_auto = numeros_pdfs_faltantes(pdf_files_disponiveis, sequencia_pdf_esperada_ae)
+
+                chave_contexto_auto = "_".join(
+                    [
+                        "pdfs_aulas_files_auto",
+                        normalizar_para_pasta(disciplina),
+                        normalizar_para_pasta(turma),
+                        normalizar_para_pasta(bimestre),
+                        "-".join(str(numero) for numero in sequencia_pdf_esperada_ae) or "sem_ae",
+                        str(est_necessarios or 0),
+                    ]
+                )
+                selecionados = st.multiselect(
+                    "PDFs automaticos na ordem de processamento",
+                    options=pdf_files_disponiveis,
+                    format_func=lambda p: p.name,
+                    default=default_selection,
+                    key=chave_contexto_auto,
+                    help="A ordem abaixo ja e a ordem que o sistema vai usar. No modo AE, ela segue a sequencia do guia priorizado.",
+                )
+                ordem_opcoes = {str(path): idx for idx, path in enumerate(pdf_files_disponiveis)}
+                selecionados = sorted(selecionados, key=lambda path: ordem_opcoes.get(str(path), 10**9))
+                pdfs_selecionados_tela = list(selecionados)
+                pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
+            else:
+                st.warning(f"Nao foram encontrados PDFs automaticos para {pasta_pdfs}. Faca o envio manual.")
+                pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
+                pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
+                pdfs_selecionados_tela = list(pdfs_aulas_files or [])
         else:
-            st.warning(f"Não foram encontrados PDFs automáticos para a pasta ({pasta_pdfs.name}). Faça o envio manual.")
             pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
             pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
+            pdfs_selecionados_tela = list(pdfs_aulas_files or [])
             
-        if pdfs_aulas_files:
-            st.caption("A sequência dos PDFs será mantida exatamente na ordem selecionada.")
         qtd_aulas = len(pdfs_aulas_files)
+        _render_painel_pdfs(
+            modo=modo_upload_pdf,
+            necessarios=est_necessarios or linhas_modelo,
+            carregados=qtd_aulas,
+            encontrados=pdfs_auto_total,
+            pasta=pasta_pdfs_auto if modo_upload_automatico else "",
+            selecionados=pdfs_selecionados_tela,
+            faltantes_ae=faltantes_ae_auto,
+        )
 
     if modo_upload_individual and usar_ae_priorizado and sequencia_ae_contexto:
         sequencia_pdf_esperada_ae = _limitar_sequencia_ae(sequencia_ae_contexto, linhas_modelo)
@@ -2505,16 +2612,20 @@ else:
     )
 
     if modo_upload_individual:
-        # Contar PDFs efetivos carregados individualmente
-        pdfs_carregados_ind = sum(1 for a in aulas_envio if a.get("pdf") is not None and not (aulas_envio[aulas_envio.index(a) - 1].get("dividir_pdf") if aulas_envio.index(a) > 0 else False))
-        pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_envio)) if dividir_metodologia else (linhas_modelo or num_rows)
-        pdfs_prontos = sum(1 for a in aulas_envio if a.get("pdf") is not None)
-        if linhas_modelo > 0:
-            if pdfs_prontos >= num_rows:
-                st.success(f"Todos os {num_rows} PDF(s) carregados individualmente. ✅")
-            else:
-                faltam = num_rows - pdfs_prontos
-                st.info(f"Faltam {faltam} PDF(s) para completar todas as aulas (modo individual).")
+        grupos_individuais = _grupos_pdf_por_aula(aulas_envio) if dividir_metodologia else [{"indices": [idx]} for idx in range(len(aulas_envio))]
+        pdfs_individuais = [
+            aulas_envio[grupo["indices"][0]].get("pdf")
+            for grupo in grupos_individuais
+            if aulas_envio[grupo["indices"][0]].get("pdf") is not None
+        ]
+        pdfs_necessarios = len(grupos_individuais) if dividir_metodologia else (linhas_modelo or num_rows)
+        pdfs_prontos = len(pdfs_individuais)
+        _render_painel_pdfs(
+            modo=modo_upload_pdf,
+            necessarios=pdfs_necessarios,
+            carregados=pdfs_prontos,
+            selecionados=pdfs_individuais,
+        )
     else:
         pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_envio)) if dividir_metodologia else (linhas_modelo or qtd_aulas)
 

@@ -3151,24 +3151,36 @@ def _aula_por_pdf(
                 limpar_tema_cdp_contextual(conceito_cdp, disciplina_base),
             )
             aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resoluções com apoio do professor."
+        
+        metodologia_cdp = metodologia_cdp_contextual(
+            perfil,
+            tipo,
+            tema,
+            conceito_cdp,
+            indice_aula,
+            texto_pdf=texto,
+            extracao_pdf=extracao_pdf,
+            disciplina_base=disciplina_base,
+        )
+        acompanhamento_cdp = acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
+        acessibilidade_cdp = acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
+
+        from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
+        recursos_reais = detectar_recursos_reais(texto)
+        metodologia_cdp, acompanhamento_cdp, acessibilidade_cdp = higienizar_plano(
+            metodologia_cdp, acompanhamento_cdp, acessibilidade_cdp,
+            perfil, disciplina_base, tema, recursos_reais
+        )
+
         return {
             "disciplina": disciplina_base,
             "tema": tema,
             "material": formatar_material_cdp_contextual(tema, disciplina_base),
             "numero_aula": numero_aula,
             "aprendizagem": _sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil),
-            "metodologia": metodologia_cdp_contextual(
-                perfil,
-                tipo,
-                tema,
-                conceito_cdp,
-                indice_aula,
-                texto_pdf=texto,
-                extracao_pdf=extracao_pdf,
-                disciplina_base=disciplina_base,
-            ),
-            "acompanhamento": acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
-            "acessibilidade": acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula),
+            "metodologia": metodologia_cdp,
+            "acompanhamento": acompanhamento_cdp,
+            "acessibilidade": acessibilidade_cdp,
             "ia_usada": False,
             "ia_provedor": "",
             "ia_erro": "",
@@ -3324,6 +3336,13 @@ def _aula_por_pdf(
                     perfil,
                 )
             
+            from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
+            recursos_reais = detectar_recursos_reais(texto)
+            metodologia, acompanhamento, acessibilidade = higienizar_plano(
+                metodologia, acompanhamento, acessibilidade,
+                perfil, disciplina_base, tema, recursos_reais
+            )
+            
             aula_gerada = {
                 "disciplina": disciplina_base,
                 "tema": tema,
@@ -3468,6 +3487,13 @@ def _aula_por_pdf(
             tema,
             perfil,
         )
+    
+    from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
+    recursos_reais = detectar_recursos_reais(texto)
+    metodologia, acompanhamento, acessibilidade = higienizar_plano(
+        metodologia, acompanhamento, acessibilidade,
+        perfil, disciplina_base, tema, recursos_reais
+    )
     
     aula_gerada = {
         "disciplina": disciplina_base,

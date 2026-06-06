@@ -8,57 +8,112 @@ from pathlib import Path
 from core.lib.classificador import normalizar_texto as _normalizar
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-AE_PRIORIZADO_JSON_PATH = BASE_DIR / "assets" / "ae_priorizado" / "portugues_em_2b_teste.json"
+AE_PRIORIZADO_DIR = BASE_DIR / "assets" / "ae_priorizado"
+AE_PRIORIZADO_JSON_PATH = AE_PRIORIZADO_DIR / "portugues_em_2b_teste.json"
 
-def _disciplina_portugues(disciplina: str = "") -> bool:
+DISCIPLINA_ALIASES = {
+    "arte": "arte",
+    "artes": "arte",
+    "biologia": "biologia",
+    "ciencias": "ciencias",
+    "geografia": "geografia",
+    "historia": "historia",
+    "ingles": "ingles",
+    "lingua inglesa": "ingles",
+    "matematica": "matematica",
+    "quimica": "quimica",
+    "sociologia": "sociologia",
+    "lingua portuguesa": "portugues",
+    "portugues": "portugues",
+}
+
+
+def _disciplina_chave(disciplina: str = "") -> str:
     base = _normalizar(disciplina)
-    return "portugues" in base
+    if "portugues" in base:
+        return "portugues"
+    return DISCIPLINA_ALIASES.get(base, base.replace(" ", "_"))
 
 def _bimestre_numero(bimestre: str = "") -> int:
     match = re.search(r"([1-4])", str(bimestre or ""))
     return int(match.group(1)) if match else 0
 
-def _serie_em_por_turma(turma: str = "") -> str:
+def _serie_chave_por_turma(turma: str = "") -> str:
     base = _normalizar(turma)
 
-    match = re.search(r"\b([123])\s*(?:a|o)?\s*(?:serie|ano)\b", base)
+    match = re.search(r"\b([1-9])\s*(?:a|o)?\s*(?:serie|ano)\b", base)
     if not match:
-        match = re.search(r"^\s*([123])\s*[a-z]?\b", base)
+        match = re.search(r"^\s*([1-9])\s*[a-z]?\b", base)
     if not match:
-        match = re.search(r"([123])", base)
+        match = re.search(r"([1-9])", base)
 
     if not match:
         return ""
 
     numero = match.group(1)
-    if re.search(r"\b(?:6|7|8|9)\b", base):
+    return f"{numero}a_serie"
+
+
+def _etapa_chave_por_turma(turma: str = "") -> str:
+    base = _normalizar(turma)
+    serie = _serie_chave_por_turma(turma)
+    if not serie:
         return ""
 
-    return f"{numero}a serie"
+    match = re.match(r"([1-9])a_serie", serie)
+    numero = int(match.group(1)) if match else 0
+    if numero in {6, 7, 8, 9}:
+        return "af"
+    if numero in {1, 2, 3}:
+        return "em"
+    if "ensino medio" in base or re.search(r"\bserie\b", base):
+        return "em"
+    return ""
+
+def _serie_em_por_turma(turma: str = "") -> str:
+    serie = _serie_chave_por_turma(turma)
+    etapa = _etapa_chave_por_turma(turma)
+    if etapa != "em":
+        return ""
+    return serie.replace("_", " ")
 
 def disciplina_ae_priorizado_teste(disciplina: str = "") -> bool:
-    return _disciplina_portugues(disciplina)
+    chave = _disciplina_chave(disciplina)
+    return any(str(item.get("chave_lookup") or "").startswith(f"{chave}_") for item in carregar_base_ae_priorizado().get("mapa_por_aula", []))
 
 def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bimestre: str = "") -> bool:
-    return (
-        disciplina_ae_priorizado_teste(disciplina)
-        and _bimestre_numero(bimestre) == 2
-        and bool(_serie_em_por_turma(turma))
-        and AE_PRIORIZADO_JSON_PATH.exists()
-    )
+    prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
+    if not prefixo:
+        return False
+    return any(str(item.get("chave_lookup") or "").startswith(prefixo) for item in carregar_base_ae_priorizado().get("mapa_por_aula", []))
 
 def _prefixo_chave_contexto(disciplina: str = "", turma: str = "", bimestre: str = "") -> str:
-    serie = _serie_em_por_turma(turma)
-    if not (disciplina_ae_priorizado_teste(disciplina) and serie and _bimestre_numero(bimestre) == 2):
+    disciplina_chave = _disciplina_chave(disciplina)
+    etapa_chave = _etapa_chave_por_turma(turma)
+    serie_chave = _serie_chave_por_turma(turma)
+    bimestre_numero = _bimestre_numero(bimestre)
+    if not (disciplina_chave and etapa_chave and serie_chave and bimestre_numero):
         return ""
-    serie_base = _normalizar(serie).replace(" ", "_")
-    return f"portugues_em|2|{serie_base}|"
+    return f"{disciplina_chave}_{etapa_chave}|{bimestre_numero}|{serie_chave}|"
 
 @lru_cache(maxsize=1)
 def carregar_base_ae_priorizado() -> dict:
-    if not AE_PRIORIZADO_JSON_PATH.exists():
+    paths = sorted(AE_PRIORIZADO_DIR.glob("*.json")) if AE_PRIORIZADO_DIR.exists() else []
+    if not paths and AE_PRIORIZADO_JSON_PATH.exists():
+        paths = [AE_PRIORIZADO_JSON_PATH]
+    if not paths:
         return {"mapa_por_aula": []}
-    return json.loads(AE_PRIORIZADO_JSON_PATH.read_text(encoding="utf-8"))
+
+    mapa_por_aula: list[dict] = []
+    fontes: list[str] = []
+    for path in paths:
+        try:
+            base = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        fontes.append(str(path))
+        mapa_por_aula.extend(dict(item) for item in base.get("mapa_por_aula", []) if isinstance(item, dict))
+    return {"arquivos_fonte": fontes, "mapa_por_aula": mapa_por_aula}
 
 @lru_cache(maxsize=1)
 def _indice_por_chave() -> dict[str, dict]:

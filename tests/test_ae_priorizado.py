@@ -24,6 +24,15 @@ def test_contexto_ae_priorizado_tambem_cobre_turmas_reais_de_segundo_e_terceiro_
     assert ae_priorizado.contexto_ae_priorizado_disponivel("Língua Portuguesa", "3º ANO C", "2º Bimestre") is True
 
 
+def test_contexto_ae_priorizado_cobre_novas_disciplinas():
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Biologia", "1º ANO A", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Biologia", "2º ANO A", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Arte", "1º ANO A", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Arte", "6º ANO A", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Arte", "9º ANO A", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Arte", "5º ANO A", "2º Bimestre") is False
+
+
 def test_aplica_ae_priorizado_quando_encontra_correspondencia(monkeypatch):
     monkeypatch.setattr(ae_priorizado, "contexto_ae_priorizado_disponivel", lambda disciplina, turma, bimestre: True)
     monkeypatch.setattr(
@@ -179,3 +188,52 @@ def test_base_real_ae_priorizado_traz_sequencia_para_segundo_e_terceiro_ano():
 
     assert sequencia_segundo == [5, 6, 10, 12, 9]
     assert sequencia_terceiro == [12, 13, 14, 15, 16]
+
+
+def test_base_real_ae_priorizado_traz_sequencia_para_arte_e_biologia():
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "1º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "2º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "1º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "6º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "9º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+
+
+def test_contexto_ae_priorizado_cobre_lote_af_e_em_2b():
+    casos_ativos = [
+        ("Ciências", "6º ANO A"),
+        ("Geografia", "7º ANO A"),
+        ("História", "8º ANO A"),
+        ("Língua Inglesa", "1º ANO A"),
+        ("Matemática", "9º ANO A"),
+        ("Língua Portuguesa", "6º ANO A"),
+        ("Química", "2º ANO A"),
+        ("Sociologia", "2º ANO A"),
+    ]
+
+    for disciplina, turma in casos_ativos:
+        assert ae_priorizado.contexto_ae_priorizado_disponivel(disciplina, turma, "2º Bimestre") is True
+
+
+def test_base_real_ae_priorizado_traz_sequencia_para_lote_novo():
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Ciências", "6º ANO A", "2º Bimestre", limite=4) == [1, 2, 3, 4]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Geografia", "6º ANO A", "2º Bimestre", limite=4) == [1, 2, 3, 4]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("História", "6º ANO A", "2º Bimestre", limite=4) == [1, 2, 3, 4]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Língua Inglesa", "1º ANO A", "2º Bimestre", limite=4) == [1, 3, 5, 7]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Matemática", "6º ANO A", "2º Bimestre", limite=4) == [3, 5, 6, 9]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Química", "1º ANO A", "2º Bimestre", limite=4) == [1, 2, 3, 4]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Sociologia", "2º ANO A", "2º Bimestre", limite=4) == [1, 2, 3, 4]
+
+
+def test_base_real_ae_priorizado_consolidou_duplicatas_matematica():
+    aulas = [{"material": "AULA 23", "numero_aula": 23, "aprendizagem": "Habilidade original"}]
+
+    ajustadas, avisos = ae_priorizado.aplicar_ae_priorizado_nas_aulas(
+        aulas,
+        disciplina="Matemática",
+        turma="6º ANO A",
+        bimestre="2º Bimestre",
+    )
+
+    assert avisos == []
+    assert ajustadas[0]["ae_priorizado_aplicado"] is True
+    assert " | " in ajustadas[0]["aprendizagem"]
