@@ -1,6 +1,6 @@
 import re
 import unicodedata
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 def _limpar_linhas(texto: str) -> list[str]:
     linhas = []
@@ -10,23 +10,14 @@ def _limpar_linhas(texto: str) -> list[str]:
             linhas.append(linha)
     return linhas
 
-
-def _normalizar(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", texto or "")
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
-
-
 _PADRAO_ROTULO_PERIODO_ENSINO = re.compile(
     r"^(?:[1-4]\s*(?:o|º|°|ª|a)?\s*)?bimestre(?:\s+ensino(?:\s+(?:medio|fundamental))?)?$",
     flags=re.I,
 )
 
-
 def _linha_periodo_ensino(texto: str) -> bool:
     normalizado = _normalizar(texto).strip(" .:-")
     return bool(_PADRAO_ROTULO_PERIODO_ENSINO.fullmatch(normalizado))
-
 
 def _limpar_titulo_material(linha: str, disciplina: str) -> str:
     titulo = re.sub(r"\s+", " ", linha or "").strip(" -–—")
@@ -48,7 +39,6 @@ def _limpar_titulo_material(linha: str, disciplina: str) -> str:
     if _linha_periodo_ensino(titulo):
         return ""
     return titulo.strip(" -–—")
-
 
 def _linha_generica(linha: str, disciplina: str) -> bool:
     texto = _normalizar(linha)
@@ -73,10 +63,8 @@ def _linha_generica(linha: str, disciplina: str) -> bool:
         return True
     return bool(re.fullmatch(r"(?:[1-4][oº°]?\s*)?bimestre", texto))
 
-
 def _linha_rotulo_aula(normalizada: str) -> bool:
     return bool(re.match(r"^aula\s*(?:n[.o]?\s*)?\d{1,3}\b", normalizada or ""))
-
 
 def _titulo_em_linha_aula(linha: str) -> str:
     texto = re.sub(r"\s+", " ", str(linha or "")).strip(" -:–—")
@@ -91,7 +79,6 @@ def _titulo_em_linha_aula(linha: str) -> str:
     if _normalizar(titulo).startswith(("ensino fundamental", "ensino medio", "bimestre")):
         return ""
     return titulo
-
 
 def _linhas_relevantes(texto: str, disciplina: str, tema: str) -> list[str]:
     relevantes = []
@@ -109,7 +96,6 @@ def _linhas_relevantes(texto: str, disciplina: str, tema: str) -> list[str]:
         relevantes.append(linha)
     return relevantes
 
-
 def _titulo_deve_juntar_continuacao(primeira: str, segunda: str = "") -> bool:
     primeira_limpa = re.sub(r"\s+", " ", str(primeira or "")).strip(" -:")
     segunda_limpa = re.sub(r"\s+", " ", str(segunda or "")).strip(" -:")
@@ -126,7 +112,6 @@ def _titulo_deve_juntar_continuacao(primeira: str, segunda: str = "") -> bool:
     if segunda_norm.startswith(("por ", "para ", "com ", "sem ", "em ", "e ", "ou ", "que ", "da ", "de ", "do ")):
         return True
     return False
-
 
 def _juntar_partes_titulo(partes: list[str]) -> str:
     if not partes:
@@ -148,7 +133,6 @@ def _juntar_partes_titulo(partes: list[str]) -> str:
             continue
         break
     return titulo
-
 
 def _extrair_titulo_multilinha(texto: str, disciplina: str) -> str:
     linhas = _limpar_linhas(texto)

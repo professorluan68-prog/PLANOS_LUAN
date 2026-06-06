@@ -90,12 +90,21 @@ def _serializar_modelo(objeto: Any) -> dict:
     return dict(objeto)
 
 
+def _limpar_json_markdown(texto: str) -> str:
+    texto = str(texto or "").strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", texto, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return texto
+
+
 def _extrair_json_openai(response) -> dict:
     mensagem = response.choices[0].message
     parsed = getattr(mensagem, "parsed", None)
     if parsed is not None:
         return _serializar_modelo(parsed)
-    return json.loads(mensagem.content or "{}")
+    texto = _limpar_json_markdown(mensagem.content)
+    return json.loads(texto or "{}")
 
 
 def _montar_prompt(
@@ -124,25 +133,6 @@ MODALIDADE EJA:
 """
 
     bloco_leitura_redacao = ""
-    if False and perfil == "leitura_redacao":
-        bloco_leitura_redacao = """
-
-MODELO ESPECIFICO DE REDACAO E LEITURA:
-- Para aulas de trilha literaria/leitura de obra, use estes blocos: "Para comecar", "Predicao guiada", "Leitura compartilhada ou individual" e "Conexao com a producao textual".
-- Para aula de producao textual/finalizacao, use estes blocos: "Para comecar", "Revisao orientada", "Escrita da versao final", "Submissao e socializacao" e "Encerramento".
-- Mantenha linguagem de plano docente, articulando leitura literaria, impressões dos estudantes, personagens, acontecimentos, hipotese/predicao e conexao com producao textual.
-"""
-
-    if False and perfil == "leitura_redacao":
-        bloco_leitura_redacao += """
-- Priorize genero textual, objetivo pedagogico e funcao social da escrita.
-- Reestruture a aula em 6 etapas fixas: "Disparo inicial / contextualizacao", "Leitura ou exploracao inicial", "Analise guiada", "Sistematizacao", "Producao textual" e "Revisao e fechamento".
-- Na analise guiada, inclua ao menos tres perguntas orientadoras: compreensao, interpretacao e reflexao.
-- Na producao textual, explicite sempre o que escrever, para quem escrever e com qual objetivo.
-- Para resenha, incluir apresentacao da obra, tipo de historia, opiniao, pontos positivos/negativos e recomendacao final.
-- Para cronica, incluir narrador em primeira pessoa, situacao cotidiana, conflito/desafio e reflexao final.
-- Nunca entregar apenas resumo; integrar leitura e escrita com linguagem clara, didatica e aplicavel em sala.
-"""
 
     if perfil == "leitura_redacao":
         bloco_leitura_redacao = """
@@ -547,14 +537,8 @@ def processar_plano_ia(
         )
 
         text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-
-        data = json.loads(text.strip())
+        text = _limpar_json_markdown(text)
+        data = json.loads(text or "{}")
         return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
 
     raise Exception(f"Provedor {provedor} desconhecido.")

@@ -8,9 +8,11 @@ from pathlib import Path
 # 1. Caminho base do projeto
 BASE_DIR = Path(__file__).resolve().parent
 
-# 2. Caminhos de trabalho externos
-PASTA_PRINCIPAL_TRABALHO = Path(r"D:\PLANOS DE JUNHO")
-PASTA_BACKUP = Path(r"D:\BACKUPS_PLANOS_LUAN")
+# 2. Caminhos de trabalho externos (com fallback se D: não existir)
+_D_DRIVE_EXISTS = Path(r"D:\\").exists()
+
+PASTA_PRINCIPAL_TRABALHO = Path(r"D:\PLANOS DE JUNHO") if _D_DRIVE_EXISTS else BASE_DIR / "planos_de_junho"
+PASTA_BACKUP = Path(r"D:\BACKUPS_PLANOS_LUAN") if _D_DRIVE_EXISTS else BASE_DIR / "backups_planos_luan"
 
 # 3. Compatibilidade com o sistema existente
 PASTA_PLANOS_PROFESSORES = Path(
@@ -21,8 +23,10 @@ LEGACY_PLANOS_FEITOS_DIR = BASE_DIR / "Planos feitos"
 MODELOS_LEGADOS_QUARENTENA_DIR = (
     PASTA_PLANOS_PROFESSORES / "_MODELOS_LEGADOS_PARA_EXCLUIR"
 )
+
+_padrao_finalizados = r"D:\PLANOS-FINALIZADOS" if _D_DRIVE_EXISTS else str(BASE_DIR / "planos_finalizados")
 PLANOS_FINALIZADOS_DIR = Path(
-    os.getenv("PLANOS_FINALIZADOS_DIR", r"D:\PLANOS-FINALIZADOS")
+    os.getenv("PLANOS_FINALIZADOS_DIR", _padrao_finalizados)
 )
 DB_PATH = BASE_DIR / "planos_luan.db"
 
@@ -39,6 +43,8 @@ PDF_TEXTO_LIMITE_CHARS = 100000
 MAX_CHARS_WORD = 15000
 
 # 6. Criacao automatica de pastas
-os.makedirs(PLANOS_FINALIZADOS_DIR, exist_ok=True)
-os.makedirs(TEMPLATES_DOCX_DIR, exist_ok=True)
-os.makedirs(PASTA_BACKUP, exist_ok=True)
+def inicializar_pastas():
+    os.makedirs(PLANOS_FINALIZADOS_DIR, exist_ok=True)
+    os.makedirs(TEMPLATES_DOCX_DIR, exist_ok=True)
+    os.makedirs(PASTA_BACKUP, exist_ok=True)
+

@@ -1,14 +1,7 @@
 import re
 import unicodedata
 from pathlib import Path
-
-
-def _normalizar(texto: str = "") -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    texto = texto.lower()
-    return re.sub(r"\s+", " ", texto).strip()
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 _CATALOGO_OBJETIVOS = {
     ("missao", 1): [
@@ -95,7 +88,6 @@ _CATALOGO_OBJETIVOS = {
     ],
 }
 
-
 def _familia_numero(texto: str = "") -> tuple[str, int]:
     base = _normalizar(texto)
     for familia in ("missao", "trilha", "jornada"):
@@ -103,7 +95,6 @@ def _familia_numero(texto: str = "") -> tuple[str, int]:
         if match:
             return familia, int(match.group(1))
     return "", 0
-
 
 def buscar_objetivos_orientacao_estudos(caminho_pdf: str = "", tema: str = "") -> list[str]:
     candidatos = [tema, Path(str(caminho_pdf or "")).stem, str(caminho_pdf or "")]
@@ -114,7 +105,6 @@ def buscar_objetivos_orientacao_estudos(caminho_pdf: str = "", tema: str = "") -
             if objetivos:
                 return list(objetivos)
     return []
-
 
 def formatar_objetivos_orientacao_estudos(objetivos: list[str] | tuple[str, ...] | None) -> str:
     itens = [re.sub(r"\s+", " ", str(item or "")).strip(" .;:-") for item in list(objetivos or []) if str(item or "").strip()]

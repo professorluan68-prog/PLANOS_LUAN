@@ -35,7 +35,7 @@ from core.calendario import (
 )
 from core.lote import processar_varios_pdfs
 from core.validador_plano import validar_aulas_geradas
-from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP
+from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas
 from docx_generator.preencher import preencher_documento
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
@@ -374,6 +374,7 @@ def _selecionar_aulas_semana(label: str, key_select: str, key_texto: str) -> str
     return valor
 
 # ── Banco de Dados e Cadastro ──────────────────────────────────────────
+inicializar_pastas()
 init_db()
 migrar_json_para_sqlite()
 PROFESSORES_DB = obter_professores_db()

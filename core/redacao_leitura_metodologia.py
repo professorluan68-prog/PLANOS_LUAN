@@ -1,6 +1,6 @@
 import re
 import unicodedata
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 _TITULOS_PADRAO = [
     "Disparo inicial / contextualizacao",
@@ -11,22 +11,12 @@ _TITULOS_PADRAO = [
     "Revisao e fechamento",
 ]
 
-
-def _normalizar(texto: str = "") -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    texto = texto.lower()
-    return re.sub(r"\s+", " ", texto).strip()
-
-
 def _contem(base: str, termos: list[str]) -> bool:
     return any(_normalizar(termo) in base for termo in termos)
-
 
 def _tema_legivel(tema: str) -> str:
     texto = re.sub(r"^\s*aula\s*\d+\s*[-:–—]?\s*", "", str(tema or ""), flags=re.I).strip(" -:–—")
     return texto or "o material em estudo"
-
 
 def _obra_literaria(tema: str, texto_base: str = "") -> str:
     fonte = " ".join([str(tema or ""), str(texto_base or "")[:900]])
@@ -36,7 +26,6 @@ def _obra_literaria(tema: str, texto_base: str = "") -> str:
     texto = _tema_legivel(tema)
     texto = re.sub(r"^trilha\s*", "", texto, flags=re.I).strip(" -:–—")
     return texto or "a obra literaria em estudo"
-
 
 def _eh_producao_final(base: str) -> bool:
     termos = [
@@ -51,13 +40,11 @@ def _eh_producao_final(base: str) -> bool:
         return False
     return _contem(base, termos)
 
-
 def _eh_ensino_medio(base: str, turma: str = "") -> bool:
     turma_norm = _normalizar(turma)
     return _contem(base, ["em13", "ensino medio", "1a serie", "2a serie", "3a serie", "1o ano", "2o ano", "3o ano", "serie em"]) or _contem(
         turma_norm, ["1a serie", "2a serie", "3a serie", "1o ano", "2o ano", "3o ano", "ensino medio", "em"]
     )
-
 
 def _detectar_tipo_aula(texto_base: str, tema: str, turma: str = "") -> str:
     base = _normalizar(f"{tema} {turma} {texto_base}")
@@ -88,7 +75,6 @@ def _detectar_tipo_aula(texto_base: str, tema: str, turma: str = "") -> str:
         return "planejamento_producao"
     return "leitura_literaria"
 
-
 def _detectar_genero(texto_base: str, tema: str) -> str:
     base = _normalizar(f"{tema} {texto_base}")
     if "conto realista" in base:
@@ -111,7 +97,6 @@ def _detectar_genero(texto_base: str, tema: str) -> str:
         return "producao textual"
     return "texto literario"
 
-
 def _detectar_estrategias(texto_base: str, tema: str) -> set[str]:
     base = _normalizar(f"{tema} {texto_base}")
     estrategias = set()
@@ -130,7 +115,6 @@ def _detectar_estrategias(texto_base: str, tema: str) -> set[str]:
     if _contem(base, ["emprestimos criativos", "enriquecer", "recursos observados"]):
         estrategias.add("emprestimos_criativos")
     return estrategias
-
 
 def _objetivo_pedagogico(tipo: str, genero: str, obra: str, tema: str, ensino_medio: bool) -> str:
     if tipo == "devolutiva":
@@ -169,7 +153,6 @@ def _objetivo_pedagogico(tipo: str, genero: str, obra: str, tema: str, ensino_me
         "ao repertorio necessario para futuras producoes textuais criativas"
     )
 
-
 def _roteiro_genero(genero: str) -> str:
     roteiros = {
         "conto realista": "protagonista, cenario, objeto ou fato disparador, conflito, ponto de virada, decisao, consequencia e desfecho verossimil",
@@ -183,7 +166,6 @@ def _roteiro_genero(genero: str) -> str:
     }
     return roteiros.get(genero, "ideia central, leitor previsto, organizacao das partes e recursos de linguagem")
 
-
 def _frase_estrategias_leitura(estrategias: set[str]) -> str:
     partes = []
     if "predicao_guiada" in estrategias or "predict_verify" in estrategias:
@@ -195,7 +177,6 @@ def _frase_estrategias_leitura(estrategias: set[str]) -> str:
             "Realizar duas ou tres paradas estrategicas para recapitular fatos, levantar inferencias e imaginar cenas ou desdobramentos."
         )
     return " ".join(partes).strip()
-
 
 def _metodologia_leitura_literaria(texto_base: str, tema: str, turma: str) -> list[dict]:
     obra = _obra_literaria(tema, texto_base)
@@ -253,7 +234,6 @@ def _metodologia_leitura_literaria(texto_base: str, tema: str, turma: str) -> li
         },
     ]
 
-
 def _metodologia_planejamento(texto_base: str, tema: str, turma: str) -> list[dict]:
     genero = _detectar_genero(texto_base, tema)
     objetivo = _objetivo_pedagogico("planejamento_producao", genero, "", tema, _eh_ensino_medio(_normalizar(texto_base), turma))
@@ -301,7 +281,6 @@ def _metodologia_planejamento(texto_base: str, tema: str, turma: str) -> list[di
         },
     ]
 
-
 def _metodologia_devolutiva(texto_base: str, tema: str, turma: str) -> list[dict]:
     genero = _detectar_genero(texto_base, tema)
     objetivo = _objetivo_pedagogico("devolutiva", genero, "", tema, _eh_ensino_medio(_normalizar(texto_base), turma))
@@ -343,7 +322,6 @@ def _metodologia_devolutiva(texto_base: str, tema: str, turma: str) -> list[dict
             ),
         },
     ]
-
 
 def _metodologia_producao_final(texto_base: str, tema: str, turma: str) -> list[dict]:
     genero = _detectar_genero(texto_base, tema)
@@ -387,7 +365,6 @@ def _metodologia_producao_final(texto_base: str, tema: str, turma: str) -> list[
         },
     ]
 
-
 def _metodologia_fluencia(texto_base: str, tema: str, turma: str) -> list[dict]:
     objetivo = _objetivo_pedagogico("fluencia_leitora", "", "", tema, _eh_ensino_medio(_normalizar(texto_base), turma))
     return [
@@ -428,7 +405,6 @@ def _metodologia_fluencia(texto_base: str, tema: str, turma: str) -> list[dict]:
             ),
         },
     ]
-
 
 def _metodologia_argumentacao_em(texto_base: str, tema: str, turma: str, leitura_citacoes: bool = False) -> list[dict]:
     objetivo = _objetivo_pedagogico(
@@ -486,7 +462,6 @@ def _metodologia_argumentacao_em(texto_base: str, tema: str, turma: str, leitura
             ),
         },
     ]
-
 
 def gerar_metodologia_redacao_leitura(texto_base: str, tema: str, turma: str = "") -> list[dict]:
     tipo = _detectar_tipo_aula(texto_base, tema, turma)

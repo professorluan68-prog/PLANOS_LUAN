@@ -11,7 +11,9 @@ HISTORICO_PLANOS_LIMITE_MAXIMO = 500
 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
 
 
 def _normalizar_campo(valor):
@@ -50,6 +52,12 @@ def _criar_indices_banco(cursor) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_historico_planos_contexto_data
         ON historico_planos (professor_nome, disciplina, turma, data_geracao DESC, id DESC)
+        """
+    )
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_professor_turmas_prof_id
+        ON professor_turmas (professor_id)
         """
     )
 

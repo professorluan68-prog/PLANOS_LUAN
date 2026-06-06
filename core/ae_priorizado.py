@@ -5,27 +5,18 @@ import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 AE_PRIORIZADO_JSON_PATH = BASE_DIR / "assets" / "ae_priorizado" / "portugues_em_2b_teste.json"
-
-
-def _normalizar(texto: str = "") -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
-
 
 def _disciplina_portugues(disciplina: str = "") -> bool:
     base = _normalizar(disciplina)
     return "portugues" in base
 
-
 def _bimestre_numero(bimestre: str = "") -> int:
     match = re.search(r"([1-4])", str(bimestre or ""))
     return int(match.group(1)) if match else 0
-
 
 def _serie_em_por_turma(turma: str = "") -> str:
     base = _normalizar(turma)
@@ -45,10 +36,8 @@ def _serie_em_por_turma(turma: str = "") -> str:
 
     return f"{numero}a serie"
 
-
 def disciplina_ae_priorizado_teste(disciplina: str = "") -> bool:
     return _disciplina_portugues(disciplina)
-
 
 def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bimestre: str = "") -> bool:
     return (
@@ -58,7 +47,6 @@ def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bim
         and AE_PRIORIZADO_JSON_PATH.exists()
     )
 
-
 def _prefixo_chave_contexto(disciplina: str = "", turma: str = "", bimestre: str = "") -> str:
     serie = _serie_em_por_turma(turma)
     if not (disciplina_ae_priorizado_teste(disciplina) and serie and _bimestre_numero(bimestre) == 2):
@@ -66,13 +54,11 @@ def _prefixo_chave_contexto(disciplina: str = "", turma: str = "", bimestre: str
     serie_base = _normalizar(serie).replace(" ", "_")
     return f"portugues_em|2|{serie_base}|"
 
-
 @lru_cache(maxsize=1)
 def carregar_base_ae_priorizado() -> dict:
     if not AE_PRIORIZADO_JSON_PATH.exists():
         return {"mapa_por_aula": []}
     return json.loads(AE_PRIORIZADO_JSON_PATH.read_text(encoding="utf-8"))
-
 
 @lru_cache(maxsize=1)
 def _indice_por_chave() -> dict[str, dict]:
@@ -84,7 +70,6 @@ def _indice_por_chave() -> dict[str, dict]:
             indice[chave] = dict(item)
     return indice
 
-
 @lru_cache(maxsize=1)
 def _ordem_por_chave() -> dict[str, int]:
     base = carregar_base_ae_priorizado()
@@ -95,7 +80,6 @@ def _ordem_por_chave() -> dict[str, int]:
             ordem[chave] = posicao
     return ordem
 
-
 def _numero_aula_item(aula: dict) -> int:
     for valor in (aula.get("numero_aula"), aula.get("material"), aula.get("tema")):
         match = re.search(r"\b(\d{1,3})\b", str(valor or ""))
@@ -103,13 +87,11 @@ def _numero_aula_item(aula: dict) -> int:
             return int(match.group(1))
     return 0
 
-
 def _chave_lookup(disciplina: str, turma: str, bimestre: str, aula_numero: int) -> str:
     prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
     if not (prefixo and aula_numero):
         return ""
     return f"{prefixo}{int(aula_numero)}"
-
 
 def sequencia_aulas_ae_priorizado(
     disciplina: str = "",
@@ -141,7 +123,6 @@ def sequencia_aulas_ae_priorizado(
         if limite is not None and limite > 0 and len(numeros) >= int(limite):
             break
     return numeros
-
 
 def aplicar_ae_priorizado_nas_aulas(
     aulas: list[dict],
