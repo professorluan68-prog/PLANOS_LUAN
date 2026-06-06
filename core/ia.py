@@ -505,8 +505,11 @@ def processar_plano_ia(
     if provedor.lower() == "openai":
         if not OpenAI or not os.getenv("OPENAI_API_KEY"):
             raise Exception("Chave OPENAI_API_KEY nao configurada ou biblioteca ausente.")
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.beta.chat.completions.parse(
+        client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            timeout=IA_TIMEOUT_SEGUNDOS,
+        )
+        response = client.chat.completions.parse(
             model=modelo or "gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -522,7 +525,11 @@ def processar_plano_ia(
         if not genai or not os.getenv("GEMINI_API_KEY"):
             raise Exception("Chave GEMINI_API_KEY nao configurada ou biblioteca ausente.")
 
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        timeout_milisegundos = int(IA_TIMEOUT_SEGUNDOS) * 1000
+        client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            http_options=types.HttpOptions(timeout=timeout_milisegundos),
+        )
         prompt_json = (
             system_prompt
             + "\n\n"
@@ -533,7 +540,10 @@ def processar_plano_ia(
         response = client.models.generate_content(
             model=modelo or MODELO_GEMINI_PADRAO,
             contents=prompt_json,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                http_options=types.HttpOptions(timeout=timeout_milisegundos),
+            ),
         )
 
         text = response.text.strip()

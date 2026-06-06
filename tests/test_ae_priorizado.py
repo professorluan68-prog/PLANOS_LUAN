@@ -13,6 +13,17 @@ def test_contexto_ae_priorizado_so_ativa_para_portugues_em_segundo_bimestre(monk
     assert ae_priorizado.contexto_ae_priorizado_disponivel("Matemática", "1ª Série A", "2º Bimestre") is False
 
 
+def test_contexto_ae_priorizado_tambem_cobre_turmas_reais_de_segundo_e_terceiro_ano(monkeypatch):
+    class DummyPath:
+        def exists(self):
+            return True
+
+    monkeypatch.setattr(ae_priorizado, "AE_PRIORIZADO_JSON_PATH", DummyPath())
+
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Língua Portuguesa", "2º ANO B", "2º Bimestre") is True
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Língua Portuguesa", "3º ANO C", "2º Bimestre") is True
+
+
 def test_aplica_ae_priorizado_quando_encontra_correspondencia(monkeypatch):
     monkeypatch.setattr(ae_priorizado, "contexto_ae_priorizado_disponivel", lambda disciplina, turma, bimestre: True)
     monkeypatch.setattr(
@@ -150,3 +161,21 @@ def test_sequencia_aulas_ae_priorizado_mostra_a_ordem_esperada_dos_pdfs(monkeypa
     )
 
     assert sequencia == [17, 19, 20, 6]
+
+
+def test_base_real_ae_priorizado_traz_sequencia_para_segundo_e_terceiro_ano():
+    sequencia_segundo = ae_priorizado.sequencia_aulas_ae_priorizado(
+        disciplina="Língua Portuguesa",
+        turma="2º ANO B",
+        bimestre="2º Bimestre",
+        limite=5,
+    )
+    sequencia_terceiro = ae_priorizado.sequencia_aulas_ae_priorizado(
+        disciplina="Língua Portuguesa",
+        turma="3º ANO A",
+        bimestre="2º Bimestre",
+        limite=5,
+    )
+
+    assert sequencia_segundo == [5, 6, 10, 12, 9]
+    assert sequencia_terceiro == [12, 13, 14, 15, 16]

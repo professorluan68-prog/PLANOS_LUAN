@@ -5,6 +5,7 @@ import os
 import json
 import base64
 import math
+import traceback
 import zipfile
 import unicodedata
 from datetime import date, timedelta
@@ -185,6 +186,8 @@ CAMPOS_TELA = {
     "geracao_em_andamento",
     "turmas_processadas",
     "avisos_processamento",
+    "erro_processamento",
+    "erro_processamento_detalhe",
     "planos_gerados",
     "revisao_token",
 }
@@ -214,6 +217,20 @@ def limpar_dados_tela() -> None:
     for chave in list(st.session_state.keys()):
         if chave in CAMPOS_TELA or any(str(chave).startswith(prefixo) for prefixo in PREFIXOS_TELA):
             del st.session_state[chave]
+
+
+def _limpar_erro_processamento() -> None:
+    st.session_state.pop("erro_processamento", None)
+    st.session_state.pop("erro_processamento_detalhe", None)
+
+
+def _registrar_erro_processamento(exc: Exception) -> None:
+    mensagem = str(exc).strip() or exc.__class__.__name__
+    st.session_state["erro_processamento"] = (
+        "Nao foi possivel concluir o processamento das aulas. "
+        f"Motivo: {mensagem}"
+    )
+    st.session_state["erro_processamento_detalhe"] = traceback.format_exc()
 
 
 def _asset_data_uri(nome_arquivo: str, mime_type: str = "image/svg+xml") -> str:
@@ -1814,7 +1831,7 @@ def _coletar_aulas_envio(
         if not dividir_metodologia and sequencia_pdf_esperada and idx < len(sequencia_pdf_esperada):
             numero_pdf_esperado = sequencia_pdf_esperada[idx]
 
-        with st.container(border=True):
+        with st.container():
             st.markdown(
                 f"""
                 <div class="{card_class}">
@@ -2208,15 +2225,17 @@ if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
     modalidade_eja = st.selectbox("Modalidade", ["Regular", "EJA"], key="modalidade_eja") == "EJA"
 
 usar_ae_priorizado = False
+contexto_ae_ok = False
 if disciplina_ae_priorizado_teste(disciplina):
     contexto_ae_ok = contexto_ae_priorizado_disponivel(disciplina, turma, bimestre)
-    usar_ae_priorizado = st.checkbox(
+    st.checkbox(
         "Usar AE no lugar da habilidade",
         value=bool(st.session_state.get("usar_ae_priorizado", False)),
         key="usar_ae_priorizado",
         disabled=not contexto_ae_ok,
         help="Teste atual: disponível apenas para Português no Ensino Médio, 2º bimestre. Quando ativado, o sistema tenta trocar a coluna de aprendizagem pelo AE correspondente do guia priorizado.",
     )
+    usar_ae_priorizado = bool(contexto_ae_ok and st.session_state.get("usar_ae_priorizado", False))
     if contexto_ae_ok:
         st.caption("Teste ativo apenas para Português EM no 2º bimestre. Se alguma aula não estiver no mapa, o sistema mantém a habilidade normal.")
     else:
@@ -2234,6 +2253,31 @@ def _rotulo_sequencia_pdfs_esperada(numeros: list[int]) -> str:
         for indice, numero in enumerate(numeros or [])
         if str(numero).strip()
     )
+
+
+def _limitar_sequencia_ae(numeros: list[int], limite: int | None = None) -> list[int]:
+    if limite is None:
+        return list(numeros or [])
+    try:
+        limite_int = int(limite)
+    except (TypeError, ValueError):
+        limite_int = 0
+    if limite_int <= 0:
+        return list(numeros or [])
+    return list(numeros or [])[:limite_int]
+
+
+sequencia_ae_contexto = []
+if usar_ae_priorizado and contexto_ae_ok:
+    sequencia_ae_contexto = sequencia_aulas_ae_priorizado(disciplina, turma, bimestre)
+    if sequencia_ae_contexto:
+        st.info(
+            "Modo AE ativo neste contexto. Ordem base do guia priorizado: "
+            f"{_rotulo_sequencia_pdfs_esperada(sequencia_ae_contexto)}."
+        )
+        st.caption("Mais abaixo, o envio dos PDFs do mÃªs usarÃ¡ essa mesma ordem.")
+    else:
+        st.warning("Modo AE ativo, mas nÃ£o encontrei a sequÃªncia do guia para esta turma no 2Âº bimestre.")
 
 
 def _render_previa_aulas_cdp(preview: list[dict]):
@@ -2390,12 +2434,10 @@ else:
             else:
                 est_necessarios = linhas_modelo
 
-        if usar_ae_priorizado and linhas_modelo > 0:
-            sequencia_pdf_esperada_ae = sequencia_aulas_ae_priorizado(
-                disciplina,
-                turma,
-                bimestre,
-                limite=est_necessarios or linhas_modelo,
+        if usar_ae_priorizado and sequencia_ae_contexto:
+            sequencia_pdf_esperada_ae = _limitar_sequencia_ae(
+                sequencia_ae_contexto,
+                est_necessarios or linhas_modelo,
             )
 
         label_uploader = "PDFs"
@@ -2415,13 +2457,8 @@ else:
             st.caption("A sequência dos PDFs será mantida exatamente na ordem em que você adicionou.")
         qtd_aulas = len(pdfs_aulas_files)
 
-    if modo_upload_individual and usar_ae_priorizado and linhas_modelo > 0:
-        sequencia_pdf_esperada_ae = sequencia_aulas_ae_priorizado(
-            disciplina,
-            turma,
-            bimestre,
-            limite=linhas_modelo,
-        )
+    if modo_upload_individual and usar_ae_priorizado and sequencia_ae_contexto:
+        sequencia_pdf_esperada_ae = _limitar_sequencia_ae(sequencia_ae_contexto, linhas_modelo)
         if sequencia_pdf_esperada_ae:
             st.info(
                 "Modo AE ativo. Sequencia esperada dos PDFs neste contexto: "
@@ -2501,8 +2538,16 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+erro_processamento = str(st.session_state.get("erro_processamento") or "").strip()
+if erro_processamento:
+    st.error(erro_processamento)
+    erro_processamento_detalhe = str(st.session_state.get("erro_processamento_detalhe") or "").strip()
+    if erro_processamento_detalhe:
+        with st.expander("Ver detalhe tecnico"):
+            st.code(erro_processamento_detalhe)
 geracao_em_andamento = bool(st.session_state.get("geracao_em_andamento", False))
 if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
+    _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
     erro = validar_entrada(modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma, bimestre, mes, aulas_previstas_manual, pdfs_enviados_val, pdfs_necessarios)
@@ -2533,7 +2578,7 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                 st.session_state["avisos_processamento"] = avisos
                 st.session_state["revisao_token"] = st.session_state.get("revisao_token", 0) + 1
             except Exception as e:
-                st.error(str(e))
+                _registrar_erro_processamento(e)
             st.session_state["geracao_em_andamento"] = False; st.rerun()
 
 if st.session_state.get("turmas_processadas"):
