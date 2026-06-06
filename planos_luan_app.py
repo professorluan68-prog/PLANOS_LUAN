@@ -2391,17 +2391,8 @@ else:
     dividir_metodologia_atual = st.session_state.get("dividir_metodologia", False)
     sequencia_pdf_esperada_ae = []
 
-    # Seletor de modo de upload
-    if "modo_upload_pdf" not in st.session_state:
-        st.session_state["modo_upload_pdf"] = "Todos de uma vez"
-    modo_upload_pdf = st.radio(
-        "Modo de envio dos PDFs",
-        ["Todos de uma vez", "Um por aula"],
-        horizontal=True,
-        key="modo_upload_pdf",
-        help="'Todos de uma vez': envie todos os PDFs juntos em ordem.\n'Um por aula': adicione o PDF diretamente em cada card de aula.",
-    )
-    modo_upload_individual = modo_upload_pdf == "Um por aula"
+    # Seletor de modo de upload removido, utilizando sempre fluxo unificado com seleção automática
+    modo_upload_individual = False
 
     pdfs_aulas_files = []
     qtd_aulas = 0
@@ -2441,9 +2432,9 @@ else:
                 est_necessarios or linhas_modelo,
             )
 
-        label_uploader = "PDFs"
+        label_uploader = "Envio Manual de PDFs"
         if est_necessarios > 0:
-            label_uploader = f"PDFs (Adicione exatamente {est_necessarios} PDF(s) para as {linhas_modelo} aulas do mês)"
+            label_uploader = f"Envio Manual (Insira exatamente {est_necessarios} PDF(s) para as {linhas_modelo} aulas do mês)"
 
         if sequencia_pdf_esperada_ae:
             st.info(
@@ -2452,10 +2443,37 @@ else:
             )
             st.caption("Envie os arquivos nessa ordem do guia priorizado.")
 
-        pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
-        pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
+        from core.helpers import resolver_pasta_pdfs, LocalFileWrapper
+        base_pdfs_dir = r"D:\PDF novos"
+        pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre)
+        
+        pdf_files_disponiveis = []
+        if pasta_pdfs.exists():
+            pdf_files_disponiveis = sorted(pasta_pdfs.glob("*.pdf"), key=lambda p: p.name)
+            
+        if pdf_files_disponiveis:
+            st.success(f"Encontrados {len(pdf_files_disponiveis)} PDFs mapeados automaticamente para a turma {turma} ({bimestre}).")
+            
+            # Tenta pre-selecionar a quantidade exata se houver
+            default_selection = None
+            if est_necessarios > 0 and len(pdf_files_disponiveis) >= est_necessarios:
+                default_selection = pdf_files_disponiveis[:est_necessarios]
+                
+            selecionados = st.multiselect(
+                "Selecione as aulas para o plano (na ordem que deseja utilizar):",
+                options=pdf_files_disponiveis,
+                format_func=lambda p: p.name,
+                default=default_selection,
+                key="pdfs_aulas_files_auto"
+            )
+            pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
+        else:
+            st.warning(f"Não foram encontrados PDFs automáticos para a pasta ({pasta_pdfs.name}). Faça o envio manual.")
+            pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
+            pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
+            
         if pdfs_aulas_files:
-            st.caption("A sequência dos PDFs será mantida exatamente na ordem em que você adicionou.")
+            st.caption("A sequência dos PDFs será mantida exatamente na ordem selecionada.")
         qtd_aulas = len(pdfs_aulas_files)
 
     if modo_upload_individual and usar_ae_priorizado and sequencia_ae_contexto:
