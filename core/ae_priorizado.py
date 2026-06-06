@@ -33,6 +33,8 @@ def _serie_em_por_turma(turma: str = "") -> str:
     match = re.search(r"\b([123])\s*(?:a|o)?\s*(?:serie|ano)\b", base)
     if not match:
         match = re.search(r"^\s*([123])\s*[a-z]?\b", base)
+    if not match:
+        match = re.search(r"([123])", base)
 
     if not match:
         return ""
@@ -41,7 +43,7 @@ def _serie_em_por_turma(turma: str = "") -> str:
     if re.search(r"\b(?:6|7|8|9)\b", base):
         return ""
 
-    return f"{numero}ª Série"
+    return f"{numero}a serie"
 
 
 def disciplina_ae_priorizado_teste(disciplina: str = "") -> bool:
@@ -55,6 +57,14 @@ def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bim
         and bool(_serie_em_por_turma(turma))
         and AE_PRIORIZADO_JSON_PATH.exists()
     )
+
+
+def _prefixo_chave_contexto(disciplina: str = "", turma: str = "", bimestre: str = "") -> str:
+    serie = _serie_em_por_turma(turma)
+    if not (disciplina_ae_priorizado_teste(disciplina) and serie and _bimestre_numero(bimestre) == 2):
+        return ""
+    serie_base = _normalizar(serie).replace(" ", "_")
+    return f"portugues_em|2|{serie_base}|"
 
 
 @lru_cache(maxsize=1)
@@ -95,11 +105,42 @@ def _numero_aula_item(aula: dict) -> int:
 
 
 def _chave_lookup(disciplina: str, turma: str, bimestre: str, aula_numero: int) -> str:
-    serie = _serie_em_por_turma(turma)
-    if not (disciplina_ae_priorizado_teste(disciplina) and serie and _bimestre_numero(bimestre) == 2 and aula_numero):
+    prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
+    if not (prefixo and aula_numero):
         return ""
-    serie_base = _normalizar(serie).replace(" ", "_")
-    return f"portugues_em|2|{serie_base}|{int(aula_numero)}"
+    return f"{prefixo}{int(aula_numero)}"
+
+
+def sequencia_aulas_ae_priorizado(
+    disciplina: str = "",
+    turma: str = "",
+    bimestre: str = "",
+    limite: int | None = None,
+) -> list[int]:
+    if not contexto_ae_priorizado_disponivel(disciplina, turma, bimestre):
+        return []
+
+    prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
+    if not prefixo:
+        return []
+
+    numeros: list[int] = []
+    vistos: set[int] = set()
+    for item in carregar_base_ae_priorizado().get("mapa_por_aula", []):
+        chave = str(item.get("chave_lookup") or "").strip()
+        if not chave.startswith(prefixo):
+            continue
+        try:
+            numero = int(item.get("aula_numero") or 0)
+        except (TypeError, ValueError):
+            numero = 0
+        if not numero or numero in vistos:
+            continue
+        vistos.add(numero)
+        numeros.append(numero)
+        if limite is not None and limite > 0 and len(numeros) >= int(limite):
+            break
+    return numeros
 
 
 def aplicar_ae_priorizado_nas_aulas(

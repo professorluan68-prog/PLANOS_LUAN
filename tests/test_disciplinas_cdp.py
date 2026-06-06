@@ -1,5 +1,9 @@
 from core.disciplinas import (
     BIMESTRES,
+    DISCIPLINA_CDP_CICLO_I,
+    DISCIPLINA_CDP_FUNDAMENTAL,
+    DISCIPLINA_CDP_MEDIO,
+    DISCIPLINA_CDP_MULTISSERIADA,
     TURMAS_CDP,
     eh_cdp,
     eh_cdp_contextual,
@@ -9,35 +13,36 @@ from core.disciplinas import (
 )
 
 
-def test_cdp_nao_exige_pdf():
-    config = obter_config("CDP- Multisseriada")
+def test_cdp_multisseriada_nao_exige_pdf():
+    config = obter_config(DISCIPLINA_CDP_MULTISSERIADA)
 
-    assert eh_cdp("CDP- Multisseriada")
+    assert eh_cdp(DISCIPLINA_CDP_MULTISSERIADA)
     assert config.exige_pdf is False
 
 
-def test_cdp_fundamental_nao_exige_pdf():
-    config = obter_config("CDP - Ciclo I")
+def test_cdp_ciclo_i_nao_exige_pdf():
+    config = obter_config(DISCIPLINA_CDP_CICLO_I)
 
-    assert eh_cdp("CDP - Ciclo I")
-    assert eh_cdp_fundamental("CDP - Ciclo I")
+    assert eh_cdp(DISCIPLINA_CDP_CICLO_I)
+    assert eh_cdp_fundamental(DISCIPLINA_CDP_CICLO_I)
     assert config.exige_pdf is False
 
 
-def test_cdp_ensino_fundamental_em_planos_gerais_usa_pdf():
-    config = obter_config("CDP-ENSINO FUNDAMENTAL")
+def test_cdp_contextual_continua_no_fluxo_pdf():
+    config_fundamental = obter_config(DISCIPLINA_CDP_FUNDAMENTAL)
+    config_medio = obter_config(DISCIPLINA_CDP_MEDIO)
 
-    assert not eh_cdp("CDP-ENSINO FUNDAMENTAL")
-    assert eh_cdp_contextual("CDP-ENSINO FUNDAMENTAL")
-    assert config.exige_pdf is True
+    assert not eh_cdp(DISCIPLINA_CDP_FUNDAMENTAL)
+    assert not eh_cdp(DISCIPLINA_CDP_MEDIO)
+    assert eh_cdp_contextual(DISCIPLINA_CDP_FUNDAMENTAL)
+    assert eh_cdp_contextual(DISCIPLINA_CDP_MEDIO)
+    assert config_fundamental.exige_pdf is True
+    assert config_medio.exige_pdf is True
 
 
-def test_cdp_ensino_medio_em_planos_gerais_usa_pdf():
-    config = obter_config("CDP-ENSINO MÉDIO")
-
-    assert not eh_cdp("CDP-ENSINO MÉDIO")
-    assert eh_cdp_contextual("CDP-ENSINO MÉDIO")
-    assert config.exige_pdf is True
+def test_cdp_contextual_aceita_variacoes_simples_de_acentuacao():
+    assert eh_cdp_contextual("CDP-ENSINO MEDIO")
+    assert eh_cdp_contextual("  cdp-ensino medio  ")
 
 
 def test_lista_disciplinas_tem_opcoes_principais():
@@ -47,9 +52,9 @@ def test_lista_disciplinas_tem_opcoes_principais():
     assert "Biologia" in nomes
     assert "Projeto de Vida" in nomes
     assert "Tecnologia e Inovação" in nomes
-    assert "CDP- Multisseriada" in nomes
-    assert "CDP-ENSINO FUNDAMENTAL" in nomes
-    assert "CDP-ENSINO MÉDIO" in nomes
+    assert DISCIPLINA_CDP_MULTISSERIADA in nomes
+    assert DISCIPLINA_CDP_FUNDAMENTAL in nomes
+    assert DISCIPLINA_CDP_MEDIO in nomes
     assert "Outra" in nomes
 
 

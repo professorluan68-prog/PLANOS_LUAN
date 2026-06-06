@@ -405,6 +405,11 @@ def _adicionar_texto_com_destaques_formatado(paragrafo, texto: str, tamanho=_TAM
         _aplicar_fonte(run, tamanho=tamanho, bold=True if parte in DESTAQUES_TEXTO.values() else None)
 
 
+def _remover_acentos(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(texto or ""))
+    return "".join(ch for ch in texto if not unicodedata.combining(ch))
+
+
 def _preencher_celula_aprendizagem(celula, texto: str) -> None:
     """Preenche a coluna Aprendizagem: código BNCC em vermelho+bold, resto bold preto, centralizado."""
     _limpar_celula(celula)
@@ -483,7 +488,7 @@ def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
         trecho = parte
         for titulo in padroes:
             trecho = re.sub(
-                rf"(?<!^)\s+({re.escape(titulo)}:)",
+                rf"(?<=[.!?])\s+({re.escape(titulo)}:)",
                 r"\n\1",
                 trecho,
                 flags=re.I,
@@ -495,6 +500,21 @@ def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
 def _texto_ja_comeca_com_etapa(texto: str) -> bool:
     primeira_linha = next((linha for linha in _quebrar_texto_metodologia_em_linhas(texto) if linha.strip()), "")
     return bool(re.match(r"^[^:]{2,40}:\s*", primeira_linha))
+
+
+def _titulo_metodologia_deve_prefixar(titulo: str, texto: str) -> bool:
+    titulo_limpo = str(titulo or "").strip()
+    if not titulo_limpo:
+        return False
+    if _texto_ja_comeca_com_etapa(texto):
+        return False
+
+    titulo_norm = re.sub(r"\s+", " ", titulo_limpo).strip().lower()
+    linhas = _quebrar_texto_metodologia_em_linhas(texto)
+    if titulo_norm == "desenvolvimento" and any(re.match(r"^[^:]{2,40}:\s*", linha) for linha in linhas):
+        return False
+
+    return True
 
 
 def _preencher_celula_metodologia(celula, metodologia) -> None:
@@ -512,7 +532,7 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
         if isinstance(item, dict):
             titulo = str(item.get("titulo") or "").strip()
             texto = str(item.get("texto") or "").strip()
-            if titulo and not _texto_ja_comeca_com_etapa(texto):
+            if _titulo_metodologia_deve_prefixar(titulo, texto):
                 texto_item = f"{_titulo_exibicao(_normalizar_destaques(titulo))}: {texto}"
             else:
                 texto_item = texto
@@ -530,7 +550,7 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
             # Procurar por um padrão "Titulo: texto" para colocar em negrito
             match = re.match(r'^([^:]{2,35}):\s*(.*)$', linha)
             if match:
-                titulo_bold = match.group(1) + ":"
+                titulo_bold = _remover_acentos(match.group(1)) + ":"
                 resto_texto = " " + match.group(2)
                 _aplicar_fonte(paragrafo_atual.add_run(titulo_bold), tamanho=tamanho, bold=True)
                 _adicionar_texto_com_destaques_formatado(paragrafo_atual, resto_texto, tamanho=tamanho)

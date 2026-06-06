@@ -3,8 +3,11 @@ import os
 import sqlite3
 from pathlib import Path
 
+from config import DB_PATH
 
-DB_PATH = Path(__file__).resolve().parent.parent / "planos_luan.db"
+
+HISTORICO_PLANOS_LIMITE_PADRAO = 50
+HISTORICO_PLANOS_LIMITE_MAXIMO = 500
 
 
 def get_connection():
@@ -34,6 +37,40 @@ def _remover_professor_sem_turmas(cursor, professor_id: int) -> None:
     total = int(cursor.fetchone()[0] or 0)
     if total == 0:
         cursor.execute("DELETE FROM professores WHERE id = ?", (professor_id,))
+
+
+def _criar_indices_banco(cursor) -> None:
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_historico_planos_data_id
+        ON historico_planos (data_geracao DESC, id DESC)
+        """
+    )
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_historico_planos_contexto_data
+        ON historico_planos (professor_nome, disciplina, turma, data_geracao DESC, id DESC)
+        """
+    )
+
+
+def _limpar_historico_planos_incompletos(cursor) -> None:
+    cursor.execute(
+        """
+        DELETE FROM historico_planos
+        WHERE arquivo_docx IS NULL
+           OR LENGTH(arquivo_docx) = 0
+           OR COALESCE(TRIM(arquivo_nome), '') = ''
+        """
+    )
+
+
+def _normalizar_limite_historico(limite) -> int:
+    try:
+        valor = int(limite)
+    except (TypeError, ValueError):
+        valor = HISTORICO_PLANOS_LIMITE_PADRAO
+    return max(1, min(valor, HISTORICO_PLANOS_LIMITE_MAXIMO))
 
 
 def init_db():
@@ -97,6 +134,8 @@ def init_db():
             )
             """
         )
+        _criar_indices_banco(cursor)
+        _limpar_historico_planos_incompletos(cursor)
         conn.commit()
 
 
@@ -458,6 +497,12 @@ def duplicar_vinculo_professor(
 
 
 def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes):
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    arquivo_nome = _normalizar_campo(arquivo_nome)
+    arquivo_docx_bytes = bytes(arquivo_docx_bytes or b"")
+
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -465,21 +510,23 @@ def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arqu
             INSERT INTO historico_planos (professor_nome, disciplina, turma, arquivo_nome, arquivo_docx)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes),
+            (professor_nome, disciplina, turma, arquivo_nome, sqlite3.Binary(arquivo_docx_bytes)),
         )
         conn.commit()
 
 
-def listar_historico_planos():
+def listar_historico_planos(limite=HISTORICO_PLANOS_LIMITE_PADRAO):
+    limite = _normalizar_limite_historico(limite)
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT id, professor_nome, disciplina, turma, data_geracao, arquivo_nome
             FROM historico_planos
-            ORDER BY data_geracao DESC
-            LIMIT 50
-            """
+            ORDER BY data_geracao DESC, id DESC
+            LIMIT ?
+            """,
+            (limite,),
         )
         return cursor.fetchall()
 

@@ -27,6 +27,8 @@ professores_PLANOS_LUAN_backup.json
 
 # Saidas, auditorias e artefatos temporarios
 Planos feitos/
+outputs/
+node_modules/
 render_adriana_qa/
 _audit_streamlit.*
 _browser_check_streamlit.*

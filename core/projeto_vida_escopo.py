@@ -72,12 +72,12 @@ def _linhas_tabela(tabela, max_colunas: int = 14) -> list[list[str]]:
 def _normalizar_serie(turma: str = "") -> str:
     texto = _normalizar(turma)
     match = re.search(r"([123])", texto)
-    return f"{match.group(1)}ª" if match else ""
+    return f"{match.group(1)}a" if match else ""
 
 
 def _normalizar_bimestre(bimestre: str = "") -> str:
     match = re.search(r"([1-4])", str(bimestre or ""))
-    return f"{match.group(1)}º" if match else ""
+    return f"{match.group(1)}o" if match else ""
 
 
 def _normalizar_aula(aula) -> str:
@@ -87,7 +87,7 @@ def _normalizar_aula(aula) -> str:
 
 def _compactar_texto(texto: str = "") -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    texto = re.sub(r"\s*•\s*", " • ", texto)
+    texto = re.sub(r"\s*â€¢\s*", " â€¢ ", texto)
     return texto.strip(" .;-")
 
 
@@ -95,7 +95,7 @@ def _itens(texto: str = "") -> list[str]:
     texto = _compactar_texto(texto)
     if not texto:
         return []
-    partes = [p.strip(" .;-") for p in re.split(r"\s*•\s*", texto) if p.strip(" .;-")]
+    partes = [p.strip(" .;-") for p in re.split(r"\s*â€¢\s*", texto) if p.strip(" .;-")]
     if len(partes) <= 1:
         partes = [p.strip(" .;-") for p in re.split(r"(?<=[.!?])\s+", texto) if p.strip(" .;-")]
     return partes
@@ -132,6 +132,10 @@ def _minuscula_inicial(texto: str = "") -> str:
 @lru_cache(maxsize=1)
 def carregar_escopo_projeto_vida(caminho: str | None = None) -> list[dict[str, str]]:
     caminho_ods = Path(caminho) if caminho else ESCOPO_PV_PATH
+    if not caminho_ods.exists():
+        candidatos = sorted(caminho_ods.parent.glob("EM Escopo-sequ*.ods"))
+        if candidatos:
+            caminho_ods = candidatos[0]
     if not caminho_ods.exists():
         return []
 
@@ -182,8 +186,8 @@ def buscar_item_projeto_vida(turma: str, bimestre: str, numero_aula: str | int) 
 
     for item in carregar_escopo_projeto_vida():
         if (
-            _normalizar(item.get("serie")) == _normalizar(serie)
-            and _normalizar(item.get("bimestre")) == _normalizar(bim)
+            _normalizar_serie(item.get("serie")) == serie
+            and _normalizar_bimestre(item.get("bimestre")) == bim
             and _normalizar_aula(item.get("aula")) == aula
         ):
             return item

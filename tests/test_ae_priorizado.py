@@ -124,3 +124,29 @@ def test_reordena_aulas_pela_ordem_do_guia_priorizado(monkeypatch):
     ]
     assert ajustadas[0]["aprendizagem"] == "AE1 - Texto do AE 17"
     assert ajustadas[1]["aprendizagem"] == "AE2 - Texto do AE 6"
+
+
+def test_sequencia_aulas_ae_priorizado_mostra_a_ordem_esperada_dos_pdfs(monkeypatch):
+    monkeypatch.setattr(ae_priorizado, "contexto_ae_priorizado_disponivel", lambda disciplina, turma, bimestre: True)
+    monkeypatch.setattr(
+        ae_priorizado,
+        "carregar_base_ae_priorizado",
+        lambda: {
+            "mapa_por_aula": [
+                {"chave_lookup": "portugues_em|2|1a_serie|17", "aula_numero": 17},
+                {"chave_lookup": "portugues_em|2|1a_serie|19", "aula_numero": 19},
+                {"chave_lookup": "portugues_em|2|1a_serie|20", "aula_numero": 20},
+                {"chave_lookup": "portugues_em|2|2a_serie|5", "aula_numero": 5},
+                {"chave_lookup": "portugues_em|2|1a_serie|6", "aula_numero": 6},
+            ]
+        },
+    )
+
+    sequencia = ae_priorizado.sequencia_aulas_ae_priorizado(
+        disciplina="LÃ­ngua Portuguesa",
+        turma="1Âª SÃ©rie A",
+        bimestre="2Âº Bimestre",
+        limite=4,
+    )
+
+    assert sequencia == [17, 19, 20, 6]

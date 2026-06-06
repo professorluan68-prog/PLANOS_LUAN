@@ -21,6 +21,18 @@ _seletor_tecnicas = SeletorTecnicas()
 _extrator = ExtratorPDF()
 
 
+def _normalizar_termos_internos(texto: str) -> str:
+    texto = str(texto or "")
+    correcoes = {
+        "evidências": "evidencias",
+        "socialização": "socializacao",
+    }
+    for origem, destino in correcoes.items():
+        texto = texto.replace(origem, destino)
+        texto = texto.replace(origem.capitalize(), destino[:1].upper() + destino[1:])
+    return texto
+
+
 class ValidadorQualidade:
     """Remove etapas vazias e formata corretamente os blocos de texto."""
 
@@ -29,6 +41,7 @@ class ValidadorQualidade:
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
                 texto = naturalizar_texto_metodologico(corrigir_mojibake(etapa["texto"].strip()))
+                texto = _normalizar_termos_internos(texto)
                 if not texto.endswith('.'):
                     texto += '.'
                 etapa["texto"] = texto

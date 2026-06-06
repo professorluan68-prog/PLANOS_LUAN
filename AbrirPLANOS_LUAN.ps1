@@ -1,13 +1,19 @@
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Python = Join-Path $Root ".venv_PLANOS_LUAN\Scripts\python.exe"
 $App = Join-Path $Root "planos_luan_app.py"
 $InstallBat = Join-Path $Root "InstalarPLANOS_LUAN.bat"
 $OutLog = Join-Path $Root "planos_luan.out.log"
 $ErrLog = Join-Path $Root "planos_luan.err.log"
 
 Set-Location $Root
+
+function Get-PythonCandidates {
+    return @(
+        (Join-Path $Root ".venv\Scripts\python.exe"),
+        (Join-Path $Root ".venv_PLANOS_LUAN\Scripts\python.exe")
+    )
+}
 
 function Test-Python {
     param([string]$Path)
@@ -18,6 +24,16 @@ function Test-Python {
 
     & $Path --version *> $null
     return ($LASTEXITCODE -eq 0)
+}
+
+function Resolve-PythonPath {
+    foreach ($candidate in Get-PythonCandidates) {
+        if (Test-Python $candidate) {
+            return $candidate
+        }
+    }
+
+    return (Get-PythonCandidates)[0]
 }
 
 function Test-Module {
@@ -31,9 +47,12 @@ function Test-Module {
 }
 
 function Ensure-Environment {
+    $script:Python = Resolve-PythonPath
+
     if (-not (Test-Python $Python)) {
         Write-Host "Preparando ambiente do PLANOS_LUAN..."
         & $InstallBat
+        $script:Python = Resolve-PythonPath
     }
 
     if (-not (Test-Python $Python)) {
@@ -43,6 +62,7 @@ function Ensure-Environment {
     if (-not (Test-Module $Python "streamlit")) {
         Write-Host "Dependencias incompletas. Instalando pacotes..."
         & $InstallBat
+        $script:Python = Resolve-PythonPath
     }
 
     if (-not (Test-Module $Python "streamlit")) {

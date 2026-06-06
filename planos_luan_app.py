@@ -72,6 +72,7 @@ from core.ae_priorizado import (
     aplicar_ae_priorizado_nas_aulas,
     contexto_ae_priorizado_disponivel,
     disciplina_ae_priorizado_teste,
+    sequencia_aulas_ae_priorizado,
 )
 
 BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
@@ -1739,6 +1740,7 @@ def _coletar_aulas_envio(
     titulo_secao: str = "",
     modo_upload_individual: bool = False,
     preservar_datas_sincronizadas: bool = False,
+    sequencia_pdf_esperada: list[int] | None = None,
 ):
     aulas_envio = []
     datas_cache = []
@@ -1808,6 +1810,9 @@ def _coletar_aulas_envio(
         dividir_pdf_ativo = bool(dividir_metodologia and st.session_state.get(chave_dividir, False))
         card_class, status_titulo, status_texto, badges = _status_visual_aula(idx, num_rows, bloqueado, continuidade_anterior, dividir_pdf_ativo)
         badges_html = "".join([f'<span class="lesson-badge lesson-badge--index">Aula {idx + 1}</span>'] + badges)
+        numero_pdf_esperado = None
+        if not dividir_metodologia and sequencia_pdf_esperada and idx < len(sequencia_pdf_esperada):
+            numero_pdf_esperado = sequencia_pdf_esperada[idx]
 
         with st.container(border=True):
             st.markdown(
@@ -1823,6 +1828,8 @@ def _coletar_aulas_envio(
                 </div>
                 """, unsafe_allow_html=True
             )
+            if numero_pdf_esperado:
+                st.caption(f"PDF esperado neste bloco: AULA {int(numero_pdf_esperado)}")
             col_data, col_horario = st.columns([1, 1])
             with col_data:
                 data_aula = st.date_input("Data", format="DD/MM/YYYY", key=chave_data, disabled=bloqueado)
@@ -2221,6 +2228,14 @@ def _resumo_tela(valor: str, fallback: str = "Não definido") -> str:
     return str(valor).strip() if str(valor or "").strip() else fallback
 
 
+def _rotulo_sequencia_pdfs_esperada(numeros: list[int]) -> str:
+    return " | ".join(
+        f"{indice + 1}. AULA {int(numero)}"
+        for indice, numero in enumerate(numeros or [])
+        if str(numero).strip()
+    )
+
+
 def _render_previa_aulas_cdp(preview: list[dict]):
     if not preview:
         st.warning("Não consegui localizar as aulas do CDP no modelo atual.")
@@ -2329,6 +2344,7 @@ if disciplina_cdp:
 else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
     dividir_metodologia_atual = st.session_state.get("dividir_metodologia", False)
+    sequencia_pdf_esperada_ae = []
 
     # Seletor de modo de upload
     if "modo_upload_pdf" not in st.session_state:
@@ -2374,15 +2390,44 @@ else:
             else:
                 est_necessarios = linhas_modelo
 
+        if usar_ae_priorizado and linhas_modelo > 0:
+            sequencia_pdf_esperada_ae = sequencia_aulas_ae_priorizado(
+                disciplina,
+                turma,
+                bimestre,
+                limite=est_necessarios or linhas_modelo,
+            )
+
         label_uploader = "PDFs"
         if est_necessarios > 0:
             label_uploader = f"PDFs (Adicione exatamente {est_necessarios} PDF(s) para as {linhas_modelo} aulas do mês)"
+
+        if sequencia_pdf_esperada_ae:
+            st.info(
+                "Modo AE ativo. Sequencia esperada dos PDFs neste contexto: "
+                f"{_rotulo_sequencia_pdfs_esperada(sequencia_pdf_esperada_ae)}."
+            )
+            st.caption("Envie os arquivos nessa ordem do guia priorizado.")
 
         pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
         pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
         if pdfs_aulas_files:
             st.caption("A sequência dos PDFs será mantida exatamente na ordem em que você adicionou.")
         qtd_aulas = len(pdfs_aulas_files)
+
+    if modo_upload_individual and usar_ae_priorizado and linhas_modelo > 0:
+        sequencia_pdf_esperada_ae = sequencia_aulas_ae_priorizado(
+            disciplina,
+            turma,
+            bimestre,
+            limite=linhas_modelo,
+        )
+        if sequencia_pdf_esperada_ae:
+            st.info(
+                "Modo AE ativo. Sequencia esperada dos PDFs neste contexto: "
+                f"{_rotulo_sequencia_pdfs_esperada(sequencia_pdf_esperada_ae)}."
+            )
+            st.caption("Os cards abaixo seguem essa mesma ordem para facilitar o envio um por aula.")
 
     if bool(len(datas_horarios_mes or [])):
         st.session_state["auto_repetir_semana"] = False
@@ -2400,6 +2445,7 @@ else:
         replicar_pdf_unico=bool(orientacao_estudos and qtd_aulas == 1),
         modo_upload_individual=modo_upload_individual,
         preservar_datas_sincronizadas=bool(datas_horarios_mes),
+        sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
     )
 
     if modo_upload_individual:
@@ -2436,6 +2482,7 @@ else:
             titulo_secao="2ª turma",
             modo_upload_individual=modo_upload_individual,
             preservar_datas_sincronizadas=bool(datas_horarios_mes),
+            sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)

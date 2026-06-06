@@ -7,6 +7,7 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 cd /d "%ROOT%"
 
 set "PYTHON_CMD="
+set "VENV_DIR=.venv"
 
 py -3.11 --version >nul 2>nul
 if not errorlevel 1 (
@@ -33,21 +34,25 @@ if not defined PYTHON_CMD (
     exit /b 1
 )
 
-if exist ".venv_PLANOS_LUAN\Scripts\python.exe" (
-    ".venv_PLANOS_LUAN\Scripts\python.exe" --version >nul 2>nul
+if exist "%VENV_DIR%\Scripts\python.exe" (
+    "%VENV_DIR%\Scripts\python.exe" --version >nul 2>nul
     if errorlevel 1 (
-        echo Ambiente virtual quebrado. Reparando .venv_PLANOS_LUAN...
-        %PYTHON_CMD% -m venv .venv_PLANOS_LUAN
+        echo Ambiente virtual quebrado. Reparando %VENV_DIR%...
+        %PYTHON_CMD% -m venv %VENV_DIR%
     )
 )
 
-if not exist ".venv_PLANOS_LUAN\Scripts\python.exe" (
-    %PYTHON_CMD% -m venv .venv_PLANOS_LUAN
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    if exist ".venv_PLANOS_LUAN\Scripts\python.exe" (
+        set "VENV_DIR=.venv_PLANOS_LUAN"
+    ) else (
+        %PYTHON_CMD% -m venv %VENV_DIR%
+    )
 )
 
-".venv_PLANOS_LUAN\Scripts\python.exe" -m pip install --upgrade pip
-".venv_PLANOS_LUAN\Scripts\python.exe" -m pip install -r requirements.txt
+"%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip
+"%VENV_DIR%\Scripts\python.exe" -m pip install -r requirements.txt
 
 echo.
-echo PLANOS_LUAN preparado com sucesso.
+echo PLANOS_LUAN preparado com sucesso em %VENV_DIR%.
 pause

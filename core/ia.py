@@ -15,8 +15,9 @@ try:
     from google.genai import types
 except ImportError:
     genai = None
+    types = None
 
-from config import IA_TIMEOUT_SEGUNDOS
+from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO
 from core.lib.classificador import perfil_disciplina
 from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
 from core.qualidade_metodologica import (
@@ -530,7 +531,7 @@ def processar_plano_ia(
         )
 
         response = client.models.generate_content(
-            model=modelo or "gemini-2.5-flash",
+            model=modelo or MODELO_GEMINI_PADRAO,
             contents=prompt_json,
             config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
