@@ -132,6 +132,11 @@ def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: st
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
     turma_norm = normalizar_para_pasta(turma)
 
+    # Caso especial: se a pasta organizada diretamente por turma existir, usá-la
+    caminho_direto = Path(base_dir) / disc_folder / turma_norm
+    if caminho_direto.exists():
+        return caminho_direto
+
     nivel = "AF"
     serie = ""
 

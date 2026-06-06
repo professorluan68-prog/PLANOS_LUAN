@@ -69,6 +69,10 @@ TITULOS_ETAPAS = {
 
 
 def _substituir_texto(paragraph, substituicoes: dict[str, str]) -> None:
+    """
+    Substitui placeholders preservando a formatação do primeiro run.
+    Se o parágrafo tem apenas um run, preserva fonte, tamanho, negrito e cor.
+    """
     if not paragraph.runs:
         return
     texto_original = paragraph.text
@@ -77,8 +81,26 @@ def _substituir_texto(paragraph, substituicoes: dict[str, str]) -> None:
         texto_novo = texto_novo.replace(chave, _sanitizar_texto_xml(valor))
     if texto_novo == texto_original:
         return
+
+    # Preservar formatação do primeiro run antes de limpar
+    primeiro_run = paragraph.runs[0]
+    fonte_nome = primeiro_run.font.name
+    fonte_tamanho = primeiro_run.font.size
+    fonte_bold = primeiro_run.bold
+    fonte_cor = primeiro_run.font.color.rgb if primeiro_run.font.color and primeiro_run.font.color.type else None
+
     paragraph.clear()
-    paragraph.add_run(_sanitizar_texto_xml(texto_novo))
+    novo_run = paragraph.add_run(_sanitizar_texto_xml(texto_novo))
+
+    # Restaurar formatação
+    if fonte_nome:
+        novo_run.font.name = fonte_nome
+    if fonte_tamanho:
+        novo_run.font.size = fonte_tamanho
+    if fonte_bold is not None:
+        novo_run.bold = fonte_bold
+    if fonte_cor is not None:
+        novo_run.font.color.rgb = fonte_cor
 
 
 def _substituir_em_tabela(tabela, substituicoes: dict[str, str]) -> None:
@@ -548,9 +570,9 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
                 paragrafo_atual = celula.add_paragraph()
 
             # Procurar por um padrão "Titulo: texto" para colocar em negrito
-            match = re.match(r'^([^:]{2,35}):\s*(.*)$', linha)
+            match = re.match(r'^([^:]{2,60}):\s*(.*)$', linha)
             if match:
-                titulo_bold = _remover_acentos(match.group(1)) + ":"
+                titulo_bold = match.group(1) + ":"
                 resto_texto = " " + match.group(2)
                 _aplicar_fonte(paragrafo_atual.add_run(titulo_bold), tamanho=tamanho, bold=True)
                 _adicionar_texto_com_destaques_formatado(paragrafo_atual, resto_texto, tamanho=tamanho)

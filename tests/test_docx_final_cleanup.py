@@ -265,7 +265,7 @@ def test_separa_etapas_do_desenvolvimento_mesmo_quando_vem_tudo_na_mesma_linha()
     linhas = [linha.strip() for linha in desenvolvimento.splitlines() if linha.strip()]
 
     assert len(linhas) >= 5
-    assert linhas[0].startswith("Abertura e contextualizacao:")
+    assert linhas[0].startswith("Abertura e contextualização:")
     assert any(linha.startswith("Atividade principal:") for linha in linhas)
     assert any(linha.startswith("Fechamento:") for linha in linhas)
     assert all(linha != "Desenvolvimento:" for linha in linhas)

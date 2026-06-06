@@ -39,8 +39,34 @@ def _safe_filename_part(texto: str) -> str:
     return texto.strip(" .-") or "NAO INFORMADO"
 
 
-def nome_padronizado_plano(disciplina: str, turma: str) -> str:
-    return f"PLANO_JUNHO - {_safe_filename_part(disciplina)} - {_safe_filename_part(turma)}.docx"
+def nome_padronizado_plano(disciplina: str, turma: str, mes: str = "") -> str:
+    from datetime import date
+    MESES_ABREV = {
+        1: "JANEIRO", 2: "FEVEREIRO", 3: "MARCO", 4: "ABRIL",
+        5: "MAIO", 6: "JUNHO", 7: "JULHO", 8: "AGOSTO",
+        9: "SETEMBRO", 10: "OUTUBRO", 11: "NOVEMBRO", 12: "DEZEMBRO",
+    }
+    if mes:
+        mes_upper = mes.strip().upper()
+    else:
+        mes_upper = MESES_ABREV.get(date.today().month, "MES")
+    return f"PLANO_{mes_upper} - {_safe_filename_part(disciplina)} - {_safe_filename_part(turma)}.docx"
+
+
+
+def _mes_para_nome_plano(origem_path: Path | None, professor: str, mes: str = "") -> str:
+    mes_informado = _norm(mes).upper()
+    if mes_informado:
+        return mes_informado
+    if origem_path and origem_path.exists():
+        try:
+            info = extrair_info_plano(origem_path, professor)
+            mes_origem = _norm(str(info.get("mes") or "")).upper()
+            if mes_origem:
+                return mes_origem
+        except Exception:
+            pass
+    return ""
 
 
 def _texto_tabela(tabela) -> str:
@@ -347,13 +373,16 @@ def criar_ou_atualizar_modelo_professor(
     origem: str = "",
     aulas_semana: str = "",
     componente_curricular: str = "",
+    mes: str = "",
     base_dir: Path = PASTA_PLANOS_PROFESSORES,
 ) -> str:
     pasta_professor = base_dir / _safe_filename_part(professor)
     pasta_professor.mkdir(parents=True, exist_ok=True)
-    destino = pasta_professor / nome_padronizado_plano(disciplina, turma)
 
     origem_path = Path(origem) if origem else None
+    mes_arquivo = _mes_para_nome_plano(origem_path, professor, mes)
+    destino = pasta_professor / nome_padronizado_plano(disciplina, turma, mes_arquivo)
+
     if origem_path and origem_path.exists() and origem_path.parent == pasta_professor and origem_path.resolve() != destino.resolve() and not destino.exists():
         origem_path.rename(destino)
     elif origem_path and origem_path.exists() and origem_path.resolve() != destino.resolve():
@@ -376,6 +405,8 @@ def criar_ou_atualizar_modelo_professor(
             dados[2].text = professor
             dados[3].text = componente_curricular or disciplina
             dados[6].text = turma
+            if mes_arquivo:
+                dados[7].text = mes_arquivo
         semana = tabela.rows[3].cells
         if aulas_semana and len(semana) >= 4:
             semana[3].text = str(aulas_semana)

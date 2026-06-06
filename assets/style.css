@@ -291,7 +291,7 @@ h3 {
 
 .pdf-dashboard__stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px;
     margin: 12px 0 14px 0;
 }

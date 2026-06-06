@@ -3,18 +3,12 @@ from __future__ import annotations
 import random
 import re
 import unicodedata
+
 from dataclasses import dataclass, field
 from typing import Dict, List
 
 from core.lib.extrator_blocos_pedagogicos import extrair_blocos_pedagogicos
-
-
-def norm(txt: str) -> str:
-    if not txt:
-        return ""
-    txt = unicodedata.normalize("NFKD", txt)
-    txt = "".join(c for c in txt if not unicodedata.combining(c))
-    return re.sub(r"\s+", " ", txt).strip().lower()
+from core.normalizacao import normalizar as norm
 
 
 def clean(txt: str) -> str:
@@ -185,136 +179,120 @@ def extrair_vocabulario_chave(conteudos: List[str], objetivos: List[str], titulo
     return dedup(saida)[:6]
 
 
-def classificar_perfil(texto: str, titulo: str, conteudos: List[str], objetivos: List[str], blocos: Dict[str, str]) -> str:
+_REGRAS_PERFIL_LP = [
+    ("texto_publicitario", [
+        "anuncie aqui", "anuncio publicitario", "anúncio publicitário",
+        "propaganda", "publicidade", "slogan", "jingle",
+        "campanha publicitaria", "campanha publicitária",
+        "advergame", "unboxing", "social advertising",
+    ]),
+    ("biografia", [
+        "historia de uma vida", "história de uma vida",
+        "biografia", "trajetoria", "trajetória",
+        "vida de", "carreira", "nascimento",
+        "mapa conceitual", "lygia fagundes telles",
+    ]),
+    ("noticia_multimodal", [
+        "jornalismo em imagens", "fotojornalismo",
+        "fotojornalistico", "fotojornalístico",
+        "recursos visuais em textos jornalisticos",
+        "recursos visuais em textos jornalísticos",
+        "textos jornalisticos digitais",
+        "textos jornalísticos digitais",
+        "fotos e videos", "fotos e vídeos",
+        "intencionalidade das imagens",
+    ]),
+    ("conto_distopico", [
+        "conto distopico", "conto distópico",
+        "narrativa distopica", "narrativa distópica",
+        "distopia", "distopico", "distópico",
+        "olhos por bugalhos",
+        "uma narrativa pode moldar uma imagem",
+    ]),
+    ("literatura_prosa", [
+        "prosa de 30", "prosa regionalista",
+        "romance regionalista", "sertao", "sertão",
+        "seca", "retirantes", "o quinze", "vidas secas",
+        "capitaes da areia", "capitães da areia",
+        "rachel de queiroz", "graciliano ramos", "jorge amado",
+    ]),
+    ("literatura_modernismo", [
+        "semana de arte moderna", "vanguardas europeias",
+        "vanguardas", "modernismo", "modernista",
+        "mario de andrade", "mário de andrade",
+        "oswald de andrade", "drummond", "murilo mendes",
+        "manuel bandeira", "manifesto literario", "manifesto literário",
+    ]),
+    ("poema", [
+        "poema", "soneto", "verso", "estrofe",
+        "eu lirico", "eu lírico", "rima", "metrica", "métrica",
+        "carpe diem", "fugere urbem",
+    ]),
+    ("cronica", ["cronica", "crônica", "genero cronica", "gênero crônica"]),
+    ("editorial_argumentativo", ["editorial", "editoriais", "texto opinativo"]),
+    ("artigo_opiniao", [
+        "artigo de opiniao", "artigo de opinião",
+        "construcao da opiniao", "construção da opinião",
+        "tese", "argumentos", "posicionamento",
+        "ponto de vista", "persuadir",
+    ]),
+    ("oralidade_entrevista", [
+        "oralidade", "entrevista oral", "entrevista",
+        "turnos de fala", "marcas de oralidade",
+        "transcricao", "transcrição",
+        "variacao linguistica", "variação linguística", "podcast",
+    ]),
+    ("texto_normativo", [
+        "estatuto da pessoa idosa", "constituicao federal",
+        "constituição federal", "texto normativo",
+        "textos legais", "texto legal", "normas", "direitos assegurados",
+    ]),
+    ("gramatica_analise_linguistica", [
+        "ordem direta", "ordem inversa", "hiperbato", "hipérbato",
+        "conjuncoes", "conjunções", "regencia verbal", "regência verbal",
+        "regencia nominal", "regência nominal",
+        "oracoes subordinadas", "orações subordinadas",
+        "modalizacao", "modalização",
+        "analise sintatica", "análise sintática",
+    ]),
+]
+
+
+def classificar_perfil(
+    texto: str,
+    titulo: str,
+    conteudos: List[str],
+    objetivos: List[str],
+    blocos: Dict[str, str],
+) -> str:
+    """
+    Classifica o perfil pedagógico da aula com base no conteúdo do PDF.
+    Usa tabela de regras em ordem de prioridade.
+    """
     base = " ".join([texto, titulo] + conteudos + objetivos)
     n = norm(base)
 
-    tem_noticia = any(p in n for p in [norm(x) for x in PALAVRAS_NOTICIA])
-    tem_imagem = any(p in n for p in [norm(x) for x in PALAVRAS_IMAGEM])
-    tem_mapa = any(p in n for p in [norm(x) for x in PALAVRAS_MAPA])
-    tem_comparacao = any(p in n for p in [norm(x) for x in PALAVRAS_COMPARACAO])
-    tem_grafico = any(p in n for p in [norm(x) for x in PALAVRAS_GRAFICO])
-    tem_estado = any(t in n for t in ["estado", "documentos internacionais", "direitos", "restrições", "restricoes", "soberania", "fronteiras"])
+    # Verificar regras em ordem de prioridade
+    for perfil, termos in _REGRAS_PERFIL_LP:
+        if any(norm(termo) in n for termo in termos):
+            return perfil
+
+    # Regras compostas que dependem de múltiplos sinais
+    tem_noticia = any(norm(p) in n for p in PALAVRAS_NOTICIA)
+    tem_imagem = any(norm(p) in n for p in PALAVRAS_IMAGEM)
+    tem_mapa = any(norm(p) in n for p in PALAVRAS_MAPA)
+    tem_comparacao = any(norm(p) in n for p in PALAVRAS_COMPARACAO)
+    tem_grafico = any(norm(p) in n for p in PALAVRAS_GRAFICO)
     tem_xenofobia = "xenofobia" in n
     tem_refugiado = "refugiado" in n or "refugiados" in n
-    tem_migracao_legal_ilegal = "migracao legal e ilegal" in n or ("migrante legal" in n and "migrante ilegal" in n)
-    tem_artigo_opiniao = any(
-        termo in n
-        for termo in [
-            "artigo de opiniao",
-            "artigo de opinião",
-            "construcao da opiniao",
-            "construção da opinião",
-            "tese",
-            "argumentos",
-            "posicionamento",
-            "ponto de vista",
-            "persuadir",
-        ]
+    tem_migracao_legal_ilegal = "migracao legal e ilegal" in n or (
+        "migrante legal" in n and "migrante ilegal" in n
     )
-    tem_oralidade_entrevista = any(
-        termo in n
-        for termo in [
-            "oralidade",
-            "entrevista oral",
-            "entrevista",
-            "turnos de fala",
-            "marcas de oralidade",
-            "transcricao",
-            "transcrição",
-            "variacao linguistica",
-            "variação linguística",
-            "podcast",
-        ]
-    )
-    tem_poema = any(
-        termo in n
-        for termo in [
-            "poema",
-            "soneto",
-            "verso",
-            "estrofe",
-            "eu lirico",
-            "eu lírico",
-            "rima",
-            "metrica",
-            "métrica",
-            "carpe diem",
-            "fugere urbem",
-        ]
-    )
-    tem_literatura_modernismo = any(
-        termo in n
-        for termo in [
-            "semana de arte moderna",
-            "vanguardas europeias",
-            "vanguardas",
-            "modernismo",
-            "modernista",
-            "mario de andrade",
-            "mário de andrade",
-            "oswald de andrade",
-            "drummond",
-            "murilo mendes",
-            "manuel bandeira",
-            "manifesto literario",
-            "manifesto literário",
-        ]
-    )
-    tem_literatura_prosa = any(
-        termo in n
-        for termo in [
-            "prosa de 30",
-            "prosa regionalista",
-            "romance regionalista",
-            "sertao",
-            "sertão",
-            "seca",
-            "retirantes",
-            "o quinze",
-            "vidas secas",
-            "capitaes da areia",
-            "capitães da areia",
-            "rachel de queiroz",
-            "graciliano ramos",
-            "jorge amado",
-        ]
-    )
-    tem_cronica = any(termo in n for termo in ["cronica", "crônica", "genero cronica", "gênero crônica"])
-    tem_editorial = any(termo in n for termo in ["editorial", "editoriais", "texto opinativo"])
-    tem_analise_linguistica = any(p in n for p in [norm(x) for x in PALAVRAS_ANALISE_LINGUISTICA])
-    tem_texto_normativo = any(
-        termo in n
-        for termo in [
-            "estatuto da pessoa idosa",
-            "constituicao federal",
-            "constituição federal",
-            "texto normativo",
-            "textos legais",
-            "texto legal",
-            "normas",
-            "direitos assegurados",
-        ]
-    )
+    tem_estado = any(t in n for t in [
+        "estado", "documentos internacionais", "direitos",
+        "restricoes", "restrições", "soberania", "fronteiras",
+    ])
 
-    if tem_literatura_prosa:
-        return "literatura_prosa"
-    if tem_literatura_modernismo:
-        return "literatura_modernismo"
-    if tem_poema:
-        return "poema"
-    if tem_cronica:
-        return "cronica"
-    if tem_editorial:
-        return "editorial_argumentativo"
-    if tem_artigo_opiniao:
-        return "artigo_opiniao"
-    if tem_oralidade_entrevista:
-        return "oralidade_entrevista"
-    if tem_texto_normativo:
-        return "texto_normativo"
-    if tem_analise_linguistica:
-        return "gramatica_analise_linguistica"
     if tem_xenofobia and tem_noticia:
         return "noticia_leitura_critica"
     if tem_migracao_legal_ilegal and (tem_imagem or "virem e conversem" in n) and tem_estado:
@@ -333,6 +311,7 @@ def classificar_perfil(texto: str, titulo: str, conteudos: List[str], objetivos:
         return "imagem_debate"
     if "construindo o conceito" in n or blocos.get("Construindo o conceito"):
         return "conceito_reflexivo"
+
     return "geral"
 
 
@@ -382,12 +361,47 @@ def sanitizar_texto_pedagogico(txt: str) -> str:
     txt = txt.replace("..", ".")
     txt = re.sub(r"\s+,", ",", txt)
     txt = re.sub(r"\s+\.", ".", txt)
-    txt = re.sub(r"\b2o bimestre\b", "", txt, flags=re.I)
-    txt = re.sub(r"\bensino medio\b", "", txt, flags=re.I)
-    txt = re.sub(r"\baula \d+\b", "", txt, flags=re.I)
+    # Remover apenas quando o termo está no início ou fim da frase,
+    # ou isolado entre vírgulas/pontos — nunca no meio de uma frase
+    txt = re.sub(r"(?:^|\.\s+)2o bimestre\b", "", txt, flags=re.I)
+    txt = re.sub(r"(?:^|\.\s+)ensino medio\b", "", txt, flags=re.I)
+    # "aula N" pode ser removido com segurança pois é sempre referência isolada
+    txt = re.sub(r"\baula \d+\b\s*[-:–]?\s*", "", txt, flags=re.I)
     txt = txt.strip(" -:;,")
     txt = clean(txt)
     return sentenca(txt)
+
+
+_FINAIS_INVALIDOS_FRASE = frozenset({
+    "a", "as", "o", "os", "um", "uma",
+    "de", "da", "do", "das", "dos",
+    "em", "e", "com", "para", "por",
+    "que", "se", "na", "no", "nas", "nos",
+    "ao", "aos", "à", "às",
+})
+
+
+def validar_frase_completa(texto: str) -> bool:
+    """
+    Verifica se uma frase parece completa (não termina com preposição ou artigo).
+    Retorna True se a frase parece completa, False se parece truncada.
+    """
+    texto = clean(texto).rstrip(".!?")
+    if not texto:
+        return False
+    ultima_palavra = texto.split()[-1].lower().rstrip(".,;:")
+    return ultima_palavra not in _FINAIS_INVALIDOS_FRASE
+
+
+def sanitizar_e_validar(txt: str, fallback: str = "") -> str:
+    """
+    Sanitiza o texto pedagógico e verifica se está completo.
+    Se truncado, retorna o fallback.
+    """
+    resultado = sanitizar_texto_pedagogico(txt)
+    if not validar_frase_completa(resultado):
+        return sanitizar_texto_pedagogico(fallback) if fallback else resultado
+    return resultado
 
 
 def bloquear_contaminacao_tematica(texto: str, pistas: PistasPedagogicas) -> str:
@@ -415,6 +429,14 @@ def bloquear_contaminacao_tematica(texto: str, pistas: PistasPedagogicas) -> str
 def frase_inicial(p: PistasPedagogicas) -> str:
     opcoes = []
 
+    if p.perfil == "texto_publicitario":
+        return "Iniciar a aula retomando anúncios e campanhas conhecidos pelos estudantes, observando como linguagem verbal, imagem, som e contexto buscam persuadir o público."
+    if p.perfil == "biografia":
+        return "Iniciar a aula apresentando a trajetória da pessoa biografada e mobilizando conhecimentos prévios sobre como fatos de vida podem ser organizados em texto e mapa conceitual."
+    if p.perfil == "noticia_multimodal":
+        return "Iniciar a aula observando como notícias digitais articulam texto, fotos e vídeos para informar e produzir efeitos de sentido no leitor."
+    if p.perfil == "conto_distopico":
+        return "Iniciar a aula situando a narrativa distópica e levantando hipóteses sobre narrador, personagens, conflito e atmosfera de tensão presentes no conto."
     if p.perfil == "literatura_prosa":
         return "Iniciar a aula situando o texto literário no contexto da obra, do autor e do período estudado, mobilizando conhecimentos prévios sobre a prosa brasileira."
     if p.perfil == "literatura_modernismo":
@@ -449,7 +471,15 @@ def frase_inicial(p: PistasPedagogicas) -> str:
 
 def frase_foco(p: PistasPedagogicas) -> str:
     frase = ""
-    if p.perfil == "literatura_prosa":
+    if p.perfil == "texto_publicitario":
+        frase = "Conduzir a análise do texto publicitário, destacando público-alvo, finalidade persuasiva, slogan, imagens, recursos sonoros ou audiovisuais e efeitos de sentido da campanha."
+    elif p.perfil == "biografia":
+        frase = "Conduzir a leitura orientada da biografia, destacando trajetória, fatos relevantes, organização temporal e uso do mapa conceitual como recurso para organizar informações."
+    elif p.perfil == "noticia_multimodal":
+        frase = "Conduzir a leitura crítica da notícia digital, destacando relação entre texto, fotos, vídeos, legenda, intencionalidade das imagens e efeitos de sentido no contexto jornalístico."
+    elif p.perfil == "conto_distopico":
+        frase = "Conduzir a leitura literária do conto distópico, destacando narrador, personagens, enredo, conflito, suspense e efeitos produzidos pelos tempos e modos verbais."
+    elif p.perfil == "literatura_prosa":
         frase = "Conduzir a leitura orientada do texto literário do material, destacando contexto histórico, características da prosa, narrador, personagens, ambiente e efeitos de sentido construídos pela linguagem."
     elif p.perfil == "literatura_modernismo":
         frase = "Conduzir a análise do movimento literário estudado, relacionando contexto histórico, propostas estéticas, autores, obras e rupturas de linguagem presentes no material."
@@ -495,6 +525,10 @@ def frase_foco(p: PistasPedagogicas) -> str:
         frase += " Articular essa leitura à análise linguística indicada no material, mostrando como os recursos da língua contribuem para a construção de sentido."
 
     perfis_textuais = {
+        "texto_publicitario",
+        "biografia",
+        "noticia_multimodal",
+        "conto_distopico",
         "literatura_prosa",
         "literatura_modernismo",
         "poema",
@@ -525,6 +559,14 @@ def frase_pause(p: PistasPedagogicas) -> str:
 
 
 def frase_pratica(p: PistasPedagogicas) -> str:
+    if p.perfil == "texto_publicitario":
+        return "Propor atividade de análise multimodal para que os estudantes identifiquem público-alvo, estratégias de persuasão, relação entre elementos verbais e não verbais e efeitos da campanha."
+    if p.perfil == "biografia":
+        return "Propor atividade de leitura e organização de informações para que os estudantes selecionem fatos relevantes da biografia e os registrem em mapa conceitual ou esquema orientado."
+    if p.perfil == "noticia_multimodal":
+        return "Propor atividade de análise da notícia digital para que os estudantes relacionem texto, imagem e vídeo, discutindo intencionalidade, ética e efeitos de sentido no jornalismo."
+    if p.perfil == "conto_distopico":
+        return "Propor atividade de análise literária para que os estudantes retomem trechos do conto, identifiquem narrador, conflito, tempos verbais e expliquem como esses recursos constroem tensão."
     if p.perfil == "literatura_prosa":
         return "Propor atividade de análise literária para que os estudantes retomem trechos do material, registrem evidências do texto e expliquem como contexto, personagens e linguagem sustentam a interpretação."
     if p.perfil == "literatura_modernismo":
@@ -645,6 +687,30 @@ def gerar_metodologia(pistas: PistasPedagogicas) -> str:
 
 
 BANCO_ACOMPANHAMENTO = {
+    "texto_publicitario": [
+        "Verificar se os estudantes identificam público-alvo, finalidade persuasiva e recursos verbais, visuais ou audiovisuais da campanha.",
+        "Observar se relacionam slogan, imagem, som e contexto aos efeitos de sentido produzidos no anúncio.",
+        "Conferir se os registros finais diferenciam publicidade, propaganda e notícia, evitando confusões entre gêneros.",
+        "Acompanhar se a turma justifica interpretações com elementos presentes no material publicitário."
+    ],
+    "biografia": [
+        "Verificar se os estudantes identificam fatos relevantes da trajetória da pessoa biografada e organizam informações com coerência.",
+        "Observar se compreendem a função do mapa conceitual como organizador de ideias, sem tratá-lo como mapa geográfico.",
+        "Conferir se os registros finais relacionam vida, obra, carreira e contexto da pessoa estudada.",
+        "Acompanhar se a turma diferencia biografia de notícia ou reportagem."
+    ],
+    "noticia_multimodal": [
+        "Verificar se os estudantes relacionam texto, foto, vídeo, legenda e intencionalidade das imagens na notícia digital.",
+        "Observar se reconhecem efeitos de sentido produzidos pelos recursos multimodais no contexto jornalístico.",
+        "Conferir se os registros finais analisam a notícia sem transformar a aula em leitura de gráfico, tabela ou reportagem.",
+        "Acompanhar se a turma diferencia informação, imagem jornalística e entretenimento."
+    ],
+    "conto_distopico": [
+        "Verificar se os estudantes identificam narrador, personagens, conflito, suspense e marcas da narrativa distópica.",
+        "Observar se relacionam tempos e modos verbais aos efeitos de tensão, ponto de vista e construção do enredo.",
+        "Conferir se os registros finais usam trechos do conto para sustentar interpretações.",
+        "Acompanhar se a turma diferencia conto literário de notícia, artigo de opinião ou debate jornalístico."
+    ],
     "literatura_prosa": [
         "Verificar se os estudantes relacionam trechos da obra ao contexto, aos personagens e aos efeitos de sentido construídos pela linguagem.",
         "Observar se utilizam evidências do texto literário para sustentar interpretações orais e escritas.",
@@ -758,6 +824,30 @@ def gerar_acompanhamento(pistas: PistasPedagogicas) -> List[str]:
 
 
 BANCO_ACESSIBILIDADE = {
+    "texto_publicitario": [
+        "Apresentar os elementos do anúncio em etapas, destacando público-alvo, slogan, imagem, som e finalidade persuasiva.",
+        "Disponibilizar roteiro de análise multimodal com perguntas curtas sobre linguagem verbal, não verbal e efeito produzido.",
+        "Permitir registro em tópicos, marcações no anúncio ou resposta oral mediada.",
+        "Retomar coletivamente a diferença entre anúncio, notícia e artigo de opinião antes da atividade."
+    ],
+    "biografia": [
+        "Realizar leitura compartilhada da biografia, destacando linha do tempo, fatos relevantes e palavras-chave da trajetória.",
+        "Organizar o mapa conceitual passo a passo, mostrando que ele funciona como esquema de ideias, não como mapa geográfico.",
+        "Permitir registro em tópicos, setas, esquema orientado ou resposta oral mediada.",
+        "Oferecer banco de palavras com vida, obra, carreira, nascimento, contexto e contribuições."
+    ],
+    "noticia_multimodal": [
+        "Orientar a observação de texto, foto, vídeo e legenda separadamente antes de relacionar os recursos.",
+        "Disponibilizar perguntas-guia sobre intencionalidade da imagem, informação principal e efeito de sentido.",
+        "Permitir registro em tópicos, marcações no material ou resposta oral mediada.",
+        "Retomar coletivamente a diferença entre recurso visual jornalístico, imagem decorativa e gráfico de dados."
+    ],
+    "conto_distopico": [
+        "Realizar leitura em trechos do conto, pausando para localizar narrador, personagens, conflito e clima de suspense.",
+        "Destacar exemplos de tempos e modos verbais no próprio texto antes da atividade individual.",
+        "Permitir registro em tópicos, marcações no conto ou explicação oral mediada.",
+        "Oferecer roteiro com perguntas sobre enredo, ponto de vista, tensão narrativa e efeito dos verbos."
+    ],
     "literatura_prosa": [
         "Oferecer leitura compartilhada de trechos selecionados, com pausas para explicar vocabulário, personagens, ambiente e contexto.",
         "Disponibilizar roteiro com perguntas sobre narrador, personagens, espaço, conflito e evidências do texto.",

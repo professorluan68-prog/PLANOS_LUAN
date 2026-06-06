@@ -12,6 +12,7 @@ import unicodedata
 
 
 def normalizar_texto(texto: str) -> str:
+    # TODO: migrar para core.normalizacao.normalizar
     """Remove acentos e normaliza espacos para comparacao."""
     texto = unicodedata.normalize("NFKD", str(texto or ""))
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))

@@ -13,6 +13,27 @@ from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
 from ui_components import render_sidebar
+from core.constantes import (
+    HORARIOS_AULA,
+    HORARIOS_SIMPLES,
+    HORARIOS_DUPLAS,
+    TURNOS_HORARIOS,
+    MESES,
+    DIAS_SEMANA_CADASTRO,
+    AULAS_SEMANA_OPCOES,
+    EXTENSAO_MES_OPCOES,
+    EXTENSAO_MES_VALORES,
+)
+
+HORARIOS_LABELS = {item: f"{item[0]} - {item[1]}" for item in HORARIOS_AULA}
+
+def _rotulo_horario(horario) -> str:
+    if isinstance(horario, tuple) and len(horario) >= 2:
+        return HORARIOS_LABELS.get(horario, f"{horario[0]} - {horario[1]}")
+    return str(horario or "")
+
+def _serializar_horarios_padronizados(horarios) -> str:
+    return "\n".join(_rotulo_horario(item) for item in horarios or [] if _rotulo_horario(item).strip())
 from core.disciplinas import (
     BIMESTRES,
     TURMAS_CDP_MULTISSERIADA,
@@ -84,8 +105,9 @@ from core.ae_priorizado import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent if "__file__" in globals() else Path.cwd()
+APP_ICON_PNG = BASE_DIR / "assets" / "planos_luan_icon.png"
 
-st.set_page_config(page_title="PLANOS_LUAN", layout="wide")
+st.set_page_config(page_title="PLANOS_LUAN", page_icon=str(APP_ICON_PNG) if APP_ICON_PNG.exists() else None, layout="wide")
 
 @st.cache_data(show_spinner=False)
 def _ler_css_app(caminho: str) -> str:
@@ -247,90 +269,6 @@ def _asset_data_uri(nome_arquivo: str, mime_type: str = "image/svg+xml") -> str:
     dados = base64.b64encode(caminho.read_bytes()).decode("ascii")
     return f"data:{mime_type};base64,{dados}"
 
-HORARIOS_AULA = [
-    ("07h", "1ª aula"),
-    ("07h50", "2ª aula"),
-    ("08h40", "3ª aula"),
-    ("09h50", "4ª aula"),
-    ("10h40", "5ª aula"),
-    ("11h30", "6ª aula"),
-    ("13h", "1ª aula"),
-    ("13h50", "2ª aula"),
-    ("14h40", "3ª aula"),
-    ("15h50", "4ª aula"),
-    ("16h40", "5ª aula"),
-    ("17h30", "6ª aula"),
-    ("19h", "1ª aula"),
-    ("19h45", "2ª aula"),
-    ("20h30", "3ª aula"),
-    ("21h30", "4ª aula"),
-    ("22h15", "5ª aula"),
-    ("07h - 08h40", "1ª e 2ª aula"),
-    ("07h50 - 09h50", "2ª e 3ª aula"),
-    ("08h40 - 10h40", "3ª e 4ª aula"),
-    ("09h50 - 11h30", "4ª e 5ª aula"),
-    ("10h40 - 12h20", "5ª e 6ª aula"),
-    ("13h - 14h40", "1ª e 2ª aula"),
-    ("13h50 - 15h50", "2ª e 3ª aula"),
-    ("14h40 - 16h40", "3ª e 4ª aula"),
-    ("15h50 - 17h30", "4ª e 5ª aula"),
-    ("16h40 - 18h20", "5ª e 6ª aula"),
-    ("19h - 20h30", "1ª e 2ª aula"),
-    ("19h45 - 21h30", "2ª e 3ª aula"),
-    ("20h30 - 22h15", "3ª e 4ª aula"),
-    ("21h30 - 23h", "4ª e 5ª aula"),
-    ("07h - 10h40", "1ª e 4ª aula"),
-    ("13h - 16h40", "1ª e 4ª aula"),
-    ("08h40 - 11h30", "3ª e 6ª aula"),
-    ("14h40 - 17h30", "3ª e 6ª aula"),
-    ("07h50 - 10h40", "2ª e 5ª aula"),
-    ("13h50 - 16h40", "2ª e 5ª aula"),
-    ("07h50 - 11h30", "2ª e 6ª aula"),
-    ("13h50 - 17h30", "2ª e 6ª aula"),
-    ("19h - 21h30", "1ª e 4ª aula"),
-    ("19h45 - 22h15", "2ª e 5ª aula"),
-]
-
-HORARIOS_LABELS = {item: f"{item[0]} - {item[1]}" for item in HORARIOS_AULA}
-HORARIOS_SIMPLES = HORARIOS_AULA[:17]
-HORARIOS_DUPLAS = HORARIOS_AULA[17:]
-
-DIAS_SEMANA_CADASTRO = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
-TURNOS_HORARIOS = {
-    "Manhã": ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20"],
-    "Tarde": ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
-    "Noite": ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
-}
-
-def _rotulo_horario(horario) -> str:
-    if isinstance(horario, tuple) and len(horario) >= 2:
-        return HORARIOS_LABELS.get(horario, f"{horario[0]} - {horario[1]}")
-    return str(horario or "")
-
-def _serializar_horarios_padronizados(horarios) -> str:
-    return "\n".join(_rotulo_horario(item) for item in horarios or [] if _rotulo_horario(item).strip())
-
-MESES = [
-    "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
-    "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO",
-]
-
-AULAS_SEMANA_OPCOES = ["(selecione)"] + [str(i) for i in range(1, 26)]
-EXTENSAO_MES_OPCOES = [
-    "Somente o mês",
-    "Completar a última semana",
-    "Completar a última semana + 1 semana",
-    "Completar a última semana + 2 semanas",
-]
-
-def _valor_extensao_mes(rotulo: str) -> int:
-    mapa = {
-        EXTENSAO_MES_OPCOES[0]: 0,
-        EXTENSAO_MES_OPCOES[1]: 1,
-        EXTENSAO_MES_OPCOES[2]: 2,
-        EXTENSAO_MES_OPCOES[3]: 3,
-    }
-    return mapa.get(rotulo, 0)
 
 TURMAS_PADRAO = ["(selecione a turma)"]
 TURMAS_PADRAO += [f"{ano}º ANO {letra}" for ano in range(1, 10) for letra in ["A", "B", "C", "D", "E", "F"]]
@@ -1739,6 +1677,46 @@ def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files, replicar_p
             aulas_envio[indice]["dividir_pdf"] = grupo["dividir"]
     return aulas_envio, len(grupos)
 
+
+def _divisao_pdf_padrao(idx: int, total_aulas: int) -> bool:
+    return bool(idx % 2 == 0 and idx < total_aulas - 1)
+
+
+def _sincronizar_divisao_pdf_padrao(
+    num_rows: int,
+    dividir_metodologia: bool,
+    key_prefix: str = "",
+    contexto: str = "",
+) -> None:
+    assinatura_chave = f"{key_prefix}dividir_metodologia_assinatura"
+    assinatura_atual = f"v3|{bool(dividir_metodologia)}|{int(num_rows or 0)}|{contexto}"
+    assinatura_anterior = st.session_state.get(assinatura_chave)
+    acabou_de_ativar = bool(dividir_metodologia) and assinatura_anterior != assinatura_atual
+
+    st.session_state[assinatura_chave] = assinatura_atual
+    if not dividir_metodologia:
+        return
+
+    for idx in range(int(num_rows or 0)):
+        chave = f"{key_prefix}dividir_pdf_aula_{idx}"
+        if acabou_de_ativar or chave not in st.session_state:
+            st.session_state[chave] = _divisao_pdf_padrao(idx, int(num_rows or 0))
+
+
+def _estimar_pdfs_por_estado(num_rows: int, dividir_metodologia: bool, key_prefix: str = "") -> int:
+    num_rows = int(num_rows or 0)
+    if num_rows <= 0:
+        return 0
+    if not dividir_metodologia:
+        return num_rows
+
+    aulas_simuladas = []
+    for idx in range(num_rows):
+        chave = f"{key_prefix}dividir_pdf_aula_{idx}"
+        dividir_pdf = st.session_state.get(chave, _divisao_pdf_padrao(idx, num_rows))
+        aulas_simuladas.append({"dividir_pdf": bool(dividir_pdf)})
+    return len(_grupos_pdf_por_aula(aulas_simuladas))
+
 def _status_visual_aula(idx: int, num_rows: int, bloqueado: bool, continuidade_anterior: bool, dividir_pdf_ativo: bool) -> tuple:
     badges = []
     if continuidade_anterior:
@@ -1874,7 +1852,7 @@ def _coletar_aulas_envio(
 
         dividir_pdf = False
         if dividir_metodologia:
-            sugestao_dividir = bool(idx < num_rows - 1 and (tipo_horario == "Dupla" or st.session_state.get(f"{key_prefix}data_aula_{idx + 1}") == data_aula))
+            sugestao_dividir = _divisao_pdf_padrao(idx, num_rows)
             if chave_dividir not in st.session_state: st.session_state[chave_dividir] = sugestao_dividir
             if continuidade_anterior: st.session_state[chave_dividir] = False
             # Corrigido: bloqueado não impede o checkbox quando dividir_metodologia está ativo
@@ -2131,6 +2109,15 @@ disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
 orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
 disciplina_cdp = eh_cdp(disciplina)
 
+# Verificar disponibilidade das planilhas CDP
+from core.cdp_legacy import PLANILHA_CDP, PLANILHA_CDP_MULTISSERIADA
+if eh_cdp(disciplina) and not PLANILHA_CDP.exists():
+    st.warning(
+        f"⚠️ Planilha CDP não encontrada em: `{PLANILHA_CDP}`. "
+        "O plano será gerado sem habilidades específicas. "
+        "Verifique se o arquivo PLANILHACDP.xlsx está na pasta correta."
+    )
+
 if (disciplina_cdp or eh_cdp_fundamental(disciplina) or modo_cdp_dedicado) and escolha_template != "Upload de novo modelo...":
     modelo_cdp = TEMPLATES_DIR / "MODELOCDP.docx"
     if modelo_cdp.exists(): modelo_bytes = modelo_cdp.read_bytes()
@@ -2175,7 +2162,7 @@ if resumo_grade_cadastrada:
     st.info(f"Horário cadastrado: {resumo_grade_cadastrada}", icon="🕒")
 
 extensao_mes_rotulo = st.selectbox("Extensão após o mês", EXTENSAO_MES_OPCOES, index=0, key="extensao_mes")
-extensao_mes = _valor_extensao_mes(extensao_mes_rotulo)
+extensao_mes = EXTENSAO_MES_VALORES.get(extensao_mes_rotulo, 0)
 
 datas_horarios_mes, datas_sem_aula = [], []
 config_agenda_mes = config_turma_selecionada
@@ -2284,6 +2271,8 @@ def _render_painel_pdfs(
     modo: str,
     necessarios: int,
     carregados: int,
+    total_aulas: int = 0,
+    dividir_metodologia: bool = False,
     encontrados: int = 0,
     pasta: str = "",
     selecionados=None,
@@ -2293,6 +2282,7 @@ def _render_painel_pdfs(
     faltantes_ae = list(faltantes_ae or [])
     necessarios = max(0, int(necessarios or 0))
     carregados = max(0, int(carregados or 0))
+    total_aulas = max(0, int(total_aulas or 0))
     encontrados = max(0, int(encontrados or 0))
     faltam = max(necessarios - carregados, 0)
     excedentes = max(carregados - necessarios, 0)
@@ -2309,11 +2299,14 @@ def _render_painel_pdfs(
     elif excedentes > 0:
         status_texto = f"{excedentes} a mais"
         status_classe = "warning"
-        orientacao = "Revise a selecao: ha mais PDFs do que aulas previstas."
+        orientacao = "Revise a selecao: ha mais PDFs do que a organizacao atual exige."
     else:
         status_texto = "Completo"
         status_classe = "success"
-        orientacao = "Tudo certo: a quantidade de PDFs bate com as aulas previstas."
+        orientacao = "Tudo certo: a quantidade de PDFs bate com a organizacao escolhida."
+
+    criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
+    aulas_rotulo = total_aulas or necessarios
 
     chips = "".join(
         f'<span class="pdf-order-chip">{indice}. {nome}</span>'
@@ -2343,14 +2336,15 @@ def _render_painel_pdfs(
 </div>
 <div class="pdf-dashboard__stats">
 <div class="pdf-stat"><span>Modo</span><strong>{html.escape(str(modo or "-"))}</strong></div>
-<div class="pdf-stat"><span>Necessarios</span><strong>{necessarios}</strong></div>
+<div class="pdf-stat"><span>Aulas previstas</span><strong>{aulas_rotulo}</strong></div>
+<div class="pdf-stat"><span>PDFs necessarios</span><strong>{necessarios}</strong></div>
 <div class="pdf-stat"><span>Selecionados</span><strong>{carregados}</strong></div>
 <div class="pdf-stat"><span>Encontrados</span><strong>{encontrados}</strong></div>
 </div>
 <div class="pdf-progress">
 <div class="pdf-progress__bar" style="width: {progresso}%"></div>
 </div>
-<div class="pdf-dashboard__meta">{carregados}/{necessarios or 0} PDF(s) prontos para processamento</div>
+<div class="pdf-dashboard__meta">{carregados}/{necessarios or 0} PDF(s) prontos para processamento · {html.escape(criterio_pdfs)}</div>
 {pasta_html}
 {faltantes_html}
 <div class="pdf-order">
@@ -2438,8 +2432,16 @@ if disciplina_cdp:
             st.warning("Não consegui montar a prévia das aulas do CDP com o modelo atual.")
 else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
-    dividir_metodologia_atual = st.session_state.get("dividir_metodologia", False)
     sequencia_pdf_esperada_ae = []
+    contexto_divisao_pdf = "|".join(str(valor or "") for valor in [professor, disciplina, turma, mes, bimestre])
+
+    if bool(len(datas_horarios_mes or [])):
+        st.session_state["auto_repetir_semana"] = False
+    elif "auto_repetir_semana" not in st.session_state:
+        st.session_state["auto_repetir_semana"] = True
+    auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
+    dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
+    _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
     if st.session_state.get("modo_upload_pdf") not in opcoes_modo_upload:
@@ -2469,30 +2471,7 @@ else:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
         if linhas_modelo > 0:
-            if dividir_metodologia_atual:
-                simulated_aulas = []
-                for idx in range(linhas_modelo):
-                    dividir_pdf = False
-                    chave_dividir = f"dividir_pdf_aula_{idx}"
-                    if chave_dividir in st.session_state:
-                        dividir_pdf = st.session_state[chave_dividir]
-                    else:
-                        dividir_pdf = idx < linhas_modelo - 1
-                    simulated_aulas.append({"dividir_pdf": dividir_pdf})
-
-                simulated_groups = []
-                idx = 0
-                while idx < len(simulated_aulas):
-                    aula = simulated_aulas[idx]
-                    if aula["dividir_pdf"] and idx + 1 < len(simulated_aulas):
-                        simulated_groups.append([idx, idx + 1])
-                        idx += 2
-                    else:
-                        simulated_groups.append([idx])
-                        idx += 1
-                est_necessarios = len(simulated_groups)
-            else:
-                est_necessarios = linhas_modelo
+            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo, dividir_metodologia)
 
         if usar_ae_priorizado and sequencia_ae_contexto:
             sequencia_pdf_esperada_ae = _limitar_sequencia_ae(
@@ -2577,6 +2556,8 @@ else:
             modo=modo_upload_pdf,
             necessarios=est_necessarios or linhas_modelo,
             carregados=qtd_aulas,
+            total_aulas=linhas_modelo,
+            dividir_metodologia=dividir_metodologia,
             encontrados=pdfs_auto_total,
             pasta=pasta_pdfs_auto if modo_upload_automatico else "",
             selecionados=pdfs_selecionados_tela,
@@ -2592,14 +2573,8 @@ else:
             )
             st.caption("Os cards abaixo seguem essa mesma ordem para facilitar o envio um por aula.")
 
-    if bool(len(datas_horarios_mes or [])):
-        st.session_state["auto_repetir_semana"] = False
-    elif "auto_repetir_semana" not in st.session_state:
-        st.session_state["auto_repetir_semana"] = True
-    auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
-    dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
-
     num_rows = linhas_modelo or int(qtd_aulas) * (2 if dividir_metodologia else 1)
+    _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, contexto=contexto_divisao_pdf)
     aulas_envio = _coletar_aulas_envio(
         num_rows,
         pdfs_aulas_files,
@@ -2624,6 +2599,8 @@ else:
             modo=modo_upload_pdf,
             necessarios=pdfs_necessarios,
             carregados=pdfs_prontos,
+            total_aulas=linhas_modelo or num_rows,
+            dividir_metodologia=dividir_metodologia,
             selecionados=pdfs_individuais,
         )
     else:
@@ -2639,6 +2616,8 @@ else:
                 st.info(f"Aguardando o envio de {pdfs_necessarios} PDF(s) para {linhas_modelo} aula(s).")
 
     if gerar_turma_espelho:
+        contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
+        _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho)
         aulas_envio_espelho = _coletar_aulas_envio(
             num_rows,
             pdfs_aulas_files,

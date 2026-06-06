@@ -22,10 +22,7 @@ def limpar_linhas(texto: str) -> list[str]:
     return linhas
 
 
-def normalizar_texto(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", texto or "")
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
+from core.normalizacao import normalizar as normalizar_texto
 
 
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS) -> str:

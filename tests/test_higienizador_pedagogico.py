@@ -20,7 +20,7 @@ def test_detectar_perfil_pedagogico_real():
     assert detectar_perfil_pedagogico_real("Visões diversas em editoriais", "Língua Portuguesa") == "editorial"
     assert detectar_perfil_pedagogico_real("Oralidade: entrevista – Parte 1", "Língua Portuguesa") == "entrevista"
     assert detectar_perfil_pedagogico_real("Análise de notícia e reportagem", "Língua Portuguesa") == "jornalistico_valido"
-    assert detectar_perfil_pedagogico_real("Equações do 2º Grau", "Matemática") == "geral"
+    assert detectar_perfil_pedagogico_real("Equações do 2º Grau", "Matemática") == "matematica_calculo"
 
 
 @pytest.mark.parametrize(
@@ -58,6 +58,43 @@ def test_auditoria_portugues_2b_classifica_26_aulas(titulo, esperado):
     assert detectar_perfil_pedagogico_real(titulo, "Língua Portuguesa") == esperado
 
 
+@pytest.mark.parametrize(
+    ("titulo", "esperado"),
+    [
+        ("Anuncie aqui! – Parte 1", "texto_publicitario"),
+        ("História de uma vida – Parte 2", "biografia"),
+        ("O jornalismo em imagens – Parte 1", "noticia_multimodal"),
+        ("Vozes da redação jornalística – Parte 2", "editorial"),
+        ("Uma narrativa pode moldar uma imagem? – Parte 2", "conto_distopico"),
+    ],
+)
+def test_auditoria_portugues_ef_em_classifica_modelos_adicionais(titulo, esperado):
+    assert detectar_perfil_pedagogico_real(titulo, "Língua Portuguesa") == esperado
+
+
+@pytest.mark.parametrize(
+    ("disciplina", "titulo", "esperado"),
+    [
+        ("Arte", "A vida na música", "arte_musica"),
+        ("Biologia", "Efeito estufa: manutenção da vida", "biologia_conceitual"),
+        ("Ciências", "Materiais sintéticos", "ciencias_conceitual"),
+        ("Educação Financeira", "Definição de objetivos – Parte 1", "educacao_financeira_planejamento"),
+        ("Geografia", "A expansão da urbanização no Brasil ao longo dos séculos", "geografia_conceitual_espaco"),
+        ("História", "O surgimento dos primeiros assentamentos, cidades e civilizações", "historia_contextual"),
+        ("Liderança e Oratória", "A eficácia do discurso oral", "oratoria_pratica"),
+        ("Língua Inglesa", "My preferences", "ingles_listening"),
+        ("Matemática", "Estratégias de composição e decomposição de números naturais", "matematica_calculo"),
+        ("Orientação de Estudos", "Uma palavra puxa a outra - ETAPA 1", "orientacao_estudos_etapas"),
+        ("Projeto de Vida", "Quem sou quando estou comigo?", "projeto_vida_autoconhecimento"),
+        ("Química", "Funções orgânicas: álcool, aldeído e ácido carboxílico", "quimica_funcoes_organicas"),
+        ("Redação e Leitura", "Trilha Alice no País das Maravilhas", "leitura_literaria_trilha"),
+        ("Tecnologia e Inovação", "Introdução à computação: entrada e saída no computador", "tecnologia_computacao_conceitual"),
+    ],
+)
+def test_pacote_auditorias_classifica_perfis_por_disciplina(disciplina, titulo, esperado):
+    assert detectar_perfil_pedagogico_real(titulo, disciplina) == esperado
+
+
 def test_limpar_falsos_positivos_texto():
     texto_com_url = "Veja a imagem de Rachel de Queiroz em https://g1.globo.com/ce/ceara/noticia/2019/07/20/campo-de-concentracao.html e comente."
     texto_limpo = limpar_falsos_positivos_texto(texto_com_url)
@@ -78,6 +115,50 @@ def test_detectar_recursos_reais():
     assert recursos.get("tabela") is False
 
 
+def test_mapa_conceitual_nao_vira_mapa_geografico():
+    recursos = detectar_recursos_reais(
+        "A aula trabalha biografia de Lygia Fagundes Telles e organiza informações em mapa conceitual."
+    )
+
+    assert recursos.get("mapa_conceitual") is True
+    assert recursos.get("mapa") is False
+
+
+def test_percentual_em_editorial_nao_vira_calculo():
+    recursos = detectar_recursos_reais(
+        "Editorial sobre cotas raciais menciona 91% em texto corrido, sem comando de calcular ou resolver operações."
+    )
+
+    assert recursos.get("calculo") is False
+    assert recursos.get("grafico") is False
+    assert recursos.get("tabela") is False
+
+
+def test_quadro_didatico_nao_vira_tabela_de_dados():
+    recursos = detectar_recursos_reais(
+        "O PDF apresenta quadro de conjunções e exemplos gramaticais para apoiar a análise linguística."
+    )
+
+    assert recursos.get("tabela") is False
+
+
+def test_higienizador_remove_calculo_e_debate_quando_recurso_ausente():
+    desenv = "Realizar debate formal e atividade de cálculo sobre o material."
+    desenv_h, _, _ = higienizar_plano(
+        desenv,
+        [],
+        [],
+        perfil="educacao_financeira",
+        disciplina="Educação Financeira",
+        tema="Definição de objetivos – Parte 1",
+        recursos_reais={"debate": False, "calculo": False, "tabela": False, "grafico": False},
+    )
+
+    assert "debate formal" not in desenv_h
+    assert "cálculo" not in desenv_h
+    assert "conversa orientada" in desenv_h
+
+
 def test_higienizar_plano_literatura_com_noticia():
     # Desenvolvimento com contaminação de noticia
     desenv = (
@@ -91,10 +172,10 @@ def test_higienizar_plano_literatura_com_noticia():
     acess = [
         "Oferecer leitura guiada da notícia com destaque para título, informações principais e problema central."
     ]
-    
+
     # Recursos reais detectados (noticia ausente, tabela ausente, etc.)
     recursos_reais = {"noticia": False, "tabela": False}
-    
+
     desenv_h, acomp_h, acess_h = higienizar_plano(
         desenv, acomp, acess,
         perfil="lingua_portuguesa_em",
@@ -102,16 +183,16 @@ def test_higienizar_plano_literatura_com_noticia():
         tema="Segunda geração modernista: Prosa de 30",
         recursos_reais=recursos_reais
     )
-    
+
     # Verifica que "notícia" foi substituída por termos de literatura
     assert "notícia" not in desenv_h
     assert "noticia" not in desenv_h
     assert "obra apresentada" in desenv_h
     assert "texto literário apresentada" not in desenv_h
-    
+
     assert "notícia" not in acomp_h[0]
     assert "obra analisada" in acomp_h[0] or "texto literário" in acomp_h[0]
-    
+
     assert "notícia" not in acess_h[0]
     assert "texto literário" in acess_h[0]
 
@@ -120,9 +201,9 @@ def test_higienizar_plano_sem_recurso_tabela():
     desenv = "Desenvolver o conteúdo central da aula por meio da análise de tabelas e gráficos explicativos."
     acomp = ["Verificar se os estudantes interpretam gráficos e tabelas do material."]
     acess = ["Organizar quadro comparativo ou tabela simples para apoiar a distinção."]
-    
+
     recursos_reais = {"tabela": False, "grafico": False}
-    
+
     desenv_h, acomp_h, acess_h = higienizar_plano(
         desenv, acomp, acess,
         perfil="matematica",
@@ -130,7 +211,7 @@ def test_higienizar_plano_sem_recurso_tabela():
         tema="Equações do 2º grau",
         recursos_reais=recursos_reais
     )
-    
+
     # Verifica que termos sobre tabelas e gráficos foram removidos/substituídos por dados/informações do material
     assert "tabela" not in desenv_h
     assert "tabelas" not in desenv_h
@@ -178,3 +259,26 @@ def test_higienizar_editorial_nao_mantem_noticia():
     assert "editorial" in desenv_h
     assert "a editorial" not in desenv_h
     assert "caso discutido" not in desenv_h
+
+
+def test_higienizar_reportagem_acordo_gramatical():
+    desenv = "Conduzir a leitura mediada da reportagem lida na etapa anterior. Ler as informações na reportagem. O professor deve mobilizar a reportagem. Estudar com uma reportagem."
+
+    desenv_h, _, _ = higienizar_plano(
+        desenv, [], [],
+        perfil="orientacao_estudos",
+        disciplina="Orientação de Estudos",
+        tema="Uma palavra puxa a outra - ETAPA 1",
+        recursos_reais={"noticia": False, "tabela": False, "grafico": False}
+    )
+
+    assert "da material" not in desenv_h
+    # Should replace "da reportagem lida" with "do material de estudo lido"
+    assert "do material de estudo lido" in desenv_h
+    # Should replace "na reportagem" with "no material de estudo"
+    assert "no material de estudo" in desenv_h
+    # Should replace "a reportagem" with "o material de estudo"
+    assert "o material de estudo" in desenv_h
+    # Should replace "uma reportagem" with "um material de estudo" (or similar)
+    assert "uma material" not in desenv_h
+    assert "um material de estudo" in desenv_h

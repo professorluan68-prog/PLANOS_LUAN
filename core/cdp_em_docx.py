@@ -6,13 +6,13 @@ import re
 from docx import Document
 
 from core.lote import (
-    _acessibilidade_cdp_contextual,
-    _acompanhamento_cdp_contextual,
-    _formatar_material_cdp_contextual,
-    _limpar_tema_cdp_contextual,
-    _metodologia_cdp_contextual,
-    _normalizar,
-    _perfil_disciplina,
+    acessibilidade_cdp_contextual,
+    acompanhamento_cdp_contextual,
+    formatar_material_cdp_contextual,
+    limpar_tema_cdp_contextual,
+    metodologia_cdp_contextual,
+    normalizar_texto_lote,
+    perfil_disciplina,
 )
 from docx_generator.preencher import (
     _eh_tabela_aulas,
@@ -68,12 +68,12 @@ def _texto_docx_completo(doc: Document) -> str:
 
 
 def _detectar_disciplina_cdp(texto: str) -> str:
-    base = _normalizar(texto)
+    base = normalizar_texto_lote(texto)
     pontuacoes: dict[str, int] = {}
     for disciplina, termos in DISCIPLINAS_CDP.items():
         score = 0
         for termo in termos:
-            termo_norm = _normalizar(termo)
+            termo_norm = normalizar_texto_lote(termo)
             if not termo_norm:
                 continue
             if re.search(rf"(?<!\w){re.escape(termo_norm)}(?!\w)", base):
@@ -136,8 +136,8 @@ def _limpar_resultado_cdp(texto: str) -> str:
 
 
 def _metodologia_generica_cdp(disciplina: str, tema: str, aprendizagem: str) -> list[str]:
-    perfil = _perfil_disciplina(disciplina)
-    tema_frase = _limpar_tema_cdp_contextual(tema, disciplina)
+    perfil = perfil_disciplina(disciplina)
+    tema_frase = limpar_tema_cdp_contextual(tema, disciplina)
 
     if perfil == "historia":
         texto = (
@@ -164,13 +164,13 @@ def _metodologia_generica_cdp(disciplina: str, tema: str, aprendizagem: str) -> 
             "Os estudantes registram respostas curtas no caderno e socializam oralmente de forma mediada, com fechamento voltado à comunicação clara, ética e responsável."
         )
     else:
-        texto = " ".join(_metodologia_cdp_contextual(perfil, "", tema_frase, aprendizagem, 0))
+        texto = " ".join(metodologia_cdp_contextual(perfil, "", tema_frase, aprendizagem, 0))
 
     return [_limpar_resultado_cdp(texto)]
 
 
 def _lista_generica_cdp(disciplina: str, tema: str, tipo: str) -> list[str]:
-    perfil = _perfil_disciplina(disciplina)
+    perfil = perfil_disciplina(disciplina)
     if tipo == "acompanhamento":
         if perfil == "historia":
             return [
@@ -221,7 +221,7 @@ def _lista_generica_cdp(disciplina: str, tema: str, tipo: str) -> list[str]:
                 "☑ Retomar vocabulário como persuasão, argumento, credibilidade, falácia e responsabilidade.",
                 "☑ Permitir socialização oral breve e mediada, sem exposição constrangedora.",
             ]
-    return _acompanhamento_cdp_contextual(perfil, tema)[:3] if tipo == "acompanhamento" else _acessibilidade_cdp_contextual(perfil, tema)[:3]
+    return acompanhamento_cdp_contextual(perfil, tema)[:3] if tipo == "acompanhamento" else acessibilidade_cdp_contextual(perfil, tema)[:3]
 
 
 def reescrever_docx_cdp_ensino_medio(docx_bytes: bytes) -> tuple[bytes, dict[str, object]]:
@@ -246,7 +246,7 @@ def reescrever_docx_cdp_ensino_medio(docx_bytes: bytes) -> tuple[bytes, dict[str
             disciplina = _detectar_disciplina_cdp(f"{texto_doc}\n{texto_material}\n{texto_aprendizagem}") or disciplina_doc
             if disciplina == "Geral":
                 disciplina = disciplina_doc or "Geral"
-            tema = _limpar_tema_cdp_contextual(_extrair_tema_material(texto_material), disciplina)
+            tema = limpar_tema_cdp_contextual(_extrair_tema_material(texto_material), disciplina)
             if not tema:
                 continue
 
@@ -254,7 +254,7 @@ def reescrever_docx_cdp_ensino_medio(docx_bytes: bytes) -> tuple[bytes, dict[str
             acompanhamento = _lista_generica_cdp(disciplina, tema, "acompanhamento")
             acessibilidade = _lista_generica_cdp(disciplina, tema, "acessibilidade")
 
-            _preencher_celula_tema_material(linha.cells[indices["material"]], _formatar_material_cdp_contextual(tema, disciplina))
+            _preencher_celula_tema_material(linha.cells[indices["material"]], formatar_material_cdp_contextual(tema, disciplina))
             _preencher_celula_metodologia(linha.cells[indices["desenvolvimento"]], metodologia)
             _preencher_celula_lista(linha.cells[indices["acompanhamento"]], acompanhamento[:3])
             _preencher_celula_lista(linha.cells[indices["acessibilidade"]], acessibilidade[:3])

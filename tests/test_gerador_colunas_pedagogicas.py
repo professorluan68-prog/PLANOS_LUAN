@@ -176,3 +176,46 @@ def test_gerador_reconhece_perfis_da_auditoria_portugues_2b(titulo, texto, perfi
     assert "noticia" not in desenvolvimento
     assert "tabela" not in desenvolvimento
     assert "grafico" not in desenvolvimento
+
+
+@pytest.mark.parametrize(
+    ("titulo", "texto", "perfil", "termo_esperado", "termo_bloqueado"),
+    [
+        (
+            "AULA 1 - Anuncie aqui!",
+            "Anúncio publicitário, propaganda, publicidade, campanha, slogan, jingle e social advertising.",
+            "texto_publicitario",
+            "texto publicitario",
+            "noticia",
+        ),
+        (
+            "AULA 28 - História de uma vida",
+            "Biografia de Lygia Fagundes Telles. Trajetória, carreira, nascimento e mapa conceitual.",
+            "biografia",
+            "biografia",
+            "mapa geografico",
+        ),
+        (
+            "AULA 25 - O jornalismo em imagens",
+            "Notícia digital com fotos e vídeos, fotojornalismo, intencionalidade das imagens e ética no jornalismo.",
+            "noticia_multimodal",
+            "noticia digital",
+            "tabela",
+        ),
+        (
+            "AULA 28 - Uma narrativa pode moldar uma imagem?",
+            "Conto distópico, narrativa distópica, narrador, personagens, conflito, tempos e modos verbais.",
+            "conto_distopico",
+            "conto distopico",
+            "noticia",
+        ),
+    ],
+)
+def test_gerador_reconhece_perfis_da_auditoria_portugues_ef_em(titulo, texto, perfil, termo_esperado, termo_bloqueado):
+    colunas = montar_colunas_pedagogicas(texto, titulo)
+    desenvolvimento = norm(colunas["desenvolvimento"])
+
+    assert colunas["pistas"].perfil == perfil
+    assert termo_esperado in desenvolvimento
+    assert termo_bloqueado not in desenvolvimento
+    assert "grafico" not in desenvolvimento

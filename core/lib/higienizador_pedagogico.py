@@ -20,6 +20,23 @@ RECURSOS_KEYWORDS = {
     "grafico": ["gráfico", "eixo x", "eixo y", "histograma", "gráfico de barras", "gráfico de linhas", "gráfico de pizza", "gráfico de setores", "gráficos"],
     "mapa": ["mapa", "cartográfico", "coordenadas geográficas", "mapa-múndi", "mapa do brasil", "mapas"],
     "experimento": ["experimento", "laboratório", "procedimento experimental", "materiais e métodos", "experimentos"],
+    "calculo": [
+        "calcule",
+        "calcular",
+        "operações",
+        "operação",
+        "equação",
+        "equações",
+        "função matemática",
+        "função afim",
+        "função quadrática",
+        "juros",
+        "desconto",
+        "valor posicional",
+        "decomposição",
+    ],
+    "producao_textual": ["produção textual", "produza um texto", "escreva um texto", "planejar texto", "revisar texto", "redação", "cartaz informativo"],
+    "debate": ["debate", "roda de conversa", "discussão em grupo", "world café", "socialização", "conversa em duplas"],
 }
 
 # Fontes comuns e termos de créditos que causam falsos positivos
@@ -31,6 +48,68 @@ FONTES_NAO_RECURSO = [
 
 # Termos de notícia/jornalísticos e suas substituições por contexto
 REGRAS_SUBSTITUICAO = {
+    "texto_publicitario": [
+        (r"\ba not[ií]cia apresentada\b", "o anúncio apresentado"),
+        (r"\ba not[ií]cia analisada\b", "o anúncio analisado"),
+        (r"\ba not[ií]cia\b", "o anúncio"),
+        (r"\bas not[ií]cias\b", "as campanhas"),
+        (r"\bleitura guiada da not[ií]cia apresentada\b", "leitura guiada do anúncio apresentado"),
+        (r"\bleitura orientada da not[ií]cia apresentada\b", "leitura guiada do anúncio apresentado"),
+        (r"\bleitura da not[ií]cia apresentada\b", "leitura do anúncio apresentado"),
+        (r"\bnot[ií]cia apresentada\b", "anúncio apresentado"),
+        (r"\bnot[ií]cia analisada\b", "anúncio analisado"),
+        (r"\bleitura guiada da not[ií]cia\b", "leitura guiada do anúncio"),
+        (r"\bleitura orientada da not[ií]cia\b", "leitura guiada do anúncio"),
+        (r"\bleitura da not[ií]cia\b", "leitura do anúncio"),
+        (r"\bna not[ií]cia\b", "no anúncio"),
+        (r"\bda not[ií]cia\b", "do anúncio"),
+        (r"\bnot[ií]cia\b", "anúncio"),
+        (r"\bnot[ií]cias\b", "campanhas"),
+        (r"\breportagem\b", "campanha"),
+        (r"\breportagens\b", "campanhas"),
+        (r"\beditorial\b", "texto publicitário"),
+        (r"\beditoriais\b", "textos publicitários"),
+    ],
+    "biografia": [
+        (r"\ba not[ií]cia apresentada\b", "a biografia apresentada"),
+        (r"\ba not[ií]cia analisada\b", "a biografia analisada"),
+        (r"\ba not[ií]cia\b", "a biografia"),
+        (r"\bas not[ií]cias\b", "as biografias"),
+        (r"\bleitura guiada da not[ií]cia apresentada\b", "leitura guiada da biografia apresentada"),
+        (r"\bleitura orientada da not[ií]cia apresentada\b", "leitura guiada da biografia apresentada"),
+        (r"\bleitura da not[ií]cia apresentada\b", "leitura da biografia apresentada"),
+        (r"\bnot[ií]cia apresentada\b", "biografia apresentada"),
+        (r"\bnot[ií]cia analisada\b", "biografia analisada"),
+        (r"\bleitura guiada da not[ií]cia\b", "leitura guiada da biografia"),
+        (r"\bleitura orientada da not[ií]cia\b", "leitura guiada da biografia"),
+        (r"\bleitura da not[ií]cia\b", "leitura da biografia"),
+        (r"\bna not[ií]cia\b", "na biografia"),
+        (r"\bda not[ií]cia\b", "da biografia"),
+        (r"\bnot[ií]cia\b", "biografia"),
+        (r"\bnot[ií]cias\b", "biografias"),
+        (r"\breportagem\b", "biografia"),
+        (r"\breportagens\b", "biografias"),
+    ],
+    "conto_distopico": [
+        (r"\ba not[ií]cia apresentada\b", "o conto apresentado"),
+        (r"\ba not[ií]cia analisada\b", "o conto analisado"),
+        (r"\ba not[ií]cia\b", "o conto"),
+        (r"\bas not[ií]cias\b", "os contos"),
+        (r"\bleitura guiada da not[ií]cia apresentada\b", "leitura guiada do conto apresentado"),
+        (r"\bleitura orientada da not[ií]cia apresentada\b", "leitura guiada do conto apresentado"),
+        (r"\bleitura da not[ií]cia apresentada\b", "leitura do conto apresentado"),
+        (r"\bnot[ií]cia apresentada\b", "conto apresentado"),
+        (r"\bnot[ií]cia analisada\b", "conto analisado"),
+        (r"\bleitura guiada da not[ií]cia\b", "leitura guiada do conto"),
+        (r"\bleitura orientada da not[ií]cia\b", "leitura guiada do conto"),
+        (r"\bleitura da not[ií]cia\b", "leitura do conto"),
+        (r"\bna not[ií]cia\b", "no conto"),
+        (r"\bda not[ií]cia\b", "do conto"),
+        (r"\bnot[ií]cia\b", "conto"),
+        (r"\bnot[ií]cias\b", "contos"),
+        (r"\breportagem\b", "conto"),
+        (r"\breportagens\b", "contos"),
+    ],
     "literatura": [
         (r"\ba not[ií]cia apresentada\b", "a obra apresentada"),
         (r"\ba not[ií]cia analisada\b", "a obra analisada"),
@@ -218,6 +297,23 @@ REGRAS_SUBSTITUICAO = {
         (r"\bjornal[ií]stica\b", "didática"),
         (r"\bjornal[ií]sticos\b", "didáticos"),
         (r"\bjornal[ií]sticas\b", "didáticas"),
+        (r"\bda reportagem lida\b", "do material de estudo lido"),
+        (r"\bna reportagem lida\b", "no material de estudo lido"),
+        (r"\ba reportagem lida\b", "o material de estudo lido"),
+        (r"\breportagem lida\b", "material de estudo lido"),
+        (r"\breportagens lidas\b", "materiais de estudo lidos"),
+        (r"\buma reportagem\b", "um material de estudo"),
+        (r"\bumas reportagens\b", "materiais de estudo"),
+        (r"\bleitura da reportagem\b", "leitura do material de estudo"),
+        (r"\bleitura orientada da reportagem\b", "leitura orientada do material de estudo"),
+        (r"\bleitura mediada da reportagem\b", "leitura mediada do material de estudo"),
+        (r"\bda reportagem\b", "do material de estudo"),
+        (r"\bna reportagem\b", "no material de estudo"),
+        (r"\bpela reportagem\b", "pelo material de estudo"),
+        (r"\ba reportagem\b", "o material de estudo"),
+        (r"\bas reportagens\b", "os materiais de estudo"),
+        (r"\bdas reportagens\b", "dos materiais de estudo"),
+        (r"\bnas reportagens\b", "nos materiais de estudo"),
         (r"\breportagem\b", "material de estudo"),
         (r"\breportagens\b", "materiais de estudo"),
         (r"\beditorial\b", "material de estudo"),
@@ -262,7 +358,26 @@ REGRAS_RECURSOS = {
         (r"\bexperimentos\b", "atividades práticas"),
         (r"\bexperimento\b", "atividade prática"),
         (r"\blaborat[oó]rio\b", "sala de aula"),
-    ]
+    ],
+    "calculo": [
+        (r"\batividade de c[aá]lculo\b", "atividade de análise do material"),
+        (r"\bresolu[cç][aã]o de c[aá]lculos\b", "resolução da atividade"),
+        (r"\bc[aá]lculos\b", "registros"),
+        (r"\bc[aá]lculo\b", "registro"),
+        (r"\bcalcular\b", "analisar"),
+        (r"\bcontas\b", "registros"),
+    ],
+    "producao_textual": [
+        (r"\bprodu[cç][aã]o textual formal\b", "registro da atividade"),
+        (r"\bprodu[cç][aã]o textual\b", "registro da atividade"),
+        (r"\bproduzir um texto\b", "registrar uma resposta"),
+        (r"\bescrever um texto\b", "registrar uma resposta"),
+    ],
+    "debate": [
+        (r"\bdebate formal avaliativo\b", "conversa orientada"),
+        (r"\bdebate formal\b", "conversa orientada"),
+        (r"\bdebate\b", "discussão orientada"),
+    ],
 }
 
 
@@ -272,6 +387,44 @@ def normalizar_para_busca(texto: str) -> str:
     texto = unicodedata.normalize("NFKD", str(texto or ""))
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return re.sub(r"\s+", " ", texto).strip().lower()
+
+
+def _contem_algum(texto_norm: str, termos: list[str]) -> bool:
+    return any(normalizar_para_busca(termo) in texto_norm for termo in termos)
+
+
+def _remover_contextos_negativos_de_recurso(texto_norm: str, keywords: list[str]) -> str:
+    """Ignora trechos em que o próprio material nega a presença de um recurso."""
+    if not texto_norm:
+        return ""
+
+    texto_filtrado = texto_norm
+    negacoes = [
+        "sem",
+        "nao ha",
+        "nao contem",
+        "nao envolve",
+        "nao apresenta",
+        "sem comando de",
+        "sem atividade de",
+        "sem proposta de",
+        "sem necessidade de",
+    ]
+
+    for keyword in keywords:
+        keyword_norm = normalizar_para_busca(keyword)
+        if not keyword_norm:
+            continue
+
+        for negacao in negacoes:
+            negacao_norm = normalizar_para_busca(negacao)
+            texto_filtrado = re.sub(
+                rf"\b{re.escape(negacao_norm)}\b[^.!?\n;]*\b{re.escape(keyword_norm)}\b[^.!?\n;]*",
+                " ",
+                texto_filtrado,
+            )
+
+    return texto_filtrado
 
 
 def limpar_falsos_positivos_texto(texto: str) -> str:
@@ -301,14 +454,37 @@ def detectar_recursos_reais(texto_pdf: str) -> dict:
     
     recursos_detectados = {}
     for recurso, keywords in RECURSOS_KEYWORDS.items():
+        texto_recurso = texto_norm
+        if recurso in {"calculo", "producao_textual", "debate", "tabela", "grafico", "mapa", "experimento"}:
+            texto_recurso = _remover_contextos_negativos_de_recurso(texto_norm, keywords)
+
         presente = False
         for kw in keywords:
             kw_norm = normalizar_para_busca(kw)
-            if kw_norm in texto_norm:
+            if kw_norm in texto_recurso:
                 presente = True
                 break
         recursos_detectados[recurso] = presente
-        
+
+    if recursos_detectados.get("mapa") and "mapa conceitual" in texto_norm:
+        termos_mapa_geografico = [
+            "mapa do brasil",
+            "mapa-mundi",
+            "mapa mundi",
+            "mapa politico",
+            "mapa político",
+            "mapa fisico",
+            "mapa físico",
+            "mapa interativo",
+            "cartografico",
+            "cartográfico",
+            "coordenadas geograficas",
+            "coordenadas geográficas",
+        ]
+        if not any(termo in texto_norm for termo in termos_mapa_geografico):
+            recursos_detectados["mapa"] = False
+            recursos_detectados["mapa_conceitual"] = True
+
     return recursos_detectados
 
 
@@ -319,9 +495,19 @@ def detectar_perfil_pedagogico_real(tema: str, disciplina: str) -> str:
     
     # Se for Língua Portuguesa
     if "portuguesa" in disc_norm or "portugues" in disc_norm or "redacao" in disc_norm:
+        if _contem_algum(tema_norm, ["trilha", "alice no pais das maravilhas", "obra literaria", "personagens", "enredo"]):
+            return "leitura_literaria_trilha"
+        if any(t in tema_norm for t in ["anuncie aqui", "anuncio publicitario", "propaganda", "publicidade", "slogan", "jingle", "campanha", "advergame", "unboxing", "social advertising"]):
+            return "texto_publicitario"
+        if any(t in tema_norm for t in ["historia de uma vida", "biografia", "trajetoria", "vida de", "carreira", "nascimento", "mapa conceitual"]):
+            return "biografia"
+        if any(t in tema_norm for t in ["jornalismo em imagens", "fotojornalismo", "recursos visuais", "textos jornalisticos digitais"]):
+            return "noticia_multimodal"
+        if any(t in tema_norm for t in ["conto distopico", "narrativa distopica", "distopia", "olhos por bugalhos", "uma narrativa pode moldar uma imagem"]):
+            return "conto_distopico"
         if any(t in tema_norm for t in ["cronica", "cronista"]):
             return "cronica"
-        if any(t in tema_norm for t in ["editorial", "editoria", "editoriais"]):
+        if any(t in tema_norm for t in ["editorial", "editoria", "editoriais", "vozes da redacao jornalistica"]):
             return "editorial"
         if any(t in tema_norm for t in ["artigo de opiniao", "artigo opiniao", "construcao da opiniao"]):
             return "artigo_opiniao"
@@ -342,7 +528,110 @@ def detectar_perfil_pedagogico_real(tema: str, disciplina: str) -> str:
         
         # Padrão para português se não for explicitamente jornalístico é considerado literário/geral
         return "literatura"
-        
+
+    if "arte" in disc_norm:
+        if _contem_algum(tema_norm, ["musica", "música", "samba", "forro", "forró", "repertorio musical", "escuta", "palmas", "asa branca"]):
+            return "arte_musica"
+        if _contem_algum(tema_norm, ["compor versos", "diario de bordo", "diário de bordo", "criacao artistica", "criação artística", "producao visual", "produção visual"]):
+            return "arte_producao_criativa"
+        if _contem_algum(tema_norm, ["manifestacao cultural", "manifestação cultural", "patrimonio", "patrimônio", "danca", "dança", "territorio", "território"]):
+            return "arte_contexto_cultural"
+        return "arte_geral"
+
+    if "biologia" in disc_norm:
+        if _contem_algum(tema_norm, ["tabela comparativa", "comparacao", "comparação", "gases", "planetas", "organismos"]):
+            return "biologia_tabela_comparativa"
+        if _contem_algum(tema_norm, ["efeito estufa", "aquecimento global", "atmosfera", "celula", "célula", "ecologia", "metabolismo", "saude", "saúde"]):
+            return "biologia_conceitual"
+        return "biologia_conceitual"
+
+    if disc_norm == "ciencias" or "ciencias" in disc_norm:
+        if _contem_algum(tema_norm, ["reciclagem", "poluicao", "poluição", "recursos naturais", "uso responsavel", "uso responsável", "impacto"]):
+            return "ciencias_impacto_socioambiental"
+        if _contem_algum(tema_norm, ["materiais sinteticos", "materiais sintéticos", "material natural", "materia-prima", "matéria-prima", "produto acabado"]):
+            return "ciencias_conceitual"
+        return "ciencias_conceitual"
+
+    if "educacao financeira" in disc_norm or "educação financeira" in disc_norm:
+        if _contem_algum(tema_norm, ["juros", "desconto", "porcentagem", "orcamento", "orçamento", "planilha"]):
+            return "educacao_financeira_calculo"
+        if _contem_algum(tema_norm, ["consumo", "consumo consciente", "necessidades", "desejos", "escolhas"]):
+            return "educacao_financeira_consumo"
+        if _contem_algum(tema_norm, ["objetivos", "metas", "prioridades", "planejamento financeiro", "definicao de objetivos", "definição de objetivos"]):
+            return "educacao_financeira_planejamento"
+        return "educacao_financeira_planejamento"
+
+    if "geografia" in disc_norm:
+        if _contem_algum(tema_norm, ["grafico", "gráfico", "taxa", "populacao", "população", "ibge", "serie historica", "série histórica"]):
+            return "geografia_grafico_dados"
+        if _contem_algum(tema_norm, ["mapa", "mancha urbana", "territorio", "território", "regiao", "região", "localizacao", "localização", "cartografia"]):
+            return "geografia_mapa"
+        if _contem_algum(tema_norm, ["urbanizacao", "urbanização", "rede urbana", "migracao", "migração", "paisagem"]):
+            return "geografia_conceitual_espaco"
+        return "geografia_conceitual_espaco"
+
+    if "historia" in disc_norm or "história" in disc_norm:
+        if _contem_algum(tema_norm, ["mapa historico", "mapa histórico", "crescente fertil", "crescente fértil"]):
+            return "historia_mapa_historico"
+        if _contem_algum(tema_norm, ["fonte historica", "fonte histórica", "texto de epoca", "texto de época", "imagem historica", "imagem histórica"]):
+            return "historia_fonte_documental"
+        if _contem_algum(tema_norm, ["periodo historico", "período histórico", "processo", "civilizacao", "civilização", "civilizacoes", "civilizações", "sociedade", "governo", "cultura"]):
+            return "historia_contextual"
+        return "historia_contextual"
+
+    if "lideranca" in disc_norm or "liderança" in disc_norm or "oratoria" in disc_norm or "oratória" in disc_norm:
+        if _contem_algum(tema_norm, ["voz", "ritmo", "entonacao", "entonação", "pausa", "projecao", "projeção", "leitura em voz alta", "discurso oral"]):
+            return "oratoria_pratica"
+        if _contem_algum(tema_norm, ["persuasao", "persuasão", "retorica", "retórica", "argumentacao oral", "argumentação oral", "defesa de ideias"]):
+            return "argumentacao_oral"
+        return "oratoria_pratica"
+
+    if "ingles" in disc_norm or "inglês" in disc_norm or "lingua inglesa" in disc_norm or "língua inglesa" in disc_norm:
+        if _contem_algum(tema_norm, ["listen", "audio", "áudio", "dialogue", "script", "my preferences"]):
+            return "ingles_listening"
+        if _contem_algum(tema_norm, ["vocabulary", "vocabulario", "vocabulário", "action verbs", "word bank", "i like to"]):
+            return "ingles_vocabulario"
+        if _contem_algum(tema_norm, ["talk to classmates", "ask/answer", "in pairs", "dialogue"]):
+            return "ingles_interacao_oral"
+        return "ingles_vocabulario"
+
+    if "matematica" in disc_norm or "matemática" in disc_norm:
+        if _contem_algum(tema_norm, ["tabela", "grafico", "gráfico", "eixos", "dados", "ibge", "populacao", "população"]):
+            return "matematica_tabela_grafico"
+        if _contem_algum(tema_norm, ["operacoes", "operações", "decomposicao", "decomposição", "porcentagem", "equacoes", "equações", "funcoes", "funções", "valor posicional"]):
+            return "matematica_calculo"
+        if _contem_algum(tema_norm, ["situacao-problema", "situação-problema", "estrategia", "estratégia", "modelagem", "justificativa"]):
+            return "matematica_resolucao_problemas"
+        return "matematica_calculo"
+
+    if "orientacao de estudos" in disc_norm or "orientação de estudos" in disc_norm:
+        if _contem_algum(tema_norm, ["etapa", "missao", "missão", "semana", "atividade sequenciada"]):
+            return "orientacao_estudos_etapas"
+        if _contem_algum(tema_norm, ["ler", "destacar", "localizar", "organizar", "responder"]):
+            return "leitura_estrategia_estudo"
+        return "orientacao_estudos_etapas"
+
+    if "projeto de vida" in disc_norm:
+        if _contem_algum(tema_norm, ["identidade", "autenticidade", "valores", "escolhas", "sentimentos", "quem sou"]):
+            return "projeto_vida_autoconhecimento"
+        if _contem_algum(tema_norm, ["convivencia", "convivência", "escuta", "empatia", "respeito", "relacoes", "relações"]):
+            return "projeto_vida_convivencia"
+        return "projeto_vida_reflexivo"
+
+    if "quimica" in disc_norm or "química" in disc_norm:
+        if _contem_algum(tema_norm, ["funcoes organicas", "funções orgânicas", "alcool", "álcool", "aldeido", "aldeído", "cetona", "eter", "éter", "ester", "éster", "amina", "amida", "haleto"]):
+            return "quimica_funcoes_organicas"
+        if _contem_algum(tema_norm, ["substancias licitas", "substâncias lícitas", "dependencia quimica", "dependência química", "ods 3", "world cafe", "world café"]):
+            return "quimica_saude_discussao"
+        return "quimica_conceitual"
+
+    if "tecnologia" in disc_norm or "inovacao" in disc_norm or "inovação" in disc_norm:
+        if _contem_algum(tema_norm, ["computador", "dispositivo", "entrada", "saida", "saída", "hardware", "periferico", "periférico"]):
+            return "tecnologia_computacao_conceitual"
+        if _contem_algum(tema_norm, ["seguranca", "segurança", "privacidade", "internet", "empatia digital"]):
+            return "tecnologia_cidadania_digital"
+        return "tecnologia_pratica_classificacao"
+
     return "geral"
 
 
@@ -359,7 +648,7 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
         texto_final = re.sub(r"\bgr[aá]ficos e tabelas\b", "as informações do material", texto_final, flags=re.I)
     
     # 2. Higienizar termos jornalísticos/notícias se o perfil não for jornalístico válido
-    if perfil_pedagogico != "jornalistico_valido":
+    if perfil_pedagogico not in {"jornalistico_valido", "noticia_multimodal"}:
         regras = REGRAS_SUBSTITUICAO.get(perfil_pedagogico, REGRAS_SUBSTITUICAO["geral_nao_jornalistica"])
         for padrao, subst in regras:
             def substituir(match):
@@ -371,6 +660,9 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
                 return subst
             texto_final = re.sub(padrao, substituir, texto_final, flags=re.I)
         substituto_caso = {
+            "texto_publicitario": "a campanha discutida",
+            "biografia": "a trajetória discutida",
+            "conto_distopico": "o conto discutido",
             "literatura": "a obra discutida",
             "cronica": "a crônica discutida",
             "texto_normativo": "o texto legal discutido",
