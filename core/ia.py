@@ -15,9 +15,10 @@ try:
     from google.genai import types
 except ImportError:
     genai = None
+    types = None
 
-from config import IA_TIMEOUT_SEGUNDOS
-from core.lib.classificador import perfil_disciplina
+from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO
+from core.lib.classificador import normalizar_texto, perfil_disciplina
 from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
 from core.qualidade_metodologica import (
     detectar_contexto_metodologico,
@@ -89,12 +90,21 @@ def _serializar_modelo(objeto: Any) -> dict:
     return dict(objeto)
 
 
+def _limpar_json_markdown(texto: str) -> str:
+    texto = str(texto or "").strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", texto, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return texto
+
+
 def _extrair_json_openai(response) -> dict:
     mensagem = response.choices[0].message
     parsed = getattr(mensagem, "parsed", None)
     if parsed is not None:
         return _serializar_modelo(parsed)
-    return json.loads(mensagem.content or "{}")
+    texto = _limpar_json_markdown(mensagem.content)
+    return json.loads(texto or "{}")
 
 
 def _montar_prompt(
@@ -123,25 +133,6 @@ MODALIDADE EJA:
 """
 
     bloco_leitura_redacao = ""
-    if False and perfil == "leitura_redacao":
-        bloco_leitura_redacao = """
-
-MODELO ESPECIFICO DE REDACAO E LEITURA:
-- Para aulas de trilha literaria/leitura de obra, use estes blocos: "Para comecar", "Predicao guiada", "Leitura compartilhada ou individual" e "Conexao com a producao textual".
-- Para aula de producao textual/finalizacao, use estes blocos: "Para comecar", "Revisao orientada", "Escrita da versao final", "Submissao e socializacao" e "Encerramento".
-- Mantenha linguagem de plano docente, articulando leitura literaria, impressões dos estudantes, personagens, acontecimentos, hipotese/predicao e conexao com producao textual.
-"""
-
-    if False and perfil == "leitura_redacao":
-        bloco_leitura_redacao += """
-- Priorize genero textual, objetivo pedagogico e funcao social da escrita.
-- Reestruture a aula em 6 etapas fixas: "Disparo inicial / contextualizacao", "Leitura ou exploracao inicial", "Analise guiada", "Sistematizacao", "Producao textual" e "Revisao e fechamento".
-- Na analise guiada, inclua ao menos tres perguntas orientadoras: compreensao, interpretacao e reflexao.
-- Na producao textual, explicite sempre o que escrever, para quem escrever e com qual objetivo.
-- Para resenha, incluir apresentacao da obra, tipo de historia, opiniao, pontos positivos/negativos e recomendacao final.
-- Para cronica, incluir narrador em primeira pessoa, situacao cotidiana, conflito/desafio e reflexao final.
-- Nunca entregar apenas resumo; integrar leitura e escrita com linguagem clara, didatica e aplicavel em sala.
-"""
 
     if perfil == "leitura_redacao":
         bloco_leitura_redacao = """
@@ -162,7 +153,7 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
     if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
         regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas naturais, acolhedoras e coerentes com Projeto de Vida."
     elif permitir_tecnicas_explicitamente:
-        regra_tecnicas = '5. Se o slide trouxer tecnicas pedagogicas explicitas, especialmente tecnicas LEMOV como "VIREM E CONVERSEM", "TODO MUNDO ESCREVE", "COM SUAS PALAVRAS", "HORA DA LEITURA", "DE OLHO NO MODELO", "PAUSE E RESPONDA" ou "UM PASSO DE CADA VEZ", cite o nome da tecnica em maiusculas dentro da acao docente. Ex.: "Aplicar a tecnica VIREM E CONVERSEM para que os estudantes levantem hipoteses iniciais" e "Utilizar a tecnica TODO MUNDO ESCREVE para garantir o registro individual".'
+        regra_tecnicas = '5. Se o slide trouxer tecnicas pedagogicas explicitas, especialmente tecnicas LEMOV como "VIREM E CONVERSEM", "TODO MUNDO ESCREVE", "COM SUAS PALAVRAS", "HORA DA LEITURA", "DE OLHO NO MODELO", "PAUSE E RESPONDA" ou "UM PASSO DE CADA VEZ", cite o nome da tecnica em maiusculas dentro da acao docente de forma direta e natural, SEM usar a palavra "tecnica" ou "a tecnica" para nao soar repetitivo. Ex.: "Aplicar o VIREM E CONVERSEM para que os estudantes levantem hipoteses iniciais" e "Utilizar o TODO MUNDO ESCREVE para garantir o registro individual".'
     else:
         regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas genericas e naturais."
 
@@ -326,29 +317,63 @@ def _finalizar_trecho_metodologia(texto: str) -> str:
     return texto + "."
 
 
+_INICIOS_FRAGMENTADOS = (
+    "que os", "que as", "que cada", "que todos", "que o", "que a",
+    "para que", "fazendo com que", "garantindo que", "de forma que",
+    "solicitando que", "pedindo que", "orientando que",
+    "garantir o", "garantir a", "garantir os", "garantir as",
+    "garantir que", "promover a", "promover o", "oferecer a", "oferecer o"
+)
+
+
+def _inicio_fragmentado(texto: str) -> bool:
+    """Verifica se o texto começa com uma oração subordinada sem verbo principal."""
+    texto_lower = texto.strip().lower()
+    return any(texto_lower.startswith(inicio) for inicio in _INICIOS_FRAGMENTADOS)
+
+
 def _cortar_sem_quebrar_frase(texto: str, limite: int) -> str:
     texto = _limpar_texto_curto(texto)
     if not texto or limite <= 0:
         return ""
     if len(texto) <= limite:
-        return _finalizar_trecho_metodologia(texto)
+        resultado = _finalizar_trecho_metodologia(texto)
+        return "" if _inicio_fragmentado(resultado) else resultado
 
     recorte = texto[:limite].rstrip()
     fim_frase = max(recorte.rfind("."), recorte.rfind("!"), recorte.rfind("?"))
     if fim_frase >= max(45, int(limite * 0.45)):
-        return _finalizar_trecho_metodologia(recorte[: fim_frase + 1])
+        resultado = _finalizar_trecho_metodologia(recorte[: fim_frase + 1])
+        return "" if _inicio_fragmentado(resultado) else resultado
 
     fim_oracao = max(recorte.rfind(";"), recorte.rfind(":"))
     if fim_oracao >= max(45, int(limite * 0.55)):
-        return _finalizar_trecho_metodologia(recorte[:fim_oracao])
+        resultado = _finalizar_trecho_metodologia(recorte[:fim_oracao])
+        return "" if _inicio_fragmentado(resultado) else resultado
 
     fim_virgula = recorte.rfind(",")
     if fim_virgula >= max(60, int(limite * 0.65)):
-        return _finalizar_trecho_metodologia(recorte[:fim_virgula])
+        resultado = _finalizar_trecho_metodologia(recorte[:fim_virgula])
+        return "" if _inicio_fragmentado(resultado) else resultado
     return ""
 
 
-def _compactar_metodologia(metodologia: list[dict], texto_pdf: str) -> list[dict[str, str]]:
+def _posicao_atividade(itens: list, perfil: str) -> int:
+    """Retorna a posição correta para inserção da etapa Atividade."""
+    titulos = [normalizar_texto(i.get("titulo", "")) for i in itens]
+    # Para Matemática: inserir após "De olho no modelo"
+    if perfil == "matematica":
+        for idx, titulo in enumerate(titulos):
+            if "de olho no modelo" in titulo or "modelo" in titulo:
+                return idx + 1
+    # Para outros perfis: inserir após "Foco no conteúdo"
+    for idx, titulo in enumerate(titulos):
+        if "foco" in titulo or "conteudo" in titulo:
+            return idx + 1
+    return min(2, len(itens))
+
+
+def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
     produto = _detectar_produto_atividade(texto_pdf)
     itens: list[dict[str, str]] = []
     vistos: set[str] = set()
@@ -370,8 +395,9 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str) -> list[dict
     if produto:
         corpo = " ".join(i["texto"].lower() for i in itens)
         if produto not in corpo:
+            pos = _posicao_atividade(itens, perfil)
             itens.insert(
-                min(2, len(itens)),
+                pos,
                 {
                     "titulo": "Atividade",
                     "texto": f"Orientar a atividade principal do material para que os estudantes produzam {produto}, acompanhando registros, duvidas e socializacao das respostas.",
@@ -417,7 +443,7 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
         tema=tema,
         contexto=contexto,
     )
-    metodologia = _compactar_metodologia(metodologia, texto_pdf)
+    metodologia = _compactar_metodologia(metodologia, texto_pdf, perfil)
     metodologia = naturalizar_metodologia_professor(metodologia)
     if not metodologia:
         raise ValueError("A IA nao devolveu metodologia utilizavel.")
@@ -504,8 +530,11 @@ def processar_plano_ia(
     if provedor.lower() == "openai":
         if not OpenAI or not os.getenv("OPENAI_API_KEY"):
             raise Exception("Chave OPENAI_API_KEY nao configurada ou biblioteca ausente.")
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.beta.chat.completions.parse(
+        client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            timeout=IA_TIMEOUT_SEGUNDOS,
+        )
+        response = client.chat.completions.parse(
             model=modelo or "gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -521,29 +550,26 @@ def processar_plano_ia(
         if not genai or not os.getenv("GEMINI_API_KEY"):
             raise Exception("Chave GEMINI_API_KEY nao configurada ou biblioteca ausente.")
 
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        prompt_json = (
-            system_prompt
-            + "\n\n"
-            + prompt
-            + '\nRESPONDA EXATAMENTE NO SEGUINTE FORMATO JSON: {"tema": "...", "aprendizagem": "...", "metodologia": [{"titulo": "...", "texto": "..."}]}'
+        timeout_milisegundos = int(IA_TIMEOUT_SEGUNDOS) * 1000
+        client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            http_options=types.HttpOptions(timeout=timeout_milisegundos),
         )
+        prompt_json = system_prompt + "\n\n" + prompt
 
         response = client.models.generate_content(
-            model=modelo or "gemini-2.5-flash",
+            model=modelo or MODELO_GEMINI_PADRAO,
             contents=prompt_json,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=PlanoAulaIA,
+                http_options=types.HttpOptions(timeout=timeout_milisegundos),
+            ),
         )
 
         text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-
-        data = json.loads(text.strip())
+        text = _limpar_json_markdown(text)
+        data = json.loads(text or "{}")
         return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
 
     raise Exception(f"Provedor {provedor} desconhecido.")

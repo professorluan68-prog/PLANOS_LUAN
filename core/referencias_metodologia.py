@@ -7,7 +7,18 @@ REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA 
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-PASTA_REFERENCIAS = BASE_DIR / "REFERENCIAS_METODOLOGIA"
+PASTAS_BUSCA = [
+    BASE_DIR / "REFERENCIAS_METODOLOGIA",
+    Path(r"C:\Users\Prof_L\Desktop\desktop\REFERENCIAS_METODOLOGIA"),
+]
+PASTA_REFERENCIAS = PASTAS_BUSCA[0]
+
+def resolver_caminho_referencia(arquivo: str) -> Path | None:
+    for pasta in PASTAS_BUSCA:
+        caminho = pasta / arquivo
+        if caminho.exists():
+            return caminho
+    return None
 
 LIMITE_REFERENCIA_CHARS = 6200
 LIMITE_INTERDISCIPLINAR_CHARS = 1800
@@ -25,12 +36,23 @@ REFERENCIA_PV_FUNDAMENTAL_ANOS_FINAIS = "ANÁLISE METODOLÓGICA - PROJETO DE VID
 REFERENCIA_PV_7_ANO = "ANÁLISE METODOLÓGICA - PROJETO DE VIDA 7º ANO.md"
 
 MAPA_REFERENCIAS = {
+    "matematica": (
+        "ANÁLISE METODOLÓGICA - MATEMÁTICA.md",
+        "analise_metodologica_matematica_ensino_medio_seduc_sp.md",
+    ),
     "lingua portuguesa": REFERENCIA_PORTUGUES_GERAL,
     "portugues": REFERENCIA_PORTUGUES_GERAL,
     "redacao e leitura": REFERENCIA_LEITURA_REDACAO,
     "leitura e redacao": REFERENCIA_LEITURA_REDACAO,
-    "ciencias": "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
-    "ciencia": "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
+    "ciencias": (
+        "CIÊNCIAS-6ANO_metodologias_ciencias_6ano_versao_final_completa_ajustada.docx",
+        "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
+    ),
+    "ciencia": (
+        "CIÊNCIAS-6ANO_metodologias_ciencias_6ano_versao_final_completa_ajustada.docx",
+        "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
+    ),
+    "geografia": "GEOGRAFIA-1EM_metodologia.docx",
     "arte": "ANÁLISE METODOLÓGICA - ARTE - ENSINO FUNDAMENTAL ANOS FINAIS.md",
     "artes": "ANÁLISE METODOLÓGICA - ARTE - ENSINO FUNDAMENTAL ANOS FINAIS.md",
     "historia": "ANÁLISE METODOLÓGICA - HISTÓRIA ENSINO FUNDAMENTAL.md",
@@ -45,10 +67,12 @@ MAPA_REFERENCIAS = {
     "orientacao de estudos": "ANÁLISE METODOLÓGICA PROFUNDA - ORIENTAÇÃO DE ESTUDOS.md",
     "educacao financeira": "EDUCAÇÃO FINANCEIRA-7ANO_METODOLOGIA.docx",
     "cdp": (
+        "metodologiacdp.docx",
         "HABILIDADES POR DISCIPLINA - EDUCAÇÃO DE JOVENS E ADULTOS (EJA).md",
         "HABILIDADES POR DISCIPLINA - EDUCAÇÃO DE JOVENS E ADULTOS (EJA).mdparte2.md",
     ),
     "eja": (
+        "metodologiacdp.docx",
         "HABILIDADES POR DISCIPLINA - EDUCAÇÃO DE JOVENS E ADULTOS (EJA).md",
         "HABILIDADES POR DISCIPLINA - EDUCAÇÃO DE JOVENS E ADULTOS (EJA).mdparte2.md",
     ),
@@ -146,8 +170,8 @@ def _reforcar_regras_do_sistema(texto: str) -> str:
 
 
 def _carregar_referencia_interdisciplinar() -> str:
-    caminho = PASTA_REFERENCIAS / REFERENCIA_INTERDISCIPLINAR
-    if not caminho.exists():
+    caminho = resolver_caminho_referencia(REFERENCIA_INTERDISCIPLINAR)
+    if not caminho:
         return ""
 
     texto = _limpar_interdisciplinar(caminho.read_text(encoding="utf-8", errors="ignore"))
@@ -166,17 +190,37 @@ def _carregar_referencia_interdisciplinar() -> str:
     return texto[:LIMITE_INTERDISCIPLINAR_CHARS].rsplit("\n", 1)[0].strip()
 
 
+def _ler_docx(caminho: Path) -> str:
+    try:
+        import docx
+        doc = docx.Document(caminho)
+        paragrafos = []
+        for p in doc.paragraphs:
+            txt = p.text.strip()
+            if txt:
+                paragrafos.append(txt)
+        return "\n".join(paragrafos)
+    except Exception as e:
+        return f"Referência {caminho.name} (erro ao ler: {e})"
+
+
 def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
     partes = []
     for arquivo in arquivos:
-        caminho = PASTA_REFERENCIAS / arquivo
-        if not caminho.exists():
+        caminho = resolver_caminho_referencia(arquivo)
+        if not caminho:
             continue
-        if caminho.suffix.lower() == ".md":
+        suffix = caminho.suffix.lower()
+        if suffix == ".md":
             texto = caminho.read_text(encoding="utf-8", errors="ignore")
             texto = _limpar_markdown(texto)
+        elif suffix == ".docx":
+            texto = _ler_docx(caminho)
         else:
-            texto = caminho.name
+            try:
+                texto = caminho.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                texto = caminho.name
         if texto:
             partes.append(texto)
     return "\n\n".join(partes)
@@ -229,7 +273,11 @@ def listar_referencias_disponiveis() -> Dict[str, str]:
     disponiveis = {}
     for disciplina, arquivos in MAPA_REFERENCIAS.items():
         lista = (arquivos,) if isinstance(arquivos, str) else tuple(arquivos)
-        caminhos = [str(PASTA_REFERENCIAS / arquivo) for arquivo in lista if (PASTA_REFERENCIAS / arquivo).exists()]
+        caminhos = []
+        for arquivo in lista:
+            caminho = resolver_caminho_referencia(arquivo)
+            if caminho:
+                caminhos.append(str(caminho))
         if caminhos:
             disponiveis[disciplina] = " | ".join(caminhos)
     return disponiveis

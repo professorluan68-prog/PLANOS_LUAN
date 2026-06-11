@@ -8,15 +8,12 @@ metodologia, acompanhamento, acessibilidade e extracao usem a mesma base.
 from __future__ import annotations
 
 import re
-import unicodedata
+from core.normalizacao import normalizar as normalizar_texto
 
 
-def normalizar_texto(texto: str) -> str:
-    """Remove acentos e normaliza espacos para comparacao."""
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    texto = re.sub(r"[^\w\s]", " ", texto, flags=re.UNICODE)
-    return re.sub(r"\s+", " ", texto).strip().lower()
+def normalizar_compacto(texto: str) -> str:
+    """Normaliza removendo também espaços para tolerar nomes com caracteres quebrados."""
+    return re.sub(r"[\W_]+", "", normalizar_texto(texto))
 
 
 def contem_termos(base: str, termos: list[str] | tuple[str, ...]) -> bool:
@@ -40,17 +37,24 @@ def contem_termo_exato(base: str, termos: list[str] | tuple[str, ...]) -> bool:
 def perfil_disciplina(disciplina: str) -> str:
     """Retorna o perfil pedagogico da disciplina."""
     base = normalizar_texto(disciplina)
+    compacto = normalizar_compacto(disciplina)
 
     if ("orient" in base and "estud" in base) or "orienestudos" in base:
         return "orientacao_estudos"
+    if compacto.startswith("orient") and "estud" in compacto:
+        return "orientacao_estudos"
     if contem_termo_exato(base, ["orientacao de estudos", "orientacao estudos", "orienestudos"]):
         return "orientacao_estudos"
+    if ("leitura" in compacto and "reda" in compacto) or ("reda" in compacto and "leitura" in compacto):
+        return "leitura_redacao"
     if contem_termo_exato(base, ["redacao e leitura", "leitura e redacao"]):
         return "leitura_redacao"
-    if contem_termo_exato(base, ["lingua portuguesa", "portugues"]):
+    if contem_termo_exato(base, ["lingua portuguesa", "portugues"]) or "portugues" in compacto:
         if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]):
             return "lingua_portuguesa_em"
         return "lingua_portuguesa_ef"
+    if (compacto.startswith("ci") and compacto.endswith("ncias")) or "ciencias" in compacto:
+        return "ciencias_ef"
     if contem_termo_exato(base, ["ciencias"]):
         return "ciencias_ef"
     if contem_termo_exato(base, ["biologia"]):
@@ -59,6 +63,8 @@ def perfil_disciplina(disciplina: str) -> str:
         return "quimica"
     if contem_termo_exato(base, ["fisica"]):
         return "fisica"
+    if compacto.startswith("hist") and compacto.endswith("ria"):
+        return "historia"
     if contem_termo_exato(base, ["historia"]):
         return "historia"
     if contem_termo_exato(base, ["geografia"]):
@@ -67,16 +73,24 @@ def perfil_disciplina(disciplina: str) -> str:
         return "ingles"
     if contem_termo_exato(base, ["arte"]):
         return "arte"
+    if "projeto" in compacto and "vida" in compacto:
+        return "projeto_de_vida"
     if contem_termo_exato(base, ["projeto de vida"]):
         return "projeto_de_vida"
+    if compacto.startswith("educa") and "financeira" in compacto:
+        return "educacao_financeira"
     if contem_termo_exato(base, ["educacao financeira"]):
         return "educacao_financeira"
+    if compacto.startswith("matem") and compacto.endswith("tica"):
+        return "matematica"
     if contem_termo_exato(base, ["matematica"]):
         return "matematica"
     if contem_termo_exato(base, ["tecnologia e inovacao", "tecnologia", "inovacao"]):
         return "tecnologia_inovacao"
     if contem_termo_exato(base, ["sociologia"]):
         return "sociologia"
+    if compacto.startswith("lideran") or "oratoria" in compacto:
+        return "lideranca_oratoria"
     if contem_termo_exato(base, ["lideranca e oratoria", "lideranca", "oratoria"]):
         return "lideranca_oratoria"
     return "geral"
@@ -356,34 +370,47 @@ _CIENCIAS_LEITURA_ANALISE = [
 ]
 
 _CIENCIAS_CONCEITO_NOVO = [
-    "conceito", "definicao", "classificacao", "tipos de", "camadas",
-    "estrutura", "composicao", "macronutrientes", "biosfera", "celula",
-    "sistema", "orgao", "ciclo da agua", "solo", "energia", "nutrientes",
+    "camadas da terra", "estrutura da terra", "foco no conteudo", "para comecar"
 ]
 
-_BIOLOGIA_AULA_DESAFIO = [
-    "aula desafio", "desafio da semana", "entendendo o problema",
-    "solucao em acao", "hora da verdade", "estudo de caso",
-    "hipotese", "investigacao", "surto", "epidemia", "zoonose",
-    "machupo", "em13cnt301",
+_BIOLOGIA_ETICO = [
+    "bioetica", "etica", "hela", "consentimento", "patente",
+    "clonagem", "terapia genica", "comite de etica",
+    "pesquisa com seres humanos", "henrietta lacks", "dignidade", "sigilo",
+    "beneficencia", "nao maleficencia", "justica", "cep", "conep"
 ]
 
-_BIOLOGIA_AULA_PRATICA = [
-    "aula pratica", "na pratica", "experimento", "materiais", "montagem",
-    "laboratorio", "elodea", "bequer", "tubo de ensaio", "observar",
-    "bolhas", "resultado do experimento", "procedimento",
+_BIOLOGIA_DEBATE = [
+    "darwinismo social", "eugenia", "racismo cientifico", "racismo estrutural",
+    "discriminacao", "segregacao social", "segregacao racial", "pseudociencia", "determinismo biologico",
+    "mengele", "nazismo", "branqueamento", "ancestralidade", "variabilidade genetica",
+    "endogamia", "casamento consanguineo", "equidade", "diversidade"
+]
+
+_BIOLOGIA_MOLECULAR = [
+    "dna", "rna", "nucleotideo", "base nitrogenada", "adenina", "timina",
+    "citosina", "guanina", "uracila", "dupla helice", "replicacao",
+    "transcricao", "traducao", "rna mensageiro", "mrna", "trna", "rrna",
+    "rna polimerase", "helicase", "dna polimerase", "semiconservativo",
+    "genoma", "gene", "genotipo", "fenotipo", "alelo", "homozigoto",
+    "heterozigoto", "dominante", "recessivo", "mendel", "quadro de punnett",
+    "heredograma", "cromossomo", "daltonismo", "hemofilia"
+]
+
+_BIOLOGIA_BIOTEC = [
+    "biotecnologia", "engenharia genetica", "dna recombinante", "plasmideo",
+    "clonagem reprodutiva", "clonagem terapeutica", "celulas-tronco",
+    "terapia genica", "car-t", "insulina recombinante", "vacina", "soro",
+    "anticorpo", "antigeno", "imunidade", "butantan", "fiocruz", "anvisa",
+    "patente", "licenciamento compulsorio", "medicamento generico",
+    "sistema imune", "imunidade inata", "imunidade adquirida", "linfocito",
+    "macrofago", "neutrofilo", "leucocito", "soro antiofidico",
+    "memoria imunologica", "imunizacao ativa", "imunizacao passiva",
+    "variola", "ze gotinha"
 ]
 
 _BIOLOGIA_REVISAO = [
-    "relembre", "glossario", "quiz", "retomada", "consolidacao",
-    "revisao", "termos", "conceitos", "de quais voce sabe",
-]
-
-_BIOLOGIA_IMPACTO_SOCIOAMBIENTAL = [
-    "acao antropica", "desmatamento", "bioma", "impacto ambiental",
-    "ods", "energia renovavel", "sustentabilidade", "saude publica",
-    "degradacao", "queimada", "mineracao", "pegada de carbono",
-    "amazonia", "cerrado", "matriz energetica", "em13cnt106", "em13cnt206",
+    "relembre", "retomada", "revisao", "consolidacao", "consolidar", "retomar"
 ]
 
 _BIOLOGIA_CONCEITO_NOVO = [
@@ -419,16 +446,29 @@ def _tipo_aula_biologia(titulo: str, texto: str) -> str:
     texto_norm = normalizar_texto(texto)
     base_norm = f"{titulo_norm} {texto_norm}"
 
-    if contem_termos(base_norm, _BIOLOGIA_AULA_DESAFIO):
-        return "aula_desafio"
-    if contem_termos(base_norm, _BIOLOGIA_AULA_PRATICA):
-        return "aula_pratica"
-    if contem_termos(base_norm, _BIOLOGIA_REVISAO):
-        return "revisao_consolidacao"
-    if contem_termos(base_norm, _BIOLOGIA_IMPACTO_SOCIOAMBIENTAL):
-        return "impacto_socioambiental"
-    if contem_termos(base_norm, _BIOLOGIA_CONCEITO_NOVO):
-        return "conceito_novo"
+    # Primeiro tenta pelo título para maior precisão usando termo exato
+    if contem_termo_exato(titulo_norm, _BIOLOGIA_ETICO):
+        return "etico_biotecnologico"
+    if contem_termo_exato(titulo_norm, _BIOLOGIA_DEBATE):
+        return "debate_critico"
+    if contem_termo_exato(titulo_norm, _BIOLOGIA_MOLECULAR):
+        return "molecular_genetico"
+    if contem_termo_exato(titulo_norm, _BIOLOGIA_BIOTEC):
+        return "aplicacao_biotecnologica"
+
+    # Fallback para o texto completo usando termo exato
+    if contem_termo_exato(base_norm, _BIOLOGIA_ETICO):
+        return "etico_biotecnologico"
+    if contem_termo_exato(base_norm, _BIOLOGIA_DEBATE):
+        return "debate_critico"
+    if contem_termo_exato(base_norm, _BIOLOGIA_MOLECULAR):
+        return "molecular_genetico"
+    if contem_termo_exato(base_norm, _BIOLOGIA_BIOTEC):
+        return "aplicacao_biotecnologica"
+
+    if contem_termo_exato(base_norm, _BIOLOGIA_REVISAO):
+        return "revisao_aprofundamento"
+
     return "conceito_novo"
 
 
@@ -625,6 +665,16 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     perfil = perfil_disciplina(disciplina)
 
     if perfil == "educacao_financeira":
+        _EF_AULA_PRATICA = [
+            "pesquisa de precos", "elaborar uma tabela", "simular gastos",
+            "dividir os alunos em trios", "trabalhar de forma individual",
+            "material impresso como guia", "sentar em circulo para compartilhar",
+            "pesquisa de preços", "elaborar uma planilha", "simular despesas",
+            "planejamento pratico", "planejamento prático",
+        ]
+        if contem_termos(base, _EF_AULA_PRATICA):
+            return "aula_pratica_continuidade"
+
         tipo_por_tema = _detectar_tipo_educacao_financeira_por_tema(tema_base)
         if tipo_por_tema:
             return tipo_por_tema

@@ -413,6 +413,11 @@ def carregar_planilha_cdp_multisseriada() -> Dict[str, List[Dict[str, str]]]:
     Carrega a planilha específica do CDP multisseriado (EJA) e retorna dados por sheet.
     """
     if not PLANILHA_CDP_MULTISSERIADA.exists():
+        import logging
+        logging.getLogger(__name__).error(
+            f"PLANILHA CDP MULTISSERIADA NÃO ENCONTRADA: {PLANILHA_CDP_MULTISSERIADA}. "
+            "O plano será gerado sem dados de habilidades multisseriadas."
+        )
         return {}
     with ZipFile(PLANILHA_CDP_MULTISSERIADA) as z:
         strings = _shared_strings(z)
@@ -475,6 +480,12 @@ def carregar_planilha_cdp() -> Dict[str, List[Dict[str, str]]]:
     Cada sheet contém lista de dicionários com colunas da planilha.
     """
     if not PLANILHA_CDP.exists():
+        import logging
+        logging.getLogger(__name__).error(
+            f"PLANILHA CDP NÃO ENCONTRADA: {PLANILHA_CDP}. "
+            "O plano CDP será gerado sem dados de habilidades. "
+            "Verifique se o arquivo existe no caminho correto."
+        )
         return {}
     with ZipFile(PLANILHA_CDP) as z:
         strings = _shared_strings(z)
@@ -791,82 +802,6 @@ def selecionar_item(
 
     return _selecionar_por_contador(filtradas, contador, aula_inicial)
 
-
-def _metodologia_cdp_por_modelo(disciplina: str, tema: str, objeto: str) -> str:
-    disciplina_norm = normalizar(disciplina)
-    tema_frase = _titulo_para_frase(tema or objeto or "conteúdo proposto")
-
-    if "portugues" in disciplina_norm or "lingua" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com uma conversa breve sobre o tema {tema_frase}, perguntando o que os alunos já sabem "
-            "e registrando no quadro palavras ou ideias importantes.\n\n"
-            "2. Desenvolvimento: realizar leitura mediada do texto ou apresentação do conteúdo, explicando vocabulário, "
-            "informações principais e exemplos simples. Durante a explicação, fazer perguntas orais para verificar a compreensão.\n\n"
-            "3. Atividade: orientar os alunos na resolução das questões de leitura, escrita ou interpretação no caderno, "
-            "acompanhando a turma e auxiliando quem apresentar dificuldade.\n\n"
-            "4. Fechamento: realizar correção coletiva, retomar as respostas principais e registrar uma síntese simples do que foi estudado."
-        )
-
-    if "matematica" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com uma situação do cotidiano relacionada ao tema {tema_frase}, como contagens, medidas, "
-            "compras, horários, formas ou organização de quantidades.\n\n"
-            "2. Desenvolvimento: explicar o conteúdo no quadro com exemplos simples e resolução passo a passo, mostrando como "
-            "organizar os cálculos, desenhos, tabelas ou registros necessários.\n\n"
-            "3. Atividade: propor exercícios no caderno, permitindo que os alunos resolvam com apoio do professor e comparem "
-            "suas estratégias durante a correção.\n\n"
-            "4. Fechamento: conferir os resultados coletivamente e retomar o procedimento principal da aula."
-        )
-
-    if "historia" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com uma pergunta simples sobre o tema {tema_frase}, relacionando o assunto a experiências, "
-            "memórias ou situações conhecidas pela turma.\n\n"
-            "2. Desenvolvimento: explicar o conteúdo de forma dialogada, destacando acontecimentos, personagens, mudanças, "
-            "permanências e relações entre passado e presente.\n\n"
-            "3. Atividade: orientar registros no caderno e questões de compreensão, acompanhando as respostas e retomando "
-            "os pontos que gerarem dúvida.\n\n"
-            "4. Fechamento: fazer correção coletiva e organizar no quadro as ideias principais estudadas."
-        )
-
-    if "geografia" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com conversa sobre lugares, paisagens, moradias, deslocamentos ou situações do cotidiano "
-            f"relacionadas ao tema {tema_frase}.\n\n"
-            "2. Desenvolvimento: apresentar o conteúdo com explicação clara, exemplos próximos da realidade dos alunos e "
-            "registros no quadro para organizar as informações.\n\n"
-            "3. Atividade: propor observação, comparação, identificação ou registro no caderno, acompanhando a turma durante "
-            "a realização das tarefas.\n\n"
-            "4. Fechamento: socializar algumas respostas, corrigir as atividades e retomar o conceito principal da aula."
-        )
-
-    if "ciencia" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com exemplos do cotidiano relacionados ao tema {tema_frase}, perguntando o que os alunos "
-            "observam em casa, na escola ou na comunidade.\n\n"
-            "2. Desenvolvimento: explicar o conteúdo com linguagem simples, exemplos concretos, esquemas no quadro e perguntas "
-            "orais para verificar a compreensão.\n\n"
-            "3. Atividade: orientar atividades de identificação, classificação, registro ou interpretação, acompanhando os alunos "
-            "durante a realização das questões.\n\n"
-            "4. Fechamento: corrigir coletivamente e retomar os cuidados, conceitos ou informações principais da aula."
-        )
-
-    if "arte" in disciplina_norm:
-        return (
-            f"1. Abertura: iniciar com conversa sobre manifestações artísticas, culturais ou corporais relacionadas ao tema {tema_frase}, "
-            "valorizando experiências conhecidas pelos alunos.\n\n"
-            "2. Desenvolvimento: apresentar o conteúdo com exemplos simples, explicação oral e demonstração da proposta quando necessário.\n\n"
-            "3. Atividade: orientar produção, registro, apreciação ou movimento, acompanhando a participação da turma e respeitando "
-            "diferentes formas de expressão.\n\n"
-            "4. Fechamento: socializar as produções ou comentários e retomar as ideias principais da aula."
-        )
-
-    return (
-        f"1. Abertura: iniciar com conversa breve sobre o tema {tema_frase}, levantando conhecimentos prévios dos alunos.\n\n"
-        "2. Desenvolvimento: apresentar o conteúdo com linguagem simples, exemplos próximos da realidade da turma e registros no quadro.\n\n"
-        "3. Atividade: orientar exercícios ou registros no caderno, acompanhando a realização das tarefas e apoiando quem precisar.\n\n"
-        "4. Fechamento: realizar correção coletiva e retomar os principais pontos trabalhados."
-    )
 
 
 def _metodologia_cdp_por_modelo(disciplina: str, tema: str, objeto: str) -> str:

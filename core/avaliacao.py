@@ -1,20 +1,12 @@
 import re
 import unicodedata
-
-
-def _normalizar(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", texto or "")
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 def _base_textual(*partes: str) -> str:
     return _normalizar(" ".join(parte or "" for parte in partes))
 
-
 def _contem(base: str, termos: list[str]) -> bool:
     return any(termo in base for termo in termos)
-
 
 def _perfil_resolvido(perfil: str, disciplina: str) -> str:
     if perfil:
@@ -44,7 +36,6 @@ def _perfil_resolvido(perfil: str, disciplina: str) -> str:
         if _contem(disciplina_norm, termos):
             return nome
     return "geral"
-
 
 def gerar_acompanhamento_dinamico(
     tema: str,
@@ -192,7 +183,6 @@ def gerar_acompanhamento_dinamico(
         "Verificar a participacao, os registros produzidos e a forma como os estudantes justificam suas respostas ao longo da aula.",
         "Acompanhar se os estudantes conseguem aplicar os conhecimentos trabalhados com autonomia progressiva nas atividades orientadas.",
     ]
-
 
 def gerar_acessibilidade_dinamica(
     tema: str,

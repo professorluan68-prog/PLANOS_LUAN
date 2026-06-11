@@ -10,68 +10,97 @@ def test_perfil_biologia_detectado_corretamente():
 
 
 def test_tipo_aula_biologia_detectado_corretamente():
-    texto_desafio = "Aula desafio: o caso do virus Machupo. Desafio da semana. Entendendo o problema. Solucao em acao. Hora da verdade."
-    assert detectar_tipo_aula(texto_desafio, "O caso do virus Machupo", "Biologia") == "aula_desafio"
+    # 1. etico_biotecnologico
+    texto_etico = "Celulas HeLa: a importancia da bioetica em biotecnologia. CEP, CONEP, consentimento livre e esclarecido, dignidade e sigilo."
+    assert detectar_tipo_aula(texto_etico, "Bioetica em pesquisa", "Biologia") == "etico_biotecnologico"
 
-    texto_pratica = "Relembre a fotossintese. Na pratica com materiais, montagem do experimento com elodea e observacao de bolhas."
-    assert detectar_tipo_aula(texto_pratica, "Fotossintese e respiracao celular", "Biologia") == "aula_pratica"
+    # 2. debate_critico
+    texto_debate = "Estudo do darwinismo social e eugenia. Racismo cientifico, pseudociencia e determinismo biologico na historia."
+    assert detectar_tipo_aula(texto_debate, "Eugenia e racismo cientifico", "Biologia") == "debate_critico"
 
-    texto_revisao = "Relembre os conceitos de ecologia. Glossario e quiz de revisao. De quais voce sabe o significado?"
-    assert detectar_tipo_aula(texto_revisao, "Ecologia", "Biologia") == "revisao_consolidacao"
+    # 3. molecular_genetico
+    texto_molecular = "Bases nitrogenadas: adenina, timina, citosina e guanina. Replicacao semiconservativa do DNA e transcricao do RNA."
+    assert detectar_tipo_aula(texto_molecular, "DNA e RNA", "Biologia") == "molecular_genetico"
 
-    texto_impacto = "Biomas brasileiros, desmatamento, ODS, sustentabilidade, dados do INPE e impactos ambientais."
-    assert detectar_tipo_aula(texto_impacto, "Biomas terrestres brasileiros", "Biologia") == "impacto_socioambiental"
+    # 4. aplicacao_biotecnologica
+    texto_biotec = "Vacinas e soros. Imunidade adquirida e resposta imunológica no Instituto Butantan e Fiocruz."
+    assert detectar_tipo_aula(texto_biotec, "Imunidade e vacinacao", "Biologia") == "aplicacao_biotecnologica"
 
-    texto_conceito = "Para comecar. Foco no conteudo. Um passo de cada vez. Pause e responda. Fotossintese."
-    assert detectar_tipo_aula(texto_conceito, "Metabolismo energetico: fotossintese", "Biologia") == "conceito_novo"
+    # 5. revisao_aprofundamento
+    texto_revisao = "Retomada dos conceitos de genetica mendeliana. Relembre o cruzamento de ervilhas e a segregacao."
+    assert detectar_tipo_aula(texto_revisao, "Revisao de Genetica", "Biologia") == "revisao_aprofundamento"
 
 
 def test_etapas_por_perfil_biologia():
-    etapas_desafio = _etapas_por_perfil("biologia", "aula_desafio")
-    chaves_desafio = [e[1] for e in etapas_desafio]
-    assert "desafio" in chaves_desafio
-    assert "hora_verdade" in chaves_desafio
+    etapas_etico = _etapas_por_perfil("biologia", "etico_biotecnologico")
+    chaves_etico = [e[1] for e in etapas_etico]
+    assert "para_comecar" in chaves_etico
+    assert "foco_1" in chaves_etico
+    assert "foco_2" in chaves_etico
+    assert "pause" in chaves_etico
+    assert "pratica" in chaves_etico
+    assert "encerramento" in chaves_etico
 
-    etapas_pratica = _etapas_por_perfil("biologia", "aula_pratica")
-    chaves_pratica = [e[1] for e in etapas_pratica]
-    assert "discussao_resultados" in chaves_pratica
+    etapas_molecular = _etapas_por_perfil("biologia", "molecular_genetico")
+    chaves_molecular = [e[1] for e in etapas_molecular]
+    assert "relembre" in chaves_molecular
+    assert "foco_1" in chaves_molecular
+    assert "foco_2" in chaves_molecular
+    assert "pause" in chaves_molecular
+    assert "pratica" in chaves_molecular
+    assert "encerramento" in chaves_molecular
 
 
-def test_motor_metodologico_biologia_impacto():
+def test_motor_metodologico_biologia_etico():
     motor = MotorMetodologico()
     etapas = motor.gerar(
-        texto_pdf="Biomas brasileiros, dados do INPE, desmatamento, ODS, De olho no modelo e atividade de analise.",
+        texto_pdf='Assista ao video "A mulher que mudou a medicina" no canal Nerdologia com duracao de 7 minutos. Discutir bioetica e consentimento.',
         disciplina="Biologia",
         turma="1º ANO A",
-        tema="Biomas terrestres brasileiros",
+        tema="Células HeLa e Bioética",
     )
     titulos = [e["titulo"] for e in etapas]
     assert "Para comecar" in titulos
-    assert "De olho no modelo" in titulos
+    assert "Foco no conteudo" in titulos
     assert "Encerramento" in titulos
 
-    textos = " ".join(e["texto"] for e in etapas).lower()
-    assert "impactos" in textos or "ambient" in textos
-    assert "com suas palavras" in textos
+    textos = " ".join(e["texto"] for e in etapas)
+    # Deve conter menções a vídeos e canais extraídos
+    assert "Nerdologia" in textos
+    assert "A mulher que mudou a medicina" in textos
+    
+    # Nenhuma etapa deve começar com definição direta de conceitos (ex: "X é...")
+    for etapa in etapas:
+        texto_etapa = etapa["texto"].strip()
+        assert not texto_etapa.startswith(("Definir", "Apresentar a definição", "Explicar a definição", "O conceito de", "Conceito:"))
 
 
-def test_acompanhamento_biologia_desafio():
+def test_acompanhamento_biologia_etico():
     acompanhamento = gerar_acompanhamento_aprimorado(
-        tema="O caso do virus Machupo",
-        desenvolvimento="Aula desafio. Desafio da semana. Entendendo o problema. Solucao em acao. Hora da verdade.",
+        tema="Células HeLa e Bioética",
+        desenvolvimento='Para comecar: video sobre Henrietta Lacks. Foco no conteudo: bioetica e consentimento. Na pratica: analise do caso.',
         disciplina="Biologia",
     )
     assert len(acompanhamento) == 3
-    assert any("hipóteses" in item.lower() or "hipoteses" in item.lower() for item in acompanhamento)
-    assert any("evid" in item.lower() for item in acompanhamento)
+    # Todos os itens de biologia devem conter o checkmark ☑
+    for item in acompanhamento:
+        assert item.startswith("☑")
+    
+    assert any("bioética" in item.lower() or "bioetica" in item.lower() for item in acompanhamento)
+    assert any("dignidade" in item.lower() or "autonomia" in item.lower() for item in acompanhamento)
 
 
-def test_acessibilidade_biologia_pratica():
+def test_acessibilidade_biologia_molecular():
     acessibilidade = gerar_acessibilidade_aprimorada(
-        tema="Fotossintese e respiracao celular",
-        desenvolvimento="Relembre. Na pratica com materiais, montagem do experimento com elodea, observacao e discussao dos resultados.",
+        tema="Cruzamento Genético",
+        desenvolvimento='Relembre: genotipo e fenotipo. Foco no conteudo: Primeira Lei de Mendel. Na pratica: quadro de Punnett.',
         disciplina="Biologia",
     )
     assert len(acessibilidade) == 3
-    assert any("sequ" in item.lower() or "visual" in item.lower() for item in acessibilidade)
-    assert any("desenho" in item.lower() or "oral" in item.lower() for item in acessibilidade)
+    # Todos os itens de biologia devem conter o checkmark ☑
+    for item in acessibilidade:
+        assert item.startswith("☑")
+
+    # Deve conter templates de ferramentas práticas ou glossários
+    assert any("glossário" in item.lower() or "glossario" in item.lower() for item in acessibilidade)
+    assert any("punnett" in item.lower() or "heredograma" in item.lower() for item in acessibilidade)

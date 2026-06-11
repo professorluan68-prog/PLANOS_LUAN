@@ -134,3 +134,32 @@ def test_naturaliza_metodologia_com_tecnica_embutida_na_acao_docente():
     assert "preservando o produto esperado" not in texto
     assert "relacionar a explicacao aos registros anteriores" not in texto
     assert "producao de tabela" in texto
+
+
+def test_limpa_repeticao_tecnicas_lemov_ia():
+    from core.lote import _limpar_repeticao_tecnicas_lemov_ia
+    metodologia = [
+        {
+            "titulo": "Para comecar",
+            "texto": "Iniciar a aula aplicando a tecnica Virem e conversem, perguntando aos estudantes sobre o tema."
+        },
+        {
+            "titulo": "Foco no conteudo",
+            "texto": "Utilizar a tecnica Todo mundo escreve para garantir o registro individual."
+        },
+        {
+            "titulo": "Na pratica",
+            "texto": "Orientar a atividade incorporando a tecnica de 'Hora da leitura' de forma contextualizada."
+        }
+    ]
+    limpa = _limpar_repeticao_tecnicas_lemov_ia(metodologia)
+
+    assert "a tecnica Virem e conversem" not in limpa[0]["texto"]
+    assert "o Virem e conversem" in limpa[0]["texto"]
+
+    assert "a tecnica Todo mundo escreve" not in limpa[1]["texto"]
+    assert "o Todo mundo escreve" in limpa[1]["texto"]
+
+    assert "tecnica de 'Hora da leitura'" not in limpa[2]["texto"]
+    assert "Hora da leitura" in limpa[2]["texto"]
+

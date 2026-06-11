@@ -1,13 +1,6 @@
 import re
 import unicodedata
-
-
-def _normalizar(texto: str = "") -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    texto = texto.lower()
-    return re.sub(r"\s+", " ", texto).strip()
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 def _detectar_etapa(tema: str, texto_pdf: str) -> str:
     base = _normalizar(f"{tema} {texto_pdf[:1200]}")
@@ -18,100 +11,96 @@ def _detectar_etapa(tema: str, texto_pdf: str) -> str:
             return f"etapa {numero}"
     return ""
 
-
 def _limpar_tema(tema: str) -> str:
     base = str(tema or "").strip()
     base = re.sub(r"(?i)\s*-\s*etapa\s+(final|\d+)\s*$", "", base).strip()
     return base
 
-
 def _titulo_legivel(tema: str) -> str:
     base = _limpar_tema(tema)
     return base or "Orientacao de Estudos"
 
-
 def _perfil_por_titulo(tema: str) -> dict[str, str]:
     titulo = _normalizar(_limpar_tema(tema))
     perfis = {
-        "missao 6 - uma palavra puxa a outra": {
+        "missao 6 uma palavra puxa a outra": {
             "objeto": "as palavras que ligam ideias em um texto",
             "foco": "conectivos, conjuncoes e relacoes de sentido entre palavras, frases e paragrafos",
         },
-        "missao 7 - a trama do texto": {
+        "missao 7 a trama do texto": {
             "objeto": "a coesao textual e os recursos usados para evitar repeticoes",
             "foco": "pronomes, sinonimos, retomadas e referentes que mantem a continuidade das ideias",
         },
-        "missao 1 - jogos com palavras e imagens": {
+        "missao 1 jogos com palavras e imagens": {
             "objeto": "a relacao entre palavras, imagens e regras de jogo",
             "foco": "linguagem verbal e visual, regras e organizacao das informacoes",
         },
-        "missao 2 - para chorar de rir": {
+        "missao 2 para chorar de rir": {
             "objeto": "o humor em historias em quadrinhos e outros textos",
             "foco": "efeitos de humor, imagens, falas e quebra de expectativa",
         },
-        "missao 3 - da charge a noticia": {
+        "missao 3 da charge a noticia": {
             "objeto": "a comparacao entre charge e noticia",
             "foco": "finalidade, ponto de vista e formas de tratar uma mesma informacao",
         },
-        "missao 4 - que tirada!": {
+        "missao 4 que tirada!": {
             "objeto": "as tirinhas e os recursos que constroem humor",
             "foco": "linguagem verbal e visual, expressividade e interpretacao das tirinhas",
         },
-        "missao 5 - vamos a fundo nos assuntos": {
+        "missao 5 vamos a fundo nos assuntos": {
             "objeto": "a reportagem e a organizacao das informacoes",
             "foco": "titulo, intertitulos, imagens, legendas e aprofundamento do assunto",
         },
-        "missao 8 - por dentro dos verbetes": {
+        "missao 8 por dentro dos verbetes": {
             "objeto": "o verbete e sua funcao informativa",
             "foco": "organizacao do verbete, selecao de informacoes e linguagem objetiva",
         },
-        "missao 9 - narrativas breves": {
+        "missao 9 narrativas breves": {
             "objeto": "as narrativas breves e seus elementos",
             "foco": "personagens, conflito, tempo, espaco e sequencia dos fatos",
         },
-        "missao 10 - a voz da poesia": {
+        "missao 10 a voz da poesia": {
             "objeto": "os poemas e seus efeitos de sentido",
             "foco": "versos, eu lirico, interlocucao e recursos expressivos",
         },
-        "missao 11 - um mergulho no cordel": {
+        "missao 11 um mergulho no cordel": {
             "objeto": "o cordel e a leitura das entrelinhas",
             "foco": "versos, linguagem figurada, inferencias e pistas textuais",
         },
-        "missao 12 - poema para mim e para voce": {
+        "missao 12 poema para mim e para voce": {
             "objeto": "a leitura e a producao poetica",
             "foco": "estrutura do poema, recursos expressivos e planejamento de escrita",
         },
-        "missao 13 - lendas e narrativa": {
+        "missao 13 lendas e narrativa": {
             "objeto": "as lendas e a organizacao da narrativa",
             "foco": "personagens, tempo, espaco, conflito e marcas culturais",
         },
-        "missao 14 - qual e a moral da historia": {
+        "missao 14 qual e a moral da historia": {
             "objeto": "as fabulas e a moral da historia",
             "foco": "personagens, conflito, desfecho, moral e relacoes de causa e consequencia",
         },
-        "missao 15 - o texto no teatro": {
+        "missao 15 o texto no teatro": {
             "objeto": "o texto teatral e sua organizacao",
             "foco": "falas, rubricas, pontuacao expressiva e construcao da cena",
         },
-        "missao 16 - opiniao versus fato": {
+        "missao 16 opiniao versus fato": {
             "objeto": "a diferenca entre fato e opiniao",
             "foco": "ponto de vista, argumentos, justificativas e leitura critica",
         },
-        "trilha 7 - projetos culturais e coesao textual": {
+        "trilha 7 projetos culturais e coesao textual": {
             "objeto": "os projetos culturais e a coesao textual",
             "foco": "justificativa, objetivos, metodologia, avaliacao e ligacao entre as partes do texto",
         },
-        "trilha 8 - cartas de leitor e argumento": {
+        "trilha 8 cartas de leitor e argumento": {
             "objeto": "as cartas de leitor e a argumentacao",
             "foco": "tese, argumentos, ponto de vista e organizacao da carta",
         },
-        "trilha 16 - textos de divulgacao cientifica": {
+        "trilha 16 textos de divulgacao cientifica": {
             "objeto": "os textos de divulgacao cientifica",
             "foco": "linguagem acessivel, tema cientifico, fonte e organizacao das informacoes",
         },
     }
     return perfis.get(titulo, {})
-
 
 def _perfil_generico(tema: str) -> dict[str, str]:
     perfil = _perfil_por_titulo(tema)
@@ -121,7 +110,6 @@ def _perfil_generico(tema: str) -> dict[str, str]:
         "objeto": _titulo_legivel(tema).lower(),
         "foco": "leitura orientada, interpretacao, organizacao das respostas e autonomia de estudo",
     }
-
 
 def _referencia_texto(tema: str, texto_pdf: str) -> str:
     base = _normalizar(texto_pdf)
@@ -152,7 +140,6 @@ def _referencia_texto(tema: str, texto_pdf: str) -> str:
     if "poema" in base:
         return "o poema apresentado na etapa"
     return f"o material de { _titulo_legivel(tema).lower() }"
-
 
 def _blocos_especificos_missao_6(etapa: str) -> dict[str, str] | None:
     if etapa == "etapa 1":
@@ -189,7 +176,6 @@ def _blocos_especificos_missao_6(etapa: str) -> dict[str, str] | None:
         }
     return None
 
-
 def _blocos_especificos_missao_7(etapa: str) -> dict[str, str] | None:
     if etapa == "etapa 1":
         return {
@@ -224,7 +210,6 @@ def _blocos_especificos_missao_7(etapa: str) -> dict[str, str] | None:
             "encerramento": "Socializar algumas producoes ou escolhas de vocabulario feitas pela turma e retomar o objetivo da missao: compreender como a coesao textual ajuda a construir textos mais claros, fluidos e bem organizados.",
         }
     return None
-
 
 def _blocos_especificos_missao_10(etapa: str) -> dict[str, str] | None:
     if etapa == "etapa 1":
@@ -261,7 +246,6 @@ def _blocos_especificos_missao_10(etapa: str) -> dict[str, str] | None:
         }
     return None
 
-
 def _blocos_especificos_missao_11(etapa: str) -> dict[str, str] | None:
     if etapa == "etapa 1":
         return {
@@ -296,7 +280,6 @@ def _blocos_especificos_missao_11(etapa: str) -> dict[str, str] | None:
             "encerramento": "Socializar algumas estrofes produzidas pela turma e retomar o objetivo da missao: mergulhar no cordel para ler, inferir e tambem criar. Finalizar valorizando o uso das rimas e da criatividade como forma de ampliar a relacao dos estudantes com a poesia popular.",
         }
     return None
-
 
 def _blocos_especificos_jornada_13(texto_pdf: str) -> dict[str, str] | None:
     base = _normalizar(texto_pdf)
@@ -339,7 +322,6 @@ def _blocos_especificos_jornada_13(texto_pdf: str) -> dict[str, str] | None:
 
     return None
 
-
 def _blocos_especificos_jornada_14(texto_pdf: str) -> dict[str, str] | None:
     base = _normalizar(texto_pdf)
 
@@ -378,19 +360,18 @@ def _blocos_especificos_jornada_14(texto_pdf: str) -> dict[str, str] | None:
         "encerramento": "Corrigir as respostas de forma dialogada e finalizar retomando que conhecer variedades linguisticas nao significa abandonar a norma-padrao, mas entender quando e por que diferentes usos da lingua aparecem. Destacar que essa compreensao ajuda a combater preconceitos e ampliar a leitura de mundo.",
     }
 
-
 def montar_frases_orientacao_estudos(tema: str, texto_pdf: str) -> dict[str, str]:
     etapa = _detectar_etapa(tema, texto_pdf)
     tema_norm = _normalizar(_limpar_tema(tema))
 
     blocos = None
-    if "missao 6 - uma palavra puxa a outra" in tema_norm:
+    if "missao 6 uma palavra puxa a outra" in tema_norm:
         blocos = _blocos_especificos_missao_6(etapa)
-    elif "missao 7 - a trama do texto" in tema_norm:
+    elif "missao 7 a trama do texto" in tema_norm:
         blocos = _blocos_especificos_missao_7(etapa)
-    elif "missao 10 - a voz da poesia" in tema_norm:
+    elif "missao 10 a voz da poesia" in tema_norm:
         blocos = _blocos_especificos_missao_10(etapa)
-    elif "missao 11 - um mergulho no cordel" in tema_norm:
+    elif "missao 11 um mergulho no cordel" in tema_norm:
         blocos = _blocos_especificos_missao_11(etapa)
     elif "jornada 13" in tema_norm and "recursos midi" in tema_norm:
         blocos = _blocos_especificos_jornada_13(texto_pdf)
@@ -442,7 +423,6 @@ def montar_frases_orientacao_estudos(tema: str, texto_pdf: str) -> dict[str, str
         }
     res["_e_especifico"] = False
     return res
-
 
 def extrair_etapas_orientacao_estudos(texto: str) -> list[dict]:
     """

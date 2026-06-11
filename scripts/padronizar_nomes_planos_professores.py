@@ -43,7 +43,8 @@ def padronizar_nomes() -> None:
                 ignorados += 1
                 continue
 
-            novo_nome = nome_padronizado_plano(disciplina, turma)
+            mes = str(info.get("mes") or "").strip().upper()
+            novo_nome = nome_padronizado_plano(disciplina, turma, mes)
             destino = _destino_unico(pasta_professor, novo_nome, caminho)
             if destino == caminho:
                 continue

@@ -1,10 +1,16 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
+import unicodedata
 
 
 BIMESTRES = ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"]
 MODO_PDF = "pdf"
 MODO_CDP = "cdp"
 MODO_CDP_FUNDAMENTAL = "cdp_fundamental"
+
+DISCIPLINA_CDP_MULTISSERIADA = "CDP- Multisseriada"
+DISCIPLINA_CDP_CICLO_I = "CDP - Ciclo I"
+DISCIPLINA_CDP_FUNDAMENTAL = "CDP-ENSINO FUNDAMENTAL"
+DISCIPLINA_CDP_MEDIO = "CDP-ENSINO MÉDIO"
 
 
 @dataclass(frozen=True)
@@ -21,21 +27,23 @@ class DisciplinaConfig:
 _DISCIPLINAS = [
     "Arte",
     "Biologia",
+    "Aprofundamento em Biologia",
     "Ciências",
     "Educação Financeira",
     "Educação Física",
     "Filosofia",
     "Física",
     "Geografia",
+    "Aprofundamento em Geografia",
     "História",
     "Liderança e Oratória",
     "Língua Inglesa",
     "Língua Portuguesa",
     "Matemática",
     "Orientação de Estudos",
-    "CDP-ENSINO FUNDAMENTAL",
-    "CDP-ENSINO MÉDIO",
-    "CDP- Multisseriada",
+    DISCIPLINA_CDP_FUNDAMENTAL,
+    DISCIPLINA_CDP_MEDIO,
+    DISCIPLINA_CDP_MULTISSERIADA,
     "Projeto de Vida",
     "Química",
     "Redação e Leitura",
@@ -54,15 +62,23 @@ TURMAS_CDP = [
 TURMAS_CDP_MULTISSERIADA = TURMAS_CDP
 
 
+def _normalizar_nome_disciplina(nome: str) -> str:
+    valor = unicodedata.normalize("NFKD", str(nome or "").strip().upper())
+    valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+    return " ".join(valor.split())
+
+
 def nomes_disciplinas() -> list[str]:
     return list(_DISCIPLINAS)
 
 
 def obter_config(disciplina: str) -> DisciplinaConfig:
     nome = (disciplina or "Outra").strip() or "Outra"
-    if nome == "CDP- Multisseriada":
+    nome_normalizado = _normalizar_nome_disciplina(nome)
+
+    if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_MULTISSERIADA):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
-    if nome == "CDP - Ciclo I":
+    if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP_FUNDAMENTAL, exige_pdf=False)
     return DisciplinaConfig(nome=nome)
 
@@ -80,6 +96,8 @@ def eh_cdp_fundamental(nome: str) -> bool:
 
 
 def eh_cdp_contextual(nome: str) -> bool:
-    chave = (nome or "").strip().upper().replace(" ", "")
-    return chave in {"CDP-ENSINOFUNDAMENTAL", "CDP-ENSINOMEDIO", "CDP-ENSINOMÉDIO"}
-
+    chave = _normalizar_nome_disciplina(nome)
+    return chave in {
+        _normalizar_nome_disciplina(DISCIPLINA_CDP_FUNDAMENTAL),
+        _normalizar_nome_disciplina(DISCIPLINA_CDP_MEDIO),
+    }

@@ -8,6 +8,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from config import ESCOPO_PROJETO_VIDA_PATH
+from core.lib.classificador import normalizar_texto as _normalizar
 
 ESCOPO_PV_PATH = ESCOPO_PROJETO_VIDA_PATH
 
@@ -16,13 +17,6 @@ _NS = {
     "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
     "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
 }
-
-
-def _normalizar(texto: str = "") -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
-
 
 def _repeticoes(elem, attr: str, limite: int = 200) -> int:
     valor = elem.attrib.get(f"{{{_NS['table']}}}{attr}")
@@ -33,7 +27,6 @@ def _repeticoes(elem, attr: str, limite: int = 200) -> int:
     except ValueError:
         return 1
 
-
 def _texto_celula(celula) -> str:
     texto = " ".join("".join(celula.itertext()).split())
     if texto:
@@ -43,7 +36,6 @@ def _texto_celula(celula) -> str:
         if valor:
             return str(valor).strip()
     return ""
-
 
 def _linhas_tabela(tabela, max_colunas: int = 14) -> list[list[str]]:
     linhas = []
@@ -68,38 +60,32 @@ def _linhas_tabela(tabela, max_colunas: int = 14) -> list[list[str]]:
                 linhas.append(celulas)
     return linhas
 
-
 def _normalizar_serie(turma: str = "") -> str:
     texto = _normalizar(turma)
     match = re.search(r"([123])", texto)
-    return f"{match.group(1)}ª" if match else ""
-
+    return f"{match.group(1)}a" if match else ""
 
 def _normalizar_bimestre(bimestre: str = "") -> str:
     match = re.search(r"([1-4])", str(bimestre or ""))
-    return f"{match.group(1)}º" if match else ""
-
+    return f"{match.group(1)}o" if match else ""
 
 def _normalizar_aula(aula) -> str:
     match = re.search(r"\b(\d{1,3})\b", str(aula or ""))
     return str(int(match.group(1))) if match else ""
 
-
 def _compactar_texto(texto: str = "") -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    texto = re.sub(r"\s*•\s*", " • ", texto)
+    texto = re.sub(r"\s*â€¢\s*", " â€¢ ", texto)
     return texto.strip(" .;-")
-
 
 def _itens(texto: str = "") -> list[str]:
     texto = _compactar_texto(texto)
     if not texto:
         return []
-    partes = [p.strip(" .;-") for p in re.split(r"\s*•\s*", texto) if p.strip(" .;-")]
+    partes = [p.strip(" .;-") for p in re.split(r"\s*â€¢\s*", texto) if p.strip(" .;-")]
     if len(partes) <= 1:
         partes = [p.strip(" .;-") for p in re.split(r"(?<=[.!?])\s+", texto) if p.strip(" .;-")]
     return partes
-
 
 def _frase_principal(texto: str = "", limite: int = 180) -> str:
     itens = _itens(texto)
@@ -111,7 +97,6 @@ def _frase_principal(texto: str = "", limite: int = 180) -> str:
         frase = frase.rsplit(" ", 1)[0].strip(" .;-")
     return frase
 
-
 def _habilidade_para_frase(habilidade: str = "") -> str:
     itens = _itens(habilidade)
     if not itens:
@@ -121,17 +106,19 @@ def _habilidade_para_frase(habilidade: str = "") -> str:
         return itens[0]
     return " e ".join(itens)
 
-
 def _minuscula_inicial(texto: str = "") -> str:
     texto = str(texto or "").strip()
     if not texto:
         return ""
     return texto[:1].lower() + texto[1:]
 
-
 @lru_cache(maxsize=1)
 def carregar_escopo_projeto_vida(caminho: str | None = None) -> list[dict[str, str]]:
     caminho_ods = Path(caminho) if caminho else ESCOPO_PV_PATH
+    if not caminho_ods.exists():
+        candidatos = sorted(caminho_ods.parent.glob("EM Escopo-sequ*.ods"))
+        if candidatos:
+            caminho_ods = candidatos[0]
     if not caminho_ods.exists():
         return []
 
@@ -172,7 +159,6 @@ def carregar_escopo_projeto_vida(caminho: str | None = None) -> list[dict[str, s
             )
     return registros
 
-
 def buscar_item_projeto_vida(turma: str, bimestre: str, numero_aula: str | int) -> dict[str, str]:
     serie = _normalizar_serie(turma)
     bim = _normalizar_bimestre(bimestre)
@@ -182,13 +168,12 @@ def buscar_item_projeto_vida(turma: str, bimestre: str, numero_aula: str | int) 
 
     for item in carregar_escopo_projeto_vida():
         if (
-            _normalizar(item.get("serie")) == _normalizar(serie)
-            and _normalizar(item.get("bimestre")) == _normalizar(bim)
+            _normalizar_serie(item.get("serie")) == serie
+            and _normalizar_bimestre(item.get("bimestre")) == bim
             and _normalizar_aula(item.get("aula")) == aula
         ):
             return item
     return {}
-
 
 def montar_aprendizagem_projeto_vida(item: dict[str, str]) -> str:
     habilidade = _habilidade_para_frase(item.get("habilidade", ""))

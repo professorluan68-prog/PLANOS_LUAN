@@ -3,7 +3,6 @@ import re
 import unicodedata
 from pathlib import Path
 
-
 def _limpar_linhas(texto: str) -> list[str]:
     linhas = []
     for linha in (texto or "").splitlines():
@@ -12,14 +11,8 @@ def _limpar_linhas(texto: str) -> list[str]:
             linhas.append(linha)
     return linhas
 
-
-def _normalizar(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", texto or "")
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
-
 from core.lib.classificador import contem_termos as _contem
-
+from core.lib.classificador import normalizar_texto as _normalizar
 
 def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
     base = _normalizar(disciplina).replace(" ", "")
@@ -29,7 +22,6 @@ def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
         "cdp-ensinomedio",
         "cdpensinomedio",
     }
-
 
 def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = "") -> str:
     base = _normalizar(f"{Path(caminho_pdf).name} {tema} {texto}")
@@ -54,7 +46,6 @@ def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = ""
             return nome
     return "Geral"
 
-
 def _tema_cdp_seguro(texto: str, tema: str, disciplina: str, padrao: str) -> str:
     if not padrao:
         return tema or padrao
@@ -75,7 +66,6 @@ def _tema_cdp_seguro(texto: str, tema: str, disciplina: str, padrao: str) -> str
         partes.append(linhas[i])
         
     return " ".join(partes).strip()
-
 
 def _limpar_tema_cdp_contextual(tema: str, disciplina_base: str) -> str:
     texto = re.sub(r"\s+", " ", str(tema or "")).strip(" -:.")
@@ -98,47 +88,10 @@ def _limpar_tema_cdp_contextual(tema: str, disciplina_base: str) -> str:
             texto = re.sub(rf"^\s*{re.escape(termo)}\s*[-:–]?\s*", "", texto, flags=re.I)
     return texto or str(tema or "conteúdo da aula").strip() or "conteúdo da aula"
 
-
 def _formatar_material_cdp_contextual(tema: str, disciplina_base: str = "") -> str:
     titulo = _limpar_tema_cdp_contextual(tema, disciplina_base).strip()
     titulo = re.sub(r"\s+", " ", titulo).strip(" -:.")
     return f"TEMA:\n{titulo}" if titulo else "TEMA:\nConteúdo da aula"
-
-
-def _metodologia_cdp_contextual_obsoleta(perfil: str, tipo: str, tema: str, conceito: str) -> list[str]:
-    tema_frase = _limpar_tema_cdp_contextual(tema, "")
-    conceito_frase = _limpar_tema_cdp_contextual(conceito or tema_frase, "")
-    base_tema = _normalizar(f"{tema_frase} {conceito_frase}")
-
-    if perfil == "matematica":
-        if _contem(base_tema, ["fracao", "divisao", "numerador", "denominador"]):
-            return [
-                f"A aula inicia com uma conversa sobre situações do cotidiano em que objetos, alimentos ou quantidades precisam ser divididos em partes iguais. O professor apresenta exemplos na lousa mostrando a relação entre {tema_frase} e os procedimentos de cálculo. Em seguida, os alunos realizam atividades simples no caderno, com acompanhamento durante a resolução, registro das estratégias utilizadas e correção coletiva."
-            ]
-        if _contem(base_tema, ["exponencial", "potencia", "crescimento"]):
-            return [
-                f"A aula começa com uma conversa sobre situações em que valores aumentam rapidamente ao longo do tempo, como juros, dívidas e crescimento de quantidades. O professor apresenta exemplos simples na lousa, mostrando como reconhecer padrões e resolver situações envolvendo {tema_frase}. Durante a atividade, os alunos resolvem exercícios com acompanhamento do professor e discussão coletiva dos procedimentos utilizados."
-            ]
-        if _contem(base_tema, ["contagem", "principio multiplicativo", "combinacao", "possibilidade"]):
-            return [
-                f"A aula inicia com uma conversa sobre escolhas realizadas no dia a dia, como combinações possíveis de objetos, números, letras ou outras situações da rotina. O professor apresenta exemplos simples na lousa, explicando como diferentes escolhas geram diversas possibilidades. Em seguida, os alunos realizam atividades práticas de contagem e organização das possibilidades, registrando os resultados e comparando estratégias utilizadas."
-            ]
-        if _contem(base_tema, ["equacao", "incognita", "valor desconhecido"]):
-            return [
-                f"A aula inicia com uma conversa sobre situações do cotidiano em que é necessário calcular valores desconhecidos, organizar gastos ou resolver problemas por etapas. Em seguida, o professor apresenta situações-problema envolvendo {tema_frase}, explicando a construção e a resolução passo a passo na lousa. Após a explicação, os alunos resolvem exercícios com apoio do professor, realizando registros no caderno e discutindo os procedimentos utilizados."
-            ]
-        return [
-            f"A aula inicia com uma conversa sobre situações do cotidiano relacionadas a {tema_frase}. O professor apresenta o conteúdo na lousa com linguagem simples, exemplos próximos da realidade dos estudantes e resolução passo a passo. Em seguida, os alunos realizam exercícios no caderno com acompanhamento do professor, registrando os procedimentos utilizados e participando da correção coletiva."
-        ]
-
-    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
-        return [
-            f"A aula inicia com uma conversa breve sobre {tema_frase}, relacionando o assunto a situações de comunicação, leitura ou escrita presentes no cotidiano. O professor realiza leitura orientada do material, explica vocabulário e organiza no quadro as ideias principais. Em seguida, os alunos respondem às atividades no caderno, com apoio durante a leitura, interpretação e produção das respostas."
-        ]
-
-    return [
-        f"A aula inicia com uma conversa sobre situações do cotidiano relacionadas a {tema_frase}, valorizando os conhecimentos prévios dos estudantes da EJA. Em seguida, o professor apresenta o conteúdo com explicação clara, exemplos simples e registros no quadro. Os alunos realizam atividades no caderno com acompanhamento individual quando necessário, retomada das dúvidas e correção coletiva."
-    ]
 
 
 def _acompanhamento_cdp_contextual(perfil: str, tema: str) -> list[str]:
@@ -161,7 +114,6 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str) -> list[str]:
         "☑ Verificar dúvidas apresentadas e avanços durante a correção coletiva.",
     ]
 
-
 def _acessibilidade_cdp_contextual(perfil: str, tema: str) -> list[str]:
     if perfil == "matematica":
         return [
@@ -174,7 +126,6 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str) -> list[str]:
         "☑ Explicação passo a passo, com registro das ideias principais no quadro.",
         "☑ Apoio individual, retomada de conceitos e flexibilização dos registros quando necessário.",
     ]
-
 
 def _tema_truncado_cdp(texto: str) -> bool:
     normalizado = _normalizar(texto).strip(" .:-")
@@ -197,7 +148,6 @@ def _tema_truncado_cdp(texto: str) -> bool:
         "por",
         "ou",
     }
-
 
 def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
     base = _normalizar(f"{tema} {conceito}")
@@ -600,7 +550,6 @@ def _tipo_conteudo_cdp(perfil: str, tema: str, conceito: str = "") -> str:
         return "investigacao_ciencias"
     return "geral_cdp"
 
-
 def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
     tema_limpo = _limpar_tema_cdp_contextual(tema, "")
     conceito_limpo = _limpar_tema_cdp_contextual(conceito or "", "")
@@ -701,7 +650,6 @@ def _conceito_cdp_contextual(perfil: str, tema: str, conceito: str = "") -> str:
         return tema_limpo
     return "conteúdo central da aula"
 
-
 def _exemplo_concreto_cdp(tipo: str) -> str:
     exemplos = {
         "reta_numerica_racionais": "marcação de inteiros, frações e decimais em uma mesma reta numérica",
@@ -767,7 +715,6 @@ def _exemplo_concreto_cdp(tipo: str) -> str:
         "ciencias_geral": "observação de situações naturais e explicação das causas e consequências envolvidas",
     }
     return exemplos.get(tipo, "situação concreta próxima da realidade dos estudantes")
-
 
 def _limpar_texto_cdp_contextual(texto: str) -> str:
     proibidos = [
@@ -862,7 +809,6 @@ def _limpar_texto_cdp_contextual(texto: str) -> str:
             saida = re.sub(re.escape(termo), "", saida, flags=re.I)
     return re.sub(r"\s+", " ", saida).strip()
 
-
 def _tipos_matematica_eja_cdp() -> set[str]:
     return {
         "reta_numerica_racionais",
@@ -889,7 +835,6 @@ def _tipos_matematica_eja_cdp() -> set[str]:
         "teorema_pitagoras",
     }
 
-
 def _tipos_matematica_fundamental_cdp() -> set[str]:
     return {
         "decimal_composicao_decomposicao",
@@ -907,7 +852,6 @@ def _tipos_matematica_fundamental_cdp() -> set[str]:
         "fracao_introducao_fundamental",
         "problemas_fracoes_fundamental",
     }
-
 
 def _metodologia_matematica_eja_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
     aberturas = {
@@ -1030,7 +974,6 @@ def _metodologia_matematica_eja_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
     inicio = opcoes[indice_aula % len(opcoes)]
     return f"{inicio} {desenvolvimentos[tipo_cdp]}"
 
-
 def _metodologia_matematica_fundamental_cdp(tipo_cdp: str, indice_aula: int = 0) -> str:
     aberturas = {
         "decimal_composicao_decomposicao": [
@@ -1098,7 +1041,6 @@ def _metodologia_matematica_fundamental_cdp(tipo_cdp: str, indice_aula: int = 0)
         return ""
     inicio = opcoes[indice_aula % len(opcoes)]
     return f"{inicio} {desenvolvimentos[tipo_cdp]} O fechamento da aula acontece com uma pergunta oral de síntese, seguida de breve retomada na lousa do que foi aprendido."
-
 
 def _acompanhamento_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
     bancos = {
@@ -1175,7 +1117,6 @@ def _acompanhamento_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
     }
     return bancos.get(tipo_cdp, [])
 
-
 def _acessibilidade_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
     bancos = {
         "decimal_composicao_decomposicao": [
@@ -1250,7 +1191,6 @@ def _acessibilidade_matematica_fundamental_cdp(tipo_cdp: str) -> list[str]:
         ],
     }
     return bancos.get(tipo_cdp, [])
-
 
 def _acompanhamento_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
     bancos = {
@@ -1367,7 +1307,6 @@ def _acompanhamento_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
     }
     return bancos.get(tipo_cdp, [])
 
-
 def _acessibilidade_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
     bancos = {
         "reta_numerica_racionais": [
@@ -1482,7 +1421,6 @@ def _acessibilidade_matematica_eja_cdp(tipo_cdp: str) -> list[str]:
         ],
     }
     return bancos.get(tipo_cdp, [])
-
 
 def _metodologia_cdp_contextual(
     perfil: str,
@@ -1725,7 +1663,6 @@ def _metodologia_cdp_contextual(
 
     return [_limpar_texto_cdp_contextual(texto)]
 
-
 def _expandir_metodologia_cdp_contextual(
     perfil: str,
     tipo_cdp: str,
@@ -1814,14 +1751,12 @@ def _expandir_metodologia_cdp_contextual(
 
     return base
 
-
 def _indice_variacao(partes: list[str], total: int) -> int:
     if total <= 1:
         return 0
     chave = "|".join(str(parte or "") for parte in partes)
     digest = hashlib.blake2b(chave.encode("utf-8", errors="ignore"), digest_size=2).hexdigest()
     return int(digest, 16) % total
-
 
 def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int = 3) -> list[str]:
     if not opcoes:
@@ -1835,7 +1770,6 @@ def _selecionar_itens_cdp(opcoes: list[str], partes: list[str], quantidade: int 
         if len(selecionados) >= quantidade:
             break
     return selecionados
-
 
 def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     conceito_frase = _conceito_cdp_contextual(perfil, tema, conceito)
@@ -2066,7 +2000,6 @@ def _acompanhamento_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
     ]
     return _selecionar_itens_cdp(bancos.get(tipo_cdp, padrao), [perfil, tema, conceito, indice_aula], 3)
 
-
 def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", indice_aula: int = 0) -> list[str]:
     tipo_cdp = _tipo_conteudo_cdp(perfil, tema, conceito)
     if perfil == "matematica" and tipo_cdp in _tipos_matematica_fundamental_cdp():
@@ -2290,7 +2223,6 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
         "☑ Tempo ampliado para leitura, cópia e conclusão das atividades.",
     ]
     return _selecionar_itens_cdp(bancos.get(tipo_cdp, padrao), [perfil, tema, conceito, indice_aula, "acessibilidade"], 3)
-
 
 eh_cdp_contextual_disciplina = _eh_cdp_contextual_disciplina
 disciplina_base_cdp_contextual = _disciplina_base_cdp_contextual

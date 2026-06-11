@@ -1,396 +1,155 @@
 === File: DOCUMENTACAO_SISTEMA_PLANOS_LUAN.docx ===
 
-Documentação do Sistema PLANOS_LUAN
+Documentacao Atual do Sistema PLANOS_LUAN
 
-Explicação completa, em linguagem simples, sobre o que o sistema faz e para que serve cada parte da estrutura
-
---- Table ---
-Leitura proposta Este documento foi escrito para uma pessoa que não programa, mas precisa entender o sistema: o que ele resolve, como as informações caminham por dentro dele e por que cada arquivo ou pasta existe.
--------------
-
-1. O que faz o sistema?
-
-O PLANOS_LUAN é um sistema criado para montar planos de aula em Word a partir de materiais digitais em PDF, modelos de plano já existentes e cadastros de professores. Em vez de a pessoa preencher manualmente professor, disciplina, turma, datas, horários, quantidade de aulas, aprendizagem essencial, metodologia, acompanhamento e acessibilidade, o sistema automatiza boa parte desse trabalho.
-
-Na prática, ele funciona como um assistente de montagem de planos. O usuário escolhe o professor, a disciplina, a turma, o mês e o bimestre; envia os PDFs das aulas; confere o conteúdo extraído; e gera o plano final em formato .docx. Quando existe um plano-modelo dentro da pasta do professor, o sistema já o usa automaticamente, mantendo a estrutura visual que a escola ou coordenação espera receber.
-
-O sistema também guarda informações dos professores em banco de dados, permite ajustar cadastros, reconhece datas e horários a partir dos modelos, confere se a quantidade de PDFs bate com a quantidade de aulas necessárias e salva histórico dos planos gerados. Além disso, possui um modo específico para CDP, que usa planilhas e documentos locais de habilidades em vez de PDFs comuns.
-
-A principal vantagem é reduzir repetição. O trabalho que antes dependia de abrir vários arquivos, copiar textos, conferir datas e formatar tabelas passa a ser concentrado em uma tela. O professor ou responsável ainda pode revisar o conteúdo antes de gerar o documento final, mas não precisa começar do zero.
-
-2. Como o sistema trabalha por dentro
-
-A tela inicial organiza o fluxo: escolha do tipo de plano, professor, disciplina, turma, mês, bimestre e PDFs.
-
-O cadastro de professores e os arquivos .docx da pasta do professor ajudam o sistema a descobrir automaticamente o modelo, as datas e os horários.
-
-Os PDFs são lidos por ferramentas de extração de texto. O sistema tenta identificar título da aula, número da aula, habilidade/aprendizagem, conceito principal e atividades.
-
-Com essas informações, o motor pedagógico monta metodologia, acompanhamento da aprendizagem e acessibilidade.
-
-O usuário revisa as aulas extraídas na própria tela.
-
-O gerador de Word preenche o modelo .docx, mantém a formatação do plano e entrega o arquivo final para download.
-
-O histórico salva os documentos gerados e permite baixar novamente depois.
+Documento atualizado em 05/06/2026, em linguagem simples, descrevendo o comportamento real do sistema no momento atual.
 
 --- Table ---
-Resumo do fluxo Entrada: professor + turma + PDFs + modelo. Processamento: extração, regras pedagógicas, validação e revisão. Saída: plano de aula em Word, pronto para entregar ou ajustar manualmente se necessário.
+Leitura proposta | Este documento foi escrito para quem precisa entender o sistema como ferramenta de trabalho: o que ele resolve hoje, como as informacoes andam por dentro dele e quais partes do projeto sao mais importantes no uso diario.
 -------------
 
-3. Visão geral das estruturas
+1. O que faz o sistema hoje?
+
+O PLANOS_LUAN continua sendo um sistema de montagem de planos de aula em Word, mas hoje ele esta mais amplo do que na versao descrita pela documentacao antiga.
+Ele gera planos a partir de PDFs comuns, reaproveita modelos DOCX ja existentes dos professores, consulta um banco de dados local, escolhe templates centrais por contexto, sincroniza agenda semanal com feriados e dias sem aula, salva historico e oferece revisao das aulas antes do documento final.
+Tambem suporta fluxos especiais como CDP contextual, CDP Fundamental, CDP multisseriada, modalidade EJA em disciplinas especificas e um piloto de AE priorizado para Portugues do Ensino Medio no 2o bimestre.
+
+2. Como o sistema trabalha por dentro hoje
+
+O uso atual pode ser lido como um fluxo guiado em seis momentos: contexto, agenda, materiais, processamento, revisao e geracao final.
+Primeiro o usuario escolhe professor, disciplina, turma, mes, bimestre, escola e, quando necessario, componente curricular, modalidade EJA ou turma espelho.
+Depois o sistema tenta localizar um modelo valido: pode vir da pasta do professor, do cadastro salvo no banco ou de um template central como MODELOEGLE, MODELOPADRE ou MODELOCDP.
+Na sequencia, a agenda do mes e montada a partir do cadastro ou do proprio modelo detectado. Nessa etapa entram extensao apos o mes, feriados nacionais e o campo Dias sem aula, que permite bloquear datas especificas.
+So depois disso o usuario organiza os PDFs, que podem ser enviados todos de uma vez ou um por aula. O sistema tambem consegue dividir metodologia em dois dias e gerar o mesmo conjunto para uma 2a turma.
+No processamento, o motor local ou a IA extraem tema, aprendizagem, metodologia, acompanhamento e acessibilidade. Se a opcao AE estiver ativa e o contexto for suportado, o sistema troca a aprendizagem pelo AE e segue a ordem do guia priorizado.
+Por fim, o usuario revisa as aulas na tela e gera o DOCX. O resultado e salvo no historico com professor, disciplina, turma e arquivo final.
 
 --- Table ---
-Parte | Função principal | Tipo de conteúdo
-planos_luan_app.py | Tela principal do sistema e organização do fluxo de uso. | Interface
-core/lote.py | Transforma PDFs em aulas estruturadas. | Motor principal
-core/lib/extrator_pdf.py | Lê partes importantes do texto do PDF. | Extração
-docx_generator/preencher.py | Preenche o modelo Word comum. | Geração DOCX
-core/database.py | Guarda professores, turmas e histórico. | Banco de dados
-core/professores_planos.py | Lê os .docx dentro das pastas dos professores. | Cadastro automático
-core/cdp.py | Cuida dos planos CDP e habilidades específicas. | CDP
-templates/ | Modelos Word usados para gerar planos. | Arquivos base
-tests/ | Conferências automáticas do sistema. | Qualidade
+Parte | Funcao principal | Tipo de conteudo
+planos_luan_app.py | Tela principal e orquestrador do fluxo de uso | Interface
+core/lote.py | Motor principal que transforma PDFs comuns em aulas | Nucleo PDF
+core/lib/ | Camada modular de extracao, classificacao, colunas pedagogicas e perfis | Base pedagogica
+core/cdp/ | Motor atual dos fluxos CDP contextual, fundamental e multisseriada | Nucleo CDP
+core/ae_priorizado.py + assets/ae_priorizado/ | Integracao piloto entre o guia priorizado e o plano de aula | AE priorizado
+core/calendario.py | Controle de feriados, dias sem aula e extensao do mes | Agenda
+core/database.py + planos_luan.db | Cadastro persistente e historico dos planos | Banco de dados
+core/professores_planos.py | Leitura e padronizacao dos modelos DOCX dos professores | Modelos locais
+core/modelos_docx.py + templates/ | Escolha de templates centrais por contexto | Modelos centrais
+docx_generator/ | Preenchimento final dos documentos Word | Saida DOCX
+Planos feitos/ + REFERENCIAS_METODOLOGIA/ | Base documental e pedagogica do modo CDP e das referencias metodologicas | Dados de apoio
+scripts/ | Ferramentas de manutencao, migracao, extracao e apoio tecnico | Operacao
+tests/ | Cobertura automatica das regras mais sensiveis do sistema | Qualidade
 -------------
 
-4. Análise estrutura por estrutura
+3. Estruturas principais do sistema
 
-planos_luan_app.py - a tela que o usuário usa
+planos_luan_app.py - a tela principal e o grande orquestrador
 
-O que é e para que serve: É o arquivo principal do aplicativo. É ele que abre a página no navegador, mostra botões, campos, seletores, mensagens de aviso, área de upload dos PDFs, revisão das aulas e botões de geração/download.
+O que e e para que serve: E o arquivo principal do aplicativo Streamlit. Hoje ele nao e apenas uma tela: organiza selecao de professor, disciplina, turma, bimestre, mes, agenda, PDF, revisao, geracao e download.
+Como funciona hoje: O fluxo atual ficou mais guiado do que na documentacao antiga. O usuario escolhe contexto, o sistema tenta localizar modelo automatico, sincroniza datas e horarios do mes, filtra feriados e dias sem aula, define modo de upload dos PDFs, processa as aulas, abre revisao centralizada e so depois gera o DOCX.
+Destaques em relacao a versao antiga: Hoje o app tambem oferece: modo de envio todos de uma vez ou um por aula; geracao para 2a turma; divisao de metodologia em dois dias; modalidade EJA para disciplinas suportadas; extensao apos o mes; e a opcao piloto de usar AE no lugar da habilidade em Portugues EM 2o bimestre.
 
-Como funciona, em palavras simples: Ele usa Streamlit, uma ferramenta que transforma Python em uma tela web simples. Dentro dele ficam as regras de navegação: selecionar professor, carregar disciplinas e turmas, calcular datas do mês, sugerir horários cadastrados, validar PDFs, chamar o motor que lê os PDFs e depois chamar o gerador do Word.
+config.py - configuracao central de caminhos e padroes
 
-Pode ser melhorado? Como: Pode melhorar sendo dividido em arquivos menores. Hoje ele concentra muita responsabilidade: tela, validação, datas, horários, modelo automático, revisão e downloads. Separar tela, calendário, cadastro e geração facilitaria manutenção e reduziria risco de uma correção mexer em outra parte sem querer.
+O que e e para que serve: Centraliza caminhos externos e internos, como pasta principal de trabalho, pasta de backups, templates, banco, modelos padrao de IA e limites de leitura.
+Como funciona hoje: Ele liga a instalacao local do PLANOS_LUAN a caminhos como D:\PLANOS DE JUNHO e D:\PLANOS-FINALIZADOS, alem de criar automaticamente algumas pastas quando necessario.
+Destaques em relacao a versao antiga: A documentacao antiga ainda citava varios caminhos espalhados. Hoje o projeto ja concentra melhor essa parte, embora ainda haja espaco para evoluir.
 
-config.py - o painel de configurações fixas
+core/database.py e planos_luan.db - o cadastro persistente
 
-O que é e para que serve: Guarda caminhos, limites e opções padrão do projeto. Serve para que valores importantes fiquem em um lugar central, em vez de espalhados por vários arquivos.
+O que e e para que serve: Guardam professores, turmas, disciplinas, grade semanal, arquivo_modelo, template_id, componente curricular e historico dos planos em SQLite.
+Como funciona hoje: O modulo inicializa tabelas, migra um JSON legado quando existir e oferece operacoes de salvar, atualizar, duplicar, excluir vinculos e recuperar historico de geracao.
+Destaques em relacao a versao antiga: Em comparacao com a versao antiga da documentacao, o cadastro agora esta mais rico: nao guarda so professor/turma, mas tambem template central e componente curricular associado.
 
-Como funciona, em palavras simples: Define onde ficam pastas antigas, modelos, planilhas, limites de leitura do PDF, limites de tamanho de texto no Word e modelos padrão de IA. Outros arquivos importam essas informações quando precisam.
+core/professores_planos.py - a ponte com os modelos reais dos professores
 
-Pode ser melhorado? Como: Pode melhorar concentrando também outros caminhos que ainda aparecem fixos em alguns módulos, como a pasta D:\PLANOS DE JUNHO. Isso deixaria o sistema mais fácil de instalar em outro computador ou usar com outro mês.
+O que e e para que serve: Le planos DOCX das pastas dos professores, extrai cabecalhos, semanas, datas e horarios e ajuda a criar ou atualizar modelos padronizados.
+Como funciona hoje: Ele identifica tabelas de cabecalho e tabelas de aulas, resume a grade semanal e devolve ao sistema informacoes que depois viram cadastro reaproveitavel.
+Destaques em relacao a versao antiga: Hoje essa leitura e ainda mais importante porque o sistema usa a agenda detectada no modelo para sincronizar o mes, em vez de depender so da quantidade fixa de aulas por semana.
 
-requirements.txt e .venv_PLANOS_LUAN - as dependências do sistema
+core/modelos_docx.py e templates/ - camada nova de templates centrais
 
-O que é e para que serve: Indicam quais bibliotecas o sistema precisa para funcionar: Streamlit para a tela, pdfplumber para ler PDF, python-docx para Word, pandas para planilhas, pytest para testes e bibliotecas de IA.
+O que e e para que serve: Escolhem o template central correto entre MODELOEGLE, MODELOPADRE e MODELOCDP.
+Como funciona hoje: Quando o cadastro traz template_id ou quando o contexto sugere escola, disciplina ou modo CDP, o sistema consegue cair num modelo central coerente mesmo sem depender exclusivamente do arquivo legado da pasta do professor.
+Destaques em relacao a versao antiga: Essa e uma das mudancas mais importantes desde a documentacao antiga, porque tornou a selecao de modelo mais previsivel.
 
-Como funciona, em palavras simples: O ambiente virtual guarda essas bibliotecas separadas do restante do computador. Assim o sistema abre sempre com as versões esperadas, sem depender do Python global do Windows.
+core/calendario.py - agenda escolar, feriados e dias sem aula
 
-Pode ser melhorado? Como: Pode melhorar com versões travadas, por exemplo python-docx==uma_versão. Isso evita que uma atualização futura de biblioteca mude comportamento sem avisar.
+O que e e para que serve: Calcula feriados nacionais, sugere datas bloqueadas, permite filtragem de dias sem aula e controla a extensao do mes para fechar a ultima semana.
+Como funciona hoje: O app monta a agenda do mes a partir do cadastro ou do modelo detectado, depois passa por esse modulo para remover feriados e datas marcadas manualmente.
+Destaques em relacao a versao antiga: Ajustes recentes fizeram a contagem semanal do plano passar a refletir a carga real daquela semana, inclusive quando a primeira semana tem feriado.
 
-core/database.py e planos_luan.db - o cadastro permanente
+core/lote.py, core/lib/ e core/eja/ - o motor pedagogico do fluxo PDF
 
-O que é e para que serve: Guardam professores, disciplinas, turmas, dias, horários, quantidade de aulas, caminho do modelo e histórico dos planos gerados. É o caderno de registros do sistema.
+O que e e para que serve: Conjunto que extrai texto dos PDFs, identifica titulo e numero da aula, classifica o perfil pedagogico e monta tema, aprendizagem, metodologia, acompanhamento e acessibilidade.
+Como funciona hoje: lote.py continua como nucleo, mas hoje trabalha apoiado numa base modular maior: extrator_pdf, extrator_titulo, classificador, gerador_colunas_pedagogicas, modulos de progressao, tecnicas, acompanhamento, acessibilidade e adaptacoes EJA.
+Destaques em relacao a versao antiga: Na pratica, o sistema ficou menos monolitico no miolo pedagogico, mesmo que planos_luan_app.py ainda seja grande.
 
-Como funciona, em palavras simples: O arquivo Python cria e consulta tabelas SQLite. A tabela professores guarda nomes; professor_turmas guarda as combinações professor/disciplina/turma; historico_planos guarda os arquivos finais gerados; configuracoes fica preparada para preferências futuras.
+core/ia.py, prompts_por_disciplina.py e referencias_metodologia.py - a camada opcional de IA
 
-Pode ser melhorado? Como: Pode melhorar com uma tela de backup/restauração e com validações mais fortes para evitar cadastro duplicado por diferença de acento, maiúscula ou espaço. Também seria útil registrar quem alterou um cadastro e quando.
+O que e e para que serve: Permitem usar OpenAI ou Gemini para montar aulas com apoio externo, mantendo orientacoes por disciplina e referencias pedagogicas do proprio projeto.
+Como funciona hoje: Quando o usuario ativa IA, o sistema monta um prompt contextualizado, injeta referencias metodologicas e normaliza a resposta para o mesmo formato usado no fluxo local.
+Destaques em relacao a versao antiga: O sistema continua podendo funcionar sem IA, o que e importante para custo, autonomia e robustez em ambiente escolar.
 
-core/professores_planos.py - leitor das pastas dos professores
+core/ae_priorizado.py, assets/ae_priorizado/ e scripts de extracao - a nova integracao com o guia priorizado
 
-O que é e para que serve: Permite que o sistema aproveite os planos .docx que já estão organizados em D:\PLANOS DE JUNHO, dentro da pasta de cada professor.
+O que e e para que serve: Representam a nova camada criada para permitir que o plano use AE no lugar da habilidade normal.
+Como funciona hoje: Primeiro o guia priorizado foi recortado e transformado em base estruturada. Depois o sistema ganhou uma opcao de tela que, quando ativa no contexto suportado, procura a aula no mapa, troca a aprendizagem pelo AE e reorganiza a sequencia segundo a ordem do guia.
+Destaques em relacao a versao antiga: Hoje esse recurso esta em fase piloto para Portugues do Ensino Medio, 2o bimestre, mas ja mudou o comportamento do sistema de forma relevante.
 
-Como funciona, em palavras simples: Ele abre cada Word, identifica tabelas de cabeçalho e tabelas de aula, extrai professor, disciplina, turma, datas, horários e quantidade de aulas. Também cria ou atualiza um modelo padronizado quando o cadastro é ajustado pela tela.
+core/cdp/, cdp_legacy.py, cdp_em_docx.py e Planos feitos/ - o universo CDP
 
-Pode ser melhorado? Como: Pode melhorar com um relatório mais detalhado de problemas nos modelos: arquivo sem turma, sem disciplina, sem data, com horário estranho ou com nome fora do padrão. Isso ajudaria a corrigir a base de modelos antes da geração.
+O que e e para que serve: Controlam o fluxo que gera planos sem depender de PDFs comuns, usando planilhas e documentos locais de habilidades.
+Como funciona hoje: Esse bloco trabalha com CDP contextual, Ensino Medio, Fundamental e multisseriada, selecionando habilidades, objetos, titulos e colunas pedagogicas a partir dos arquivos locais.
+Destaques em relacao a versao antiga: A arquitetura atual mistura uma camada nova em pacote com uma camada de compatibilidade legado. Isso precisa aparecer na documentacao para nao dar a impressao de que existe um unico modulo CDP simples.
 
-core/disciplinas.py - lista de disciplinas e modos de trabalho
+docx_generator/preencher.py e preencher_cdp.py - montagem final do Word
 
-O que é e para que serve: Define quais disciplinas aparecem no sistema e quais funcionam por PDF comum ou por modo CDP.
+O que e e para que serve: Transformam as aulas revisadas em documento DOCX final, respeitando o modelo escolhido.
+Como funciona hoje: Esses modulos substituem cabecalho, distribuem aulas por semana, preenchem data, horario, titulo, aprendizagem, metodologia, acompanhamento e acessibilidade. Tambem removem semanas vazias e ajustam o layout das tabelas.
+Destaques em relacao a versao antiga: Uma correcao recente importante foi a contagem real de aulas previstas na semana com base no horario das aulas, e nao apenas no valor fixo do cadastro.
 
-Como funciona, em palavras simples: Cada disciplina recebe uma configuração simples. Para CDP, o sistema entende que não precisa exigir PDFs, pois usa planilhas e documentos de habilidades. Para disciplinas comuns, o padrão é exigir PDFs das aulas.
+scripts/ - manutencao, migracao e extracao
 
-Pode ser melhorado? Como: Pode melhorar virando uma configuração editável pela tela. Assim, uma nova disciplina ou mudança de nome poderia ser feita sem mexer em código.
+O que e e para que serve: Agrupam tarefas de apoio tecnico, como normalizacao de data/hora, padronizacao de nomes dos modelos, migracao de modelos legados e extracao da base de AE priorizado.
+Como funciona hoje: Nao fazem parte do uso normal do professor, mas ajudam a manter o sistema limpo, coerente e com base documental atualizada.
+Destaques em relacao a versao antiga: Os scripts de AE priorizado mostram que o sistema ganhou uma etapa nova de preparacao de dados externos antes da geracao dos planos.
 
-core/lote.py - motor principal de geração das aulas
+assets/, tests/ e arquivos de abertura - acabamento, seguranca e operacao
 
-O que é e para que serve: É uma das partes mais importantes. Ele transforma cada PDF em uma aula organizada: tema, material digital, aprendizagem, metodologia, acompanhamento e acessibilidade.
+O que e e para que serve: assets guarda estilo visual e base de AE priorizado; tests protege regras sensiveis; arquivos .bat/.ps1/.vbs ajudam a abrir, fechar e reiniciar o sistema.
+Como funciona hoje: A interface atual usa style.css e hero-planejamento.svg, enquanto os testes cobrem pontos como feriados, AE priorizado, limpeza de DOCX, CDP e perfis pedagogicos.
+Destaques em relacao a versao antiga: Essa camada de apoio ficou mais rica desde a documentacao anterior e contribui diretamente para estabilidade e usabilidade.
 
-Como funciona, em palavras simples: Primeiro lê o texto do PDF. Depois identifica título e número da aula, classifica o tipo de aula, consulta extratores auxiliares, aplica regras pedagógicas por disciplina, varia a linguagem para não ficar repetitiva e prepara os dados que irão para o Word.
+4. Mudancas relevantes desde a documentacao anterior
 
-Pode ser melhorado? Como: Pode melhorar sendo separado em módulos menores. Hoje ele concentra muitas regras pedagógicas, regras de texto, extração de título, material digital, metodologia e sanitização. Uma separação por responsabilidade facilitaria ajustes futuros por disciplina.
-
-core/lib/extrator_pdf.py - o leitor inteligente do PDF
-
-O que é e para que serve: Procura dentro do texto do PDF informações úteis: habilidade BNCC ou AE, conceito principal, atividade prática, contexto da aula, palavras-chave, etapas metodológicas e recursos usados.
-
-Como funciona, em palavras simples: Ele normaliza o texto, remove trechos ruins como links e fragmentos, procura padrões de códigos de habilidade e monta pequenos blocos quando a informação aparece quebrada em várias linhas. A correção recente fez ele reconhecer códigos como EM13CHS105 e manter pelo menos o primeiro código quando existir.
-
-Pode ser melhorado? Como: Pode melhorar usando uma leitura mais orientada por seções do PDF. Hoje ele trabalha muito por padrões de texto; no futuro poderia reconhecer melhor blocos como Para professores, Habilidade, Objetivo e Slide, com testes por disciplina.
-
-core/lib/classificador.py - identificador do perfil da aula
-
-O que é e para que serve: Ajuda o sistema a entender o tipo de conteúdo: matemática, educação financeira, aula prática, leitura, debate, produção textual, cálculo, análise de gráfico e outros recursos.
-
-Como funciona, em palavras simples: Ele normaliza palavras e procura termos característicos. Com isso, outros módulos sabem escolher metodologia, acompanhamento e acessibilidade mais coerentes com o tipo de aula.
-
-Pode ser melhorado? Como: Pode melhorar com mais exemplos reais dos PDFs usados na escola. Quanto mais termos e situações forem mapeados, melhor ele distinguirá uma aula de leitura de uma aula de prática, debate ou cálculo.
-
-core/lib/metodologia.py - motor metodológico alternativo
-
-O que é e para que serve: Reúne regras para montar metodologia com etapas pedagógicas. Embora o fluxo principal use bastante o core/lote.py, este módulo organiza uma ideia mais modular de metodologia.
-
-Como funciona, em palavras simples: Ele combina perfil da disciplina, tipo da aula, técnicas pedagógicas e progressão entre aulas. O objetivo é gerar desenvolvimento com começo, aprofundamento, prática e fechamento.
-
-Pode ser melhorado? Como: Pode melhorar sendo integrado de forma mais clara ao motor principal, para evitar regras duplicadas entre core/lote.py e core/lib/metodologia.py.
-
-core/lib/acompanhamento.py - acompanhamento da aprendizagem
-
-O que é e para que serve: Monta itens que dizem como o professor pode observar se os estudantes aprenderam durante a aula.
-
-Como funciona, em palavras simples: Usa o perfil da disciplina, o tipo de aula, a habilidade quando existe e as etapas da metodologia. Depois cria frases de acompanhamento coerentes, como observar registros, participação, resolução de problemas ou argumentação.
-
-Pode ser melhorado? Como: Pode melhorar com modelos por série/ano escolar. O acompanhamento de um 6º ano pode precisar de linguagem e critérios diferentes de uma turma do Ensino Médio.
-
-core/lib/acessibilidade.py - adaptações e apoio aos estudantes
-
-O que é e para que serve: Gera orientações de acessibilidade e inclusão para o plano, ajudando a prever apoio visual, instruções passo a passo, alternativas de registro e acompanhamento individual.
-
-Como funciona, em palavras simples: Ele detecta recursos e tipo de aula, consulta catálogos de estratégias e monta itens adaptados ao contexto. Em vez de repetir sempre a mesma frase, tenta variar conforme leitura, cálculo, debate, produção ou atividade prática.
-
-Pode ser melhorado? Como: Pode melhorar com perfis específicos de necessidade, caso a escola queira cadastrar adaptações recorrentes para determinadas turmas ou estudantes, sempre respeitando privacidade.
-
-core/lib/progressao.py - variação entre aulas
-
-O que é e para que serve: Evita que todas as aulas fiquem com frases iguais. Ajuda a dar sensação de sequência pedagógica: retomar, aprofundar, aplicar, sistematizar, verificar.
-
-Como funciona, em palavras simples: Usa índices, conectores e verbos diferentes conforme a posição da aula no conjunto. Assim, a aula 1 não precisa ter o mesmo tom da aula 4.
-
-Pode ser melhorado? Como: Pode melhorar com progressões mensais mais explícitas, por exemplo introdução, desenvolvimento, consolidação e síntese, ligadas ao calendário do plano.
-
-core/lib/tecnicas.py - banco de técnicas pedagógicas
-
-O que é e para que serve: Guarda técnicas que podem aparecer na metodologia, como leitura orientada, debate, resolução guiada, sistematização e verificação da aprendizagem.
-
-Como funciona, em palavras simples: Seleciona técnicas conforme o momento da aula e o perfil disciplinar. Isso ajuda a metodologia parecer menos genérica e mais conectada com o tipo de conteúdo.
-
-Pode ser melhorado? Como: Pode melhorar com um painel para ativar/desativar técnicas por escola, disciplina ou preferência da coordenação.
-
-core/avaliacao.py - geração dinâmica mais antiga de avaliação e acessibilidade
-
-O que é e para que serve: Contém funções para criar acompanhamento e acessibilidade de maneira dinâmica, com base em palavras encontradas no tema, aprendizagem e desenvolvimento.
-
-Como funciona, em palavras simples: Ele identifica termos e perfis para escolher frases adequadas. Parte dessas ideias foi complementada por módulos mais recentes em core/lib.
-
-Pode ser melhorado? Como: Pode melhorar sendo revisado para evitar duplicidade com core/lib/acompanhamento.py e core/lib/acessibilidade.py. O ideal é haver uma fonte principal para cada tipo de texto.
-
-core/inteligencia_local.py - motor heurístico local antigo/auxiliar
-
-O que é e para que serve: É uma tentativa de gerar metodologia e extrair dados sem depender de IA externa. Funciona como um cérebro local baseado em regras.
-
-Como funciona, em palavras simples: Classifica conteúdo, extrai dados do PDF, escolhe técnicas e valida a qualidade usando regras fixas. Algumas partes parecem ter sido substituídas ou reforçadas por módulos mais novos.
-
-Pode ser melhorado? Como: Pode melhorar sendo limpo ou integrado. Se ainda for útil, deve virar parte oficial do fluxo; se não for mais usado, pode ser mantido apenas como referência ou removido em uma limpeza futura.
-
-core/base_conhecimento.py - base pedagógica geral
-
-O que é e para que serve: Guarda padrões disciplinares, técnicas universais e uma estrutura-base de etapas. Serve como repertório para os motores locais montarem textos pedagógicos.
-
-Como funciona, em palavras simples: Outros módulos consultam essas listas para saber que tipo de abordagem combina com cada disciplina ou situação de aula.
-
-Pode ser melhorado? Como: Pode melhorar com exemplos reais aprovados pela coordenação, formando uma biblioteca de boas práticas do próprio contexto escolar.
-
-core/referencias_metodologia.py e REFERENCIAS_METODOLOGIA/ - referências pedagógicas por disciplina
-
-O que é e para que serve: Guardam textos de orientação metodológica por disciplina, como Língua Portuguesa, Projeto de Vida, Ciências, Inglês, Geografia e Educação Financeira.
-
-Como funciona, em palavras simples: O módulo localiza o arquivo adequado, limpa marcas de Markdown e entrega um texto de referência para orientar metodologia. Também adiciona regras gerais do sistema, como evitar repetir fórmulas genéricas.
-
-Pode ser melhorado? Como: Pode melhorar com uma curadoria periódica: revisar quais referências continuam boas, quais estão incompletas e quais precisam ser ampliadas para novas disciplinas ou séries.
-
-core/prompts_por_disciplina.py - orientações para uso com IA
-
-O que é e para que serve: Define instruções específicas para quando o sistema usa OpenAI ou Gemini. Ele explica à IA como responder e que tipo de cuidado cada disciplina exige.
-
-Como funciona, em palavras simples: Quando o usuário escolhe um motor com IA, essas orientações ajudam a formatar a resposta esperada e manter a coerência pedagógica.
-
-Pode ser melhorado? Como: Pode melhorar com prompts versionados e testados por disciplina. Assim seria possível saber qual orientação produziu melhor resultado e voltar atrás se uma mudança piorar.
-
-core/ia.py - ponte com OpenAI/Gemini
-
-O que é e para que serve: Permite que o sistema use inteligência artificial externa para processar o texto do PDF e devolver tema, aprendizagem e metodologia.
-
-Como funciona, em palavras simples: Define um formato esperado de resposta, envia o texto para o provedor escolhido e tenta transformar a resposta em dados estruturados. Se falhar, o sistema pode cair para o modo local sem IA.
-
-Pode ser melhorado? Como: Pode melhorar com tratamento mais detalhado de erro, limite de custo, registro de qual modelo foi usado e comparação entre resultado com IA e sem IA.
-
-core/cdp.py - motor dos planos CDP
-
-O que é e para que serve: Cuida do fluxo CDP, que não depende dos PDFs comuns. Ele lê planilhas e documentos com habilidades, seleciona itens por disciplina, turma e bimestre e monta metodologia, acompanhamento e acessibilidade específicos.
-
-Como funciona, em palavras simples: Ele interpreta arquivos Excel e Word dentro de Planos feitos, identifica linhas de habilidades, filtra por componente e bimestre, limpa textos e monta conteúdo do plano CDP.
-
-Pode ser melhorado? Como: Pode melhorar com uma tela de conferência das habilidades CDP antes de gerar. Também seria útil avisar quando uma planilha mudou de formato e deixou de ser lida corretamente.
-
-docx_generator/preencher.py - preenchedor do plano Word comum
-
-O que é e para que serve: É o responsável por transformar os dados das aulas em um documento Word final, usando o modelo .docx escolhido ou encontrado automaticamente na pasta do professor.
-
-Como funciona, em palavras simples: Ele abre o modelo, substitui campos como professor, disciplina, turma, mês e bimestre, encontra as tabelas semanais, distribui as aulas, formata data/hora, título, aprendizagem, metodologia, acompanhamento e acessibilidade. Também remove semanas vazias no final e corrige pequenos problemas de acentuação no texto final.
-
-Pode ser melhorado? Como: Pode melhorar com uma camada de diagnóstico visual: antes de salvar, apontar se o modelo não tem tabela esperada, se faltam colunas ou se alguma célula ficou muito grande.
-
-docx_generator/preencher_cdp.py - preenchedor do Word para CDP
-
-O que é e para que serve: Faz a mesma função do preenchedor comum, mas adaptado ao formato CDP.
-
-Como funciona, em palavras simples: Ele usa os dados vindos do core/cdp.py, preenche cabeçalhos e linhas de aula em modelo próprio, com habilidades, materiais e metodologia CDP.
-
-Pode ser melhorado? Como: Pode melhorar aproximando a formatação do gerador comum, para que correções visuais importantes fiquem centralizadas em um único lugar.
-
-core/validador_plano.py - conferência automática das aulas
-
-O que é e para que serve: Verifica se as aulas geradas têm informações mínimas e se há sinais de problema, como aprendizagem muito curta, metodologia vazia ou campos repetitivos.
-
-Como funciona, em palavras simples: Depois da extração/processamento, o sistema passa as aulas por essa validação antes de permitir seguir com segurança.
-
-Pode ser melhorado? Como: Pode melhorar criando mensagens mais amigáveis para o usuário, indicando exatamente qual PDF ou aula precisa ser corrigido.
-
-core/helpers.py - pequenas funções de apoio
-
-O que é e para que serve: Guarda funções simples usadas por várias partes, como transformar listas em texto e formatar horário para o plano.
-
-Como funciona, em palavras simples: Evita repetir pequenos trechos de código em vários arquivos.
-
-Pode ser melhorado? Como: Pode melhorar recebendo outras funções pequenas que hoje estão dentro da tela principal, especialmente funções de texto e formatação.
-
-divisor_metodologia.py - divisor de metodologia em momentos
-
-O que é e para que serve: Ajuda a separar uma metodologia grande em partes, como primeiro e segundo momento da aula.
-
-Como funciona, em palavras simples: Usa regras de divisão por tamanho, marcadores e estrutura do texto. Isso é útil quando uma aula precisa ser organizada em dois dias ou dois momentos.
-
-Pode ser melhorado? Como: Pode melhorar sendo integrado diretamente ao fluxo de revisão, permitindo ao usuário visualizar antes como a metodologia foi dividida.
-
-scripts/normalizar_data_hora_planos.py - ajuste em massa de data e horário
-
-O que é e para que serve: Foi criado para percorrer planos já existentes, padronizar o campo data/hora e gerar relatório dos que ficaram sem informação.
-
-Como funciona, em palavras simples: Abre documentos Word, identifica tabelas de aula, formata datas e horários e cria um relatório em Word com problemas encontrados.
-
-Pode ser melhorado? Como: Pode melhorar virando uma função interna da tela, com botão e prévia, em vez de ser rodado separadamente.
-
-scripts/padronizar_nomes_planos_professores.py - padronizador de nomes dos modelos
-
-O que é e para que serve: Ajuda a renomear os planos dentro das pastas dos professores para um padrão que o sistema consiga encontrar depois.
-
-Como funciona, em palavras simples: Usa as funções de leitura dos planos dos professores, identifica disciplina e turma e monta um nome padronizado.
-
-Pode ser melhorado? Como: Pode melhorar com modo de simulação: mostrar antes quais arquivos seriam renomeados, evitando surpresa.
-
-scripts/gerar_metodologias_por_pasta.py - geração por pasta ainda simples
-
-O que é e para que serve: É uma estrutura preparada para gerar planos por pastas, mas atualmente tem implementação mínima.
-
-Como funciona, em palavras simples: Hoje retorna uma lista vazia, funcionando mais como ponto de conexão para o botão gerar plano por pasta do que como recurso completo.
-
-Pode ser melhorado? Como: Pode melhorar bastante: varrer pastas de professores, encontrar PDFs por disciplina, gerar planos em lote e criar relatório do que deu certo ou falhou.
-
-templates/ - modelos Word fixos
-
-O que é e para que serve: Guarda modelos .docx base, como MODELOEGLE, MODELOPADRE e MODELOCDP. Eles são usados quando não há modelo específico encontrado na pasta do professor ou quando o fluxo é CDP.
-
-Como funciona, em palavras simples: O sistema abre esses arquivos e preenche as tabelas e campos esperados. A qualidade do resultado depende muito da estrutura dessas tabelas.
-
-Pode ser melhorado? Como: Pode melhorar com uma pasta de modelos versionados, contendo data, descrição e indicação de qual escola/formato cada modelo atende.
-
-Planos feitos/ - arquivos de apoio do CDP
-
-O que é e para que serve: Armazena planilhas e documentos usados no fluxo CDP, especialmente habilidades e planilhas organizadas.
-
-Como funciona, em palavras simples: O core/cdp.py lê esses arquivos para encontrar habilidades, objetos de conhecimento e títulos.
-
-Pode ser melhorado? Como: Pode melhorar com validação automática das planilhas, avisando quando uma coluna esperada mudou ou quando há célula vazia em informação essencial.
-
-assets/ - imagens e elementos visuais da interface
-
-O que é e para que serve: Guarda recursos visuais usados na tela, como a imagem relacionada ao planejamento.
-
-Como funciona, em palavras simples: O aplicativo carrega esses arquivos para deixar a interface mais profissional e menos seca.
-
-Pode ser melhorado? Como: Pode melhorar com um pequeno conjunto de identidade visual: logo, cores oficiais, ilustrações e ícones padronizados.
-
-tests/ - testes automáticos
-
-O que é e para que serve: São conferências que ajudam a garantir que uma melhoria não quebrou algo que já funcionava.
-
-Como funciona, em palavras simples: Os testes executam partes específicas, como extração de habilidade do PDF, limpeza de semanas vazias no Word, CDP, metodologia de Educação Financeira e Projeto de Vida.
-
-Pode ser melhorado? Como: Pode melhorar aumentando a cobertura com exemplos reais de cada disciplina e com testes de ponta a ponta: PDF de entrada, dados extraídos e Word final esperado.
-
-Arquivos de abertura: AbrirPLANOS_LUAN.bat, .ps1 e .vbs - atalhos para iniciar o sistema
-
-O que é e para que serve: Facilitam abrir o sistema sem precisar digitar comandos técnicos.
-
-Como funciona, em palavras simples: Esses arquivos acionam o ambiente correto e iniciam o Streamlit no navegador.
-
-Pode ser melhorado? Como: Pode melhorar com mensagens mais claras quando algo falhar, por exemplo ambiente não instalado ou porta já está em uso.
-
-chaves.txt - orientação local para chaves de IA
-
-O que é e para que serve: Serve como apoio para configurar chaves de serviços de IA, quando o usuário quiser usar OpenAI ou Gemini.
-
-Como funciona, em palavras simples: O sistema também busca variáveis de ambiente do Windows para saber se a chave está disponível.
-
-Pode ser melhorado? Como: Pode melhorar com uma tela de diagnóstico que diga: OpenAI configurado, Gemini configurado ou sem IA, modo local ativo.
-
-logs e caches - rastros de execução
-
-O que é e para que serve: Arquivos como planos_luan.out.log, planos_luan.err.log, __pycache__ e .pytest_cache guardam saídas, erros e arquivos temporários de execução.
-
-Como funciona, em palavras simples: Eles ajudam em diagnóstico, mas não são o coração do sistema. Podem ser apagados em limpezas controladas, desde que o sistema esteja fechado.
-
-Pode ser melhorado? Como: Pode melhorar com uma rotina limpar arquivos temporários dentro do próprio app, preservando banco, modelos e documentos importantes.
+A tela principal ficou mais guiada e ganhou uma etapa de revisao centralizada antes do DOCX.
+O sistema passou a sincronizar agenda mensal com feriados, extensao do mes e dias sem aula selecionados pelo usuario.
+A selecao de template deixou de depender apenas do arquivo da pasta do professor e passou a usar template_id e contexto.
+O fluxo PDF ganhou modos de upload diferentes, divisao de metodologia em dois dias e geracao para 2a turma.
+Foi criada a integracao piloto com AE priorizado para Portugues EM 2o bimestre.
+A contagem semanal de aulas no documento final passou a refletir a carga real da semana, inclusive em semanas com feriado.
+A camada core se expandiu com subpacotes especializados como core/lib, core/cdp e core/eja.
 
 5. Pontos fortes atuais
 
-O sistema já reduz muito o trabalho manual de preenchimento dos planos.
+Fluxo mais guiado e menos manual na tela principal.
+Capacidade de trabalhar com PDF comum, CDP, EJA e AE priorizado piloto sem trocar de sistema.
+Uso combinado de modelo do professor, template central e banco de dados.
+Revisao das aulas antes da geracao do DOCX, o que reduz retrabalho.
+Historico persistente dos planos gerados.
+Base de testes melhor do que a que existia quando a documentacao antiga foi escrita.
 
-O uso da pasta do professor como fonte de modelo deixa o fluxo natural para quem já organiza os arquivos por professor.
+6. Prioridades de evolucao
 
-A validação de quantidade de PDFs evita gerar plano incompleto sem perceber.
+Continuar modularizando planos_luan_app.py, que ainda concentra muitas responsabilidades.
+Expandir o modo AE priorizado para outras disciplinas e para 3o e 4o bimestres quando a base estiver pronta.
+Reduzir a sobreposicao entre camada nova e camada legada do CDP.
+Fortalecer diagnosticos de modelo Word e de base de dados externos.
+Manter scripts e documentacao como artefatos oficiais de manutencao, para evitar novo envelhecimento da descricao do sistema.
 
-A geração sem IA está funcional e evita dependência de internet ou custo externo para muitos casos.
+7. Conclusao
 
-O histórico, o cadastro e a revisão na tela tornam o processo mais seguro.
-
-Os testes automáticos já protegem pontos importantes, como extração de habilidades e limpeza de semanas vazias.
-
-6. Melhorias recomendadas por prioridade
-
-Prioridade alta
-
-Separar o arquivo da tela principal em módulos menores, porque planos_luan_app.py está grande e concentra muitas responsabilidades.
-
-Criar relatórios amigáveis de problemas nos modelos Word dos professores, principalmente ausência de data, horário, disciplina ou turma.
-
-Centralizar todos os caminhos fixos em config.py, para facilitar trocar mês, pasta principal ou computador.
-
-Ampliar os testes com PDFs reais de Geografia, Língua Portuguesa, Matemática, Educação Financeira e Projeto de Vida.
-
-Prioridade média
-
-Criar uma tela de manutenção dos modelos, mostrando qual .docx cada professor/turma está usando.
-
-Adicionar backup do banco de dados e dos cadastros dentro do próprio sistema.
-
-Melhorar o botão de geração por pasta para funcionar como lote completo, com relatório final.
-
-Unificar motores antigos e novos de metodologia, acompanhamento e acessibilidade para reduzir duplicidade.
-
-Prioridade futura
-
-Permitir configurações por escola, disciplina e bimestre diretamente pela tela.
-
-Criar controle de versões dos modelos Word e das referências metodológicas.
-
-Adicionar painel de qualidade dos planos gerados, com avisos de texto muito longo, campo vazio ou modelo fora do padrão.
-
-7. Conclusão
-
-O PLANOS_LUAN já se comporta como um sistema de montagem de planos de aula bastante especializado. Ele não é apenas um conversor de PDF para Word: ele combina cadastro de professores, leitura de modelos, calendário, leitura de PDFs, regras pedagógicas, validação e preenchimento final em documento oficial.
-
-Para uma pessoa leiga em programação, a melhor forma de entender o sistema é pensar nele como uma linha de produção: a tela recebe os dados, o motor lê e organiza os PDFs, as regras pedagógicas completam o plano, o banco guarda cadastros e histórico, e o gerador Word coloca tudo no modelo final. Cada arquivo existe para cuidar de uma etapa dessa linha de produção.
-
-As melhorias mais importantes daqui para frente não são necessariamente criar mais funções, mas organizar melhor o que já existe, reforçar testes com exemplos reais e tornar os diagnósticos mais claros para quem usa o sistema no dia a dia.
+Hoje o PLANOS_LUAN deve ser entendido como uma linha de producao pedagogica mais madura do que aquela registrada na documentacao antiga.
+A tela principal organiza o uso, o cadastro e os modelos alimentam a agenda, o motor PDF ou CDP monta as aulas, a revisao humana refina o conteudo e o gerador DOCX entrega o documento final no formato esperado pela escola.
+O sistema ja nao e apenas um leitor de PDF com Word na saida: ele combina agenda escolar, banco de dados, camadas pedagogicas especializadas, templates centrais, revisao, historico e integracoes novas como o AE priorizado.

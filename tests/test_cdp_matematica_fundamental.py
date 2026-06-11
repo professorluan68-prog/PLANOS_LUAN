@@ -83,3 +83,22 @@ def test_cdp_matematica_fundamental_acessibilidade_especifica():
     texto = " ".join(itens).lower()
     assert "quadro" in texto or "lousa" in texto
     assert "apoio" in texto or "explica" in texto
+
+
+def test_sanitizar_texto_cdp_estrito():
+    from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
+
+    # 1. Test tech removal
+    t1 = "Usar o celular para acessar a internet e ver um vídeo online sobre frações no YouTube."
+    s1 = sanitizar_texto_cdp_estrito(t1)
+    assert "celular" not in s1.lower()
+    assert "internet" not in s1.lower()
+    assert "vídeo" not in s1.lower()
+    assert "material impresso" in s1.lower()
+
+    # 2. Test Lemov removal
+    t2 = "Aplicar a técnica Virem e conversem para discutir o problema com o colega."
+    s2 = sanitizar_texto_cdp_estrito(t2)
+    assert "virem e conversem" not in s2.lower()
+    assert "colega" not in s2.lower()
+    assert "individualmente" in s2.lower()

@@ -69,6 +69,10 @@ TITULOS_ETAPAS = {
 
 
 def _substituir_texto(paragraph, substituicoes: dict[str, str]) -> None:
+    """
+    Substitui placeholders preservando a formatação do primeiro run.
+    Se o parágrafo tem apenas um run, preserva fonte, tamanho, negrito e cor.
+    """
     if not paragraph.runs:
         return
     texto_original = paragraph.text
@@ -77,8 +81,26 @@ def _substituir_texto(paragraph, substituicoes: dict[str, str]) -> None:
         texto_novo = texto_novo.replace(chave, _sanitizar_texto_xml(valor))
     if texto_novo == texto_original:
         return
+
+    # Preservar formatação do primeiro run antes de limpar
+    primeiro_run = paragraph.runs[0]
+    fonte_nome = primeiro_run.font.name
+    fonte_tamanho = primeiro_run.font.size
+    fonte_bold = primeiro_run.bold
+    fonte_cor = primeiro_run.font.color.rgb if primeiro_run.font.color and primeiro_run.font.color.type else None
+
     paragraph.clear()
-    paragraph.add_run(_sanitizar_texto_xml(texto_novo))
+    novo_run = paragraph.add_run(_sanitizar_texto_xml(texto_novo))
+
+    # Restaurar formatação
+    if fonte_nome:
+        novo_run.font.name = fonte_nome
+    if fonte_tamanho:
+        novo_run.font.size = fonte_tamanho
+    if fonte_bold is not None:
+        novo_run.bold = fonte_bold
+    if fonte_cor is not None:
+        novo_run.font.color.rgb = fonte_cor
 
 
 def _substituir_em_tabela(tabela, substituicoes: dict[str, str]) -> None:
@@ -118,6 +140,11 @@ _FONTE_PADRAO = "Arial"
 _TAMANHO_PADRAO = Pt(10)
 _COR_VERMELHA = RGBColor(0xEE, 0x00, 0x00)
 _LARGURAS_TABELA_AULAS = [900, 2100, 2350, 6100, 1900, 2050]
+_TURNOS_REFERENCIA_AULAS = (
+    ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20"],
+    ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
+    ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
+)
 _PADRAO_BNCC = re.compile(r'(\([A-Z]{2}\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\))')
 _PADRAO_TURMA_METODOLOGIA = re.compile(
     r"\b(da turma|com a turma)\s+\d{1,2}\s*[º°oªa?]?\s*(?:ano|s[ée]rie|em|ef)?\s*[A-Z]?\b",
@@ -400,6 +427,16 @@ def _adicionar_texto_com_destaques_formatado(paragrafo, texto: str, tamanho=_TAM
         _aplicar_fonte(run, tamanho=tamanho, bold=True if parte in DESTAQUES_TEXTO.values() else None)
 
 
+def _remover_acentos(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(texto or ""))
+    return "".join(ch for ch in texto if not unicodedata.combining(ch))
+
+
+def _normalizar_para_busca(texto: str) -> str:
+    """Normaliza texto apenas para fins de comparação — NUNCA usar no conteúdo final."""
+    return _remover_acentos(texto).lower().strip()
+
+
 def _preencher_celula_aprendizagem(celula, texto: str) -> None:
     """Preenche a coluna Aprendizagem: código BNCC em vermelho+bold, resto bold preto, centralizado."""
     _limpar_celula(celula)
@@ -478,7 +515,7 @@ def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
         trecho = parte
         for titulo in padroes:
             trecho = re.sub(
-                rf"(?<!^)\s+({re.escape(titulo)}:)",
+                rf"(?<=[.!?])\s+({re.escape(titulo)}:)",
                 r"\n\1",
                 trecho,
                 flags=re.I,
@@ -490,6 +527,21 @@ def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
 def _texto_ja_comeca_com_etapa(texto: str) -> bool:
     primeira_linha = next((linha for linha in _quebrar_texto_metodologia_em_linhas(texto) if linha.strip()), "")
     return bool(re.match(r"^[^:]{2,40}:\s*", primeira_linha))
+
+
+def _titulo_metodologia_deve_prefixar(titulo: str, texto: str) -> bool:
+    titulo_limpo = str(titulo or "").strip()
+    if not titulo_limpo:
+        return False
+    if _texto_ja_comeca_com_etapa(texto):
+        return False
+
+    titulo_norm = re.sub(r"\s+", " ", titulo_limpo).strip().lower()
+    linhas = _quebrar_texto_metodologia_em_linhas(texto)
+    if titulo_norm == "desenvolvimento" and any(re.match(r"^[^:]{2,40}:\s*", linha) for linha in linhas):
+        return False
+
+    return True
 
 
 def _preencher_celula_metodologia(celula, metodologia) -> None:
@@ -507,7 +559,7 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
         if isinstance(item, dict):
             titulo = str(item.get("titulo") or "").strip()
             texto = str(item.get("texto") or "").strip()
-            if titulo and not _texto_ja_comeca_com_etapa(texto):
+            if _titulo_metodologia_deve_prefixar(titulo, texto):
                 texto_item = f"{_titulo_exibicao(_normalizar_destaques(titulo))}: {texto}"
             else:
                 texto_item = texto
@@ -523,7 +575,7 @@ def _preencher_celula_metodologia(celula, metodologia) -> None:
                 paragrafo_atual = celula.add_paragraph()
 
             # Procurar por um padrão "Titulo: texto" para colocar em negrito
-            match = re.match(r'^([^:]{2,35}):\s*(.*)$', linha)
+            match = re.match(r'^([^:]{2,60}):\s*(.*)$', linha)
             if match:
                 titulo_bold = match.group(1) + ":"
                 resto_texto = " " + match.group(2)
@@ -618,6 +670,42 @@ def _formatar_data_horario(aula: dict) -> str:
     if horario:
         return "\n".join([data, _formatar_horario_modelo(horario)]).strip()
     return data
+
+
+def _extrair_horarios_do_texto(texto: str) -> list[str]:
+    horarios = []
+    for hora, minuto in re.findall(r"\b0?(\d{1,2})h(\d{2})?\b", str(texto or ""), flags=re.I):
+        horarios.append(f"{int(hora):02d}h{minuto or ''}")
+    return horarios
+
+
+def _quantidade_aulas_por_horario(horario) -> int:
+    texto = str(horario or "").strip()
+    if not texto:
+        return 0
+
+    horarios = _extrair_horarios_do_texto(texto)
+    if len(horarios) >= 2:
+        inicio, fim = horarios[0], horarios[1]
+        for slots in _TURNOS_REFERENCIA_AULAS:
+            if inicio in slots and fim in slots:
+                inicio_idx = slots.index(inicio)
+                fim_idx = slots.index(fim)
+                if fim_idx > inicio_idx:
+                    return fim_idx - inicio_idx
+
+    numeros = [int(valor) for valor in re.findall(r"\b(\d+)\s*(?:ª|º|a|o)\b", texto.lower())]
+    if numeros:
+        return max(numeros) - min(numeros) + 1
+
+    return 1
+
+
+def _quantidade_aulas_semana(aulas_da_semana) -> int:
+    total = 0
+    for _, aula in aulas_da_semana or []:
+        total += _quantidade_aulas_por_horario((aula or {}).get("horario"))
+    return total
 
 
 def _data_ddmm(texto: str):
@@ -861,6 +949,9 @@ def _preencher_tabelas_modelo(
     observacao: str,
     aulas_previstas_manual: str,
 ) -> bool:
+    from core.disciplinas import eh_cdp_contextual
+    is_cdp_ctx = eh_cdp_contextual(disciplina)
+
     pares = []
     tabelas = list(documento.tables)
     for indice, tabela in enumerate(tabelas):
@@ -917,10 +1008,17 @@ def _preencher_tabelas_modelo(
         aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
 
     for par_indice, (cabecalho, tabela_aulas) in enumerate(pares):
-        _normalizar_layout_tabela_aulas(tabela_aulas)
+        if not is_cdp_ctx:
+            _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
         aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
-        aulas_previstas = str(aulas_previstas_manual or len([a for a in aulas_da_semana if a])).strip()
+        quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
+        if quantidade_semana > 0:
+            aulas_previstas = str(quantidade_semana)
+        elif aulas_da_semana:
+            aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
+        else:
+            aulas_previstas = "0"
         semana_cabecalho = (
             _semana_automatica_por_aulas(aulas_da_semana)
             or _semana_atual_cabecalho(cabecalho)
@@ -949,7 +1047,8 @@ def _preencher_tabelas_modelo(
 
         for linha in linhas_conteudo[len(aulas_da_semana) :]:
             _remover_linha(linha)
-        _normalizar_layout_tabela_aulas(tabela_aulas)
+        if not is_cdp_ctx:
+            _normalizar_layout_tabela_aulas(tabela_aulas)
 
     return True
 

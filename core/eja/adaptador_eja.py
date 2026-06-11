@@ -93,7 +93,78 @@ def adaptar_metodologia_eja(
     texto_existente = normalizar_texto(
         " ".join(str(item.get("texto", "") if isinstance(item, dict) else item) for item in metodologia or [])
     )
-    usados = {tecnica for tecnica in tecnicas_pdf if normalizar_texto(tecnica) in texto_existente}
+    mapa_procura = {
+        "VIREM E CONVERSEM": [
+            "virem e conversem",
+            "conversa inicial em duplas",
+            "conversa em duplas",
+            "conversar em duplas",
+            "discussao em duplas",
+            "troca em duplas",
+            "discussao rapida em duplas",
+            "conversar com o colega",
+        ],
+        "TODO MUNDO ESCREVE": [
+            "todo mundo escreve",
+            "registro individual no caderno",
+            "registro individual",
+            "registre individualmente",
+            "escrevam no caderno",
+            "escreva no caderno",
+            "registro no caderno",
+            "registrem no caderno",
+        ],
+        "COM SUAS PALAVRAS": [
+            "com suas palavras",
+            "sintese oral ou escrita",
+            "sintese oral",
+            "sintese escrita",
+            "com suas proprias palavras",
+            "linguagem propria",
+            "reelaborarem",
+            "expliquem oralmente ou por escrito",
+        ],
+        "DE OLHO NO MODELO": [
+            "de olho no modelo",
+            "exemplo comentado",
+            "exemplo resolvido",
+            "problema-modelo",
+            "problema modelo",
+            "modelo resolvido",
+            "modelo de resolucao",
+        ],
+        "HORA DA LEITURA": [
+            "hora da leitura",
+            "leitura orientada",
+            "leitura guiada",
+            "leitura analitica",
+        ],
+        "UM PASSO DE CADA VEZ": [
+            "um passo de cada vez",
+            "explicacao em etapas",
+            "etapas curtas",
+            "etapas claras",
+            "etapa por etapa",
+            "passo a passo",
+            "passo 1",
+            "etapas do metodo",
+        ],
+        "PAUSE E RESPONDA": [
+            "pause e responda",
+            "pausa de checagem",
+            "pausas de checagem",
+            "checagem formativa",
+            "pausa de verificacao",
+            "verificacao da aprendizagem",
+        ],
+    }
+
+    usados = set()
+    for tecnica in tecnicas_pdf:
+        tecnica_norm = normalizar_texto(tecnica).upper()
+        busca_termos = mapa_procura.get(tecnica_norm, [normalizar_texto(tecnica)])
+        if any(termo in texto_existente for termo in busca_termos):
+            usados.add(tecnica)
 
     for item in metodologia or []:
         if not isinstance(item, dict):

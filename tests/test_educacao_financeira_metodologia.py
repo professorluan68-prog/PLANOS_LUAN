@@ -1,6 +1,28 @@
 from core.lote import _detectar_tipo_aula, _montar_etapas_metodologia
+from core.lib.classificador import perfil_disciplina
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+
+
+def test_educacao_financeira_tolera_disciplina_com_caracter_quebrado():
+    assert perfil_disciplina("Educa??o Financeira") == "educacao_financeira"
+
+    etapas = _montar_etapas_metodologia(
+        texto=(
+            "Organize receitas, despesas, prioridades e metas em um planejamento simples, "
+            "comparando escolhas e registrando criterios para definir objetivos."
+        ),
+        disciplina="Educa??o Financeira",
+        turma="7 ano A",
+        tema="Definicao de objetivos - Parte 1",
+    )
+
+    titulos = [etapa["titulo"] for etapa in etapas]
+    texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+
+    assert "Analise de caso" in titulos
+    assert "planejamento" in texto or "objetivos" in texto
+    assert "texto literario" not in texto
 
 
 def test_educacao_financeira_classifica_tipos_especificos():

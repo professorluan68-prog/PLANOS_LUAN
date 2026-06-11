@@ -124,6 +124,32 @@ def test_distribui_aulas_na_semana_correta_quando_data_veio_do_app():
     assert cabecalho_semana_3.rows[3].cells[1].text == "15/06 a 19/06"
 
 
+def test_cabecalho_conta_aulas_reais_da_semana_quando_feriado_remove_um_dia():
+    modelo = _modelo_com_semanas(
+        ["01/06 a 05/06", "08/06 a 12/06"],
+        linhas_aulas=2,
+    )
+    doc = Document(
+        preencher_documento(
+            modelo,
+            [
+                _aula(date(2026, 6, 3), "Semana 1"),
+                _aula(date(2026, 6, 10), "Semana 2 - A"),
+                _aula(date(2026, 6, 12), "Semana 2 - B"),
+            ],
+            professor="BEATRIZ",
+            disciplina="Lingua Portuguesa",
+            turma="1o ANO C",
+            mes="JUNHO",
+            bimestre="2o Bimestre",
+            aulas_previstas_manual="4",
+        )
+    )
+
+    assert doc.tables[0].rows[3].cells[3].text == "2"
+    assert doc.tables[2].rows[3].cells[3].text == "4"
+
+
 def test_reutiliza_blocos_vazios_quando_cabecalho_nao_casa_com_datas_das_aulas():
     modelo = _modelo_com_semanas(
         ["04/05 a 08/05", "11/05 a 15/05", "18/05 a 22/05"],
@@ -239,7 +265,7 @@ def test_separa_etapas_do_desenvolvimento_mesmo_quando_vem_tudo_na_mesma_linha()
     linhas = [linha.strip() for linha in desenvolvimento.splitlines() if linha.strip()]
 
     assert len(linhas) >= 5
-    assert linhas[0].startswith("Abertura e contextualizacao:")
+    assert linhas[0].startswith("Abertura e contextualização:")
     assert any(linha.startswith("Atividade principal:") for linha in linhas)
     assert any(linha.startswith("Fechamento:") for linha in linhas)
     assert all(linha != "Desenvolvimento:" for linha in linhas)

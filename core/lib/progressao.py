@@ -91,6 +91,21 @@ def foco_progressao(indice_aula: int) -> str:
     return FOCO_PROGRESSAO.get(indice_aula % len(FOCO_PROGRESSAO), FOCO_PROGRESSAO[0])
 
 
+VARIACOES_VERIFICACAO_EF = [
+    "Realizar uma parada estratégica propondo uma pergunta objetiva sobre {tema}: os estudantes devem justificar suas respostas com base no conteúdo discutido.",
+    "Propor uma questão de verificação sobre {tema}, pedindo que os alunos relacionem a resposta a um exemplo do cotidiano financeiro.",
+    "Fazer uma checagem rápida sobre {tema}: cada aluno registra individualmente sua resposta antes da correção coletiva.",
+    "Verificar a compreensão sobre {tema} com uma pergunta direta, coletando respostas orais e identificando pontos que precisam de retomada.",
+]
+
+VARIACOES_RETOMADA_EF = [
+    "Retomar brevemente os conceitos explorados na aula anterior sobre {tema_anterior} para garantir a base necessária para as atividades de hoje.",
+    "Revisitar os registros produzidos na aula anterior sobre {tema_anterior}, conectando-os ao foco prático do dia.",
+    "Recuperar as aprendizagens construídas sobre {tema_anterior}, destacando os pontos que serão aplicados na atividade de hoje.",
+    "Reativar os conhecimentos sobre {tema_anterior} com uma pergunta rápida de sondagem antes de iniciar a prática.",
+]
+
+
 def ajustar_texto_por_posicao(texto: str, indice_aula: int, total_aulas: int, tema: str = "") -> str:
     """
     Ajusta sutilmente o texto de uma etapa com base na posição
@@ -98,6 +113,18 @@ def ajustar_texto_por_posicao(texto: str, indice_aula: int, total_aulas: int, te
     """
     if total_aulas <= 1:
         return texto
+
+    tema_lower = (tema or "").lower()
+    is_ef = "financeir" in tema_lower or "poupan" in tema_lower or "orcament" in tema_lower or "orçament" in tema_lower or "gasto" in tema_lower or "credito" in tema_lower or "crédito" in tema_lower or "consum" in tema_lower or "investimento" in tema_lower or "cesta basica" in tema_lower or "cesta básica" in tema_lower or "preços" in tema_lower or "precos" in tema_lower
+
+    if is_ef:
+        texto_lower = texto.lower()
+        if any(term in texto_lower for term in ["retomar", "revisitar", "recuperar", "reativar", "para começar", "para comecar"]):
+            idx = (indice_aula + _indice_hash([tema, "retomada"], 4)) % len(VARIACOES_RETOMADA_EF)
+            return VARIACOES_RETOMADA_EF[idx].format(tema_anterior=tema)
+        if any(term in texto_lower for term in ["pause", "pausa de checagem", "verificação", "verificacao", "conferir a compreensão", "conferir a compreensao"]):
+            idx = (indice_aula + _indice_hash([tema, "verificacao"], 4)) % len(VARIACOES_VERIFICACAO_EF)
+            return VARIACOES_VERIFICACAO_EF[idx].format(tema=tema)
 
     posicao = indice_aula % len(FOCO_PROGRESSAO)
 
@@ -122,3 +149,115 @@ def ajustar_texto_por_posicao(texto: str, indice_aula: int, total_aulas: int, te
         )
 
     return texto
+
+
+def variar_inicio_frase(texto: str, indice_aula: int, tema: str) -> str:
+    """
+    Substitui os verbos e expressões mais repetidos no início das etapas
+    de metodologia sem IA por variantes naturais, usando hash determinístico.
+    """
+    if not texto:
+        return texto
+
+    import re
+    # Hashing determinístico para escolher a variante
+    chave = f"{tema}_{texto[:40]}_{indice_aula}"
+    digest = hashlib.blake2b(chave.encode("utf-8", errors="ignore"), digest_size=2).hexdigest()
+    hash_val = int(digest, 16)
+
+    # Lista de mapeamentos de início (case-insensitive para casar)
+    mapa_variacoes = [
+        (r"^[Ii]niciar a aula com", [
+            "Começar a aula com", 
+            "Dar início à aula com", 
+            "Abrir a aula apresentando", 
+            "Introduzir o tema da aula com"
+        ]),
+        (r"^[Rr]etomar com a turma", [
+            "Relembrar com os estudantes", 
+            "Revisitar com a turma", 
+            "Recuperar com os alunos", 
+            "Retornar com a turma a"
+        ]),
+        (r"^[Rr]etomar os conceitos", [
+            "Revisitar os conceitos", 
+            "Relembrar os conceitos", 
+            "Recuperar os conceitos", 
+            "Rever as ideias"
+        ]),
+        (r"^[Cc]onduzir a leitura", [
+            "Orientar a leitura", 
+            "Guiar a leitura", 
+            "Mediar a leitura", 
+            "Coordenar a leitura"
+        ]),
+        (r"^[Cc]onduzir a explicacao", [
+            "Mediar a explicação", 
+            "Apresentar a explicação", 
+            "Desenvolver a explicação", 
+            "Guiar a explicação"
+        ]),
+        (r"^[Cc]onduzir a resolucao", [
+            "Orientar a resolução", 
+            "Guiar a resolução", 
+            "Mediar a resolução", 
+            "Acompanhar a resolução"
+        ]),
+        (r"^[Ee]xplicar o procedimento", [
+            "Apresentar o procedimento", 
+            "Expor o procedimento", 
+            "Demonstrar o procedimento", 
+            "Esclarecer o procedimento"
+        ]),
+        (r"^[Ee]xplicar os conceitos", [
+            "Apresentar os conceitos", 
+            "Expor os conceitos", 
+            "Sistematizar os conceitos", 
+            "Esclarecer os conceitos"
+        ]),
+        (r"^[Oo]rientar a resolucao", [
+            "Guiar a resolução", 
+            "Instruir a resolução", 
+            "Mediar a resolução", 
+            "Direcionar a resolução"
+        ]),
+        (r"^[Oo]rientar a atividade", [
+            "Guiar a atividade", 
+            "Conduzir a atividade", 
+            "Mediar a atividade", 
+            "Acompanhar a atividade"
+        ]),
+        (r"^[Pp]ropor atividade", [
+            "Apresentar atividade", 
+            "Sugerir atividade", 
+            "Lançar atividade", 
+            "Trazer atividade"
+        ]),
+        (r"^[Ee]ncerrar a aula com", [
+            "Finalizar a aula com", 
+            "Concluir a aula com", 
+            "Fechar a aula com", 
+            "Terminar a aula com"
+        ]),
+        (r"^[Ee]ncerrar com", [
+            "Finalizar com", 
+            "Concluir com", 
+            "Fechar com", 
+            "Terminar com"
+        ]),
+        (r"^[Ss]intetizar os aprendizados", [
+            "Resumir os aprendizados", 
+            "Consolidar os aprendizados", 
+            "Reunir os aprendizados", 
+            "Sistematizar os aprendizados"
+        ]),
+    ]
+
+    for padrao, variantes in mapa_variacoes:
+        if re.match(padrao, texto):
+            variante = variantes[hash_val % len(variantes)]
+            texto = re.sub(padrao, variante, texto, count=1)
+            break
+
+    return texto
+
