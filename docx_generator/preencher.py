@@ -432,6 +432,11 @@ def _remover_acentos(texto: str) -> str:
     return "".join(ch for ch in texto if not unicodedata.combining(ch))
 
 
+def _normalizar_para_busca(texto: str) -> str:
+    """Normaliza texto apenas para fins de comparação — NUNCA usar no conteúdo final."""
+    return _remover_acentos(texto).lower().strip()
+
+
 def _preencher_celula_aprendizagem(celula, texto: str) -> None:
     """Preenche a coluna Aprendizagem: código BNCC em vermelho+bold, resto bold preto, centralizado."""
     _limpar_celula(celula)
@@ -944,6 +949,9 @@ def _preencher_tabelas_modelo(
     observacao: str,
     aulas_previstas_manual: str,
 ) -> bool:
+    from core.disciplinas import eh_cdp_contextual
+    is_cdp_ctx = eh_cdp_contextual(disciplina)
+
     pares = []
     tabelas = list(documento.tables)
     for indice, tabela in enumerate(tabelas):
@@ -1000,7 +1008,8 @@ def _preencher_tabelas_modelo(
         aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
 
     for par_indice, (cabecalho, tabela_aulas) in enumerate(pares):
-        _normalizar_layout_tabela_aulas(tabela_aulas)
+        if not is_cdp_ctx:
+            _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
         aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
         quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
@@ -1038,7 +1047,8 @@ def _preencher_tabelas_modelo(
 
         for linha in linhas_conteudo[len(aulas_da_semana) :]:
             _remover_linha(linha)
-        _normalizar_layout_tabela_aulas(tabela_aulas)
+        if not is_cdp_ctx:
+            _normalizar_layout_tabela_aulas(tabela_aulas)
 
     return True
 

@@ -727,6 +727,41 @@ def higienizar_plano(
     # Higienizar Acessibilidade
     acess_higienizado = []
     for item in acessibilidade:
-        acess_higienizado.append(higienizar_string(str(item), perfil_pedagogico, recursos_reais))
+        item_higienizado = higienizar_string(str(item), perfil_pedagogico, recursos_reais)
+        item_higienizado = _limpar_placeholders_acessibilidade(item_higienizado)
+        acess_higienizado.append(item_higienizado)
         
+    from core.disciplinas import eh_cdp, eh_cdp_contextual
+    from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
+
+    if eh_cdp(disciplina) or eh_cdp_contextual(disciplina):
+        if isinstance(desenv_higienizado, list):
+            desenv_novos = []
+            for etapa in desenv_higienizado:
+                if isinstance(etapa, dict):
+                    etapa_nova = dict(etapa)
+                    etapa_nova["texto"] = sanitizar_texto_cdp_estrito(etapa_nova.get("texto", ""))
+                    desenv_novos.append(etapa_nova)
+                else:
+                    desenv_novos.append(sanitizar_texto_cdp_estrito(str(etapa)))
+            desenv_higienizado = desenv_novos
+        else:
+            desenv_higienizado = sanitizar_texto_cdp_estrito(str(desenv_higienizado))
+
+        acomp_higienizado = [sanitizar_texto_cdp_estrito(item) for item in acomp_higienizado]
+        acess_higienizado = [sanitizar_texto_cdp_estrito(item) for item in acess_higienizado]
+
     return desenv_higienizado, acomp_higienizado, acess_higienizado
+
+
+_PLACEHOLDERS_ACESSIBILIDADE = {
+    r"\binforma[cç][aã]o do material simples\b": "tabela simples",
+    r"\binforma[cç][aã]o do material\b": "recurso do material",
+    r"\bo material simples\b": "tabela simples",
+}
+
+
+def _limpar_placeholders_acessibilidade(texto: str) -> str:
+    for padrao, substituto in _PLACEHOLDERS_ACESSIBILIDADE.items():
+        texto = re.sub(padrao, substituto, texto, flags=re.IGNORECASE)
+    return texto

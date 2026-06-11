@@ -11,10 +11,10 @@ import pdfplumber
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 GUIA_DIR = Path(r"D:\GUIA_PRIORIZADO")
-OUTPUT_DIR = BASE_DIR / "outputs" / "ae_portugues_em_2b_teste"
+OUTPUT_DIR = BASE_DIR / "outputs" / "ae_portugues_em_2b"
 OUTPUT_JSON = OUTPUT_DIR / "dados_ae_portugues_em_2b.json"
 RUNTIME_DIR = BASE_DIR / "assets" / "ae_priorizado"
-RUNTIME_JSON = RUNTIME_DIR / "portugues_em_2b_teste.json"
+RUNTIME_JSON = RUNTIME_DIR / "portugues_em_2b.json"
 
 COLS = {
     "ae": (0, 190),

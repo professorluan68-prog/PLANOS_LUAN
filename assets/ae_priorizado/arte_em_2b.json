@@ -1,10 +1,9 @@
 {
-  "arquivo_fonte": "C:\\Users\\Prof_L\\Downloads\\planilha_ae_artes_em_2b_ensino_medio.xlsx",
+  "arquivo_fonte": "D:\\PLANOS_LUAN\\assets\\ae_priorizado\\planilhas\\planilha_ae_artes_em_2b_ensino_medio.xlsx",
   "filtro": {
     "disciplina": "Arte",
     "etapa": "EM",
-    "bimestre": "2º",
-    "bimestre_numero": 2
+    "bimestre": "2º"
   },
   "mapa_por_aula": [
     {
@@ -271,6 +270,44 @@
       "habilidade_textos": "Apropriar-se do patrimônio artístico de diferentes tempos e lugares, compreendendo a sua diversidade, bem como os processos de legitimação das manifestações artísticas na sociedade, desenvolvendo repertório e autonomia estética.",
       "praticas_linguagem": "Linguagens Artísticas",
       "paginas_origem": "3",
+      "pdf_origem": "D:\\GUIA_PRIORIZADO\\ARTES_EM\\ARTE_EM_V2-18-21.pdf"
+    }
+  ],
+  "entradas_base": [
+    {
+      "disciplina": "Arte",
+      "etapa": "EM",
+      "serie": "1ª Série",
+      "bimestre": "2º",
+      "bimestre_numero": 2,
+      "ae_codigo": "AE4",
+      "ae_texto": "Explorar as práticas de linguagem, discutindo os princípios e desafios contemporâneos, e atuando de forma crítica, criativa, solidária e ética.",
+      "ae_completo": "AE4 - Explorar as práticas de linguagem, discutindo os princípios e desafios contemporâneos, e atuando de forma crítica, criativa, solidária e ética.",
+      "habilidade_codigo": "EM13LGG704",
+      "habilidade_texto": "Apropriar-se criticamente das linguagens da cultura digital, dos novos letramentos e dos dispositivos midiáticos para se comunicar, pesquisar, produzir e compartilhar conteúdos em diferentes contextos.",
+      "habilidade_completa": "EM13LGG704 - Apropriar-se criticamente das linguagens da cultura digital, dos novos letramentos e dos dispositivos midiáticos para se comunicar, pesquisar, produzir e compartilhar conteúdos em diferentes contextos.",
+      "pratica_linguagem": "Linguagens Artísticas",
+      "aulas_bloco": "1, 5, 7, 10, 12, 13, 14.",
+      "aulas_lista": "1 | 5 | 7 | 10 | 12 | 13 | 14",
+      "pagina_origem": 3,
+      "pdf_origem": "D:\\GUIA_PRIORIZADO\\ARTES_EM\\ARTE_EM_V2-18-21.pdf"
+    },
+    {
+      "disciplina": "Arte",
+      "etapa": "EM",
+      "serie": "1ª Série",
+      "bimestre": "2º",
+      "bimestre_numero": 2,
+      "ae_codigo": "AE5",
+      "ae_texto": "Experimentar processos de criação em diversas linguagens artísticas, considerando seus aspectos formais, seus funcionamentos e a produção de sentido, em diferentes contextos.",
+      "ae_completo": "AE5 - Experimentar processos de criação em diversas linguagens artísticas, considerando seus aspectos formais, seus funcionamentos e a produção de sentido, em diferentes contextos.",
+      "habilidade_codigo": "EM13LGG601",
+      "habilidade_texto": "Apropriar-se do patrimônio artístico de diferentes tempos e lugares, compreendendo a sua diversidade, bem como os processos de legitimação das manifestações artísticas na sociedade, desenvolvendo repertório e autonomia estética.",
+      "habilidade_completa": "EM13LGG601 - Apropriar-se do patrimônio artístico de diferentes tempos e lugares, compreendendo a sua diversidade, bem como os processos de legitimação das manifestações artísticas na sociedade, desenvolvendo repertório e autonomia estética.",
+      "pratica_linguagem": "Linguagens Artísticas",
+      "aulas_bloco": "2, 3, 4, 6, 8, 9, 11.",
+      "aulas_lista": "2 | 3 | 4 | 6 | 8 | 9 | 11",
+      "pagina_origem": 3,
       "pdf_origem": "D:\\GUIA_PRIORIZADO\\ARTES_EM\\ARTE_EM_V2-18-21.pdf"
     }
   ]

@@ -1,15 +1,14 @@
 {
-  "arquivo_fonte": "C:\\Users\\Prof_L\\Downloads\\planilha_ae_quimica_em_2b.xlsx",
+  "arquivo_fonte": "D:\\PLANOS_LUAN\\assets\\ae_priorizado\\planilhas\\planilha_ae_quimica_em_2b.xlsx",
   "filtro": {
-    "disciplina": "Qu?mica",
+    "disciplina": "Química",
     "etapa": "EM",
-    "bimestre": "2º",
-    "bimestre_numero": 2
+    "bimestre": "2º"
   },
   "mapa_por_aula": [
     {
       "chave_lookup": "quimica_em|2|1a_serie|1",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -27,7 +26,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|2",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -45,7 +44,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|3",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -63,7 +62,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|4",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -81,7 +80,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|5",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -99,7 +98,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|6",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -117,7 +116,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|7",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -135,7 +134,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|9",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -153,7 +152,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|10",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -171,7 +170,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|11",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -189,7 +188,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|12",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -207,7 +206,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|13",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -225,7 +224,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|1a_serie|14",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -243,7 +242,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|1",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -261,7 +260,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|2",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -279,7 +278,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|3",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -297,7 +296,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|4",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -315,7 +314,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|5",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -333,7 +332,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|6",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -351,7 +350,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|7",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -369,7 +368,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|8",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -387,7 +386,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|10",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -405,7 +404,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|12",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -423,7 +422,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|13",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -441,7 +440,7 @@
     },
     {
       "chave_lookup": "quimica_em|2|2a_serie|14",
-      "disciplina": "Qu?mica",
+      "disciplina": "Química",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",

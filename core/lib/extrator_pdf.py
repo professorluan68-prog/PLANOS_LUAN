@@ -199,6 +199,29 @@ def _extrair_bloco_apos_secao(linhas: list[str], nome_secao: str, limite_linhas:
     return bloco
 
 
+_PADROES_NAO_HABILIDADE = [
+    r"^[Dd]iscuss[aã]o sobre\b",          # "Discussão sobre tipos de gastos..."
+    r"^[Cc]ompar[ae]\w* de\b",            # "Comparação de preços..."
+    r"^[Aa]n[aá]lise de\b",               # "Análise de..."
+    r"^[Ee]laborar\b",                    # "Elaborar uma tabela..."
+    r"^[Pp]esquisa\b",                    # "Pesquisa sobre..."
+]
+
+
+def _parece_titulo_atividade(texto: str) -> bool:
+    """Retorna True se o texto parece um título de atividade, não uma habilidade."""
+    for padrao in _PADROES_NAO_HABILIDADE:
+        if re.search(padrao, texto.strip(), re.IGNORECASE):
+            return True
+    # Habilidades geralmente têm mais de 50 caracteres ou contêm verbos de habilidade no infinitivo
+    if len(texto) < 50 and not re.search(
+        r"\b(identificar|compreender|analisar|aplicar|desenvolver|reconhecer|utilizar)\b",
+        texto.lower()
+    ):
+        return True
+    return False
+
+
 def _texto_habilidade_truncado(texto: str) -> bool:
     base = _normalizar_texto(texto)
     if not base:
@@ -275,13 +298,7 @@ class ExtratorPDF:
     """Extrai conteudo estruturado de texto de PDF."""
 
     _FILTROS = [
-        "todo mundo escreve",
-        "virem e conversem",
-        "com suas palavras",
-        "hora da leitura",
-        "de olho no modelo",
         "link para video",
-        "um passo de cada vez",
         "slide",
         "aula",
         "veja no livro",
@@ -291,7 +308,11 @@ class ExtratorPDF:
         "de olho no pnld",
     ]
 
-    def extrair(self, texto: str, tema: str) -> dict:
+    def extrair(self, texto: str, tema: str, disciplina: str = "", numero_aula: str = "", turma: str = "") -> dict:
+        from core.lib.aprofundamento import obter_dados_aprofundamento, quebrar_e_limpar_itens
+
+        dados_plan = obter_dados_aprofundamento(disciplina, numero_aula, turma=turma)
+
         linhas = [linha.strip() for linha in corrigir_mojibake(texto).split("\n") if linha.strip()]
         linhas_limpas = [_limpar_trecho(linha) for linha in linhas if not _trecho_descartavel(linha)]
         secoes = {
@@ -299,7 +320,26 @@ class ExtratorPDF:
             for secao in _SECOES_PRIORITARIAS_PRATICA
         }
 
-        conceito = self._extrair_conceito(linhas_limpas, tema)
+        if dados_plan and dados_plan.get("habilidade"):
+            habilidade = f"Habilidade: {dados_plan['habilidade']}"
+        else:
+            habilidade = self._extrair_habilidade(linhas)
+
+        if dados_plan and dados_plan.get("objetivos"):
+            objetivos_secao = quebrar_e_limpar_itens(dados_plan["objetivos"])
+        else:
+            objetivos_secao = _extrair_objetivos_secao(linhas)
+
+        if dados_plan and dados_plan.get("conteudo"):
+            conteudos_secao = quebrar_e_limpar_itens(dados_plan["conteudo"])
+        else:
+            conteudos_secao = _extrair_conteudos_secao(linhas)
+
+        if dados_plan and dados_plan.get("titulo"):
+            conceito = dados_plan["titulo"]
+        else:
+            conceito = self._extrair_conceito(linhas_limpas, tema)
+
         atividade_pratica = self._extrair_pratica(linhas_limpas, tema, secoes)
         contexto_aula = self._extrair_contexto(linhas_limpas)
         palavras_chave = self._extrair_palavras_chave(linhas_limpas)
@@ -307,8 +347,6 @@ class ExtratorPDF:
         texto_prioritario = " ".join(
             " ".join(secoes[nome]) for nome in _SECOES_PRIORITARIAS_PRATICA if secoes.get(nome)
         ).strip()
-        objetivos_secao = _extrair_objetivos_secao(linhas)
-        conteudos_secao = _extrair_conteudos_secao(linhas)
 
         from core.lib.classificador import detectar_recursos
 
@@ -319,7 +357,7 @@ class ExtratorPDF:
                 f"atividades propostas no material, articuladas ao tema {tema}",
                 220,
             ),
-            "habilidade": self._extrair_habilidade(linhas),
+            "habilidade": habilidade,
             "objetivos_secao": objetivos_secao,
             "conteudos_secao": conteudos_secao,
             "contexto_aula": _trecho_seguro(contexto_aula, "", 160),
@@ -344,7 +382,9 @@ class ExtratorPDF:
             if _PADRAO_HABILIDADE.search(linha):
                 habilidade = self._montar_bloco_habilidade(linhas, i)
                 if habilidade and not _texto_habilidade_truncado(re.sub(r"^Habilidade:\s*", "", habilidade, flags=re.I)):
-                    return habilidade
+                    habilidade_limpa = re.sub(r"^Habilidade:\s*", "", habilidade, flags=re.I).strip()
+                    if _PADRAO_CODIGO_BNCC.search(habilidade_limpa) or not _parece_titulo_atividade(habilidade_limpa):
+                        return habilidade
 
         # 2) depois tenta linha textual "Habilidade: ..."
         for linha in linhas:
@@ -352,12 +392,15 @@ class ExtratorPDF:
             if match:
                 texto = _limpar_trecho(match.group(1))
                 if texto and not _texto_habilidade_truncado(texto):
-                    return f"Habilidade: {texto}"
+                    if _PADRAO_CODIGO_BNCC.search(texto) or not _parece_titulo_atividade(texto):
+                        return f"Habilidade: {texto}"
 
         # 3) por fim, tenta bloco estruturado da seção "Habilidades"
         habilidade_secao = _montar_habilidade_por_secao(linhas)
         if habilidade_secao:
-            return habilidade_secao
+            habilidade_limpa = re.sub(r"^Habilidade:\s*", "", habilidade_secao, flags=re.I).strip()
+            if _PADRAO_CODIGO_BNCC.search(habilidade_limpa) or not _parece_titulo_atividade(habilidade_limpa):
+                return habilidade_secao
 
         return ""
 
@@ -411,11 +454,10 @@ class ExtratorPDF:
         normalizada = _normalizar_texto(linha).strip(" .:-")
         if _PADRAO_ETAPA_METODOLOGICA.match(normalizada):
             return True
-        marcadores = {
+        prefixos_fim = (
             "slide",
             "tempo",
             "dinamica",
-            "dinamica de conducao",
             "para comecar",
             "foco no conteudo",
             "na pratica",
@@ -426,21 +468,13 @@ class ExtratorPDF:
             "para professores",
             "recursos",
             "objetivo",
-            "objetivos",
             "objeto do conhecimento",
             "conteudo",
-            "conteudo principal",
             "tema",
             "titulo",
             "material",
-        }
-        return (
-            normalizada in marcadores
-            or normalizada.startswith("slide ")
-            or normalizada.startswith("objetivo ")
-            or normalizada.startswith("objeto ")
-            or normalizada.startswith("conteudo ")
         )
+        return any(normalizada.startswith(p) for p in prefixos_fim)
 
     def _extrair_conceito(self, linhas: list[str], tema: str) -> str:
         marcadores = [

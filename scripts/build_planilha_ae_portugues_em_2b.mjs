@@ -3,9 +3,9 @@ import path from "node:path";
 import { Workbook, SpreadsheetFile } from "@oai/artifact-tool";
 
 const baseDir = process.cwd();
-const outputDir = path.join(baseDir, "outputs", "ae_portugues_em_2b_teste");
+const outputDir = path.join(baseDir, "outputs", "ae_portugues_em_2b");
 const inputJson = path.join(outputDir, "dados_ae_portugues_em_2b.json");
-const outputXlsx = path.join(outputDir, "planilha_ae_portugues_em_2b_teste.xlsx");
+const outputXlsx = path.join(outputDir, "planilha_ae_portugues_em_2b.xlsx");
 
 function columnName(index) {
   let n = index + 1;

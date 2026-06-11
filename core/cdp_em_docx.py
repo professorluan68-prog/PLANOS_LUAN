@@ -110,29 +110,8 @@ def _extrair_tema_material(texto: str) -> str:
 
 
 def _limpar_resultado_cdp(texto: str) -> str:
-    saida = str(texto or "")
-    substituicoes = {
-        "slides": "material impresso",
-        "slide": "material impresso",
-        "projetor": "lousa",
-        "datashow": "lousa",
-        "televisão": "lousa",
-        "televisao": "lousa",
-        "computador": "material impresso",
-        "celular": "caderno",
-        "aplicativo": "atividade impressa",
-        "plataforma": "atividade impressa",
-        "internet": "material impresso",
-        "youtube": "material impresso",
-        "vídeo": "texto, imagem ou roteiro impresso indicado no material",
-        "video": "texto, imagem ou roteiro impresso indicado no material",
-    }
-    for origem, destino in substituicoes.items():
-        saida = re.sub(re.escape(origem), destino, saida, flags=re.I)
-    for termo in TERMOS_PROIBIDOS_CDP:
-        saida = re.sub(re.escape(termo), "", saida, flags=re.I)
-    saida = re.sub(r"\s+", " ", saida).strip()
-    return re.sub(r"\s+([,.!?;:])", r"\1", saida)
+    from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
+    return sanitizar_texto_cdp_estrito(texto)
 
 
 def _metodologia_generica_cdp(disciplina: str, tema: str, aprendizagem: str) -> list[str]:

@@ -85,3 +85,53 @@ def test_compactacao_da_ia_mantem_frase_completa_mesmo_longa():
     texto = compactada[0]["texto"]
     assert texto.endswith("caderno.")
     assert "onde os." not in texto
+
+
+def test_cortar_sem_quebrar_frase_descarta_inicios_fragmentados():
+    # Se a frase cortada começar com subordinada como "que os...", deve retornar ""
+    assert _cortar_sem_quebrar_frase("que os estudantes compartilhem hipóteses.", 100) == ""
+
+
+def test_compactar_metodologia_posicao_atividade_matematica():
+    # Para o perfil "matematica", a etapa "Atividade" deve ser inserida após "De olho no modelo" (ou "modelo")
+    metodologia = [
+        {"titulo": "Para começar", "texto": "Iniciar a aula com uma pergunta."},
+        {"titulo": "Foco no conteúdo", "texto": "Apresentar a definição de matrizes."},
+        {"titulo": "De olho no modelo", "texto": "Resolver um exemplo na lousa."},
+        {"titulo": "Na prática", "texto": "Resolver os exercícios 1 e 2."}
+    ]
+    # Com produto "tabela", deve inserir a etapa "Atividade"
+    texto_pdf = "produzir tabela de dados"
+    compactada = _compactar_metodologia(metodologia, texto_pdf, perfil="matematica")
+    
+    # Vamos verificar os títulos resultantes
+    titulos = [item["titulo"] for item in compactada]
+    assert "Atividade" in titulos
+    idx_atividade = titulos.index("Atividade")
+    idx_modelo = titulos.index("De olho no modelo")
+    assert idx_atividade == idx_modelo + 1
+
+
+def test_compactar_metodologia_posicao_atividade_outros_perfis():
+    metodologia = [
+        {"titulo": "Para começar", "texto": "Iniciar a aula com uma pergunta."},
+        {"titulo": "Foco no conteúdo", "texto": "Apresentar o conceito."},
+        {"titulo": "Na prática", "texto": "Exercício de fixação."}
+    ]
+    texto_pdf = "produzir tabela comparativa"
+    compactada = _compactar_metodologia(metodologia, texto_pdf, perfil="biologia")
+    
+    titulos = [item["titulo"] for item in compactada]
+    assert "Atividade" in titulos
+    idx_atividade = titulos.index("Atividade")
+    idx_foco = titulos.index("Foco no conteúdo")
+    assert idx_atividade == idx_foco + 1
+
+
+def test_inicios_fragmentados_infinitivo():
+    # Deve descartar frases que iniciam com infinitivo solto mapeado no _INICIOS_FRAGMENTADOS
+    assert _cortar_sem_quebrar_frase("garantir o registro individual de hipóteses.", 100) == ""
+    assert _cortar_sem_quebrar_frase("promover o debate de ideias sobre sustentabilidade.", 120) == ""
+
+
+

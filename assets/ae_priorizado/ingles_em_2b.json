@@ -1,15 +1,14 @@
 {
-  "arquivo_fonte": "C:\\Users\\Prof_L\\Downloads\\planilha_ae_ingles_em_2b.xlsx",
+  "arquivo_fonte": "D:\\PLANOS_LUAN\\assets\\ae_priorizado\\planilhas\\planilha_ae_ingles_em_2b.xlsx",
   "filtro": {
-    "disciplina": "L?ngua Inglesa",
+    "disciplina": "Língua Inglesa",
     "etapa": "EM",
-    "bimestre": "2º",
-    "bimestre_numero": 2
+    "bimestre": "2º"
   },
   "mapa_por_aula": [
     {
       "chave_lookup": "ingles_em|2|1a_serie|1",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -27,7 +26,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|1a_serie|3",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -45,7 +44,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|1a_serie|5",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -63,7 +62,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|1a_serie|7",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -81,7 +80,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|1a_serie|9",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -99,7 +98,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|1a_serie|11",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "1ª Série",
       "bimestre": "2º",
@@ -117,7 +116,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|1",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -135,7 +134,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|3",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -153,7 +152,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|5",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -171,7 +170,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|7",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -189,7 +188,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|9",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",
@@ -207,7 +206,7 @@
     },
     {
       "chave_lookup": "ingles_em|2|2a_serie|11",
-      "disciplina": "L?ngua Inglesa",
+      "disciplina": "Língua Inglesa",
       "etapa": "EM",
       "serie": "2ª Série",
       "bimestre": "2º",

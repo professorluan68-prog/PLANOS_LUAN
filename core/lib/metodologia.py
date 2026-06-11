@@ -6,6 +6,7 @@ pelo motor sofisticado que já existia no lote.py (etapas variáveis por perfil)
 integrando as novas bibliotecas de técnicas e progressão.
 """
 
+import re
 from core.lib.classificador import perfil_disciplina, detectar_tipo_aula, normalizar_texto, contem_termos
 from core.lib.tecnicas import SeletorTecnicas
 from core.lib.progressao import ajustar_texto_por_posicao
@@ -281,6 +282,50 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "biologia":
+        if tipo == "etico_biotecnologico":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco_1"),
+                ("Foco no conteudo", "foco_2"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "molecular_genetico":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco_1"),
+                ("Foco no conteudo", "foco_2"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "debate_critico":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco_1"),
+                ("Na pratica", "pratica"),
+                ("Foco no conteudo", "foco_2"),
+                ("Pause e responda", "pause"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "aplicacao_biotecnologica":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco_1"),
+                ("Foco no conteudo", "foco_2"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "revisao_aprofundamento":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco_1"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
         if tipo == "aula_desafio":
             return [
                 ("Desafio da semana", "desafio"),
@@ -320,6 +365,13 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "educacao_financeira":
+        if tipo == "aula_pratica_continuidade":
+            return [
+                ("Para começar", "retomada_conceitual"),
+                ("Foco no conteúdo", "contextualizacao_pratica"),
+                ("Na prática", "atividade_central"),
+                ("Encerramento", "encerramento_reflexivo"),
+            ]
         etapas = [
             ("Para começar", "para_comecar"),
             ("Análise de caso", "analise_caso"),
@@ -496,132 +548,199 @@ def _conceito_projeto_vida(conceito: str, tema: str, texto_base: str, atividade_
     return "escolhas, convivencia e responsabilidade"
 
 
-def _metodologia_matematica(texto_base: str, tema: str, tipo: str) -> list[dict]:
+def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = "", tecnicas: dict = None) -> list[dict]:
     """Gerador especializado de etapas para o perfil Matemática.
 
-    Retorna lista de dicts {titulo, texto} diferenciada por tipo de aula:
+    Retorna lista de dicts {titulo, text} diferenciada por tipo de aula:
     'conceito_novo', 'verificacao', 'khan', 'modelagem', 'grafico',
     'resolucao_problemas', 'tecnologia'.
 
     Chame este gerador a partir de _frases_por_contexto quando perfil=='matematica'.
     A lista retornada sobrepõe o dicionário base de frases usado pelo motor geral.
     """
+    # 0. Normalização e Detecção dos perfis matemáticos (regras 1 a 12)
+    tema_lower = (tema or "").lower()
+    texto_lower = (texto_base or "").lower()
+    combinado = tema_lower + " " + texto_lower
+
+    # Regra 01: Estatística ou Porcentagem
+    is_stat = any(p in combinado for p in ["estatistica", "porcentagem", "porcent", "media", "ponderada", "amplitude", "variancia", "desvio"])
+    # Regra 02: Álgebra ou Equações
+    is_algebra = any(p in combinado for p in ["algebra", "equacao", "equacoes", "sistema", "incognita", "variavel", "adicao", "substituicao"])
+    # Regra 03: Geometria ou Medidas
+    is_geometry = any(p in combinado for p in ["geometria", "medida", "volume", "prisma", "cilindro", "triangulo", "pitagoras", "retangulo", "aresta", "face", "raio", "circulo", "area", "figuras planas"])
+    # Regra 04: Funções e Gráficos
+    is_functions = any(p in combinado for p in ["funcao", "funcoes", "grafico", "parabola", "concavidade", "vertice", "raizes", "exponencial", "logarit"])
+    # Regra 05: Probabilidade ou Análise Combinatória
+    is_prob = any(p in combinado for p in ["probabilidade", "combinatoria", "arranjo", "combinacao", "permutacao", "fatorial", "contagem", "multiplicativo", "possibilidades"])
+    # Regra 06: Khan Academy
+    is_khan = tipo == "khan" or "khan" in combinado
+    # Regra 07: Novo / Regra 08: Revisão
+    is_new_topic = tipo == "conceito_novo" or any(p in combinado for p in ["introducao", "conceito de", "definicao", "propriedade", "parte 1"])
+    is_revision = tipo == "revisao" or any(p in combinado for p in ["revisao", "retomada", "consolidar", "trilha"])
+
+    # Regra 11: Ensino Fundamental / Regra 12: Ensino Médio
+    turma_lower = (turma or "").lower()
+    is_ef = any(f"{i}" in turma_lower for i in [6, 7, 8, 9]) or "fundamental" in turma_lower
+    is_em = any(f"{i}" in turma_lower for i in [1, 2, 3]) or "medio" in turma_lower or "médio" in turma_lower or "em" in turma_lower
+    if not is_ef and not is_em:
+        is_em = True # default to EM
+
+    # Recupera técnicas lemov ou usa fallback
+    tecnicas = tecnicas or {}
+    t_disc = tecnicas.get("abertura", "Virem e conversem")
+    t_reg = tecnicas.get("registro", "Todo mundo escreve")
+    t_sint = tecnicas.get("sintese", "Com suas palavras")
+    t_verif = tecnicas.get("verificacao", "Pause e responda")
+
+    # Constantes das etapas
+    # Para começar
+    if is_stat:
+        para_comecar_txt = f"Iniciar a aula com a leitura estruturada de um gráfico ou tabela real sobre {tema}, orientando os estudantes a identificarem de forma clara e explícita o título, os eixos, a fonte dos dados e o período de coleta antes de realizar qualquer cálculo."
+    elif is_algebra:
+        para_comecar_txt = f"Iniciar a aula apresentando uma situação-problema sobre {tema} narrada inteiramente em linguagem cotidiana e sem a utilização de símbolos matemáticos, estimulando a intuição inicial dos estudantes."
+    else:
+        para_comecar_txt = f"Iniciar a aula apresentando uma situação contextualizada ou pergunta disparadora sobre {tema} para aproximar o conceito da realidade da turma."
+
+    if is_new_topic:
+        para_comecar_txt += " Propor uma pergunta de sondagem de conhecimentos prévios para levantar as hipóteses iniciais dos estudantes."
+    elif is_revision:
+        para_comecar_txt += f" Retomar brevemente o conceito central da aula anterior solicitando que os estudantes o expliquem por meio da técnica {t_sint}."
+
+    para_comecar_txt += f" Utilizar a técnica {t_disc} para socializar as ideias iniciais antes da formalização."
+
+    if is_ef:
+        para_comecar_txt += " Adote uma linguagem simples e situações familiares do universo juvenil."
+    elif is_em:
+        para_comecar_txt += " Conectar brevemente o tema a conceitos do Ensino Fundamental que servem de base para a aula."
+
+    # Foco no conteúdo
+    if is_khan:
+        foco_txt = f"Contextualizar brevemente o conteúdo de {tema} na lousa por 5 a 7 minutos com um exemplo rápido, apresentando a trilha da aula. Em seguida, orientar os estudantes sobre o login e a navegação na plataforma Khan Academy."
+    elif is_algebra:
+        foco_txt = f"Desenvolver o conceito de {tema} no quadro de forma progressiva e dialogada, modelando explicitamente o processo de tradução da linguagem natural para a linguagem algébrica, convertendo cada sentença do problema em expressões matemáticas equivalentes."
+    else:
+        foco_txt = f"Sistematizar o conceito de {tema} de forma progressiva, conectando a explicação e propriedades aos exemplos práticos."
+
+    if is_functions:
+        foco_txt += " Conduzir de forma organizada a construção de uma tabela de valores numéricos na lousa antes de traçar o esboço do gráfico correspondente no plano cartesiano."
+
+    # Regra 09: Múltiplas representações
+    if is_functions or is_stat or any(p in combinado for p in ["representacao", "representacoes", "tabela", "grafico"]):
+        foco_txt += " Demonstrar de forma explícita a transição entre múltiplas representações (tabular, algébrica e gráfica), verbalizando o que muda e o que permanece igual em cada caso."
+
+    if is_em:
+        foco_txt += f" Apresentar a formalização matemática precisa de {tema}, contendo sua definição correta, notações formais e propriedades fundamentais."
+
+    foco_txt += f" Conduzir a explanação utilizando a técnica Um passo de cada vez para estruturar o raciocínio em etapas claras."
+
+    # De olho no modelo
+    if is_geometry:
+        modelo_txt = f"Apresentar um problema-modelo sobre {tema} resolvido de forma detalhada na lousa. Desenhar de forma cuidadosa e organizada a figura geométrica correspondente antes de iniciar qualquer cálculo, identificando e nomeando elementos como base, altura, raio, arestas ou ângulos retos."
+    elif is_prob:
+        modelo_txt = f"Apresentar um exemplo-modelo comentado na lousa sobre {tema}, construindo de forma visual um diagrama de árvore ou uma tabela de possibilidades para tornar o processo de contagem e a organização do espaço amostral visualmente explícitos antes de aplicar qualquer fórmula."
+    else:
+        modelo_txt = f"Apresentar um problema-modelo sobre {tema} resolvido de forma detalhada na lousa como referência orientadora."
+
+    if is_new_topic:
+        modelo_txt += " Apresentar o exemplo mais simples possível do tópico, sem variações complexas ou casos especiais, para fixar as bases conceituais."
+    
+    if is_ef:
+        modelo_txt += " Demonstrar as operações e os cálculos passo a passo de forma exclusivamente manual, reforçando a importância de não usar a calculadora nesta etapa."
+
+    modelo_txt += " Utilizar a técnica De olho no modelo para explicitar o raciocínio clínico completo (leitura, dados, estratégia, execução e verificação)."
+
+    # Pause e responda
+    pause_txt = f"Realizar uma parada estratégica curta propondo uma pergunta objetiva de checagem formativa sobre {tema} para verificar a compreensão em tempo real."
+    # Regra 10: Retomada se > 40% de insegurança
+    pause_txt += " Caso mais de 40% da turma demonstre insegurança ou dúvidas, pausar o avanço e propor a retomada imediata com um segundo exemplo focado no ponto de maior dificuldade."
+
+    # Na prática
+    if is_khan:
+        pratica_txt = f"Orientar os estudantes a realizarem as atividades de {tema} na plataforma Khan Academy. O professor deve realizar circulação ativa de forma sistemática pela sala, observando as telas, mapeando erros comuns e apoiando prioritariamente os estudantes que estão travados."
+    else:
+        pratica_txt = f"Propor que os estudantes resolvam os exercícios de {tema} no caderno, aplicando o procedimento estudado."
+
+    if is_functions:
+        pratica_txt += " Garantir que a atividade prática inclua pelo menos uma questão de interpretação crítica de gráfico além dos cálculos numéricos."
+
+    if is_revision:
+        pratica_txt += " Organizar a prática de forma progressiva, partindo dos exercícios mais simples de fixação até desafios de maior complexidade."
+
+    if is_ef:
+        pratica_txt += " Orientar a resolução manual e minuciosa dos cálculos passo a passo, evitando o uso de calculadora."
+
+    pratica_txt += f" Utilizar a técnica {t_reg} para que os estudantes registrem individualmente o raciocínio antes de qualquer comparação."
+
+    # Encerramento
+    if is_khan:
+        encerramento_txt = f"Finalizar a aula projetando os relatórios de progresso da plataforma Khan Academy, destacando os pontos de avanço da turma e identificando as principais dificuldades para orientar os próximos planejamentos."
+    else:
+        encerramento_txt = f"Conduzir a síntese coletiva dos aprendizados sobre {tema}, organizando o resumo das ideias no quadro."
+
+    encerramento_txt += f" Aplicar a técnica {t_sint}, solicitando que os estudantes expliquem com suas palavras o conceito ou procedimento estudado na aula antes do fechamento final."
+
+    # 1. Ajustes por tipos de aula
     if tipo == "khan":
         return [
-            {
-                "titulo": "Abertura",
-                "texto": f"Retomar com a turma os conceitos principais relacionados a {tema}, levantando conhecimentos prévios e orientando o acesso à plataforma.",
-            },
-            {
-                "titulo": "Prática na Khan Academy",
-                "texto": f"Encaminhar os estudantes para a prática no aplicativo, reforçando que o objetivo é revisar, testar hipóteses, aprender com os erros e repetir a atividade sempre que necessário até dominar a habilidade. Orientar paralelamente os que precisarem de atividades no caderno.",
-            },
-            {
-                "titulo": "Fechamento",
-                "texto": f"Retomar coletivamente as principais dúvidas percebidas durante a prática, socializar estratégias de resolução e registrar os pontos que precisarão ser reforçados, utilizando o desempenho dos estudantes no aplicativo como apoio para o acompanhamento.",
-            },
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Foco no conteúdo", "texto": foco_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
         ]
 
     if tipo == "verificacao":
         return [
-            {
-                "titulo": "Relembre",
-                "texto": f"Retomar com a turma os conceitos principais trabalhados no bloco, relacionando {tema} a situações do cotidiano e levantando conhecimentos prévios dos estudantes antes das atividades.",
-            },
-            {
-                "titulo": "Na prática",
-                "texto": f"Orientar os estudantes na resolução das atividades no caderno, trabalhando detalhadamente as resoluções e propondo outras estratégias quando necessário. Circular pela sala para identificar dificuldades e oferecer mediação individualizada.",
-            },
-            {
-                "titulo": "Encerramento",
-                "texto": f"Retomar coletivamente as principais dúvidas percebidas durante a atividade, socializar estratégias de resolução e registrar os pontos que precisarão ser reforçados nas próximas aulas.",
-            },
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
         ]
 
     if tipo == "modelagem":
         return [
-            {
-                "titulo": "Para começar",
-                "texto": f"Iniciar a aula com a situação-problema do material sobre {tema}, incentivando a turma a levantar hipóteses e identificar quais grandezas estão envolvidas. Aplicar Virem e conversem para socializar ideias antes da construção do modelo.",
-            },
-            {
-                "titulo": "Foco no conteúdo",
-                "texto": f"Conduzir a construção do modelo matemático para {tema}, identificando as grandezas envolvidas, estabelecendo a relação entre elas e traduzindo para linguagem algébrica. Destacar que o modelo é uma representação da situação real e que o resultado deve ser interpretado no contexto do problema.",
-            },
-            {
-                "titulo": "De olho no modelo",
-                "texto": f"Apresentar um exemplo comentado mostrando as diferentes representações do conceito: tabular, algébrica e gráfica, mostrando como cada forma revela aspectos distintos da mesma relação matemática.",
-            },
-            {
-                "titulo": "Na prática",
-                "texto": f"Encaminhar atividade de modelagem com registro dos cálculos e justificativa. Reforçar que o resultado deve ser interpretado no contexto, verificando se faz sentido na situação real estudada.",
-            },
-            {
-                "titulo": "Encerramento",
-                "texto": f"Encerrar com síntese: como traduzir uma situação real em linguagem matemática? O que o modelo nos permite descobrir? Aplicar Com suas palavras, incentivando os estudantes a reelaborarem com autonomia.",
-            },
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Foco no conteúdo", "texto": foco_txt},
+            {"titulo": "De olho no modelo", "texto": modelo_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
         ]
 
     if tipo == "grafico":
         return [
-            {
-                "titulo": "Para começar",
-                "texto": f"Iniciar a aula com dados ou situação que motiva a representação gráfica de {tema}. Propor discussão em duplas sobre como representar visualmente a relação entre as grandezas.",
-            },
-            {
-                "titulo": "Foco no conteúdo",
-                "texto": f"Conduzir a leitura orientada de gráficos, tabelas ou dados do material, ajudando a turma a interpretar informações, comparar valores e construir conclusões com base nas evidências. Disponibilizar leitura guiada de gráficos, destacando título, eixos, valores e comparação entre os dados.",
-            },
-            {
-                "titulo": "De olho no modelo",
-                "texto": f"Apresentar exemplo comentado explorando as diferentes representações: tabular, algébrica e gráfica de {tema}.",
-            },
-            {
-                "titulo": "Na prática",
-                "texto": f"Propor atividade de aplicação em que os estudantes interpretem dados, construam ou analisem gráficos e registrem conclusões explicando o que as informações revelam sobre {tema}.",
-            },
-            {
-                "titulo": "Encerramento",
-                "texto": f"Encerrar com síntese da leitura gráfica, aplicando Com suas palavras: o que o gráfico/tabela nos mostra sobre {tema}? Que decisões podemos tomar a partir dessas informações?",
-            },
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Foco no conteúdo", "texto": foco_txt},
+            {"titulo": "De olho no modelo", "texto": modelo_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
         ]
 
-    # resolucao_problemas e tecnologia: template de conceito_novo com ajuste no Foco
     if tipo == "resolucao_problemas":
-        foco_extra = f"Conduzir a resolução seguindo as etapas do método: compreender o problema, construir um plano de ação, executar e verificar a solução. Destacar que a resposta deve ser interpretada no contexto, não apenas numérica."
-    elif tipo == "tecnologia":
-        foco_extra = f"Propor atividade de exploração em que os estudantes utilizem a ferramenta tecnológica disponível para investigar propriedades de {tema}, registrando observações e construindo conclusões a partir dos dados obtidos."
-    else:
-        foco_extra = None
+        return [
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "De olho no modelo", "texto": modelo_txt},
+            {"titulo": "Pause e responda", "texto": pause_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
+        ]
 
-    # Template padrão: conceito_novo (e fallback para resolucao_problemas/tecnologia)
-    etapas = [
-        {
-            "titulo": "Para começar",
-            "texto": f"Iniciar a aula com a situação-problema apresentada no material sobre {tema}, incentivando a turma a levantar hipóteses e antecipar possíveis caminhos de análise. Aplicar a técnica Virem e conversem para que os estudantes discutam em duplas e socializem suas ideias antes da explicação formal.",
-        },
-        {
-            "titulo": "Foco no conteúdo",
-            "texto": foco_extra or f"Desenvolver {tema} de forma progressiva, conectando explicação, exemplo e atividade guiada com mediação passo a passo, destacando dados, operações e interpretação dos resultados. Conduzir a explicação com a técnica Um passo de cada vez, organizando o conteúdo em etapas claras e progressivas.",
-        },
-        {
-            "titulo": "De olho no modelo",
-            "texto": f"Apresentar um exemplo comentado como referência orientadora antes da atividade principal, destacando cada etapa do raciocínio: identificação dos dados, escolha da estratégia, execução e verificação do resultado.",
-        },
-        {
-            "titulo": "Pause e responda",
-            "texto": f"Realizar uma pausa de verificação da aprendizagem para que os estudantes comparem respostas, justifiquem ideias e revisem o raciocínio antes de avançar. Usar a pausa também para verificar quais aprendizagens já estão consolidadas e quais precisam de retomada.",
-        },
-        {
-            "titulo": "Na prática",
-            "texto": f"Encaminhar atividade com registro dos cálculos e breve justificativa, reforçando a relação entre procedimento, resultado e tomada de decisão. Solicitar que os estudantes incluam a interpretação do resultado no contexto da situação estudada.",
-        },
-        {
-            "titulo": "Encerramento",
-            "texto": f"Encerrar a aula com síntese dos pontos principais, retomando especialmente {tema}. Aplicar a técnica Com suas palavras, incentivando os estudantes a reelaborarem o conteúdo com autonomia.",
-        },
+    if tipo == "tecnologia" or tipo == "tecnologia_matematica":
+        return [
+            {"titulo": "Para começar", "texto": para_comecar_txt},
+            {"titulo": "Foco no conteúdo", "texto": foco_txt},
+            {"titulo": "De olho no modelo", "texto": modelo_txt},
+            {"titulo": "Na prática", "texto": pratica_txt},
+            {"titulo": "Encerramento", "texto": encerramento_txt},
+        ]
+
+    # default: conceito_novo / matematica_padrao
+    return [
+        {"titulo": "Para começar", "texto": para_comecar_txt},
+        {"titulo": "Foco no conteúdo", "texto": foco_txt},
+        {"titulo": "De olho no modelo", "texto": modelo_txt},
+        {"titulo": "Pause e responda", "texto": pause_txt},
+        {"titulo": "Na prática", "texto": pratica_txt},
+        {"titulo": "Encerramento", "texto": encerramento_txt},
     ]
-    return etapas
 
 
 def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
@@ -1195,30 +1314,74 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
             ),
         }
 
-    return {
-        "para_comecar": (
-            f"Iniciar a aula com {contexto} sobre {tema}, propondo que os estudantes discutam em duplas o que ja sabem e quais hipoteses conseguem levantar."
-        ),
-        "foco": (
-            f"Apresentar o conceito de {conceito_seguro}, partindo dos exemplos do material e construindo progressivamente a definicao cientifica com esquemas, imagens ou comparacoes."
-        ),
-        "pause": (
-            "Propor questao objetiva, verdadeiro/falso ou pergunta curta para verificar a compreensao do conceito antes da atividade pratica, com correcao dialogada."
-        ),
-        "pratica": (
-            f"Orientar atividade escrita de aplicacao, garantindo que todos registrem respostas e justificativas com base no conceito estudado. Atividade central: {atividade}."
-        ),
-        "encerramento": (
-            f"Encerrar com Com suas palavras, solicitando que os estudantes sintetizem o que aprenderam sobre {tema} e retomem as hipoteses iniciais."
-        ),
-    }
-
-
 def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "", habilidade: str = "") -> dict[str, str] | None:
     """Gerador especializado de frases para Biologia."""
     base = normalizar_texto(" ".join([tema, texto_base, atividade_extraida, habilidade]))
     conceito_seguro = conceito if normalizar_texto(conceito) not in {"biologia", "geral", ""} else tema
     atividade = atividade_extraida or "as atividades propostas no material"
+
+    # Extração inteligente de vídeo
+    video_titulo = "informativo sobre o tema"
+    video_canal = "de divulgação científica"
+    video_minutos = "com duração sugerida no material"
+    
+    # Buscar padrões no texto_base para encontrar títulos de vídeos e canais
+    aspas = re.findall(r'["\'“‘]([^"\'”’\n]{3,100})["\'”’]', texto_base)
+    # Order alternation from longest to shortest to prevent eager partial matching (e.g. matching 'assista' first)
+    video_match = re.search(r'(?:assista ao vídeo|assista ao video|vídeo|video)\s+["\'“‘]?([^"\'”’\n]{3,100})["\'”’]?', texto_base, re.IGNORECASE)
+    
+    if aspas:
+        video_titulo = f'"{aspas[0].strip()}"'
+    elif video_match:
+        video_titulo = f'"{video_match.group(1).strip()}"'
+
+    canal_match = re.search(r'(?:canal|veiculado pelo canal|do canal|youtube)\s+[:\-]?\s*([A-ZÀ-ÿa-z0-9\s]{3,30})', texto_base, re.IGNORECASE)
+    if canal_match:
+        video_canal = canal_match.group(1).strip()
+    else:
+        if "butantan" in base:
+            video_canal = "Instituto Butantan"
+        elif "fiocruz" in base:
+            video_canal = "Fiocruz"
+        elif "nerdologia" in base:
+            video_canal = "Nerdologia"
+        elif "atila" in base or "iamarino" in base:
+            video_canal = "Átila Iamarino"
+
+    minutos_match = re.search(r'(?:minuto|minutos|duracao|duração|tempo|de|ate|até)\s+(\d+(?:\'\d+)?(?:\s*(?:a|à|ao|min|s|seg|-\d+))*)', texto_base, re.IGNORECASE)
+    if minutos_match:
+        video_minutos = minutos_match.group(1).strip()
+        if not ("minuto" in video_minutos or "tempo" in video_minutos or "duracao" in video_minutos):
+            video_minutos = f"do início ao minuto {video_minutos}"
+    else:
+        video_minutos = "com duração sugerida no material"
+
+    # Extração de perguntas do texto
+    perguntas = [p.strip() for p in re.findall(r'([^?\n.]{10,120}\?)', texto_base)]
+    perguntas = [re.sub(r'^[^\w\s]+', '', p).strip() for p in perguntas]
+    perguntas = [p for p in perguntas if not re.match(r'^[a-eA-E0-9]\)', p)]
+
+    pergunta_slide = perguntas[0] if len(perguntas) > 0 else f"Como o conhecimento sobre {tema} se aplica no dia a dia?"
+    pergunta_sintese_1 = perguntas[-2] if len(perguntas) > 1 else f"Quais são os conceitos principais de {tema} estudados na aula?"
+    pergunta_sintese_2 = perguntas[-1] if len(perguntas) > 0 else f"Como as implicações bioéticas e sociais se relacionam com {tema}?"
+    if len(perguntas) == 1:
+        pergunta_sintese_1 = perguntas[0]
+        pergunta_sintese_2 = f"Qual é a importância biológica e social de {tema}?"
+
+    # Extração de palavras-chave
+    palavras_chave_match = re.search(r'(?:palavras-chave|palavras chave|termos-chave)[:\-]?\s*([^\n\.]+)', texto_base, re.IGNORECASE)
+    if palavras_chave_match:
+        palavras_chave_str = palavras_chave_match.group(1).strip()
+    else:
+        palavras_sugeridas = [w.strip() for w in re.split(r'[,;\s]+', conceito_seguro) if len(w.strip()) > 3]
+        if len(palavras_sugeridas) < 2:
+            palavras_sugeridas.append(tema)
+        palavras_chave_str = ", ".join(palavras_sugeridas[:4])
+
+    # Detecção de ferramenta genética
+    ferramenta_genetica = "quadro de Punnett"
+    if "heredograma" in base:
+        ferramenta_genetica = "heredograma"
 
     contexto = "uma imagem, noticia, dado ou situacao concreta apresentada no material"
     if any(k in base for k in ["reportagem", "noticia", "amazonia", "inpe", "ods", "matriz energetica", "saude publica", "desmatamento"]):
@@ -1226,6 +1389,144 @@ def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str =
     elif any(k in base for k in ["grafico", "infografico", "esquema", "de olho no modelo"]):
         contexto = "o modelo visual cientifico apresentado no material"
 
+    # 1. etico_biotecnologico
+    if tipo == "etico_biotecnologico":
+        return {
+            "para_comecar": (
+                f"Iniciar a aula com a exibição do vídeo {video_titulo}, do canal {video_canal} ({video_minutos}), "
+                f"propondo a questão: '{pergunta_slide}'. Solicitar que os estudantes registrem suas percepções iniciais e "
+                f"abrir para breve discussão coletiva, coletando os conhecimentos prévios da turma sobre o tema."
+            ),
+            "foco_1": (
+                f"Apresentar, de forma dialogada, as informações científicas básicas e o desenvolvimento histórico associados a "
+                f"{conceito_seguro}, explicando o mecanismo biológico de forma progressiva e contextualizada."
+            ),
+            "foco_2": (
+                f"Discutir as implicações éticas, legais ou sociais envolvidas, abordando aspectos de bioética, autonomia e consentimento "
+                f"associados a {conceito_seguro}, conectando com a atuação de comitês de ética e a dignidade humana."
+            ),
+            "pause": (
+                f"Propor questão de verificação formativa sobre os conceitos éticos ou biológicos discutidos. "
+                f"Aguardar as respostas antes de revelar o gabarito e explicar o raciocínio correto."
+            ),
+            "pratica": (
+                f"Organizar os estudantes em duplas para análise do estudo de caso ou texto sobre {tema}. Orientar a leitura e "
+                f"a resolução da atividade: {atividade}. Corrigir coletivamente destacando as palavras-chave: {palavras_chave_str}."
+            ),
+            "encerramento": (
+                f"Encerrar com as perguntas de síntese: '{pergunta_sintese_1}' e '{pergunta_sintese_2}'. "
+                f"Solicitar que diferentes estudantes respondam, sistematizando as respostas com as palavras-chave centrais: {palavras_chave_str}."
+            ),
+        }
+
+    # 2. molecular_genetico
+    if tipo == "molecular_genetico":
+        return {
+            "relembre": (
+                f"Retomar com os estudantes os conceitos básicos necessários estudados na aula anterior sobre {tema}, "
+                f"utilizando esquema ou tabela comparativa como apoio visual para verificar dúvidas antes de avançar."
+            ),
+            "foco_1": (
+                f"Explicar {conceito_seguro} na escala celular e molecular, descrevendo as etapas do processo biológico. "
+                f"Utilizar animação ou imagem detalhada do material para ilustrar as estruturas envolvidas."
+            ),
+            "foco_2": (
+                f"Conectar o processo molecular estudado ao seu funcionamento prático no organismo e às suas manifestações fenotípicas, "
+                f"explicando a relação de causa e consequência biológica de forma progressiva."
+            ),
+            "pause": (
+                f"Propor questão de múltipla escolha para verificação formativa sobre a estrutura molecular ou cruzamento genético discutido. "
+                f"Aguardar as respostas antes de revelar o gabarito e explicar o raciocínio correto."
+            ),
+            "pratica": (
+                f"Orientar a resolução del problema genético ou atividade molecular em duplas, auxiliando na construção do {ferramenta_genetica}. "
+                f"Atividade central: {atividade}. Estimular que os estudantes apresentem suas soluções na lousa."
+            ),
+            "encerramento": (
+                f"Finalizar respondendo às perguntas de síntese: '{pergunta_sintese_1}' e '{pergunta_sintese_2}'. "
+                f"Sistematizar os resultados na lousa, confirmando os genótipos, fenótipos e proporções esperadas."
+            ),
+        }
+
+    # 3. debate_critico
+    if tipo == "debate_critico":
+        return {
+            "para_comecar": (
+                f"Iniciar a aula com uma imagem provocadora ou trecho de notícia do material sobre {tema}, propondo a questão disparadora: "
+                f"'{pergunta_slide}'. Estimular a expressão livre de opiniões e hipóteses iniciais dos estudantes antes do conceito formal."
+            ),
+            "foco_1": (
+                f"Explicar {conceito_seguro} a partir de uma contextualização histórica e social detalhada, demonstrando como teorias pseudocientíficas "
+                f"(como eugenia, determinismo biológico ou darwinismo social) foram construídas e desmistificadas pela ciência moderna."
+            ),
+            "foco_2": (
+                f"Aprofundar a base científica sobre a variabilidade genética humana, demonstrando a inexistência de raças biológicas sob a perspectiva "
+                f"da genética moderna. Sistematizar os conceitos de ancestralidade e diversidade genética."
+            ),
+            "pause": (
+                f"Propor um Pause e responda com tempo breve para que os estudantes se posicionem individualmente com argumentos científicos antes da correção dialogada."
+            ),
+            "pratica": (
+                f"Organizar grupos para debater as evidências científicas contra preconceitos históricos ou analisar criticamente o texto proposto. "
+                f"Orientar a elaboração de um plano de ação ou síntese coletiva sobre a diversidade genética. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Finalizar coletando as sínteses dos grupos e respondendo às perguntas de reflexão: '{pergunta_sintese_1}' e '{pergunta_sintese_2}'. "
+                f"Sistematizar com as palavras-chave de direitos e ciência: {palavras_chave_str}."
+            ),
+        }
+
+    # 4. aplicacao_biotecnologica
+    if tipo == "aplicacao_biotecnologica":
+        return {
+            "para_comecar": (
+                f"Iniciar a aula com a apresentação de um caso clínico real ou notícia recente sobre {tema}, propondo a questão disparadora: '{pergunta_slide}'. "
+                f"Permitir que os estudantes compartilhem suas opiniões e vivências cotidianas com a tecnologia em foco."
+            ),
+            "foco_1": (
+                f"Explicar o conceito de {conceito_seguro} e descrever as etapas do processo biotecnológico envolvido (como produção de vacinas, soros, clonagem ou terapia gênica). "
+                f"Exibir o vídeo informativo {video_titulo} do canal {video_canal} ({video_minutos}) para ilustrar a produção real."
+            ),
+            "foco_2": (
+                f"Destacar o papel de instituições públicas de pesquisa do Brasil (como Instituto Butantan, Fiocruz e universidades públicas) na soberania científica e "
+                f"saúde coletiva. Discutir aspectos de propriedade intelectual (patentes) e equidade de acesso (SUS)."
+            ),
+            "pause": (
+                f"Propor questão de verificação formativa sobre as etapas de produção ou mecanismos de ação biológicos discutidos. Corrigir revelando o gabarito e detalhando a resposta."
+            ),
+            "pratica": (
+                f"Orientar os estudantes a analisarem em duplas o estudo de caso ou atividade clínica aplicada no material. Propor o preenchimento dos esquemas ou lacunas "
+                f"para fixar o vocabulário científico e a lógica do processo. Realizar correção coletiva destacando as palavras-chave: {palavras_chave_str}."
+            ),
+            "encerramento": (
+                f"Encerrar respondendo às perguntas de síntese: '{pergunta_sintese_1}' e '{pergunta_sintese_2}'. "
+                f"Destacar como o conhecimento biotecnológico se traduz em bem-estar social e imunidade coletiva."
+            ),
+        }
+
+    # 5. revisao_aprofundamento
+    if tipo == "revisao_aprofundamento":
+        return {
+            "relembre": (
+                f"Retomar os conceitos fundamentais de aulas anteriores sobre {tema} por meio de uma tabela comparativa ou imagem de síntese na lousa. "
+                f"Conduzir uma breve arguição diagnóstica para verificar o que foi consolidado."
+            ),
+            "foco_1": (
+                f"Aprofundar os aspectos mais complexos de {conceito_seguro}, utilizando novos exemplos ou contextos que integrem os conhecimentos moleculares e celulares revisados."
+            ),
+            "pause": (
+                f"Realizar um Pause e responda com questões de vestibular ou do material para checagem rápida de consolidação dos tópicos. Discutir a resolução coletivamente."
+            ),
+            "pratica": (
+                f"Propor a resolução em duplas de uma situação-problema mais complexa que integre múltiplos conceitos revisados ou questões de exames (ENEM/vestibulares). "
+                f"Conduzir a correção passo a passo na lousa, validando os raciocínios dos estudantes. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Finalizar com perguntas de síntese: '{pergunta_sintese_1}' e '{pergunta_sintese_2}', esclarecendo dúvidas remanescentes antes do encerramento."
+            ),
+        }
+
+    # Fallbacks para compatibilidade com tipos antigos
     if tipo == "aula_desafio":
         return {
             "desafio": (
@@ -1289,31 +1590,36 @@ def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str =
                 "Apresentar o grafico, infografico, mapa ou esquema do material e orientar a leitura, pedindo que os estudantes identifiquem dados-chave, comparacoes e implicacoes do modelo visual."
             ),
             "pratica": (
-                f"Propor atividade de analise de caso, texto ou dados, solicitando registro individual com base em evidencias e conexoes entre ciencia, ambiente e vida cotidiana. Atividade central: {atividade}."
+                f"Propor atividade de analise de caso, texto ou dados, solicitando registro individual com base em evidencias e conexoes entre ciência, ambiente e vida cotidiana. Atividade central: {atividade}."
             ),
             "encerramento": (
                 f"Encerrar retomando a conexao entre {tema} e suas implicacoes sociais, ambientais ou de saude, com perguntas de sintese em Com suas palavras."
             ),
         }
 
+    # Fallback Geral (Conceito Novo)
     return {
         "para_comecar": (
-            f"Iniciar a aula com {contexto} relacionado a {tema}, convidando os estudantes a levantar hipoteses e ativar conhecimentos previos antes da definicao formal."
+            f"Iniciar a aula com {contexto} relacionado a {tema}, propondo a questão disparadora: '{pergunta_slide}'. "
+            f"Convidar os estudantes a levantar hipóteses e ativar conhecimentos prévios."
         ),
         "foco": (
-            f"Explicar {conceito_seguro} em etapas sequenciais, destacando processo, relacoes de causa e consequencia e exemplos biologicos que ajudem a turma a compreender o conteudo um passo de cada vez."
+            f"Explicar {conceito_seguro} em etapas sequenciais, destacando processos, relações de causa e consequência "
+            f"e exemplos biológicos reais de forma dialógica e progressiva."
         ),
         "pause": (
-            "Propor um Pause e responda antes da atividade pratica, com tempo breve para resposta individual e correcao dialogada baseada nas evidencias e no conceito central."
+            "Propor um Pause e responda antes da atividade prática, com tempo breve para resposta individual e correção dialogada "
+            "baseada no conceito central."
         ),
         "pratica": (
-            f"Orientar a aplicacao do conceito em leitura, classificacao, interpretacao de modelo ou atividade investigativa, pedindo registro individual e justificativa cientifica. Atividade central: {atividade}."
+            f"Orientar a aplicação do conceito em leitura, classificação, interpretação de modelo ou atividade investigativa em duplas. "
+            f"Atividade central: {atividade}."
         ),
         "encerramento": (
-            f"Finalizar com Com suas palavras, pedindo que os estudantes sintetizem o que aprenderam sobre {tema} e como esse conhecimento se conecta a situacoes reais."
+            f"Finalizar com as perguntas de síntese: '{pergunta_sintese_1}' e '{pergunta_sintese_2}', "
+            f"sistematizando o aprendizado com as palavras-chave: {palavras_chave_str}."
         ),
     }
-
 
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
@@ -1555,6 +1861,18 @@ def _frases_por_contexto(
                 "instituicoes_financeiras": "uma situação cotidiana sobre onde guardar, movimentar e proteger o dinheiro com segurança",
             }
             situacao = situacoes.get(tipo, f"uma situação financeira real relacionada a {tema}")
+            base["retomada_conceitual"] = (
+                f"Retomar brevemente os conceitos e os registros da aula anterior sobre {tema} para garantir a base necessária para as atividades de hoje."
+            )
+            base["contextualizacao_pratica"] = (
+                f"Apresentar o foco prático do dia ligado a {tema}, explicando como aplicar os conceitos em um cenário de tomada de decisão ou simulação financeira."
+            )
+            base["atividade_central"] = (
+                f"Orientar os estudantes na realização da atividade prática do material, como elaborar tabelas, simular gastos, realizar pesquisas ou comparar alternativas em duplas ou individualmente."
+            )
+            base["encerramento_reflexivo"] = (
+                f"Conduzir uma reflexão rápida sobre as escolhas feitas na atividade, estimulando a socialização das conclusões financeiras e das estratégias utilizadas."
+            )
             base["para_comecar"] = (
                 f"Apresentar {situacao}, sem exigir relatos pessoais nem julgamentos sobre hábitos financeiros familiares. "
                 "Convidar os estudantes a levantar hipóteses sobre escolhas, riscos, prioridades e consequências antes da sistematização."
@@ -1670,7 +1988,7 @@ def _frases_por_contexto(
 
     elif perfil == "matematica":
             # Gerador especializado de Matemática — retorna lista de etapas completas
-            etapas_mat = _metodologia_matematica(texto_base, tema, tipo)
+            etapas_mat = _metodologia_matematica(texto_base, tema, tipo, turma=turma, tecnicas=tecnicas)
             # Converte lista de dicts em dicionário de frases para o motor geral
             for etapa in etapas_mat:
                 chave = normalizar_texto(etapa["titulo"]).replace(" ", "_")

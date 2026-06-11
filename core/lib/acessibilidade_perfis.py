@@ -312,38 +312,73 @@ def _acessibilidade_biologia(tema: str, aprendizagem: str, desenvolvimento: str)
 
     tipo = detectar_tipo_aula(desenvolvimento, tema, "Biologia")
 
+    if tipo == "etico_biotecnologico":
+        return [
+            "☑ Disponibilizar glossário simplificado com termos científicos de bioética (autonomia, consentimento, dignidade) e vocabulário técnico para apoiar a leitura do estudo de caso.",
+            "☑ Oferecer um esquema visual ou fluxograma resumindo a história de Henrietta Lacks ou o dilema ético em foco, facilitando a identificação das pistas.",
+            "☑ Permitir formas flexíveis de resposta no Na prática (registro em tópicos, desenhos, setas ou explicação oral mediada pelo professor).",
+        ]
+
+    if tipo == "molecular_genetico":
+        return [
+            "☑ Disponibilizar glossário visual (diagramas com legenda do DNA/RNA/genes) e tabela de equivalência de bases nitrogenadas como consulta durante a aula.",
+            "☑ Fornecer gabaritos táteis, modelos físicos ou templates estruturados (quadro de Punnett ou heredograma em branco com linhas guias) para o preenchimento passo a passo.",
+            "☑ Permitir registro alternativo para a resolução dos cruzamentos (tópicos descritivos, setas indicativas ou explicação verbal gravada ou mediada).",
+        ]
+
+    if tipo == "debate_critico":
+        return [
+            "☑ Disponibilizar glossário simplificado desmistificando os conceitos de variabilidade e ancestralidade, auxiliando na compreensão de textos e notícias.",
+            "☑ Oferecer um roteiro de perguntas orientadoras para direcionar o debate coletivo e a análise das evidências científicas que contrapõem o racismo científico.",
+            "☑ Permitir a elaboração do plano de ação em formato de lista, tópicos estruturados, desenho de painel ou gravação de áudio do posicionamento do grupo.",
+        ]
+
+    if tipo == "aplicacao_biotecnologica":
+        return [
+            "☑ Disponibilizar glossário de processos biotecnológicos (vacinas, soros, clonagem) e infográficos das etapas de produção industrial para apoiar a leitura.",
+            "☑ Fornecer roteiro passo a passo com lacunas e banco de palavras-chave como apoio para preenchimento do estudo de caso clínico ou do processo biológico.",
+            "☑ Permitir respostas simplificadas ou indicação visual de termos-chave para fixação do funcionamento das biotecnologias antes da socialização.",
+        ]
+
+    if tipo == "revisao_aprofundamento":
+        return [
+            "☑ Disponibilizar tabelas comparativas e imagens de síntese das aulas anteriores para consulta imediata durante as atividades de aprofundamento.",
+            "☑ Dividir a resolução de problemas complexos de vestibulares em etapas menores e sequenciais, orientando o raciocínio clínico com perguntas guias.",
+            "☑ Permitir a realização dos exercícios em duplas de cooperação mútua com registro em tópicos ou explicação falada.",
+        ]
+
     if tipo == "aula_desafio":
         return [
-            "Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidências, formular hipóteses e registrar a conclusão em etapas.",
-            "Disponibilizar esquema visual com dados do caso, pistas principais e espaço para comparar hipóteses antes da Hora da verdade.",
-            "Permitir respostas em tópicos, setas, desenho explicativo ou fala mediada antes do registro final escrito.",
+            "☑ Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidências, formular hipóteses e registrar a conclusão em etapas.",
+            "☑ Disponibilizar esquema visual com dados do caso, pistas principais e espaço para comparar hipóteses antes da Hora da verdade.",
+            "☑ Permitir respostas em tópicos, setas, desenho explicativo ou fala mediada antes do registro final escrito.",
         ]
 
     if tipo == "aula_pratica":
         return [
-            "Apresentar materiais, procedimentos e objetivos da prática em sequência visual curta, com retomada oral antes do início da atividade.",
-            "Permitir registro por desenho, esquema, tabela simples ou explicação oral para estudantes com dificuldade de escrita durante a observação.",
-            "Organizar grupos cooperativos com funções definidas para garantir participação de todos na prática e na discussão dos resultados.",
+            "☑ Apresentar materiais, procedimentos e objetivos da prática em sequência visual curta, com retomada oral antes do início da atividade.",
+            "☑ Permitir registro por desenho, esquema, tabela simples ou explicação oral para estudantes com dificuldade de escrita durante a observação.",
+            "☑ Organizar grupos cooperativos com funções definidas para garantir participação de todos na prática e na discussão dos resultados.",
         ]
 
     if tipo == "revisao_consolidacao":
         return [
-            "Disponibilizar glossário, quadro de palavras-chave ou comparação entre conceitos para apoiar a revisão antes das respostas individuais.",
-            "Conduzir o quiz ou a retomada com leitura mediada das questões, dando tempo de resposta e retomando os termos centrais no quadro.",
-            "Permitir respostas em frases curtas, tópicos ou explicação oral mediada antes da versão discursiva completa.",
+            "☑ Disponibilizar glossário, quadro de palavras-chave ou comparação entre conceitos para apoiar a revisão antes das respostas individuais.",
+            "☑ Conduzir o quiz ou a retomada com leitura mediada das questões, dando tempo de resposta e retomando os termos centrais no quadro.",
+            "☑ Permitir respostas em frases curtas, tópicos ou explicação oral mediada antes da versão discursiva completa.",
         ]
 
     if tipo == "impacto_socioambiental":
         return [
-            "Ler coletivamente os dados, mapas, gráficos ou notícias antes da análise individual, destacando fonte, título, legenda e palavras-chave.",
-            "Organizar perguntas orientadoras para ajudar a turma a relacionar o fenômeno biológico a impactos ambientais, sociais ou de saúde pública.",
-            "Permitir registro por tópicos, setas, tabela simples ou fala mediada para apoiar a interpretação crítica das evidências.",
+            "☑ Ler coletivamente os dados, mapas, gráficos ou notícias antes da análise individual, destacando fonte, título, legenda e palavras-chave.",
+            "☑ Organizar perguntas orientadoras para ajudar a turma a relacionar o fenômeno biológico a impactos ambientais ou de saúde.",
+            "☑ Permitir registro por tópicos, setas, tabela simples ou fala mediada.",
         ]
 
     return [
-        "Utilizar imagens, esquemas, modelos visuais e exemplos do cotidiano para tornar o conceito biológico mais concreto.",
-        "Organizar a atividade em etapas curtas, com apoio no quadro para destacar processo, evidências, palavras-chave e síntese final.",
-        "Permitir diferentes formas de resposta, como tópicos, desenho, setas, frases curtas ou explicação oral mediada conforme a necessidade.",
+        "☑ Utilizar imagens, esquemas, modelos visuais e exemplos do cotidiano para tornar o conceito biológico mais concreto.",
+        "☑ Organizar a atividade em etapas curtas, com apoio no quadro para destacar processo, evidências e síntese.",
+        "☑ Permitir diferentes formas de resposta, como tópicos, desenho, setas ou explicação oral.",
     ]
 
 

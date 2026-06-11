@@ -10,7 +10,8 @@ def test_contexto_ae_priorizado_so_ativa_para_portugues_em_segundo_bimestre(monk
 
     assert ae_priorizado.contexto_ae_priorizado_disponivel("Língua Portuguesa", "1ª Série A", "2º Bimestre") is True
     assert ae_priorizado.contexto_ae_priorizado_disponivel("Língua Portuguesa", "1ª Série A", "1º Bimestre") is False
-    assert ae_priorizado.contexto_ae_priorizado_disponivel("Matemática", "1ª Série A", "2º Bimestre") is False
+    assert ae_priorizado.contexto_ae_priorizado_disponivel("Filosofia", "1ª Série A", "2º Bimestre") is False
+
 
 
 def test_contexto_ae_priorizado_tambem_cobre_turmas_reais_de_segundo_e_terceiro_ano(monkeypatch):
@@ -191,10 +192,10 @@ def test_base_real_ae_priorizado_traz_sequencia_para_segundo_e_terceiro_ano():
 
 
 def test_base_real_ae_priorizado_traz_sequencia_para_arte_e_biologia():
-    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "1º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
-    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "2º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
-    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "1º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
-    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "6º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "1º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 6, 7]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Biologia", "2º ANO A", "2º Bimestre", limite=5) == [1, 2, 6, 7, 8]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "1º ANO A", "2º Bimestre", limite=5) == [1, 5, 7, 10, 12]
+    assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "6º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 14]
     assert ae_priorizado.sequencia_aulas_ae_priorizado("Arte", "9º ANO A", "2º Bimestre", limite=5) == [1, 2, 3, 4, 5]
 
 
@@ -202,13 +203,17 @@ def test_contexto_ae_priorizado_cobre_lote_af_e_em_2b():
     casos_ativos = [
         ("Ciências", "6º ANO A"),
         ("Geografia", "7º ANO A"),
+        ("Geografia", "1º ANO A"),
         ("História", "8º ANO A"),
         ("Língua Inglesa", "1º ANO A"),
         ("Matemática", "9º ANO A"),
+        ("Matemática", "1º ANO A"),
         ("Língua Portuguesa", "6º ANO A"),
         ("Química", "2º ANO A"),
         ("Sociologia", "2º ANO A"),
     ]
+
+
 
     for disciplina, turma in casos_ativos:
         assert ae_priorizado.contexto_ae_priorizado_disponivel(disciplina, turma, "2º Bimestre") is True

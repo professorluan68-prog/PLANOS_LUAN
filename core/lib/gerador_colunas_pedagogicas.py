@@ -264,6 +264,7 @@ def classificar_perfil(
     conteudos: List[str],
     objetivos: List[str],
     blocos: Dict[str, str],
+    perfil: str = None,
 ) -> str:
     """
     Classifica o perfil pedagógico da aula com base no conteúdo do PDF.
@@ -273,9 +274,16 @@ def classificar_perfil(
     n = norm(base)
 
     # Verificar regras em ordem de prioridade
-    for perfil, termos in _REGRAS_PERFIL_LP:
-        if any(norm(termo) in n for termo in termos):
-            return perfil
+    perfis_lp_permitidos = {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
+    if perfil is None or perfil in perfis_lp_permitidos:
+        for perfil_nome, termos in _REGRAS_PERFIL_LP:
+            for termo in termos:
+                termo_norm = norm(termo)
+                if not termo_norm:
+                    continue
+                # Busca exata com limites de palavra
+                if re.search(rf"(?<!\w){re.escape(termo_norm)}(?!\w)", n):
+                    return perfil_nome
 
     # Regras compostas que dependem de múltiplos sinais
     tem_noticia = any(norm(p) in n for p in PALAVRAS_NOTICIA)
@@ -315,7 +323,7 @@ def classificar_perfil(
     return "geral"
 
 
-def extrair_pistas(texto_pdf: str, titulo_aula: str) -> PistasPedagogicas:
+def extrair_pistas(texto_pdf: str, titulo_aula: str, perfil: str = None) -> PistasPedagogicas:
     texto_pdf = texto_pdf or ""
     listas = extrair_conteudos_objetivos(texto_pdf)
     conteudos = listas["conteudos"]
@@ -351,7 +359,7 @@ def extrair_pistas(texto_pdf: str, titulo_aula: str) -> PistasPedagogicas:
         tecnicas_lemov=detectar_tecnicas(texto_pdf),
     )
 
-    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos, blocos)
+    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos, blocos, perfil=perfil)
     pistas.verbo_objetivo = detectar_verbo_objetivo(objetivos)
     return pistas
 
@@ -960,8 +968,8 @@ def gerar_acessibilidade(pistas: PistasPedagogicas) -> List[str]:
     return [sentenca(item) for item in dedup(base)[:3]]
 
 
-def montar_colunas_pedagogicas(texto_pdf: str, titulo_aula: str) -> Dict[str, object]:
-    pistas = extrair_pistas(texto_pdf, titulo_aula)
+def montar_colunas_pedagogicas(texto_pdf: str, titulo_aula: str, perfil: str = None) -> Dict[str, object]:
+    pistas = extrair_pistas(texto_pdf, titulo_aula, perfil=perfil)
     return {
         "pistas": pistas,
         "desenvolvimento": gerar_metodologia(pistas),

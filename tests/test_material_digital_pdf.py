@@ -533,3 +533,46 @@ def test_sanitiza_aprendizagem_de_redacao_sem_metodologia_colada():
     assert aprendizagem.startswith("Habilidade: (EF69LP46)")
     assert "Trilha Harry Potter" not in aprendizagem
     assert "Disparo inicial" not in aprendizagem
+
+
+def test_parece_titulo_atividade_filter():
+    from core.lib.extrator_pdf import _parece_titulo_atividade
+    assert _parece_titulo_atividade("Discussão sobre tipos de gastos") is True
+    assert _parece_titulo_atividade("Comparação de preços de cesta básica") is True
+    assert _parece_titulo_atividade("Elaborar uma tabela simples no quadro") is True
+    assert _parece_titulo_atividade("Identificar e diferenciar gastos fixos e variáveis em um orçamento familiar.") is False
+
+
+def test_limpar_placeholders_acessibilidade():
+    from core.lib.higienizador_pedagogico import _limpar_placeholders_acessibilidade
+    texto = "Organizar despesas em informação do material simples no quadro."
+    assert _limpar_placeholders_acessibilidade(texto) == "Organizar despesas em tabela simples no quadro."
+
+
+def test_detectar_tipo_aula_ef_pratica():
+    from core.lib.classificador import detectar_tipo_aula
+    texto = "Os alunos devem elaborar uma tabela em duplas e simular gastos de compras."
+    tipo = detectar_tipo_aula(texto, "Orçamento Familiar", "Educação Financeira")
+    assert tipo == "aula_pratica_continuidade"
+
+
+def test_variacoes_lemov_na_metodologia():
+    from core.lib.modalidades import garantir_tecnicas_lemov_na_metodologia
+    metodologia = [
+        {"titulo": "Para comecar", "texto": "Discussão inicial sobre orçamento familiar."},
+        {"titulo": "Na pratica", "texto": "Realizar atividade prática do material."}
+    ]
+    # Com texto diferente, o hash é diferente, gerando variações
+    metodologia_1 = garantir_tecnicas_lemov_na_metodologia(metodologia, ["PAUSE E RESPONDA"])
+    
+    # Nova metodologia com texto diferente
+    metodologia_b = [
+        {"titulo": "Para comecar", "texto": "Abertura diferente e mais longa da aula sobre finanças."},
+        {"titulo": "Na pratica", "texto": "Realizar atividade prática do material."}
+    ]
+    metodologia_2 = garantir_tecnicas_lemov_na_metodologia(metodologia_b, ["PAUSE E RESPONDA"])
+    
+    # Ambas devem conter a técnica PAUSE E RESPONDA mas o acréscimo textual pode variar deterministicamente
+    assert "PAUSE E RESPONDA" in metodologia_1[0]["texto"]
+    assert "PAUSE E RESPONDA" in metodologia_2[0]["texto"]
+

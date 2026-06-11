@@ -5,10 +5,7 @@ import unicodedata
 from typing import Any
 
 
-def normalizar_texto(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", texto).strip().lower()
+from core.normalizacao import normalizar_preservar_pontuacao as normalizar_texto
 
 
 _PADROES_MOJIBAKE = ("Ã", "Â", "â€", "â€“", "â€”", "�")
@@ -471,6 +468,76 @@ def _ajustar_texto_matematica(texto: str) -> str:
     return texto_final
 
 
+def sanitizar_texto_cdp_estrito(texto: str) -> str:
+    if not texto:
+        return ""
+
+    # 1. Tecnologias digitais
+    texto = re.sub(
+        r"\b(?:computadores?|celulares?|internet|aplicativos?|plataformas?\s+digitais|links?|sites?|v[ií]deos?\s+online|v[ií]deos?|slides?|datashow|projetores?|telas?|tablets?|notebooks?|computador|celular)\b",
+        "material impresso, quadro e registro no caderno",
+        texto,
+        flags=re.I,
+    )
+
+    # 2. Técnicas Lemov
+    texto = re.sub(
+        r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?(?:Virem e conversem|Todo mundo escreve|Com suas palavras|Hora da leitura|De olho no modelo|Pause e responda|Um passo de cada vez)["\']?(?:\s+para)?',
+        "",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:VIREM E CONVERSEM|TODO MUNDO ESCREVE|COM SUAS PALAVRAS|HORA DA LEITURA|DE OLHO NO MODELO|PAUSE E RESPONDA|UM PASSO DE CADA VEZ)\b",
+        "",
+        texto,
+        flags=re.I,
+    )
+
+    # 3. Duplas, grupos e socialização
+    texto = re.sub(
+        r"\b(?:discuss[aã]o|conversa|debate)\s+em\s+(?:duplas?|grupos?)\b",
+        "reflexão individual",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:atividades?|trabalhos?|exerc[ií]cios?)\s+em\s+(?:duplas?|grupos?)\b",
+        "atividades individuais",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:organizar|dividir|reunir)\s+(?:a\s+turma|a\s+sala|os\s+alunos|os\s+estudantes)?\s*em\s+(?:duplas?|grupos?)\b",
+        "orientar a realização individual",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:em\s+duplas?|em\s+grupos?)\b",
+        "de forma individual",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:com\s+o\s+colega|com\s+os\s+colegas|junto\s+com\s+um\s+colega|junto\s+com\s+colegas)\b",
+        "individualmente",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:compartilhar\s+com\s+o\s+colega|compartilhar\s+com\s+os\s+colegas|compartilhar\s+suas\s+respostas|debater\s+com\s+o\s+colega)\b",
+        "registrar no caderno",
+        texto,
+        flags=re.I,
+    )
+
+    texto = re.sub(r"\s+", " ", texto)
+    texto = re.sub(r"\s+([.,;:?])", r"\1", texto)
+    texto = re.sub(r"\b(individualmente\s+)+", "individualmente ", texto, flags=re.I)
+    return texto.strip(" ,;:-")
+
+
 def sanitizar_texto_metodologico(
     texto: str,
     perfil: str = "geral",
@@ -489,13 +556,8 @@ def sanitizar_texto_metodologico(
     ).strip()
     texto_final = _substituir_frases_problematicas(texto_final, tema)
 
-    if contexto == "cdp_eja" and any(recurso in normalizar_texto(texto_final) for recurso in RECURSOS_TECNOLOGICOS_CDP):
-        texto_final = re.sub(
-            r"\b(?:computador|celular|internet|aplicativo|plataforma digital|link|site|video online)\b",
-            "material impresso, quadro e registro no caderno",
-            texto_final,
-            flags=re.I,
-        )
+    if contexto == "cdp_eja":
+        texto_final = sanitizar_texto_cdp_estrito(texto_final)
 
     if perfil in {"matematica", "educacao_financeira"}:
         texto_final = _ajustar_texto_matematica(texto_final)
@@ -645,6 +707,8 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     if not preservar_tecnicas_explicitadas:
         texto_final = re.sub(r"\bt[eé?]cnica\s+[\"']([^\"']+)[\"']", r"estrategia de \1", texto_final, flags=re.I)
     texto_final = re.sub(r"\s+", " ", texto_final).strip()
+    texto_final = re.sub(r"\.\s*,", ".", texto_final)
+    texto_final = re.sub(r",\s*\.", ".", texto_final)
     texto_final = re.sub(r"\s+\.", ".", texto_final)
     texto_final = re.sub(r"\.{2,}", ".", texto_final)
     texto_final = re.sub(r"\bpersonagen\b", "personagens", texto_final, flags=re.I)

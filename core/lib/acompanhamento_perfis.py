@@ -60,16 +60,16 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
 
     if any(k in base for k in ["trilha", "alice no pais das maravilhas", "pequeno principe", "peter pan", "leitura compartilhada", "predicao guiada"]):
         return [
-            "Observar se os estudantes participam das discussões e compartilham impressões sobre a narrativa lida.",
-            "Verificar a compreensão dos acontecimentos, personagens e conflitos presentes no trecho trabalhado.",
-            "Acompanhar os registros orais e escritos produzidos durante as atividades de leitura e interpretação.",
+            "Observar a participação nas discussões sobre a narrativa lida.",
+            "Verificar a compreensão dos fatos e personagens do trecho.",
+            "Acompanhar os registros escritos nas atividades de interpretação.",
         ]
 
     if any(k in base for k in ["versao final", "redacao paulista", "revisao orientada", "reescrita", "rascunho"]):
         return [
-            "Verificar se os estudantes revisam e reorganizam o texto considerando clareza, sequência das ideias e adequação ao gênero trabalhado.",
-            "Observar a participação durante os momentos de revisão, correção e reescrita da produção textual.",
-            "Acompanhar se os estudantes conseguem identificar ajustes necessários antes da versão final e do envio da atividade.",
+            "Verificar se revisam o texto considerando coerência e gênero.",
+            "Observar a participação na revisão e reescrita do texto.",
+            "Acompanhar a realização de ajustes antes da versão final.",
         ]
 
     if "verbo haver" in base or re.search(r"\bhaver\b", base):
@@ -189,43 +189,43 @@ def _acompanhamento_projeto_vida(tema: str, aprendizagem: str, desenvolvimento: 
 
     if contem_termos(base, _PV_FUTUREME):
         return [
-            "☑ Observar se o estudante acessa e completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais.",
-            "☑ Verificar se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência.",
-            "☑ Acompanhar a troca em trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano e a possibilidades de futuro.",
+            "☑ Observar se o estudante completa o questionário com autenticidade.",
+            "☑ Verificar se o estudante analisa o relatório final de forma crítica.",
+            "☑ Acompanhar a troca em trios sobre os resultados e o futuro.",
         ]
 
     if contem_termos(base, _PV_ENCERRAMENTO):
         return [
-            "☑ Observar se o estudante identifica pelo menos uma descoberta significativa sobre si mesmo ao longo do bimestre, conectando-a a situações concretas vividas nas aulas.",
-            "☑ Verificar se o estudante consegue nomear uma mudança no modo de agir, sentir ou ver o mundo a partir dos aprendizados do bimestre.",
-            "☑ Acompanhar a participação no ritual simbólico de encerramento, avaliando se o estudante escolhe palavras e compromissos que refletem os temas trabalhados.",
+            "☑ Observar se identifica descobertas sobre si ao longo do bimestre.",
+            "☑ Verificar se indica mudanças na forma de agir ou ver o mundo.",
+            "☑ Acompanhar a escolha de compromissos no encerramento.",
         ]
 
     if contem_termos(base, _PV_CONSCIENCIA_SOCIAL):
         return [
-            "☑ Observar se o estudante reconhece a diferença entre privilégios e desvantagens como condições estruturais, e não apenas como resultado do esforço individual.",
-            "☑ Verificar se o estudante identifica, no ambiente digital e na mídia, padrões de representação que privilegiam certos perfis e invisibilizam outros.",
-            "☑ Acompanhar o registro individual, avaliando se o estudante indica mudanças concretas em sua forma de agir ao reconhecer as desigualdades.",
+            "☑ Observar se compreende a diferença entre privilégios e desvantagens.",
+            "☑ Verificar se identifica padrões de representação no meio digital.",
+            "☑ Acompanhar registros sobre mudanças frente a desigualdades.",
         ]
 
     if contem_termos(base, _PV_CONVIVENCIA):
         return [
-            "☑ Observar se o estudante participa do Círculo de Convivência com escuta ativa, respeitando os acordos de fala e sem interromper os colegas.",
-            "☑ Verificar se o estudante contribui com pelo menos uma proposta de solução para o dilema discutido, justificando com base nos efeitos para o grupo.",
-            "☑ Acompanhar o registro individual do compromisso, avaliando se o estudante identifica uma ação concreta que pode realizar para colocar a decisão coletiva em prática.",
+            "☑ Observar se participa do círculo com escuta ativa e respeito.",
+            "☑ Verificar se propõe soluções para o dilema discutido.",
+            "☑ Acompanhar a escrita de ações concretas para o compromisso.",
         ]
 
     if contem_termos(base, _PV_PRODUCAO_COLETIVA):
         return [
-            "☑ Observar se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elementos claros: objetivo, mensagem, público-alvo e estratégia de ação.",
-            "☑ Verificar se todos os integrantes do grupo participam ativamente da produção, com funções definidas e contribuições visíveis no produto final.",
-            "☑ Acompanhar a apresentação, avaliando se o grupo consegue explicar as escolhas feitas e conectá-las ao tema do bimestre.",
+            "☑ Observar se elaboram produto com objetivo e mensagem claros.",
+            "☑ Verificar a participação ativa de todos os integrantes do grupo.",
+            "☑ Acompanhar a apresentação e explicação das escolhas do grupo.",
         ]
 
     return [
-        "☑ Observar se o estudante identifica pelo menos três possibilidades de futuro conectadas aos seus interesses e valores, com justificativa para cada escolha.",
-        "☑ Verificar se o estudante reconhece fatores externos (contexto social, oportunidades, imprevistos) que influenciam suas escolhas, sem se limitar à vontade individual.",
-        "☑ Acompanhar a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
+        "☑ Observar se indica possibilidades de futuro ligadas a interesses.",
+        "☑ Verificar se reconhece fatores externos que afetam escolhas.",
+        "☑ Acompanhar as trocas e sugestões pertinentes em duplas.",
     ]
 
 
@@ -234,23 +234,23 @@ def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: st
 
     if any(k in base for k in ["verificacao", "revisao", "khan", "relembre", "bit.ly", "khanmigo"]):
         return [
-            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
-            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
-            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
+            "☑ Observar a autonomia na resolução das atividades da aula.",
+            "☑ Verificar se justificam as estratégias e interpretam resultados.",
+            "☑ Acompanhar se identificam e corrigem erros no raciocínio.",
         ]
 
     if any(k in base for k in ["grafico", "representacao grafica", "plano cartesiano", "eixo", "tabela", "pares ordenados"]):
         return [
-            "☑ Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informações apresentadas em gráficos ou tabelas do material.",
-            "☑ Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusões sem evidências.",
-            "☑ Observar se conseguem relacionar a representação gráfica ao contexto real da situação estudada.",
+            "☑ Verificar a interpretação de tabelas e gráficos da aula.",
+            "☑ Acompanhar se utilizam dados da aula para justificar respostas.",
+            "☑ Observar se relacionam a representação gráfica à situação real.",
         ]
 
     if any(k in base for k in ["resolucao de problemas", "metodo de polya", "polya"]):
         return [
-            "☑ Verificar se os estudantes aplicam as etapas do método de resolução: compreender, planejar, executar e verificar.",
-            "☑ Acompanhar se a turma justifica a estratégia escolhida e verifica se o resultado faz sentido no contexto do problema.",
-            "☑ Observar se os estudantes conseguem resolver problemas variados, transferindo o raciocínio para situações novas.",
+            "☑ Verificar se aplicam etapas do método de resolução de problemas.",
+            "☑ Acompanhar se justificam a estratégia e validam a solução.",
+            "☑ Observar se conseguem resolver problemas semelhantes de forma autônoma.",
         ]
 
     return [
@@ -265,30 +265,30 @@ def _acompanhamento_ciencias(tema: str, aprendizagem: str, desenvolvimento: str)
 
     if any(k in base for k in ["producao_projeto", "seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
         return [
-            "Verificar se a producao apresenta informacoes cientificas corretas, organizadas e relacionadas ao tema estudado.",
-            "Observar se os estudantes explicam as escolhas feitas no trabalho usando vocabulario cientifico adequado.",
-            "Acompanhar a participacao dos grupos, considerando clareza, colaboracao e capacidade de responder perguntas da turma.",
+            "Verificar se o produto traz informações científicas corretas.",
+            "Observar se usam vocabulário científico nas explicações.",
+            "Acompanhar a clareza e colaboração dos grupos.",
         ]
 
     if any(k in base for k in ["estudo_caso", "estudo de caso", "situacao-problema", "situacao problema", "caso"]):
         return [
-            "Verificar se os estudantes identificam o problema central do caso e selecionam evidencias relevantes para a analise.",
-            "Observar se relacionam causa, consequencia e conceito cientifico ao justificar as respostas.",
-            "Acompanhar os registros escritos, considerando coerencia da explicacao e uso adequado dos conceitos da aula.",
+            "Verificar se identificam o problema do caso e reúnem evidências.",
+            "Observar se relacionam causa, consequência e conceito científico.",
+            "Acompanhar registros, avaliando coerência e conceitos científicos.",
         ]
 
     if any(k in base for k in ["leitura_analise", "noticia", "reportagem", "dados", "inpe", "ibge", "fonte", "hora da leitura"]):
         return [
-            "Verificar se os estudantes localizam informacoes centrais no texto, dado ou fonte apresentada.",
-            "Observar se conseguem relacionar a leitura aos conceitos cientificos e a questoes de saude, ambiente ou sociedade.",
-            "Acompanhar as respostas escritas, considerando uso de evidencias e justificativas fundamentadas.",
+            "Verificar se localizam informações centrais no texto ou fonte.",
+            "Observar se relacionam leitura e conceitos a saúde e ambiente.",
+            "Acompanhar respostas escritas e justificativas com evidências.",
         ]
 
     if any(k in base for k in ["revisao_retomada", "relembre", "exercicio resolvido", "retomar"]):
         return [
-            "Verificar se os estudantes recuperam conceitos estudados anteriormente e reconhecem conexoes com a atividade atual.",
-            "Observar se acompanham o exemplo resolvido e aplicam o mesmo raciocinio em novas questoes.",
-            "Acompanhar os registros, identificando lacunas que precisam de retomada coletiva ou mediacao individual.",
+            "Verificar se recordam conceitos anteriores relacionados à aula.",
+            "Observar se compreendem o exemplo e o aplicam em questões.",
+            "Acompanhar os registros, identificando pontos para retomada.",
         ]
 
     return [
@@ -303,18 +303,53 @@ def _acompanhamento_biologia(tema: str, aprendizagem: str, desenvolvimento: str)
 
     tipo = detectar_tipo_aula(desenvolvimento, tema, "Biologia")
 
+    if tipo == "etico_biotecnologico":
+        return [
+            f"☑ Verificar se os estudantes identificam as implicações éticas, legais ou sociais de {tema} e explicam a importância do consentimento e da bioética.",
+            "☑ Observar se a turma analisa a relação entre autonomia e dignidade humana a partir dos princípios da integridade científica.",
+            "☑ Acompanhar se os registros individuais analisam o estudo de caso fundamentando-se nas evidências científicas discutidas na aula.",
+        ]
+
+    if tipo == "molecular_genetico":
+        return [
+            f"☑ Verificar se os estudantes compreendem a estrutura molecular ou o cruzamento genético envolvido em {tema}.",
+            "☑ Observar se explicam de forma clara a relação de causa e consequência entre genótipo e fenótipo na escala molecular.",
+            "☑ Acompanhar se a turma utiliza diagramas (como quadro de Punnett ou heredogramas) para resolver e justificar os problemas genéticos.",
+        ]
+
+    if tipo == "debate_critico":
+        return [
+            f"☑ Verificar se os estudantes utilizam argumentos científicos sólidos sobre {tema} para combater preconceitos históricos ou pseudociências.",
+            "☑ Observar se a turma analisa a variabilidade genética humana defendendo a inexistência de raças biológicas sob a perspectiva da genética moderna.",
+            "☑ Acompanhar se os grupos elaboram propostas ou planos de ação fundamentados no rigor factual e nos direitos humanos.",
+        ]
+
+    if tipo == "aplicacao_biotecnologica":
+        return [
+            f"☑ Verificar se os estudantes descrevem as etapas e o mecanismo biológico de produção da tecnologia sobre {tema}.",
+            "☑ Observar se a turma reconhece o papel de instituições públicas de pesquisa (como Butantan e Fiocruz) na soberania e saúde coletiva.",
+            "☑ Acompanhar se os registros em duplas articulam aspectos de propriedade intelectual (patentes) e equidade de acesso no SUS.",
+        ]
+
+    if tipo == "revisao_aprofundamento":
+        return [
+            f"☑ Verificar se os estudantes retomam e integram os conceitos biológicos e moleculares fundamentais de {tema}.",
+            "☑ Observar se a turma resolve e justifica coletivamente questões complexas e problemas de vestibulares ou do material.",
+            "☑ Acompanhar se as respostas escritas mostram consolidação dos conceitos principais e a identificação de lacunas a serem retomadas.",
+        ]
+
     if tipo == "aula_desafio":
         return [
-            f"☑ Verificar se os estudantes identificam o problema central do caso relacionado a {tema} e levantam hipóteses coerentes antes da correção final.",
-            "☑ Observar se a turma seleciona evidências do material para justificar explicações, comparando hipóteses e revisando conclusões quando necessário.",
-            "☑ Acompanhar se os registros finais articulam análise de dados, raciocínio científico e medidas ou conclusões relacionadas ao caso estudado.",
+            f"☑ Verificar se identificam o problema do caso e formulam hipóteses.",
+            "☑ Observar se selecionam evidências para justificar explicações.",
+            "☑ Acompanhar se os registros trazem conclusões sobre o caso.",
         ]
 
     if tipo == "aula_pratica":
         return [
-            f"☑ Verificar se os estudantes relacionam o que foi observado na prática aos conceitos centrais de {tema}, evitando respostas apenas descritivas.",
-            "☑ Observar se a turma registra observações, compara resultados e revê hipóteses com base nas evidências produzidas durante a atividade experimental.",
-            "☑ Acompanhar se os estudantes conseguem explicar, com vocabulário científico, como a prática confirma ou amplia a compreensão do conteúdo.",
+            f"☑ Verificar se relacionam a prática aos conceitos científicos.",
+            "☑ Observar se registram observações e comparam resultados da prática.",
+            "☑ Acompanhar se explicam como a prática ajuda a compreender o tema.",
         ]
 
     if tipo == "revisao_consolidacao":
@@ -346,9 +381,9 @@ def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
 
     if tipo == "leitura_em":
         return [
-            f"☑ Verificar se os estudantes identificam corretamente as informações gerais e específicas do texto sobre {conteudo}, localizando evidências no texto para justificar as respostas.",
-            "☑ Acompanhar se a turma aplica as estratégias de leitura apresentadas (palavras-chave, cognatas, inferência pelo contexto) para resolver as questões de múltipla escolha.",
-            "☑ Observar se os estudantes conseguem eliminar as alternativas incorretas com base em trechos do texto, explicando o raciocínio utilizado.",
+            f"☑ Verificar se identificam informações centrais e específicas no texto.",
+            "☑ Acompanhar se aplicam estratégias de leitura para resolver as questões.",
+            "☑ Observar se eliminam alternativas incorretas com base no texto.",
         ]
     if tipo == "gramatica":
         return [

@@ -24,7 +24,7 @@ from core.lib.acompanhamento_perfis import (
 _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
     "matematica": {
         "verificacao": [
-            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
+            "Observar a autonomia dos estudantes na resolução das atividades.",
             "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
             "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
         ],

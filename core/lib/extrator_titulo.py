@@ -55,6 +55,16 @@ def _linha_generica(linha: str, disciplina: str) -> bool:
     }
     if texto in genericas:
         return True
+
+    # Se contiver apenas o nome de alguma disciplina conhecida com alguma letra extra
+    from core.disciplinas import nomes_disciplinas
+    for disc in nomes_disciplinas():
+        disc_norm = _normalizar(disc)
+        if texto == disc_norm:
+            return True
+        if texto.startswith(disc_norm + " ") and len(texto) <= len(disc_norm) + 3:
+            return True
+
     if "gps" in texto and "guia" in texto:
         return True
     if "praticas de sala de aula" in texto:
@@ -136,12 +146,20 @@ def _juntar_partes_titulo(partes: list[str]) -> str:
 
 def _extrair_titulo_multilinha(texto: str, disciplina: str) -> str:
     linhas = _limpar_linhas(texto)
-    partes = []
-    for linha in linhas[:8]:
+    linhas_limpas = []
+    for linha in linhas:
         titulo = _limpar_titulo_material(linha, disciplina)
         normalizada = _normalizar(titulo)
-        if not titulo or _linha_generica(titulo, disciplina) or normalizada == _normalizar(disciplina):
+        if not titulo or len(titulo) < 4 or _linha_generica(titulo, disciplina) or normalizada == _normalizar(disciplina):
             continue
+        if normalizada in ("ano", "anos"):
+            continue
+        linhas_limpas.append(linha)
+
+    partes = []
+    for linha in linhas_limpas[:8]:
+        titulo = _limpar_titulo_material(linha, disciplina)
+        normalizada = _normalizar(titulo)
         if any(token in normalizada for token in ["bimestre", "ensino medio", "ensino fundamental"]):
             break
         if _linha_rotulo_aula(normalizada) or normalizada.startswith(("slide ", "pagina ", "página ")):

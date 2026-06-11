@@ -9,7 +9,7 @@ from core.lib.classificador import normalizar_texto as _normalizar
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 AE_PRIORIZADO_DIR = BASE_DIR / "assets" / "ae_priorizado"
-AE_PRIORIZADO_JSON_PATH = AE_PRIORIZADO_DIR / "portugues_em_2b_teste.json"
+AE_PRIORIZADO_JSON_PATH = AE_PRIORIZADO_DIR / "portugues_em_2b.json"
 
 DISCIPLINA_ALIASES = {
     "arte": "arte",
@@ -77,9 +77,13 @@ def _serie_em_por_turma(turma: str = "") -> str:
         return ""
     return serie.replace("_", " ")
 
-def disciplina_ae_priorizado_teste(disciplina: str = "") -> bool:
+def disciplina_ae_priorizado_disponivel(disciplina: str = "") -> bool:
     chave = _disciplina_chave(disciplina)
     return any(str(item.get("chave_lookup") or "").startswith(f"{chave}_") for item in carregar_base_ae_priorizado().get("mapa_por_aula", []))
+
+
+# Compatibilidade com nome antigo durante a transição.
+disciplina_ae_priorizado_teste = disciplina_ae_priorizado_disponivel
 
 def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bimestre: str = "") -> bool:
     prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
@@ -105,15 +109,27 @@ def carregar_base_ae_priorizado() -> dict:
         return {"mapa_por_aula": []}
 
     mapa_por_aula: list[dict] = []
+    entradas_base: list[dict] = []
     fontes: list[str] = []
+    chaves_vistas: set[str] = set()
     for path in paths:
         try:
             base = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         fontes.append(str(path))
-        mapa_por_aula.extend(dict(item) for item in base.get("mapa_por_aula", []) if isinstance(item, dict))
-    return {"arquivos_fonte": fontes, "mapa_por_aula": mapa_por_aula}
+        entradas_base.extend(
+            dict(item) for item in base.get("entradas_base", []) if isinstance(item, dict)
+        )
+        for item in base.get("mapa_por_aula", []):
+            if not isinstance(item, dict):
+                continue
+            chave = str(item.get("chave_lookup") or "").strip()
+            if not chave or chave in chaves_vistas:
+                continue
+            chaves_vistas.add(chave)
+            mapa_por_aula.append(dict(item))
+    return {"arquivos_fonte": fontes, "mapa_por_aula": mapa_por_aula, "entradas_base": entradas_base}
 
 @lru_cache(maxsize=1)
 def _indice_por_chave() -> dict[str, dict]:
@@ -129,10 +145,24 @@ def _indice_por_chave() -> dict[str, dict]:
 def _ordem_por_chave() -> dict[str, int]:
     base = carregar_base_ae_priorizado()
     ordem: dict[str, int] = {}
-    for posicao, item in enumerate(base.get("mapa_por_aula", [])):
+    posicao = 0
+
+    for entrada in base.get("entradas_base", []):
+        disciplina = str(entrada.get("disciplina") or "").strip()
+        serie = str(entrada.get("serie") or "").strip()
+        bimestre = str(entrada.get("bimestre") or "2º").strip()
+        aulas_bloco = str(entrada.get("aulas_lista") or entrada.get("aulas_bloco") or "")
+        for valor in re.findall(r"\d{1,3}", aulas_bloco):
+            chave = _chave_lookup(disciplina, serie, bimestre, int(valor))
+            if chave and chave not in ordem:
+                ordem[chave] = posicao
+                posicao += 1
+
+    for item in base.get("mapa_por_aula", []):
         chave = str(item.get("chave_lookup") or "").strip()
         if chave and chave not in ordem:
             ordem[chave] = posicao
+            posicao += 1
     return ordem
 
 def _numero_aula_item(aula: dict) -> int:
@@ -163,10 +193,17 @@ def sequencia_aulas_ae_priorizado(
 
     numeros: list[int] = []
     vistos: set[int] = set()
-    for item in carregar_base_ae_priorizado().get("mapa_por_aula", []):
-        chave = str(item.get("chave_lookup") or "").strip()
-        if not chave.startswith(prefixo):
-            continue
+    ordem = _ordem_por_chave()
+    itens_ordenados = sorted(
+        (
+            item
+            for item in carregar_base_ae_priorizado().get("mapa_por_aula", [])
+            if str(item.get("chave_lookup") or "").strip().startswith(prefixo)
+        ),
+        key=lambda item: ordem.get(str(item.get("chave_lookup") or "").strip(), 10_000),
+    )
+
+    for item in itens_ordenados:
         try:
             numero = int(item.get("aula_numero") or 0)
         except (TypeError, ValueError):
@@ -230,7 +267,7 @@ def aplicar_ae_priorizado_nas_aulas(
         faltantes_unicos = sorted(set(faltantes))
         lista = ", ".join(str(valor) for valor in faltantes_unicos)
         avisos.append(
-            "Modo AE ativo, mas o guia de teste nao trouxe correspondencia para a(s) aula(s) "
+            "Modo AE ativo, mas o guia priorizado nao trouxe correspondencia para a(s) aula(s) "
             f"{lista}. Nessas aulas, o sistema manteve a habilidade normal."
         )
 

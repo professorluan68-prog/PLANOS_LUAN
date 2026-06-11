@@ -11,26 +11,7 @@ class EstrategiaDivisao(Enum):
     COMPLEXIDADE = "complexidade"
 
 
-def normalizar_texto(texto: str) -> str:
-    """
-    Normaliza texto removendo acentos e normalizando espaços.
-    
-    Args:
-        texto: Texto a normalizar
-        
-    Returns:
-        Texto normalizado em minúsculas
-    """
-    if not texto:
-        return ""
-    
-    # Remove acentos
-    texto = unicodedata.normalize('NFKD', texto)
-    texto = ''.join(c for c in texto if not unicodedata.combining(c))
-    
-    # Normaliza espaços e converte para minúscula
-    texto = re.sub(r'\s+', ' ', texto).strip().lower()
-    return texto
+from core.normalizacao import normalizar_preservar_pontuacao as normalizar_texto
 
 
 class SecaoMetodologia:

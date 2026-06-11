@@ -1,15 +1,14 @@
 {
-  "arquivo_fonte": "C:\\Users\\Prof_L\\Downloads\\planilha_ae_matematica_af_2b.xlsx",
+  "arquivo_fonte": "D:\\PLANOS_LUAN\\assets\\ae_priorizado\\planilhas\\planilha_ae_matematica_af_2b.xlsx",
   "filtro": {
-    "disciplina": "Matem?tica",
+    "disciplina": "Matemática",
     "etapa": "AF",
-    "bimestre": "2º",
-    "bimestre_numero": 2
+    "bimestre": "2º"
   },
   "mapa_por_aula": [
     {
       "chave_lookup": "matematica_af|2|6a_serie|3",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -27,7 +26,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|5",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -45,7 +44,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|6",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -63,7 +62,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|9",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -81,7 +80,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|10",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -99,7 +98,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|7",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -117,7 +116,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|8",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -135,7 +134,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|11",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -153,7 +152,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|12",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -171,7 +170,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|13",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -189,7 +188,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|14",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -207,7 +206,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|15",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -225,7 +224,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|16",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -243,7 +242,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|17",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -261,7 +260,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|18",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -279,7 +278,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|19",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -297,7 +296,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|20",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -315,7 +314,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|21",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -333,7 +332,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|22",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -351,7 +350,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|23",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -369,7 +368,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|24",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -387,7 +386,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|25",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -405,7 +404,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|29",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -423,7 +422,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|26",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -441,7 +440,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|27",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -459,7 +458,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|28",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -477,7 +476,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|6a_serie|30",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "6º Ano",
       "bimestre": "2º",
@@ -495,7 +494,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|1",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -513,7 +512,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|2",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -531,7 +530,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|3",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -549,7 +548,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|4",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -567,7 +566,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|5",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -585,7 +584,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|6",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -603,7 +602,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|7",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -621,7 +620,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|8",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -639,7 +638,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|9",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -657,7 +656,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|10",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -675,7 +674,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|11",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -693,7 +692,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|12",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -711,7 +710,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|13",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -729,7 +728,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|14",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -747,7 +746,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|15",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -765,7 +764,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|16",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -783,7 +782,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|17",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -801,7 +800,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|18",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -819,7 +818,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|19",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -837,7 +836,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|20",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -855,7 +854,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|21",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -873,7 +872,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|22",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -891,7 +890,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|23",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -909,7 +908,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|24",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -927,7 +926,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|25",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -945,7 +944,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|26",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -963,7 +962,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|27",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -981,7 +980,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|28",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -999,7 +998,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|29",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -1017,7 +1016,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|7a_serie|30",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "7º Ano",
       "bimestre": "2º",
@@ -1035,7 +1034,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|11",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1053,7 +1052,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|12",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1071,7 +1070,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|13",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1089,7 +1088,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|14",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1107,7 +1106,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|15",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1125,7 +1124,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|16",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1143,7 +1142,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|17",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1161,7 +1160,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|18",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1179,7 +1178,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|19",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1197,7 +1196,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|20",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1215,7 +1214,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|21",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1233,7 +1232,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|22",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1251,7 +1250,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|23",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1269,7 +1268,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|24",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1287,7 +1286,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|25",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1305,7 +1304,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|26",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1323,7 +1322,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|27",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1341,7 +1340,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|28",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1359,7 +1358,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|29",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1377,7 +1376,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|8a_serie|30",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "8º Ano",
       "bimestre": "2º",
@@ -1395,7 +1394,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|1",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1413,7 +1412,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|2",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1431,7 +1430,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|3",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1449,7 +1448,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|4",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1467,7 +1466,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|5",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1485,7 +1484,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|6",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1503,7 +1502,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|7",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1521,7 +1520,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|8",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1539,7 +1538,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|9",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1557,7 +1556,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|10",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1575,7 +1574,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|11",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1593,7 +1592,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|12",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1611,7 +1610,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|13",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1629,7 +1628,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|14",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1647,7 +1646,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|15",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1665,7 +1664,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|16",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1683,7 +1682,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|17",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1701,7 +1700,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|18",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1719,7 +1718,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|19",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1737,7 +1736,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|20",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1755,7 +1754,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|21",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1773,7 +1772,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|22",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1791,7 +1790,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|23",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1809,7 +1808,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|24",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1827,7 +1826,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|25",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1845,7 +1844,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|26",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1863,7 +1862,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|27",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1881,7 +1880,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|28",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1899,7 +1898,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|29",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
@@ -1917,7 +1916,7 @@
     },
     {
       "chave_lookup": "matematica_af|2|9a_serie|30",
-      "disciplina": "Matem?tica",
+      "disciplina": "Matemática",
       "etapa": "AF",
       "serie": "9º Ano",
       "bimestre": "2º",
