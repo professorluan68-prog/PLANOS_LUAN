@@ -347,6 +347,57 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
     return "leitura_literaria"
 
 
+def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
+    """Classifica o tipo de aula de Língua Portuguesa Ensino Médio com base no título e texto."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+
+    # 1. Aula de prática oral (debate, seminário)
+    if any(k in titulo_norm for k in ["debate", "seminario", "apresentacao oral", "oralidade"]):
+        return "pratica_oral"
+
+    # 2. Aula de produção textual
+    if any(k in titulo_norm for k in ["producao", "parte final", "escrita", "redigir", "elaborar"]):
+        return "producao_textual"
+
+    # 3. Aula de literatura
+    if any(k in titulo_norm for k in [
+        "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
+        "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
+        "estetica", "vanguardas", "romance", "conto", "poema", "poesia"
+    ]):
+        return "literatura"
+
+    # 4. Aula de gênero textual
+    if any(k in titulo_norm for k in [
+        "diario", "manifesto", "playlist", "cronica", "noticia",
+        "reportagem", "resenha", "fanzine", "podcast", "genero"
+    ]):
+        return "genero_textual"
+
+    # 5. Aula de gramática integrada (quando gramática é o foco principal)
+    if any(k in titulo_norm for k in [
+        "flexao", "regencia", "concordancia", "ortografia", "oracoes",
+        "sintaxe", "semantica"
+    ]):
+        return "gramatica_integrada"
+
+    # Verificação no texto_norm para fallbacks
+    if any(k in texto_norm for k in ["debate", "seminario", "apresentacao oral"]):
+        return "pratica_oral"
+    if any(k in texto_norm for k in ["producao textual", "produzir texto", "escrever", "redigir"]):
+        return "producao_textual"
+    if any(k in texto_norm for k in ["trovadorismo", "modernismo", "romantismo", "realismo", "literatura"]):
+        return "literatura"
+    if any(k in texto_norm for k in ["diario", "manifesto", "playlist", "cronica", "genero textual"]):
+        return "genero_textual"
+    if any(k in texto_norm for k in ["flexao verbal", "regencia", "concordancia", "oracoes subordinadas"]):
+        return "gramatica_integrada"
+
+    # Default
+    return "genero_textual"
+
+
 _CIENCIAS_PRODUCAO_PROJETO = [
     "producao", "projeto", "seminario", "apresentacao", "cartilha",
     "campanha", "folder", "modelo", "de olho no modelo", "produto final",
@@ -706,7 +757,9 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return _tipo_aula_ingles(tema, texto)
 
     # Língua Portuguesa — classificador especializado
-    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+    if perfil == "lingua_portuguesa_em":
+        return _tipo_aula_lingua_portuguesa_em(tema, texto)
+    if perfil in {"lingua_portuguesa_ef", "leitura_redacao"}:
         return _tipo_aula_lingua_portuguesa(tema, texto)
 
     # Projeto de Vida — classificador especializado
