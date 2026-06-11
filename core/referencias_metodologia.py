@@ -194,12 +194,22 @@ def _ler_docx(caminho: Path) -> str:
     try:
         import docx
         doc = docx.Document(caminho)
-        paragrafos = []
+        texto_partes = []
         for p in doc.paragraphs:
             txt = p.text.strip()
             if txt:
-                paragrafos.append(txt)
-        return "\n".join(paragrafos)
+                texto_partes.append(txt)
+        for table in doc.tables:
+            for row in table.rows:
+                celulas = []
+                for cell in row.cells:
+                    txt = cell.text.strip()
+                    if txt and (not celulas or celulas[-1] != txt):
+                        celulas.append(txt)
+                linha_txt = " | ".join(celulas)
+                if linha_txt:
+                    texto_partes.append(linha_txt)
+        return "\n".join(texto_partes)
     except Exception as e:
         return f"Referência {caminho.name} (erro ao ler: {e})"
 

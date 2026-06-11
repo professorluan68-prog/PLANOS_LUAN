@@ -27,3 +27,26 @@ def test_referencia_interdisciplinar_entra_como_complemento_seguro():
     assert "REFERÊNCIA INTERDISCIPLINAR COMPLEMENTAR" in referencia
     assert "não presentes nos slides" in referencia
     assert "Riscos de Confusão no Código Python" not in referencia
+
+
+def test_ler_docx_com_tabelas_e_paragrafos(tmp_path):
+    import docx
+    from core.referencias_metodologia import _ler_docx
+    
+    doc_file = tmp_path / "temp_ref.docx"
+    doc = docx.Document()
+    doc.add_paragraph("Este é um parágrafo de teste.")
+    
+    table = doc.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Célula 1A"
+    table.cell(0, 1).text = "Célula 1B"
+    table.cell(1, 0).text = "Célula 2A"
+    table.cell(1, 1).text = "Célula 2B"
+    
+    doc.save(doc_file)
+    
+    texto = _ler_docx(doc_file)
+    
+    assert "Este é um parágrafo de teste." in texto
+    assert "Célula 1A | Célula 1B" in texto
+    assert "Célula 2A | Célula 2B" in texto
