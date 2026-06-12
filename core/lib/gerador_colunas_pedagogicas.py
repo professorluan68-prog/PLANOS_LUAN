@@ -186,6 +186,11 @@ _REGRAS_PERFIL_LP = [
         "campanha publicitaria", "campanha publicitária",
         "advergame", "unboxing", "social advertising",
     ]),
+    ("diario_pessoal", [
+        "diario pessoal", "diÃ¡rio pessoal",
+        "genero diario pessoal", "gÃªnero diÃ¡rio pessoal",
+        "reflexoes do cotidiano", "reflexÃµes do cotidiano",
+    ]),
     ("biografia", [
         "historia de uma vida", "história de uma vida",
         "biografia", "trajetoria", "trajetória",
@@ -439,6 +444,10 @@ def frase_inicial(p: PistasPedagogicas) -> str:
 
     if p.perfil == "texto_publicitario":
         return "Iniciar a aula retomando anúncios e campanhas conhecidos pelos estudantes, observando como linguagem verbal, imagem, som e contexto buscam persuadir o público."
+    if p.perfil == "diario_pessoal":
+        return "Iniciar a aula retomando situaÃ§Ãµes do cotidiano em que as pessoas registram vivÃªncias, sentimentos e reflexÃµes, preparando a turma para reconhecer caracterÃ­sticas do diÃ¡rio pessoal."
+    if p.perfil == "diario_pessoal":
+        return "Propor atividade de leitura e anÃ¡lise para que os estudantes identifiquem caracterÃ­sticas do diÃ¡rio pessoal, observem marcas de subjetividade e registrem como o autor organiza experiÃªncias e reflexÃµes."
     if p.perfil == "biografia":
         return "Iniciar a aula apresentando a trajetória da pessoa biografada e mobilizando conhecimentos prévios sobre como fatos de vida podem ser organizados em texto e mapa conceitual."
     if p.perfil == "noticia_multimodal":
@@ -481,6 +490,8 @@ def frase_foco(p: PistasPedagogicas) -> str:
     frase = ""
     if p.perfil == "texto_publicitario":
         frase = "Conduzir a análise do texto publicitário, destacando público-alvo, finalidade persuasiva, slogan, imagens, recursos sonoros ou audiovisuais e efeitos de sentido da campanha."
+    elif p.perfil == "diario_pessoal":
+        frase = "Conduzir a leitura orientada do diÃ¡rio pessoal, destacando escrita em primeira pessoa, organizaÃ§Ã£o temporal, marcas de intimidade, reflexÃµes do cotidiano e relaÃ§Ã£o entre experiÃªncia vivida e linguagem."
     elif p.perfil == "biografia":
         frase = "Conduzir a leitura orientada da biografia, destacando trajetória, fatos relevantes, organização temporal e uso do mapa conceitual como recurso para organizar informações."
     elif p.perfil == "noticia_multimodal":
@@ -534,6 +545,7 @@ def frase_foco(p: PistasPedagogicas) -> str:
 
     perfis_textuais = {
         "texto_publicitario",
+        "diario_pessoal",
         "biografia",
         "noticia_multimodal",
         "conto_distopico",
@@ -700,6 +712,18 @@ BANCO_ACOMPANHAMENTO = {
         "Observar se relacionam slogan, imagem, som e contexto aos efeitos de sentido produzidos no anúncio.",
         "Conferir se os registros finais diferenciam publicidade, propaganda e notícia, evitando confusões entre gêneros.",
         "Acompanhar se a turma justifica interpretações com elementos presentes no material publicitário."
+    ],
+    "diario_pessoal": [
+        "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexÃ£o presentes no diÃ¡rio pessoal.",
+        "Observar se relacionam experiÃªncias narradas, sentimentos e contexto de escrita ao sentido construÃ­do no texto.",
+        "Conferir se os registros finais retomam caracterÃ­sticas do gÃªnero sem confundi-lo com biografia, memÃ³ria ou notÃ­cia.",
+        "Acompanhar se a turma justifica interpretaÃ§Ãµes com trechos do diÃ¡rio e com elementos da linguagem analisada."
+    ],
+    "diario_pessoal": [
+        "Realizar leitura compartilhada do diÃ¡rio em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexÃµes aparecem no texto.",
+        "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
+        "Permitir registro em tÃ³picos, grifos no texto, esquema simples ou resposta oral mediada.",
+        "Retomar coletivamente a diferenÃ§a entre diÃ¡rio pessoal, biografia e relato informativo antes da atividade individual."
     ],
     "biografia": [
         "Verificar se os estudantes identificam fatos relevantes da trajetória da pessoa biografada e organizam informações com coerência.",

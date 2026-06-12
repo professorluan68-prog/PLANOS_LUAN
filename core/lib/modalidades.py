@@ -173,7 +173,7 @@ def garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str])
                     ][h % 3]
                 elif tecnica == "COM SUAS PALAVRAS":
                     acrescimo = [
-                        " Pedir que os estudantes expliquem com suas próprias palavras (COM SUAS PALAVRAS) para que retomar os pontos principais trabalhados.",
+                        " Pedir que os estudantes expliquem com suas próprias palavras (COM SUAS PALAVRAS) para retomar os pontos principais trabalhados.",
                         " Solicitar que os estudantes expliquem o assunto com suas próprias palavras (COM SUAS PALAVRAS) no encerramento da aula.",
                         " Orientar a turma a sintetizar com suas próprias palavras (COM SUAS PALAVRAS) o que compreenderam dos pontos principais."
                     ][h % 3]

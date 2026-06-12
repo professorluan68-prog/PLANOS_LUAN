@@ -68,7 +68,6 @@ from ui.shared import (
 from ui.cadastro import _renderizar_cadastro_professor
 from ui.diagnostico import _renderizar_diagnostico_modelos
 from ui.reescrita_cdp import _renderizar_reescrita_cdp_em
-from ui.geracao_lote import _renderizar_geracao_lote
 
 # ── Banco de Dados e Cadastro ──────────────────────────────────────────
 from core.database import (
@@ -1383,23 +1382,17 @@ with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=li
 
 st.markdown('<div class="section-card"></div><div class="section-title">Área de trabalho</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Escolha o modo de uso do sistema antes de preencher os dados do plano.</div>', unsafe_allow_html=True)
-modo_tela = st.radio("Área do PLANOS_LUAN", ["Planos gerais", "Geração em Lote", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"], horizontal=True, key="modo_tela", label_visibility="collapsed")
+modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"]
+if st.session_state.get("modo_tela") == "Geração em Lote":
+    st.session_state["modo_tela"] = "Planos gerais"
+modo_tela = st.radio("Área do PLANOS_LUAN", modos_disponiveis, horizontal=True, key="modo_tela", label_visibility="collapsed")
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
-modo_lote = modo_tela == "Geração em Lote"
-
 if modo_cadastro_professor: _renderizar_cadastro_professor(); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_reescrita_cdp_em: _renderizar_reescrita_cdp_em(); st.stop()
-if modo_lote:
-    _renderizar_geracao_lote(
-        _gerar_docx_cdp_final_fn=_gerar_docx_cdp_final,
-        _extrair_aulas_dos_pdfs_fn=_extrair_aulas_dos_pdfs,
-        _gerar_docx_final_fn=_gerar_docx_final,
-    )
-    st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
 TEMPLATES_DIR.mkdir(exist_ok=True)

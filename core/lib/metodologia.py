@@ -176,7 +176,21 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "lingua_portuguesa_em":
-        # Etapas várias por tipo de aula LP
+        # Etapas várias por tipo de aula LP Ensino Médio
+        if tipo == "pratica_oral":
+            return [
+                ("Relembre", "relembre"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo in {"literatura", "genero_textual", "producao_textual", "gramatica_integrada"}:
+            return [
+                ("Para começar", "para_comecar"),
+                ("Foco no conteúdo", "foco"),
+                ("Na prática", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        # Fallbacks antigos para compatibilidade
         if tipo == "gramatica_contextualizada":
             return [
                 ("Relembre", "relembre"),
@@ -185,7 +199,7 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
                 ("Na prática", "pratica"),
                 ("Encerramento", "encerramento"),
             ]
-        if tipo == "producao_textual":
+        if tipo == "producao_textual_antigo":
             return [
                 ("Para começar", "para_comecar"),
                 ("Foco no conteúdo", "foco"),
@@ -193,27 +207,10 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
                 ("Compartilhamento", "compartilhamento"),
                 ("Encerramento", "encerramento"),
             ]
-        if tipo == "leitura_jornalistica":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Na prática", "pratica"),
-                ("Foco no conteúdo", "foco"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "pesquisa":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        # leitura_literaria (padrão LP EM)
         return [
             ("Para começar", "para_comecar"),
-            ("Hora da leitura", "hora_leitura"),
-            ("Na prática", "pratica"),
             ("Foco no conteúdo", "foco"),
+            ("Na prática", "pratica"),
             ("Encerramento", "encerramento"),
         ]
 
@@ -572,12 +569,23 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
     # Regra 04: Funções e Gráficos
     is_functions = any(p in combinado for p in ["funcao", "funcoes", "grafico", "parabola", "concavidade", "vertice", "raizes", "exponencial", "logarit"])
     # Regra 05: Probabilidade ou Análise Combinatória
-    is_prob = any(p in combinado for p in ["probabilidade", "combinatoria", "arranjo", "combinacao", "permutacao", "fatorial", "contagem", "multiplicativo", "possibilidades"])
+    is_prob = any(
+        p in combinado
+        for p in [
+            "probabilidade", "combinatoria", "arranjo", "combinacao", "permutacao",
+            "fatorial", "contagem", "multiplicativo", "possibilidades",
+            "arvore de possibilidades", "principio aditivo", "principio multiplicativo",
+            "espaco amostral", "evento favoravel", "diagrama de arvore",
+            "principios de contagem",
+        ]
+    )
     # Regra 06: Khan Academy
     is_khan = tipo == "khan" or "khan" in combinado
     # Regra 07: Novo / Regra 08: Revisão
     is_new_topic = tipo == "conceito_novo" or any(p in combinado for p in ["introducao", "conceito de", "definicao", "propriedade", "parte 1"])
-    is_revision = tipo == "revisao" or any(p in combinado for p in ["revisao", "retomada", "consolidar", "trilha"])
+    is_revision = tipo in {"revisao", "verificacao"} or any(
+        p in combinado for p in ["revisao", "retomada", "consolidar", "trilha", "parte 2", "parte 3", "parte 4"]
+    )
 
     # Regra 11: Ensino Fundamental / Regra 12: Ensino Médio
     turma_lower = (turma or "").lower()
@@ -606,6 +614,9 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
         para_comecar_txt += " Propor uma pergunta de sondagem de conhecimentos prévios para levantar as hipóteses iniciais dos estudantes."
     elif is_revision:
         para_comecar_txt += f" Retomar brevemente o conceito central da aula anterior solicitando que os estudantes o expliquem por meio da técnica {t_sint}."
+
+    if is_algebra:
+        para_comecar_txt += f" Solicitar um registro inicial individual por meio da técnica {t_reg}, para que cada estudante anote a hipótese de resolução antes da socialização."
 
     para_comecar_txt += f" Utilizar a técnica {t_disc} para socializar as ideias iniciais antes da formalização."
 
@@ -745,6 +756,43 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
 
 def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
     """Gerador especializado de frases para o perfil Lingua Portuguesa."""
+    # Tipos novos da especificação do Ensino Médio (3º Bimestre)
+    if tipo == "literatura":
+        return {
+            "para_comecar": f"Apresentar imagens, contexto histórico ou perguntas instigantes sobre {tema} para ativar os conhecimentos prévios e iniciar a discussão no grande grupo.",
+            "foco": f"Apresentar a estética, autores, obras e características do movimento literário de {tema} de forma gradual, destacando as marcas do período no contexto histórico-social.",
+            "pratica": f"Conduzir a leitura compartilhada e orientada de trecho literário de {tema}, propondo análise crítica e interpretação das escolhas estéticas, e em seguida realizar atividade gramatical integrada a partir dos exemplos do texto, com correção coletiva e explicada.",
+            "encerramento": f"Encerrar a aula propondo uma reflexão coletiva para que os estudantes sintetizem com suas próprias palavras os aprendizados literários e estéticos sobre {tema}."
+        }
+    if tipo == "genero_textual":
+        return {
+            "para_comecar": f"Iniciar a aula conectando o gênero textual de {tema} ao cotidiano dos estudantes a partir de situações práticas ou perguntas motivadoras.",
+            "foco": f"Apresentar a definição, características estruturais, marcas linguísticas, suporte, público-alvo e circulação social do gênero relacionado a {tema}.",
+            "pratica": f"Conduzir a leitura analítica e compartilhada de um texto modelo do gênero {tema}, seguida de atividades práticas de interpretação textual e análise gramatical contextualizada a partir dos trechos lidos.",
+            "encerramento": f"Encerrar solicitando que os estudantes expliquem com suas próprias palavras a função social e as marcas principais do gênero {tema}."
+        }
+    if tipo == "producao_textual":
+        return {
+            "para_comecar": f"Apresentar a proposta de escrita sobre {tema}, discutindo o propósito comunicativo, o público-alvo e o suporte onde o texto circulará.",
+            "foco": f"Apresentar os critérios de qualidade e o roteiro de planejamento estrutural para a elaboração do gênero textual associado a {tema}.",
+            "pratica": f"Orientar os estudantes nas etapas de planejamento, escrita do rascunho individual (curadoria e autoria) e na revisão colaborativa entre pares das produções sobre {tema}.",
+            "encerramento": f"Encerrar convidando os estudantes a compartilharem suas ideias e refletirem sobre a importância das etapas de reescrita para qualificar o texto de {tema}."
+        }
+    if tipo == "pratica_oral":
+        return {
+            "relembre": f"Retomar oralmente as regras, estrutura, divisão de tempo e o papel de cada participante no debate ou seminário sobre {tema}.",
+            "pratica": f"Organizar a sala fisicamente, orientar a mediação e guiar a realização da prática oral (debates, apresentações de argumentos, réplicas e tréplicas) sobre {tema}, garantindo tempo de fala equitativo.",
+            "encerramento": f"Finalizar com um balanço crítico coletivo sobre os argumentos apresentados no debate e a postura adotada durante a prática oral sobre {tema}."
+        }
+    if tipo == "gramatica_integrada":
+        return {
+            "para_comecar": f"Apresentar uma pergunta motivadora ou trecho textual curto contendo o fenômeno de {tema} para ativar a atenção da turma.",
+            "foco": f"Sistematizar o conteúdo gramatical de {tema} com base em exemplos extraídos de textos reais, conectando a estrutura aos efeitos de sentido.",
+            "pratica": f"Orientar a leitura de texto âncora e propor exercícios práticos de identificação, análise e aplicação do conteúdo gramatical de {tema}, com correção imediata e explicada das questões e pausas do Pause e Responda.",
+            "encerramento": f"Finalizar sintetizando a convenção gramatical de {tema} e sua importância para a clareza e expressividade na leitura e escrita."
+        }
+
+    # Tipos antigos de outros eixos para retrocompatibilidade
     if tipo == "gramatica_contextualizada":
         return {
             "relembre": "Retomar conhecimentos anteriores sobre o fenômeno gramatical em foco, utilizando exemplos curtos ou situações de uso.",
@@ -752,14 +800,6 @@ def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dic
             "pause": "Realizar pausas para análise de trechos específicos, verificando se a turma identifica a aplicação do conteúdo gramatical estudado.",
             "pratica": "Orientar a aplicação dos conceitos em frases ou pequenos textos, focando na adequação do uso da língua à intenção comunicativa.",
             "encerramento": f"Sintetizar a regra ou norma estudada em {tema}, destacando como o domínio dessa convenção amplia as possibilidades de escrita e leitura."
-        }
-    if tipo == "producao_textual":
-        return {
-            "para_comecar": f"Apresentar a proposta de escrita sobre {tema}, discutindo a relevância do tema e a situação comunicativa (quem escreve, para quem, onde).",
-            "foco": "Analisar as convenções do gênero textual, estrutura, registro e recursos linguísticos necessários para a produção.",
-            "pratica": "Orientar a escrita e o planejamento do texto, garantindo que os estudantes apliquem as características do gênero e critérios de qualidade.",
-            "compartilhamento": "Promover um momento de compartilhamento das produções ou etapas do planejamento para revisão entre pares ou socialização.",
-            "encerramento": "Finalizar com a verificação de autoria e a importância do processo de reescrita para o aperfeiçoamento do texto."
         }
     if tipo == "leitura_jornalistica":
         return {
@@ -2121,8 +2161,8 @@ class MotorMetodologico:
             do lote.py) em vez do motor fraco do inteligencia_local.py.
             """
             # 1. Classificar
-            perfil = perfil_disciplina(disciplina)
-            tipo = detectar_tipo_aula(texto_pdf, tema, disciplina)
+            perfil = perfil_disciplina(disciplina, turma=turma)
+            tipo = detectar_tipo_aula(texto_pdf, tema, disciplina, turma=turma)
 
             # 2. Extrair conceito
             extracao = self.extrator.extrair(texto_pdf, tema)

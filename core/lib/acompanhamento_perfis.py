@@ -428,12 +428,74 @@ def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
     ]
 
 
+def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    from core.lib.classificador import detectar_tipo_aula
+    tipo_aula = detectar_tipo_aula(desenvolvimento, tema, "Língua Portuguesa")
+    
+    # Identificar se há termos gramaticais específicos ou de movimentos literários no tema/aprendizagem
+    movimento = ""
+    for mov in ["trovadorismo", "modernismo", "romantismo", "realismo", "parnasianismo", "simbolismo", "naturalismo", "classicismo"]:
+        if mov in tema.lower() or mov in aprendizagem.lower():
+            movimento = mov.title()
+            break
+    if not movimento:
+        movimento = tema
+        
+    gramatica = ""
+    for gram in ["tempo verbal", "modo verbal", "sintaxe", "ortografia", "oracao", "regencia", "concordancia", "coesao", "verbos", "adjetiva", "coordenada", "subordinada", "polissemia"]:
+        if gram in tema.lower() or gram in aprendizagem.lower():
+            gramatica = gram
+            break
+    if not gramatica:
+        gramatica = "recursos gramaticais/linguísticos"
+        
+    genero = ""
+    for gen in ["diario", "manifesto", "playlist", "cronica", "noticia", "reportagem", "resenha", "debate", "podcast", "editorial", "carta", "vlog", "meme", "infografico"]:
+        if gen in tema.lower() or gen in aprendizagem.lower():
+            genero = gen.title()
+            break
+    if not genero:
+        genero = "gênero estudado"
+
+    if tipo_aula == "literatura":
+        return [
+            f"☑ Observar se o estudante identifica as características de {movimento} no texto lido.",
+            f"☑ Verificar se o estudante relaciona o contexto histórico com as marcas estéticas da obra/trecho de {tema} analisado.",
+            f"☑ Avaliar se o estudante emprega corretamente {gramatica} em suas produções ou respostas escritas.",
+        ]
+    elif tipo_aula == "genero_textual":
+        return [
+            f"☑ Observar se o estudante reconhece as características estruturais e linguísticas do gênero {genero}.",
+            f"☑ Verificar se o estudante interpreta adequadamente o propósito comunicativo do texto lido.",
+            f"☑ Avaliar se o estudante aplica os {gramatica} de forma contextualizada em suas respostas escritas.",
+        ]
+    elif tipo_aula == "producao_textual":
+        return [
+            f"☑ Observar se o estudante planeja a produção considerando tema, estrutura e público do gênero {genero}.",
+            f"☑ Verificar se o estudante produz texto adequado às características do gênero, com coesão e coerência.",
+            f"☑ Avaliar se o estudante revisa e aprimora sua produção a partir das devolutivas dos colegas.",
+        ]
+    elif tipo_aula == "pratica_oral":
+        return [
+            f"☑ Observar se o estudante argumenta de forma fundamentada, respeitando seu turno de fala.",
+            f"☑ Verificar se o estudante escuta ativamente e responde aos argumentos dos colegas com contra-argumentos.",
+            f"☑ Avaliar se o estudante respeita as regras do debate e mantém postura adequada ao gênero oral formal.",
+        ]
+    else:
+        # Fallback padrão
+        return [
+            f"☑ Observar se o estudante reconhece as marcas textuais e características do tema {tema}.",
+            "☑ Verificar se o estudante interpreta e compreende as ideias principais do texto âncora.",
+            f"☑ Avaliar se o estudante aplica os recursos de linguagem e gramática estudados em {tema} de forma contextualizada.",
+        ]
+
+
 GeradorAcompanhamento = Callable[[str, str, str], list[str]]
 
 GERADORES_ACOMPANHAMENTO_POR_PERFIL: dict[str, GeradorAcompanhamento] = {
     "ingles": _acompanhamento_ingles,
     "lingua_portuguesa_ef": _acompanhamento_lingua_portuguesa,
-    "lingua_portuguesa_em": _acompanhamento_lingua_portuguesa,
+    "lingua_portuguesa_em": _acompanhamento_lingua_portuguesa_em,
     "leitura_redacao": _acompanhamento_lingua_portuguesa,
     "matematica": _acompanhamento_matematica,
     "ciencias_ef": _acompanhamento_ciencias,

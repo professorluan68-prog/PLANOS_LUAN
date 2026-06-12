@@ -119,6 +119,8 @@ def _titulo_deve_juntar_continuacao(primeira: str, segunda: str = "") -> bool:
     )
     if primeira_norm.endswith(finais_pendentes):
         return True
+    if primeira_limpa.endswith(",") and len(primeira_limpa) <= 90 and segunda_limpa:
+        return True
     if segunda_norm.startswith(("por ", "para ", "com ", "sem ", "em ", "e ", "ou ", "que ", "da ", "de ", "do ")):
         return True
     return False

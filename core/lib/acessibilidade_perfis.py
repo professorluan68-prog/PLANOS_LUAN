@@ -419,12 +419,20 @@ def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
     ]
 
 
+def _acessibilidade_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    return [
+        "☑ Disponibilizar o texto âncora com fonte ampliada e espaçamento maior para estudantes com dificuldade visual ou dislexia.",
+        "☑ Permitir que estudantes com dificuldade de escrita respondam oralmente ou em dupla com apoio de colega.",
+        "☑ Oferecer roteiro estruturado com perguntas-guia para estudantes com dificuldade de organização do pensamento ou produção textual.",
+    ]
+
+
 GeradorAcessibilidade = Callable[[str, str, str], list[str]]
 
 GERADORES_ACESSIBILIDADE_POR_PERFIL: dict[str, GeradorAcessibilidade] = {
     "ingles": _acessibilidade_ingles,
     "lingua_portuguesa_ef": _acessibilidade_lingua_portuguesa,
-    "lingua_portuguesa_em": _acessibilidade_lingua_portuguesa,
+    "lingua_portuguesa_em": _acessibilidade_lingua_portuguesa_em,
     "leitura_redacao": _acessibilidade_lingua_portuguesa,
     "matematica": _acessibilidade_matematica,
     "ciencias_ef": _acessibilidade_ciencias,
