@@ -149,6 +149,10 @@ def main():
                 total_aulas=1
             )
             
+            # Calcular hash para gravação do cache
+            from core.revisao_final import calcular_sha256
+            hash_atual = calcular_sha256(caminho_pdf_str)
+
             dados_salvar = {
                 "disciplina": aula.get("disciplina", disciplina),
                 "tema": aula.get("tema", ""),
@@ -160,7 +164,13 @@ def main():
                 "acessibilidade": aula.get("acessibilidade", []),
                 "ia_usada": aula.get("ia_usada", False),
                 "ia_provedor": aula.get("ia_provedor", ""),
-                "ia_erro": aula.get("ia_erro", "")
+                "ia_erro": aula.get("ia_erro", ""),
+                # Auditoria e integridade
+                "hash_pdf": aula.get("hash_pdf") or hash_atual,
+                "confidence_score": aula.get("confidence_score", 100),
+                "avisos_validacao": aula.get("avisos_validacao", []),
+                "versao_gerador": aula.get("versao_gerador", "1.0.0"),
+                "perfil": aula.get("perfil", ""),
             }
 
             with open(json_path, "w", encoding="utf-8") as fj:

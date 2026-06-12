@@ -163,3 +163,17 @@ def test_limpa_repeticao_tecnicas_lemov_ia():
     assert "tecnica de 'Hora da leitura'" not in limpa[2]["texto"]
     assert "Hora da leitura" in limpa[2]["texto"]
 
+
+def test_modalidades_nao_deixa_frase_quebrada_em_com_suas_palavras():
+    from core.lib.modalidades import garantir_tecnicas_lemov_na_metodologia
+
+    metodologia = [
+        {"titulo": "Na pratica", "texto": "Orientar a resolucao das atividades com acompanhamento da turma."}
+    ]
+
+    ajustada = garantir_tecnicas_lemov_na_metodologia(metodologia, ["COM SUAS PALAVRAS"])
+    texto = ajustada[0]["texto"]
+
+    assert "para que retomar" not in texto
+    assert "COM SUAS PALAVRAS" in texto
+

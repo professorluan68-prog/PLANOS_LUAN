@@ -34,10 +34,23 @@ def contem_termo_exato(base: str, termos: list[str] | tuple[str, ...]) -> bool:
     return False
 
 
-def perfil_disciplina(disciplina: str) -> str:
+def _turma_indica_ensino_medio(turma: str) -> bool:
+    base = normalizar_texto(turma)
+    return bool(
+        base
+        and (
+            "ensino medio" in base
+            or re.search(r"(?<!\d)[123]\s*ano\b", base)
+            or re.search(r"(?<!\d)[123]\s*serie\b", base)
+        )
+    )
+
+
+def perfil_disciplina(disciplina: str, turma: str = "") -> str:
     """Retorna o perfil pedagogico da disciplina."""
     base = normalizar_texto(disciplina)
     compacto = normalizar_compacto(disciplina)
+    turma_base = normalizar_texto(turma)
 
     if ("orient" in base and "estud" in base) or "orienestudos" in base:
         return "orientacao_estudos"
@@ -50,7 +63,7 @@ def perfil_disciplina(disciplina: str) -> str:
     if contem_termo_exato(base, ["redacao e leitura", "leitura e redacao"]):
         return "leitura_redacao"
     if contem_termo_exato(base, ["lingua portuguesa", "portugues"]) or "portugues" in compacto:
-        if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]):
+        if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]) or _turma_indica_ensino_medio(turma_base):
             return "lingua_portuguesa_em"
         return "lingua_portuguesa_ef"
     if (compacto.startswith("ci") and compacto.endswith("ncias")) or "ciencias" in compacto:
@@ -347,6 +360,57 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
     return "leitura_literaria"
 
 
+def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
+    """Classifica o tipo de aula de Língua Portuguesa Ensino Médio com base no título e texto."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+
+    # 1. Aula de prática oral (debate, seminário)
+    if any(k in titulo_norm for k in ["debate", "seminario", "apresentacao oral", "oralidade"]):
+        return "pratica_oral"
+
+    # 2. Aula de produção textual
+    if any(k in titulo_norm for k in ["producao", "parte final", "escrita", "redigir", "elaborar"]):
+        return "producao_textual"
+
+    # 3. Aula de literatura
+    if any(k in titulo_norm for k in [
+        "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
+        "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
+        "estetica", "vanguardas", "romance", "conto", "poema", "poesia"
+    ]):
+        return "literatura"
+
+    # 4. Aula de gênero textual
+    if any(k in titulo_norm for k in [
+        "diario", "manifesto", "playlist", "cronica", "noticia",
+        "reportagem", "resenha", "fanzine", "podcast", "genero"
+    ]):
+        return "genero_textual"
+
+    # 5. Aula de gramática integrada (quando gramática é o foco principal)
+    if any(k in titulo_norm for k in [
+        "flexao", "regencia", "concordancia", "ortografia", "oracoes",
+        "sintaxe", "semantica"
+    ]):
+        return "gramatica_integrada"
+
+    # Verificação no texto_norm para fallbacks
+    if any(k in texto_norm for k in ["debate", "seminario", "apresentacao oral"]):
+        return "pratica_oral"
+    if any(k in texto_norm for k in ["producao textual", "produzir texto", "escrever", "redigir"]):
+        return "producao_textual"
+    if any(k in texto_norm for k in ["trovadorismo", "modernismo", "romantismo", "realismo", "literatura"]):
+        return "literatura"
+    if any(k in texto_norm for k in ["diario", "manifesto", "playlist", "cronica", "genero textual"]):
+        return "genero_textual"
+    if any(k in texto_norm for k in ["flexao verbal", "regencia", "concordancia", "oracoes subordinadas"]):
+        return "gramatica_integrada"
+
+    # Default
+    return "genero_textual"
+
+
 _CIENCIAS_PRODUCAO_PROJETO = [
     "producao", "projeto", "seminario", "apresentacao", "cartilha",
     "campanha", "folder", "modelo", "de olho no modelo", "produto final",
@@ -477,8 +541,8 @@ _TIPOS_MATEMATICA = [
     ("grandezas_medidas", ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]),
     ("algebra", ["equac", "equa", "variavel", "incognita", "express", "polinom", "sistema", "inequac", "logarit", "1 grau", "2 grau", "modulo"]),
     ("funcoes", ["func", "f(x)", "lei de formacao", "dominio", "imagem", "grafico de funcao", "taxa de variacao"]),
-    ("combinatoria", ["combinat", "permut", "arranjo", "fatorial", "contagem", "ordem importa", "anagrama", "comissao", "placa", "senha"]),
-    ("estatistica_probabilidade", ["estatist", "probab", "media", "mediana", "moda", "amostra", "espaco amostral", "evento", "frequencia", "censo", "pesquisa"]),
+    ("combinatoria", ["combinat", "permut", "arranjo", "fatorial", "contagem", "ordem importa", "anagrama", "comissao", "placa", "senha", "principio aditivo", "principio multiplicativo", "principios de contagem", "diagrama de arvore", "arvore de possibilidades"]),
+    ("estatistica_probabilidade", ["estatist", "probab", "media", "mediana", "moda", "amostra", "espaco amostral", "evento", "evento favoravel", "frequencia", "censo", "pesquisa"]),
     ("geometria", ["geometr", "area", "perimetro", "volume", "angulo", "triangulo", "figura", "solido", "pitagoras", "malha", "trigonom"]),
     ("numeros_operacoes", ["numero", "fracao", "decimal", "porcentagem", "potencia", "raiz", "divisibilidade", "operacao", "mmc", "mdc", "primo"]),
 ]
@@ -658,11 +722,11 @@ def _detectar_tipo_por_catalogo(
     return default
 
 
-def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
+def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str = "") -> str:
     """Classifica o tipo de aula a partir do conteudo."""
     base = normalizar_texto(f"{disciplina} {tema} {texto}")
     tema_base = normalizar_texto(tema)
-    perfil = perfil_disciplina(disciplina)
+    perfil = perfil_disciplina(disciplina, turma=turma)
 
     if perfil == "educacao_financeira":
         _EF_AULA_PRATICA = [
@@ -706,7 +770,9 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
         return _tipo_aula_ingles(tema, texto)
 
     # Língua Portuguesa — classificador especializado
-    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+    if perfil == "lingua_portuguesa_em":
+        return _tipo_aula_lingua_portuguesa_em(tema, texto)
+    if perfil in {"lingua_portuguesa_ef", "leitura_redacao"}:
         return _tipo_aula_lingua_portuguesa(tema, texto)
 
     # Projeto de Vida — classificador especializado
