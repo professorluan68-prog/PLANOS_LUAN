@@ -118,6 +118,9 @@ def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> P
             "ia_usada": aula.get("ia_usada", False),
             "ia_provedor": aula.get("ia_provedor") or "",
             "ia_erro": aula.get("ia_erro") or "",
+            "fonte_extracao": aula.get("fonte_extracao") or "pdf",
+            "arquivo_fonte_extracao": aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
+            "hash_fonte_extracao": aula.get("hash_fonte_extracao") or hash_pdf,
             # Metadados de auditoria e integridade
             "hash_pdf": hash_pdf,
             "confidence_score": aula.get("confidence_score", 100),

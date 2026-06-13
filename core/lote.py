@@ -1,6 +1,7 @@
 import os
 import re
 import hashlib
+import logging
 from pathlib import Path
 
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
@@ -15,6 +16,12 @@ from core.qualidade_metodologica import detectar_contexto_metodologico, naturali
 from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas
 from core.lib.classificador import normalizar_texto as normalizar_texto_lote, perfil_disciplina as perfil_disciplina, contem_termos as _contem, detectar_tipo_aula as _detectar_tipo_aula_classificador
 from core.lib.extrator_pdf import extrair_texto_pdf as _extrair_texto_pdf, limpar_linhas as _limpar_linhas
+from core.lib.extrator_pptx import (
+    eh_cenario_piloto_pptx,
+    encontrar_pptx_correspondente,
+    extrair_estrutura_pptx,
+    estrutura_pptx_para_dados_aula,
+)
 from core.lib.extrator_titulo import (
     _extrair_titulo_multilinha,
     _juntar_partes_titulo,
@@ -54,6 +61,7 @@ _acompanhamento_cdp_contextual = acompanhamento_cdp_contextual
 _acessibilidade_cdp_contextual = acessibilidade_cdp_contextual
 _normalizar = normalizar_texto_lote
 _perfil_disciplina = perfil_disciplina
+logger = logging.getLogger(__name__)
 
 _ORIENTACAO_ESTUDOS_TITULOS = {
     ("missao", 1): "Jogos com palavras e imagens",
@@ -558,6 +566,24 @@ def _metodologia_fixa_pdf_especial(texto: str, disciplina: str, tema: str) -> li
         ]
 
     return None
+
+
+def _metodologia_por_blocos_estruturados(blocos: dict[str, str] | None) -> list[dict]:
+    if not isinstance(blocos, dict):
+        return []
+
+    ordem = [
+        ("Para comecar", "Para comecar"),
+        ("Foco no conteudo", "Foco no conteudo"),
+        ("Na pratica", "Na pratica"),
+        ("Encerramento", "Encerramento"),
+    ]
+    metodologia = []
+    for chave, titulo in ordem:
+        texto = str(blocos.get(chave) or "").strip()
+        if texto:
+            metodologia.append({"titulo": titulo, "texto": texto})
+    return metodologia
 
 
 def _conceito_principal(linhas: list[str], tema: str) -> str:
@@ -3711,11 +3737,48 @@ def _preparar_contexto_aula_pdf(
     bimestre: str,
     indice_aula: int,
     modalidade_eja: bool,
+    caminho_pptx_correspondente: str | None = None,
 ) -> dict:
-    texto = _extrair_texto_pdf(caminho_pdf)
-    tema = _tema_por_texto(texto, caminho_pdf, disciplina)
-    material_digital = _material_digital_por_texto(texto, caminho_pdf, disciplina, tema)
-    numero_aula = _rotulo_aula_material(texto, caminho_pdf).replace("AULA", "", 1).strip()
+    texto_pdf = _extrair_texto_pdf(caminho_pdf)
+    texto = texto_pdf
+    fonte_extracao = "pdf"
+    arquivo_fonte_extracao = caminho_pdf
+    blocos_pptx = {}
+
+    tema = _tema_por_texto(texto_pdf, caminho_pdf, disciplina)
+    material_digital = _material_digital_por_texto(texto_pdf, caminho_pdf, disciplina, tema)
+    numero_aula = _rotulo_aula_material(texto_pdf, caminho_pdf).replace("AULA", "", 1).strip()
+
+    usar_pptx = eh_cenario_piloto_pptx(disciplina, turma)
+    caminho_pptx = caminho_pptx_correspondente if usar_pptx else None
+    if usar_pptx and not caminho_pptx:
+        caminho_pptx = encontrar_pptx_correspondente(caminho_pdf, disciplina, turma)
+
+    if usar_pptx and caminho_pptx:
+        try:
+            estrutura_pptx = extrair_estrutura_pptx(caminho_pptx)
+            dados_pptx = estrutura_pptx_para_dados_aula(estrutura_pptx)
+            texto = dados_pptx.get("texto_base") or texto_pdf
+            tema = dados_pptx.get("tema") or tema
+            material_digital = dados_pptx.get("material") or material_digital
+            blocos_pptx = dados_pptx.get("blocos_pedagogicos") or {}
+            numero_pptx = _rotulo_aula_material(texto, caminho_pdf).replace("AULA", "", 1).strip()
+            numero_aula = numero_pptx or numero_aula
+            fonte_extracao = "pptx"
+            arquivo_fonte_extracao = caminho_pptx
+            logger.info("[EXTRACAO] Fonte usada: PPTX")
+            logger.info("[EXTRACAO] PPTX correspondente encontrado: %s", caminho_pptx)
+        except Exception as exc:
+            logger.warning("[EXTRACAO] Falha ao ler PPTX %s: %s", caminho_pptx, exc)
+            texto = texto_pdf
+            tema = _tema_por_texto(texto_pdf, caminho_pdf, disciplina)
+            material_digital = _material_digital_por_texto(texto_pdf, caminho_pdf, disciplina, tema)
+            numero_aula = _rotulo_aula_material(texto_pdf, caminho_pdf).replace("AULA", "", 1).strip()
+            fonte_extracao = "pdf"
+            arquivo_fonte_extracao = caminho_pdf
+    else:
+        logger.info("[EXTRACAO] Fonte usada: PDF")
+
     cdp_contextual = eh_cdp_contextual_disciplina(disciplina)
     disciplina_base = disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
     perfil = perfil_disciplina(disciplina_base, turma=turma)
@@ -3745,6 +3808,8 @@ def _preparar_contexto_aula_pdf(
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
     tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base, turma=turma)
     metodologia_fixa_pdf = _metodologia_fixa_pdf_especial(texto, disciplina_base, tema)
+    if not metodologia_fixa_pdf and fonte_extracao == "pptx":
+        metodologia_fixa_pdf = _metodologia_por_blocos_estruturados(blocos_pptx)
     modalidade_eja_ativa = bool(modalidade_eja and _perfil_suporta_eja(perfil))
     from core.disciplinas import eh_cdp
     eh_cdp_real = (
@@ -3781,6 +3846,8 @@ def _preparar_contexto_aula_pdf(
         "contexto_metodologico": contexto_metodologico,
         "escopo_pv": escopo_pv,
         "aprendizagem_pv": aprendizagem_pv,
+        "fonte_extracao": fonte_extracao,
+        "arquivo_fonte_extracao": arquivo_fonte_extracao,
     }
 
 
@@ -3797,10 +3864,17 @@ def _aula_por_pdf(
     modalidade_eja: bool = False,
 ) -> dict:
     hash_atual = ""
+    hash_fonte_extracao_esperada = ""
+    caminho_fonte_extracao_esperada = caminho_pdf
+    caminho_pptx_correspondente = None
     if caminho_pdf:
         try:
             from core.revisao_final import calcular_sha256
             hash_atual = calcular_sha256(caminho_pdf)
+            caminho_pptx_correspondente = encontrar_pptx_correspondente(caminho_pdf, disciplina, turma)
+            if caminho_pptx_correspondente:
+                caminho_fonte_extracao_esperada = caminho_pptx_correspondente
+                hash_fonte_extracao_esperada = calcular_sha256(caminho_pptx_correspondente)
         except Exception:
             pass
 
@@ -3815,10 +3889,21 @@ def _aula_por_pdf(
                     dados_json = json.load(f)
                 if isinstance(dados_json, dict) and "metodologia" in dados_json:
                     hash_salvo = dados_json.get("hash_pdf")
+                    hash_fonte_salva = dados_json.get("hash_fonte_extracao") or ""
                     versao_cache = str(dados_json.get("versao_gerador") or "")
+                    fonte_cache = str(dados_json.get("fonte_extracao") or "pdf").lower()
+                    arquivo_cache = str(dados_json.get("arquivo_fonte_extracao") or caminho_pdf)
                     from core.revisao_final import VERSAO_GERADOR_ATUAL
                     if hash_salvo and hash_atual and hash_salvo != hash_atual:
                         # Ignorar cache inválido por alteração do arquivo PDF
+                        pass
+                    elif caminho_pptx_correspondente and fonte_cache != "pptx":
+                        pass
+                    elif caminho_pptx_correspondente and Path(arquivo_cache) != Path(caminho_pptx_correspondente):
+                        pass
+                    elif caminho_pptx_correspondente and hash_fonte_extracao_esperada and hash_fonte_salva != hash_fonte_extracao_esperada:
+                        pass
+                    elif not caminho_pptx_correspondente and fonte_cache == "pptx":
                         pass
                     elif versao_cache != VERSAO_GERADOR_ATUAL:
                         pass
@@ -3837,6 +3922,9 @@ def _aula_por_pdf(
                             "ia_erro": dados_json.get("ia_erro", ""),
                             # Campos extras da auditoria
                             "hash_pdf": hash_salvo or hash_atual,
+                            "fonte_extracao": fonte_cache,
+                            "arquivo_fonte_extracao": arquivo_cache,
+                            "hash_fonte_extracao": hash_fonte_salva,
                             "confidence_score": dados_json.get("confidence_score", 100),
                             "avisos_validacao": dados_json.get("avisos_validacao") or [],
                         }
@@ -3853,6 +3941,7 @@ def _aula_por_pdf(
         bimestre=bimestre,
         indice_aula=indice_aula,
         modalidade_eja=modalidade_eja,
+        caminho_pptx_correspondente=caminho_pptx_correspondente,
     )
     texto = contexto["texto"]
     tema = contexto["tema"]
@@ -3870,6 +3959,8 @@ def _aula_por_pdf(
     contexto_metodologico = contexto["contexto_metodologico"]
     escopo_pv = contexto["escopo_pv"]
     aprendizagem_pv = contexto["aprendizagem_pv"]
+    fonte_extracao = contexto.get("fonte_extracao", "pdf")
+    arquivo_fonte_extracao = contexto.get("arquivo_fonte_extracao", caminho_fonte_extracao_esperada)
 
     resultado_final = None
 
@@ -3948,6 +4039,10 @@ def _aula_por_pdf(
             resultado_final["ia_erro"] = ia_erro
             if usar_ia:
                 resultado_final["ia_provedor"] = provedor_ia
+
+    resultado_final["fonte_extracao"] = fonte_extracao
+    resultado_final["arquivo_fonte_extracao"] = arquivo_fonte_extracao
+    resultado_final["hash_fonte_extracao"] = hash_fonte_extracao_esperada or hash_atual
 
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json
