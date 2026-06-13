@@ -26,6 +26,66 @@ def _tem_marcador_audicao(base: str) -> bool:
     )
 
 
+def _tema_astronomia(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "astronomia",
+            "observacao do ceu",
+            "observacao da lua",
+            "sol",
+            "terra",
+            "lua",
+            "eclipse",
+            "eclipses",
+            "fases da lua",
+            "rotacao",
+            "translacao",
+            "precessao",
+            "orbita",
+            "estacoes do ano",
+            "estacao do ano",
+            "caixa lunar",
+        ]
+    )
+
+
+def _grupo_modelagem_astronomia(base: str) -> str:
+    if any(
+        termo in base
+        for termo in [
+            "rotacao",
+            "translacao",
+            "precessao",
+            "orbita",
+            "eixo",
+            "inclinacao",
+            "estacoes do ano",
+            "estacao do ano",
+        ]
+    ):
+        return "movimentos_terra"
+    if any(
+        termo in base
+        for termo in [
+            "fases da lua",
+            "movimentos da lua",
+            "observacao da lua",
+            "sistema sol",
+            "sol - terra - lua",
+            "sol terra lua",
+            "eclipse",
+            "eclipses",
+            "caixa lunar",
+            "lua",
+        ]
+    ):
+        return "sistema_sol_terra_lua"
+    if "astronomia" in base or "observacao do ceu" in base:
+        return "observacao_ceu"
+    return "geral"
+
+
 def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
     if _tem_marcador_visao(base):
@@ -45,6 +105,18 @@ def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desen
             "Verificar se os estudantes classificam os órgãos do sistema respiratório por localização e função.",
             "Observar se explicam ventilação pulmonar e hematose com sequência lógica.",
             "Conferir se os registros em tabela ou síntese usam os conceitos centrais da aula.",
+        ]
+    if _grupo_modelagem_astronomia(base) == "observacao_ceu":
+        return [
+            "Verificar se os estudantes relacionam a observação do céu aos conhecimentos astronômicos e aos usos históricos ou culturais discutidos na aula.",
+            "Observar se interpretam imagens, relatos ou registros do material para explicar como diferentes povos observaram os astros.",
+            "Conferir se as respostas utilizam vocabulário científico coerente ao tratar de céu, estrelas, astros, calendários ou orientação.",
+        ]
+    if "tabela" in base and any(k in base for k in ["sol", "terra", "lua", "eclipse", "fases", "rotacao", "translacao", "precessao", "orbita", "estacoes do ano", "estacao do ano"]):
+        return [
+            f"Verificar se os estudantes preenchem a tabela de {tema} com informacoes cientificas corretas e comparaveis.",
+            f"Observar se relacionam os dados da tabela aos movimentos, fases, posicoes ou caracteristicas estudadas em {tema}.",
+            "Conferir se justificam oralmente ou por escrito as conclusoes registradas a partir da leitura da tabela.",
         ]
     if "tabela" in base:
         return [
@@ -261,41 +333,121 @@ def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: st
 
 
 def _acompanhamento_ciencias(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    from core.lib.classificador import detectar_tipo_aula
+
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Ciencias")
 
-    if any(k in base for k in ["producao_projeto", "seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+    if tipo == "analise_dados":
         return [
-            "Verificar se o produto traz informações científicas corretas.",
-            "Observar se usam vocabulário científico nas explicações.",
-            "Acompanhar a clareza e colaboração dos grupos.",
+            "☑ Verificar se os estudantes localizam titulo, fonte, legenda, unidades e valores relevantes nos dados analisados.",
+            "☑ Observar se a turma compara informacoes e utiliza evidencias do material para justificar as conclusoes.",
+            "☑ Conferir se os registros relacionam os dados ao fenomeno estudado com vocabulario cientifico adequado.",
         ]
 
-    if any(k in base for k in ["estudo_caso", "estudo de caso", "situacao-problema", "situacao problema", "caso"]):
+    if tipo == "modelagem_cientifica" and _tema_astronomia(base):
+        grupo_astronomia = _grupo_modelagem_astronomia(base)
+        if grupo_astronomia == "movimentos_terra":
+            return [
+                f"☑ Verificar se os estudantes representam corretamente em {tema} o eixo, a orbita e os movimentos da Terra discutidos na aula.",
+                "☑ Observar se a turma utiliza o modelo para explicar relacoes entre rotacao, translacao, inclinacao do eixo, duracao do dia ou estacoes do ano.",
+                "☑ Conferir se registros, falas, setas ou legendas mostram como o modelo ajuda a compreender posicoes, sentidos e efeitos desses movimentos.",
+            ]
+        if grupo_astronomia == "sistema_sol_terra_lua":
+            return [
+                f"☑ Verificar se os estudantes representam corretamente em {tema} as posicoes relativas entre Sol, Terra e Lua, bem como fases, movimentos ou eclipses.",
+                "☑ Observar se a turma utiliza o modelo para explicar iluminacao, alinhamentos e mudancas aparentes sem confundir o fenomeno com a representacao.",
+                "☑ Conferir se registros, falas, legendas ou apresentacoes mostram relacoes coerentes entre fonte de luz, sombra, movimento e observacao do ceu.",
+            ]
         return [
-            "Verificar se identificam o problema do caso e reúnem evidências.",
-            "Observar se relacionam causa, consequência e conceito científico.",
-            "Acompanhar registros, avaliando coerência e conceitos científicos.",
+            f"☑ Verificar se os estudantes representam corretamente em {tema} os movimentos, alinhamentos, fases ou posicoes relativas discutidos na aula.",
+            "☑ Observar se a turma utiliza o modelo para explicar o fenomeno estudado, sem confundir a representacao com a realidade.",
+            "☑ Conferir se registros, falas, legendas ou apresentacoes mostram como o modelo ajuda a compreender o conceito cientifico central.",
+        ]
+    if tipo == "modelagem_cientifica":
+        return [
+            f"☑ Verificar se os estudantes identificam os componentes principais de {tema} e os relacionam corretamente a suas funcoes.",
+            "☑ Observar se a turma reconhece que o modelo representa e simplifica a realidade, sem confundir a representacao com o objeto real.",
+            "☑ Conferir se os registros ou apresentacoes explicam como o modelo ajuda a compreender estrutura, processo ou funcionamento.",
         ]
 
-    if any(k in base for k in ["leitura_analise", "noticia", "reportagem", "dados", "inpe", "ibge", "fonte", "hora da leitura"]):
+    if tipo == "situacao_problema":
         return [
-            "Verificar se localizam informações centrais no texto ou fonte.",
-            "Observar se relacionam leitura e conceitos a saúde e ambiente.",
-            "Acompanhar respostas escritas e justificativas com evidências.",
+            "☑ Verificar se os estudantes identificam causas, impactos, agentes envolvidos e criterios de analise no cenario proposto.",
+            "☑ Observar se a turma justifica as solucoes com base em conceitos cientificos, dados ou evidencias do material.",
+            "☑ Conferir se os registros articulam problema, proposta de acao, responsabilidade coletiva e viabilidade das medidas.",
         ]
 
-    if any(k in base for k in ["revisao_retomada", "relembre", "exercicio resolvido", "retomar"]):
+    if tipo == "pratica_experimental":
         return [
-            "Verificar se recordam conceitos anteriores relacionados à aula.",
-            "Observar se compreendem o exemplo e o aplicam em questões.",
-            "Acompanhar os registros, identificando pontos para retomada.",
+            "☑ Verificar se os estudantes acompanham o procedimento, observam o fenomeno e registram etapas sem perder os objetivos da pratica.",
+            "☑ Observar se a turma compara resultados e explica as observacoes com base no conceito cientifico estudado.",
+            "☑ Conferir se os registros apresentam evidencias, conclusoes coerentes e uso adequado do vocabulario da aula.",
         ]
 
+    if tipo == "investigativa":
+        return [
+            "☑ Verificar se os estudantes formulam hipoteses iniciais e as revisam a partir das evidencias observadas.",
+            "☑ Observar se a turma registra dados, pistas ou resultados relevantes durante a investigacao.",
+            "☑ Conferir se as explicacoes finais articulam pergunta inicial, evidencias analisadas e conceito cientifico trabalhado.",
+        ]
+
+    if tipo == "impacto_socioambiental":
+        return [
+            f"☑ Verificar se os estudantes relacionam {tema} a impactos, causas e consequencias ambientais, sociais ou de saude.",
+            "☑ Observar se a turma utiliza dados, noticias ou exemplos do material para sustentar analises e posicionamentos.",
+            "☑ Conferir se os registros incluem responsabilidades dos agentes envolvidos e propostas de acao coerentes com os conceitos estudados.",
+        ]
+
+    if tipo == "producao_projeto" or any(k in base for k in ["seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+        return [
+            "☑ Verificar se o produto traz informacoes cientificas corretas e coerentes com o tema estudado.",
+            "☑ Observar se os estudantes usam vocabulario cientifico nas explicacoes e apresentacoes.",
+            "☑ Acompanhar a clareza da comunicacao e a colaboracao dos grupos durante a socializacao.",
+        ]
+
+    if tipo == "estudo_caso" or any(k in base for k in ["estudo_caso", "estudo de caso", "caso"]):
+        return [
+            "☑ Verificar se identificam o problema do caso e reunem evidencias relevantes para analisa-lo.",
+            "☑ Observar se relacionam causa, consequencia e conceito cientifico nas explicacoes.",
+            "☑ Acompanhar os registros, avaliando coerencia das conclusoes e uso de conceitos cientificos.",
+        ]
+
+    if tipo == "leitura_analise" or any(k in base for k in ["noticia", "reportagem", "inpe", "ibge", "fonte", "hora da leitura"]):
+        return [
+            "☑ Verificar se localizam informacoes centrais no texto, noticia ou fonte analisada.",
+            "☑ Observar se relacionam a leitura aos conceitos cientificos e a questoes de saude, ambiente ou sociedade.",
+            "☑ Acompanhar respostas escritas e justificativas com base em evidencias do material.",
+        ]
+
+    if tipo == "revisao_retomada" or any(k in base for k in ["relembre", "exercicio resolvido", "retomar"]):
+        return [
+            f"☑ Verificar se retomam os conceitos ja estudados sobre {tema} e os conectam ao novo foco da aula.",
+            "☑ Observar se utilizam registros anteriores, esquemas ou respostas ja produzidas para revisar explicacoes e corrigir duvidas.",
+            "☑ Acompanhar os registros, identificando quais relacoes cientificas ja foram consolidadas e quais ainda precisam de reforco conceitual.",
+        ]
     return [
-        "Verificar se os estudantes compreendem o conceito cientifico central e conseguem relaciona-lo a exemplos do cotidiano.",
-        "Observar a participacao no Pause e responda, considerando justificativas e correcao dialogada.",
-        "Acompanhar a atividade escrita, conferindo se as respostas usam evidencias, vocabulario cientifico e sintese propria.",
+        "☑ Verificar se os estudantes compreendem o conceito cientifico central e conseguem relaciona-lo a exemplos do cotidiano.",
+        "☑ Observar a participacao no Pause e responda, considerando justificativas e correcao dialogada.",
+        "☑ Acompanhar a atividade escrita, conferindo se as respostas usam evidencias, vocabulario cientifico e sintese propria.",
     ]
+
+
+def _acompanhamento_ciencias_reforcado(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    itens = _acompanhamento_ciencias(tema, aprendizagem, desenvolvimento)
+    texto = normalizar_texto(" ".join(itens))
+    gatilhos_genericos = [
+        "conceito cientifico central",
+        "participacao no pause e responda",
+        "atividade escrita",
+    ]
+    if all(gatilho in texto for gatilho in gatilhos_genericos):
+        return [
+            f"☑ Verificar se os estudantes compreendem o conceito cientifico central de {tema} e conseguem relaciona-lo a exemplos, fenomenos ou situacoes discutidas na aula.",
+            f"☑ Observar se utilizam vocabulario cientifico, justificativas e evidencias do material ao explicar o que aprenderam sobre {tema}.",
+            f"☑ Acompanhar a atividade escrita, conferindo se os registros apresentam clareza, sintese propria e relacao consistente com o foco de estudo de {tema}.",
+        ]
+    return itens
 
 
 def _acompanhamento_biologia(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
@@ -498,7 +650,7 @@ GERADORES_ACOMPANHAMENTO_POR_PERFIL: dict[str, GeradorAcompanhamento] = {
     "lingua_portuguesa_em": _acompanhamento_lingua_portuguesa_em,
     "leitura_redacao": _acompanhamento_lingua_portuguesa,
     "matematica": _acompanhamento_matematica,
-    "ciencias_ef": _acompanhamento_ciencias,
+    "ciencias_ef": _acompanhamento_ciencias_reforcado,
     "biologia": _acompanhamento_biologia,
     "projeto_de_vida": _acompanhamento_projeto_vida,
 }

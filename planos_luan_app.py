@@ -68,7 +68,6 @@ from ui.shared import (
 from ui.cadastro import _renderizar_cadastro_professor
 from ui.diagnostico import _renderizar_diagnostico_modelos
 from ui.reescrita_cdp import _renderizar_reescrita_cdp_em
-from ui.geracao_lote import _renderizar_geracao_lote
 
 # ── Banco de Dados e Cadastro ──────────────────────────────────────────
 from core.database import (
@@ -112,12 +111,14 @@ from core.helpers import (
     LocalFileWrapper,
     arquivos_na_ordem_de_envio,
     horario_para_plano,
+    listar_falhas_ia,
     montar_relatorio_geracao,
     normalizar_para_pasta,
     numeros_pdfs_faltantes,
     ordenar_pdfs_por_numero,
     ordenar_pdfs_por_sequencia,
     resolver_pasta_pdfs,
+    resumir_falhas_ia,
     texto_lista as _texto_lista,
     numero_aula_pdf,
 )
@@ -152,6 +153,8 @@ st.set_page_config(
 CAMPOS_TELA = {
     "modelo_file",
     "pdfs_aulas_files",
+    "modo_upload_pdf",
+    "salvar_historico_geracao",
     "novo_modelo_file",
     "escolha_template",
     "escolha_template_manual",
@@ -193,6 +196,7 @@ CAMPOS_TELA = {
 }
 
 PREFIXOS_TELA = (
+    "pdfs_aulas_files_auto_",
     "data_aula_",
     "horario_aula_",
     "tipo_horario_aula_",
@@ -206,6 +210,7 @@ PREFIXOS_TELA = (
 )
 
 PREFIXOS_REVISAO = ("tema_", "apr_", "acomp_", "acess_", "met_")
+MODO_UPLOAD_PDF_PADRAO = "Todos de uma vez"
 
 
 def _limpar_revisao_aulas() -> None:
@@ -224,6 +229,34 @@ def limpar_dados_tela() -> None:
 def _limpar_erro_processamento() -> None:
     st.session_state.pop("erro_processamento", None)
     st.session_state.pop("erro_processamento_detalhe", None)
+
+
+def _salvar_planos_gerados_se_configurado(planos_gerados, professor: str, disciplina: str) -> bool:
+    if not st.session_state.get("salvar_historico_geracao", False):
+        return False
+
+    for plano in planos_gerados or []:
+        salvar_historico_plano(
+            professor,
+            disciplina,
+            plano["turma"],
+            nome_arquivo_plano(plano["turma"], disciplina),
+            plano["docx_bytes"].getvalue(),
+        )
+    return True
+
+
+def _registrar_mensagem_memoria_plano(salvou_historico: bool) -> None:
+    if salvou_historico:
+        st.session_state["mensagem_historico_planos_tipo"] = "success"
+        st.session_state["mensagem_historico_planos"] = (
+            "Plano salvo no histórico. A memória do sistema foi atualizada e o próximo plano pode continuar da próxima aula."
+        )
+    else:
+        st.session_state["mensagem_historico_planos_tipo"] = "info"
+        st.session_state["mensagem_historico_planos"] = (
+            "Plano gerado sem salvar no histórico. A memória da última aula foi mantida como está."
+        )
 
 
 def _registrar_erro_processamento(exc: Exception) -> None:
@@ -354,6 +387,13 @@ def _falhas_ia(aulas, exigir_ia: bool = True) -> list[str]:
         else:
             falhas.append(f"Aula {idx} ({tema}): a IA não retornou desenvolvimento completo.")
     return falhas
+
+def _falhas_ia_atualizadas(aulas, exigir_ia: bool = True) -> list[str]:
+    return listar_falhas_ia(aulas, exigir_ia=exigir_ia)
+
+
+_falhas_ia = _falhas_ia_atualizadas
+
 
 def _extrair_primeiro_texto_metodologia(aula) -> str:
     metodologia = aula.get("metodologia") or []
@@ -1262,6 +1302,7 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
     temp_paths = []
     try:
         dados_aulas = []
+        avisos_ia = []
         grupos = _grupos_pdf_por_aula(aulas_envio) if dividir_metodologia else [{"indices": [idx], "dividir": False} for idx in range(len(aulas_envio))]
         dividir_por_pdf = []
         for grupo in grupos:
@@ -1280,7 +1321,11 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
         if not aulas: raise RuntimeError("Nenhuma aula foi extraída.")
         if modo_ia != "Sem IA":
             falhas_ia = _falhas_ia(aulas, exigir_ia=not eh_cdp_contextual(disciplina))
-            if falhas_ia: raise RuntimeError("Falha de IA detectada:\n" + "\n".join(falhas_ia))
+            if falhas_ia and len(falhas_ia) == len(aulas or []):
+                raise RuntimeError("Falha de IA detectada em todas as aulas:\n" + "\n".join(falhas_ia))
+            aviso_ia = resumir_falhas_ia(falhas_ia)
+            if aviso_ia:
+                avisos_ia.append(aviso_ia)
         
         avisos_ae = []
         if usar_ae_priorizado:
@@ -1308,7 +1353,7 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
                     item["texto"] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item["texto"]))).strip()
                 elif isinstance(item, str):
                     metodologia[i] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item))).strip()
-        return {"aulas": aulas, "avisos_repeticao": avisos_repeticao, "avisos_ae": avisos_ae}
+        return {"aulas": aulas, "avisos_repeticao": avisos_repeticao, "avisos_ae": avisos_ae, "avisos_ia": avisos_ia}
     finally:
         for caminho_temp in temp_paths:
             if caminho_temp:
@@ -1383,23 +1428,17 @@ with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=li
 
 st.markdown('<div class="section-card"></div><div class="section-title">Área de trabalho</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Escolha o modo de uso do sistema antes de preencher os dados do plano.</div>', unsafe_allow_html=True)
-modo_tela = st.radio("Área do PLANOS_LUAN", ["Planos gerais", "Geração em Lote", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"], horizontal=True, key="modo_tela", label_visibility="collapsed")
+modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"]
+if st.session_state.get("modo_tela") == "Geração em Lote":
+    st.session_state["modo_tela"] = "Planos gerais"
+modo_tela = st.radio("Área do PLANOS_LUAN", modos_disponiveis, horizontal=True, key="modo_tela", label_visibility="collapsed")
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
-modo_lote = modo_tela == "Geração em Lote"
-
 if modo_cadastro_professor: _renderizar_cadastro_professor(); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_reescrita_cdp_em: _renderizar_reescrita_cdp_em(); st.stop()
-if modo_lote:
-    _renderizar_geracao_lote(
-        _gerar_docx_cdp_final_fn=_gerar_docx_cdp_final,
-        _extrair_aulas_dos_pdfs_fn=_extrair_aulas_dos_pdfs,
-        _gerar_docx_final_fn=_gerar_docx_final,
-    )
-    st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
 TEMPLATES_DIR.mkdir(exist_ok=True)
@@ -1650,52 +1689,40 @@ def _render_painel_pdfs(
     criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
     aulas_rotulo = total_aulas or necessarios
 
-    chips = "".join(
-        f'<span class="pdf-order-chip">{indice}. {nome}</span>'
-        for indice, nome in enumerate((_nome_pdf_para_tela(item) for item in selecionados), start=1)
-    )
-    if not chips:
-        chips = '<span class="pdf-order-empty">Nenhum PDF selecionado ainda.</span>'
+    with st.container():
+        st.markdown("### Painel dos PDFs")
+        st.caption(orientacao)
 
-    faltantes_html = ""
-    if faltantes_ae:
-        faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
-        faltantes_html = f'<div class="pdf-dashboard__alert">PDFs AE nao encontrados: {html.escape(faltantes_txt)}</div>'
+        if status_classe == "success":
+            st.success(status_texto)
+        elif status_classe == "warning":
+            st.warning(status_texto)
+        else:
+            st.info(status_texto)
 
-    pasta_html = ""
-    if pasta:
-        pasta_html = f'<div class="pdf-dashboard__path">Pasta automatica: {html.escape(str(pasta))}</div>'
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Modo", str(modo or "-"))
+        col2.metric("Aulas previstas", aulas_rotulo)
+        col3.metric("PDFs necessarios", necessarios)
+        col4.metric("Selecionados", carregados)
+        col5.metric("Encontrados", encontrados)
 
-    st.markdown(
-        f"""<div class="pdf-dashboard">
-<div class="pdf-dashboard__header">
-<div>
-<div class="pdf-dashboard__eyebrow">Painel dos PDFs</div>
-<div class="pdf-dashboard__title">Organizacao das aulas</div>
-<div class="pdf-dashboard__subtitle">{html.escape(orientacao)}</div>
-</div>
-<div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">{html.escape(status_texto)}</div>
-</div>
-<div class="pdf-dashboard__stats">
-<div class="pdf-stat"><span>Modo</span><strong>{html.escape(str(modo or "-"))}</strong></div>
-<div class="pdf-stat"><span>Aulas previstas</span><strong>{aulas_rotulo}</strong></div>
-<div class="pdf-stat"><span>PDFs necessarios</span><strong>{necessarios}</strong></div>
-<div class="pdf-stat"><span>Selecionados</span><strong>{carregados}</strong></div>
-<div class="pdf-stat"><span>Encontrados</span><strong>{encontrados}</strong></div>
-</div>
-<div class="pdf-progress">
-<div class="pdf-progress__bar" style="width: {progresso}%"></div>
-</div>
-<div class="pdf-dashboard__meta">{carregados}/{necessarios or 0} PDF(s) prontos para processamento · {html.escape(criterio_pdfs)}</div>
-{pasta_html}
-{faltantes_html}
-<div class="pdf-order">
-<div class="pdf-order__title">Ordem que sera processada</div>
-<div class="pdf-order__chips">{chips}</div>
-</div>
-</div>""",
-        unsafe_allow_html=True,
-    )
+        st.progress(progresso)
+        st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
+
+        if pasta:
+            st.caption(f"Pasta automatica: {pasta}")
+
+        if faltantes_ae:
+            faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
+            st.warning(f"PDFs AE nao encontrados: {faltantes_txt}")
+
+        st.markdown("**Ordem que sera processada**")
+        if selecionados:
+            for indice, item in enumerate(selecionados, start=1):
+                st.write(f"{indice}. {_nome_pdf_para_tela(item)}")
+        else:
+            st.caption("Nenhum PDF selecionado ainda.")
 
 
 sequencia_ae_contexto = []
@@ -1787,7 +1814,7 @@ else:
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
     if st.session_state.get("modo_upload_pdf") not in opcoes_modo_upload:
-        st.session_state["modo_upload_pdf"] = "Automatico"
+        st.session_state["modo_upload_pdf"] = MODO_UPLOAD_PDF_PADRAO
     modo_upload_pdf = st.radio(
         "Modo de envio dos PDFs",
         opcoes_modo_upload,
@@ -1864,7 +1891,7 @@ else:
                     pdf_files_filtrados = pdf_files_disponiveis
                 else:
                     if ultima_aula > 0:
-                        st.info(f"💾 **Memória do sistema:** O último plano para **{professor}** ({disciplina} - {turma}) parou na **Aula {ultima_aula}**. Os PDFs pré-selecionados começam da **Aula {ultima_aula + 1}**.")
+                        st.info(f"💾 **Memória do sistema:** O último plano salvo para **{professor}** ({disciplina} - {turma}) parou na **Aula {ultima_aula}**. Os PDFs pré-selecionados começam da **Aula {ultima_aula + 1}**.")
 
                 if est_necessarios > 0:
                     if sequencia_pdf_esperada_ae:
@@ -2014,6 +2041,13 @@ if erro_processamento:
         with st.expander("Ver detalhe tecnico"):
             st.code(erro_processamento_detalhe)
 geracao_em_andamento = bool(st.session_state.get("geracao_em_andamento", False))
+if disciplina_cdp:
+    st.checkbox(
+        "Salvar este plano no histórico e atualizar a memória da última aula",
+        key="salvar_historico_geracao",
+        value=bool(st.session_state.get("salvar_historico_geracao", False)),
+        help="Marque apenas quando o plano estiver realmente ok. Se desmarcar, o DOCX será gerado normalmente, mas o sistema não avançará a memória da próxima aula.",
+    )
 if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
@@ -2027,7 +2061,8 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
             for t in [turma] + ([turma_espelho] if gerar_turma_espelho else []):
                 planos_gerados.append(_gerar_docx_cdp_final(modelo_bytes, escola, professor, disciplina, t, mes, bimestre, semana, observacao, aulas_previstas_manual, cdp_aula_inicial, turma_cdp, modo_ia, modelo_openai, modelo_gemini, datas_horarios_mes))
             st.session_state["planos_gerados"] = planos_gerados
-            for p in planos_gerados: salvar_historico_plano(professor, disciplina, p["turma"], nome_arquivo_plano(p["turma"], disciplina), p["docx_bytes"].getvalue())
+            salvou_historico = _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina)
+            _registrar_mensagem_memoria_plano(salvou_historico)
             status.update(label="✅ Concluído", state="complete", expanded=False)
         st.session_state["geracao_em_andamento"] = False; st.rerun()
     else:
@@ -2072,6 +2107,8 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                         avisos_turma.extend(res["avisos_repeticao"])
                     if res.get("avisos_ae"):
                         avisos_turma.extend(res["avisos_ae"])
+                    if res.get("avisos_ia"):
+                        avisos_turma.extend(res["avisos_ia"])
                     if avisos_turma:
                         avisos.append({"turma": t, "avisos": avisos_turma})
                 progress_bar.progress(100, text="Extração concluída. Preparando a revisão...")
@@ -2142,16 +2179,30 @@ if st.session_state.get("turmas_processadas"):
         """,
         unsafe_allow_html=True,
     )
+    st.checkbox(
+        "Salvar este plano no histórico e atualizar a memória da última aula",
+        key="salvar_historico_geracao",
+        value=bool(st.session_state.get("salvar_historico_geracao", False)),
+        help="Marque apenas quando o plano estiver realmente ok. Se desmarcar, o DOCX será gerado normalmente, mas o sistema não avançará a memória da próxima aula.",
+    )
     if st.button("GERAR DOCX", type="primary"):
         planos_gerados = []
         for tr in turmas_revisadas:
             planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
         st.session_state["planos_gerados"] = planos_gerados
-        for p in planos_gerados: salvar_historico_plano(professor, disciplina, p["turma"], nome_arquivo_plano(p["turma"], disciplina), p["docx_bytes"].getvalue())
+        salvou_historico = _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina)
+        _registrar_mensagem_memoria_plano(salvou_historico)
         st.success("Planos gerados!")
 
 if st.session_state.get("planos_gerados"):
     planos_gerados = st.session_state["planos_gerados"]
+    mensagem_historico = str(st.session_state.pop("mensagem_historico_planos", "") or "").strip()
+    mensagem_historico_tipo = str(st.session_state.pop("mensagem_historico_planos_tipo", "") or "").strip()
+    if mensagem_historico:
+        if mensagem_historico_tipo == "success":
+            st.success(mensagem_historico)
+        else:
+            st.info(mensagem_historico)
     st.markdown('<div class="section-title">📥 Passo 3: Download</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-subtitle">Baixe o arquivo final já pronto para envio ou salve um pacote com todas as turmas processadas.</div>', unsafe_allow_html=True)
     st.markdown(

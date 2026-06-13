@@ -425,6 +425,8 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
             continue
         if len(txt) > 220:
             txt = limitar_texto_natural(txt, 220)
+        txt = re.sub(r"^[☑•\-\*\u2013\u2014]\s*", "", txt)
+        txt = f"☑ {txt}"
         saida.append(txt)
         if len(saida) >= maximo:
             break

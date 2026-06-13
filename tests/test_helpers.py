@@ -2,10 +2,13 @@ from pathlib import Path
 
 from core.helpers import (
     arquivos_na_ordem_de_envio,
+    listar_falhas_ia,
+    montar_relatorio_geracao,
     numero_aula_pdf,
     ordenar_pdfs_por_numero,
     ordenar_pdfs_por_sequencia,
     resolver_pasta_pdfs,
+    resumir_falhas_ia,
 )
 
 
@@ -55,3 +58,43 @@ def test_resolver_pasta_pdfs_usa_alias_portugues_em():
     caminho = resolver_pasta_pdfs(r"D:\PDF novos", "Portugues", "2 ano C", "2 Bimestre")
 
     assert caminho == Path(r"D:\PDF novos") / "LINGUA_PORTUGUESA" / "EM" / "2_BIMESTRE" / "2_ANO"
+
+
+def test_listar_falhas_ia_e_resumir_fallback_local():
+    aulas = [
+        {"tema": "Aula de abertura", "ia_usada": True, "ia_erro": ""},
+        {
+            "tema": "Recursos hidricos",
+            "ia_usada": False,
+            "ia_erro": "Falha na IA (gemini): 503 UNAVAILABLE. Usando motor heuristico local.",
+        },
+    ]
+
+    falhas = listar_falhas_ia(aulas)
+    resumo = resumir_falhas_ia(falhas)
+
+    assert len(falhas) == 1
+    assert "Aula 2 (Recursos hidricos)" in falhas[0]
+    assert "503 UNAVAILABLE" in falhas[0]
+    assert "motor local" in resumo
+    assert "Recursos hidricos" in resumo
+
+
+def test_relatorio_geracao_inclui_observacao_ia_quando_houver_fallback():
+    relatorio = montar_relatorio_geracao(
+        [
+            {
+                "tema": "Recursos hidricos",
+                "data": "12/06",
+                "horario": "10h\n10h50",
+                "ia_usada": False,
+                "ia_erro": "Falha na IA (openai): timeout. Usando motor heuristico local.",
+            }
+        ],
+        disciplina="Ciencias",
+        turma="8 ANO B",
+        bimestre="3 Bimestre",
+        mes="JUNHO",
+    )
+
+    assert "Observacao IA: Falha na IA (openai): timeout. Usando motor heuristico local." in relatorio

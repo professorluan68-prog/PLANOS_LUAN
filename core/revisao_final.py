@@ -1,7 +1,26 @@
 import hashlib
 import json
+import re
 from pathlib import Path
+
+from core.qualidade_metodologica import extrair_conceito_central
 from core.validador_plano import validar_aula_final
+
+VERSAO_GERADOR_ATUAL = "1.2.0"
+
+
+def _limpar_tema_final(tema: str) -> str:
+    texto = extrair_conceito_central(str(tema or "").strip())
+    if not texto:
+        return ""
+    texto = re.sub(
+        r"^(?:da\s+natureza|ciencias?\s+da\s+natureza)\b\s*[-:\u2013\u2014]?\s*",
+        "",
+        texto,
+        flags=re.I,
+    )
+    return texto.strip(" ,;:-")
+
 
 def calcular_sha256(caminho_pdf: str | Path) -> str:
     """Calcula o hash SHA-256 de um arquivo PDF para validação de integridade do cache."""
@@ -22,7 +41,8 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
     deducoes = 0
 
     # 1. Validar Tema e Aprendizagem
-    tema = str(aula.get("tema") or "").strip()
+    tema = _limpar_tema_final(aula.get("tema") or "")
+    aula["tema"] = tema
     if not tema:
         deducoes += 30
         avisos.append("Tema não identificado.")
@@ -76,7 +96,7 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
     # 6. Atualizar dicionário
     aula["confidence_score"] = max(0, 100 - deducoes)
     aula["avisos_validacao"] = sorted(list(set(avisos)))
-    aula["versao_gerador"] = "1.0.0"
+    aula["versao_gerador"] = VERSAO_GERADOR_ATUAL
     aula["perfil"] = perfil
     return aula
 
@@ -102,7 +122,7 @@ def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> P
             "hash_pdf": hash_pdf,
             "confidence_score": aula.get("confidence_score", 100),
             "avisos_validacao": aula.get("avisos_validacao") or [],
-            "versao_gerador": aula.get("versao_gerador", "1.0.0"),
+            "versao_gerador": aula.get("versao_gerador", VERSAO_GERADOR_ATUAL),
             "perfil": aula.get("perfil") or "",
         }
         with open(caminho_json, "w", encoding="utf-8") as f:

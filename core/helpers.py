@@ -36,6 +36,40 @@ def texto_lista(valor) -> str:
     return str(valor)
 
 
+def listar_falhas_ia(aulas, exigir_ia: bool = True) -> list[str]:
+    if not exigir_ia:
+        return []
+
+    falhas = []
+    for idx, aula in enumerate(aulas or [], start=1):
+        if aula.get("ia_usada"):
+            continue
+        erro = str(aula.get("ia_erro") or "").strip()
+        tema = str(aula.get("tema") or f"Aula {idx}").strip()
+        if erro:
+            falhas.append(f"Aula {idx} ({tema}): {erro}")
+        else:
+            falhas.append(f"Aula {idx} ({tema}): a IA não retornou desenvolvimento completo.")
+    return falhas
+
+
+def resumir_falhas_ia(falhas_ia) -> str:
+    falhas = [str(item).strip() for item in falhas_ia or [] if str(item).strip()]
+    if not falhas:
+        return ""
+    if len(falhas) == 1:
+        return (
+            "A IA não concluiu 1 aula e o sistema usou o motor local nessa aula. "
+            "Revise esse trecho com mais atenção: "
+            f"{falhas[0]}"
+        )
+    return (
+        f"A IA não concluiu {len(falhas)} aula(s) e o sistema usou o motor local nesses casos. "
+        "Revise essas aulas com mais atenção: "
+        + " | ".join(falhas)
+    )
+
+
 def montar_relatorio_geracao(aulas, disciplina: str, turma: str, bimestre: str, mes: str) -> str:
     linhas = [
         "RELATORIO DE CONFERENCIA DO PLANO",
@@ -47,6 +81,7 @@ def montar_relatorio_geracao(aulas, disciplina: str, turma: str, bimestre: str, 
         "",
     ]
     for idx, aula in enumerate(aulas or [], start=1):
+        erro_ia = str(aula.get("ia_erro") or "").strip()
         linhas.extend(
             [
                 f"Aula {idx}",
@@ -54,9 +89,11 @@ def montar_relatorio_geracao(aulas, disciplina: str, turma: str, bimestre: str, 
                 f"Data: {aula.get('data', '')}",
                 f"Horario: {str(aula.get('horario', '')).replace(chr(10), ' - ')}",
                 f"IA usada: {'sim' if aula.get('ia_usada') else 'nao'}",
-                "",
             ]
         )
+        if erro_ia:
+            linhas.append(f"Observacao IA: {erro_ia}")
+        linhas.append("")
     return "\n".join(linhas)
 
 
@@ -84,6 +121,112 @@ def normalizar_para_pasta(texto: str) -> str:
 def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
     disciplina_norm = normalizar_para_pasta(disciplina)
     return DISCIPLINA_PASTA_ALIASES.get(disciplina_norm, disciplina_norm)
+
+
+def _nome_pasta_normalizado(valor: str | Path) -> str:
+    return normalizar_para_pasta(Path(str(valor)).name)
+
+
+def _pasta_tem_pdfs(caminho: Path) -> bool:
+    if not caminho.exists() or not caminho.is_dir():
+        return False
+    try:
+        return any(arquivo.is_file() and arquivo.suffix.lower() == ".pdf" for arquivo in caminho.iterdir())
+    except OSError:
+        return False
+
+
+def _tokens_serie_turma(turma_norm: str) -> list[str]:
+    tokens = [turma_norm] if turma_norm else []
+
+    match_ano = re.search(r"(\d)_ANO(?:_([A-Z]))?", turma_norm)
+    match_serie = re.search(r"(\d)_SERIE(?:_([A-Z]))?", turma_norm)
+    match = match_ano or match_serie
+    if not match:
+        return [token for token in dict.fromkeys(tokens) if token]
+
+    numero = match.group(1)
+    letra = match.group(2)
+    tokens.extend([f"{numero}_ANO", f"{numero}_SERIE"])
+    if letra:
+        tokens.extend([f"{numero}_ANO_{letra}", f"{numero}_SERIE_{letra}"])
+    return [token for token in dict.fromkeys(tokens) if token]
+
+
+def _nivel_preferido_para_turma(turma_norm: str) -> str:
+    if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm:
+        return "EM"
+    if re.search(r"^[6789]_ANO", turma_norm):
+        return "AF"
+    if "FUNDAMENTAL" in turma_norm:
+        return "AF"
+    return "EM"
+
+
+def _pontuar_pasta_pdf(
+    caminho: Path,
+    disciplina_root: Path,
+    nivel_preferido: str,
+    bimestre_token: str,
+    serie_tokens: list[str],
+    turma_norm: str,
+) -> tuple[int, int]:
+    try:
+        rel_parts = caminho.relative_to(disciplina_root).parts
+    except ValueError:
+        rel_parts = caminho.parts
+
+    partes_norm = [_nome_pasta_normalizado(parte) for parte in rel_parts]
+    partes_set = set(partes_norm)
+
+    score = 0
+    if nivel_preferido in partes_set:
+        score += 40
+    if bimestre_token and bimestre_token in partes_set:
+        score += 60
+    if turma_norm and turma_norm in partes_set:
+        score += 90
+    if any(token in partes_set for token in serie_tokens):
+        score += 70
+    if rel_parts:
+        ultimo = partes_norm[-1]
+        if turma_norm and ultimo == turma_norm:
+            score += 30
+        elif any(token == ultimo for token in serie_tokens):
+            score += 20
+
+    return score, len(rel_parts)
+
+
+def _buscar_pasta_pdf_flexivel(
+    disciplina_root: Path,
+    nivel_preferido: str,
+    bimestre_token: str,
+    serie_tokens: list[str],
+    turma_norm: str,
+) -> Path | None:
+    if not disciplina_root.exists():
+        return None
+
+    melhor: tuple[int, int, Path] | None = None
+    for caminho in disciplina_root.rglob("*"):
+        if not caminho.is_dir() or not _pasta_tem_pdfs(caminho):
+            continue
+        score, profundidade = _pontuar_pasta_pdf(
+            caminho,
+            disciplina_root,
+            nivel_preferido,
+            bimestre_token,
+            serie_tokens,
+            turma_norm,
+        )
+        if score <= 0:
+            continue
+        candidato = (score, -profundidade, caminho)
+        if melhor is None or candidato > melhor:
+            melhor = candidato
+
+    return melhor[2] if melhor else None
 
 
 def numero_aula_pdf(arquivo) -> int | None:

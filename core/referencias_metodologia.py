@@ -45,10 +45,12 @@ MAPA_REFERENCIAS = {
     "redacao e leitura": REFERENCIA_LEITURA_REDACAO,
     "leitura e redacao": REFERENCIA_LEITURA_REDACAO,
     "ciencias": (
+        "ANALISE_METODOLOGICA_CIENCIAS_EF_ANOS_FINAIS_3B.md",
         "CIÊNCIAS-6ANO_metodologias_ciencias_6ano_versao_final_completa_ajustada.docx",
         "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
     ),
     "ciencia": (
+        "ANALISE_METODOLOGICA_CIENCIAS_EF_ANOS_FINAIS_3B.md",
         "CIÊNCIAS-6ANO_metodologias_ciencias_6ano_versao_final_completa_ajustada.docx",
         "ANÁLISE METODOLÓGICA - CIÊNCIAS 7º ANO.md",
     ),

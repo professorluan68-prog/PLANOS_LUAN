@@ -186,6 +186,11 @@ _REGRAS_PERFIL_LP = [
         "campanha publicitaria", "campanha publicitária",
         "advergame", "unboxing", "social advertising",
     ]),
+    ("diario_pessoal", [
+        "diario pessoal", "diÃ¡rio pessoal",
+        "genero diario pessoal", "gÃªnero diÃ¡rio pessoal",
+        "reflexoes do cotidiano", "reflexÃµes do cotidiano",
+    ]),
     ("biografia", [
         "historia de uma vida", "história de uma vida",
         "biografia", "trajetoria", "trajetória",
@@ -201,6 +206,38 @@ _REGRAS_PERFIL_LP = [
         "textos jornalísticos digitais",
         "fotos e videos", "fotos e vídeos",
         "intencionalidade das imagens",
+    ]),
+    ("leitura_multimodal", [
+        "cartaz", "campanha", "infografico", "infografico",
+        "tirinha", "charge", "texto verbal", "texto nao verbal",
+        "linguagem verbal e nao verbal", "multimodal",
+        "multissemotico", "multissemiotico",
+    ]),
+    ("resumo_retextualizacao", [
+        "resumir", "resumo", "retextualizacao",
+        "esquema", "notas", "topicos",
+        "topico frasal", "paragrafacao",
+        "paragrafos", "coesao", "coerencia",
+    ]),
+    ("variacao_linguistica_registro", [
+        "regionalismo", "registro formal",
+        "registro informal", "giria", "girias",
+        "preconceito linguistico", "biscoito", "bolacha",
+    ]),
+    ("argumentacao_debate", [
+        "contra argumento", "contra-argumento",
+        "debate", "refutar", "planejar debate",
+        "celular em sala", "celular na escola",
+    ]),
+    ("texto_digital_blog", [
+        "post de blog", "blog", "postagem", "internet",
+        "comentario", "a voz da internet",
+        "mulheres na universidade", "publico leitor",
+    ]),
+    ("analise_linguistica_ortografia", [
+        "ortografia", "concordancia nominal",
+        "discurso direto", "discurso indireto", "marcas linguisticas",
+        "paragrafacao", "topico frasal", "x ou ch", "sc", "cedilha",
     ]),
     ("conto_distopico", [
         "conto distopico", "conto distópico",
@@ -276,6 +313,22 @@ def classificar_perfil(
     # Verificar regras em ordem de prioridade
     perfis_lp_permitidos = {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
     if perfil is None or perfil in perfis_lp_permitidos:
+        if any(t in n for t in ["ortografia", "concordancia nominal", "discurso direto", "discurso indireto", "x ou ch"]):
+            return "analise_linguistica_ortografia"
+        if any(t in n for t in ["resumo", "retextualizacao", "topico frasal", "paragrafacao"]) and any(
+            t in n for t in ["infografico", "esquema", "topicos", "paragrafos", "notas"]
+        ):
+            return "resumo_retextualizacao"
+        if any(t in n for t in ["preconceito linguistico", "biscoito", "bolacha", "regionalismo"]) and any(
+            t in n for t in ["variacao linguistica", "registro formal", "registro informal", "lingua viva"]
+        ):
+            return "variacao_linguistica_registro"
+        if any(t in n for t in ["post de blog", "a voz da internet", "publico leitor"]) and any(
+            t in n for t in ["comentario", "internet", "blog", "postagem"]
+        ):
+            return "texto_digital_blog"
+        if any(t in n for t in ["contra argumento", "contra-argumento", "planejar debate", "celular em sala", "celular na escola"]):
+            return "argumentacao_debate"
         for perfil_nome, termos in _REGRAS_PERFIL_LP:
             for termo in termos:
                 termo_norm = norm(termo)
@@ -439,10 +492,40 @@ def frase_inicial(p: PistasPedagogicas) -> str:
 
     if p.perfil == "texto_publicitario":
         return "Iniciar a aula retomando anúncios e campanhas conhecidos pelos estudantes, observando como linguagem verbal, imagem, som e contexto buscam persuadir o público."
+    if p.perfil == "diario_pessoal":
+        return "Iniciar a aula retomando situaÃ§Ãµes do cotidiano em que as pessoas registram vivÃªncias, sentimentos e reflexÃµes, preparando a turma para reconhecer caracterÃ­sticas do diÃ¡rio pessoal."
+    if p.perfil == "diario_pessoal":
+        return "Propor atividade de leitura e anÃ¡lise para que os estudantes identifiquem caracterÃ­sticas do diÃ¡rio pessoal, observem marcas de subjetividade e registrem como o autor organiza experiÃªncias e reflexÃµes."
+    if p.perfil == "diario_pessoal":
+        return "Propor atividade de leitura e analise para que os estudantes identifiquem caracteristicas do diario pessoal, observem marcas de subjetividade e registrem como o autor organiza experiencias e reflexoes."
     if p.perfil == "biografia":
         return "Iniciar a aula apresentando a trajetória da pessoa biografada e mobilizando conhecimentos prévios sobre como fatos de vida podem ser organizados em texto e mapa conceitual."
     if p.perfil == "noticia_multimodal":
         return "Iniciar a aula observando como notícias digitais articulam texto, fotos e vídeos para informar e produzir efeitos de sentido no leitor."
+    if p.perfil == "leitura_multimodal":
+        return "Iniciar a aula com observacao orientada de cartaz, infografico, tirinha ou imagem do material, mobilizando hipoteses sobre a mensagem, o publico e a finalidade comunicativa."
+    if p.perfil == "resumo_retextualizacao":
+        return "Iniciar a aula retomando o esquema, a lista ou o infografico do material para que a turma identifique quais informacoes merecem ser transformadas em texto organizado."
+    if p.perfil == "variacao_linguistica_registro":
+        return "Iniciar a aula apresentando situacoes reais de uso da lingua, aproximando a turma de exemplos de variacao, registro e adequacao ao contexto."
+    if p.perfil == "argumentacao_debate":
+        return "Iniciar a aula com tema polemico e proximo da vivencia da turma, incentivando os estudantes a diferenciar opiniao espontanea de argumento fundamentado."
+    if p.perfil == "texto_digital_blog":
+        return "Iniciar a aula retomando a leitura do post de blog e mobilizando conhecimentos previos sobre interlocutor, comentario, registro e circulacao do texto digital."
+    if p.perfil == "analise_linguistica_ortografia":
+        return "Iniciar a aula retomando trechos do proprio material para que a turma observe como escolhas ortograficas e linguisticas aparecem em uso real."
+    if p.perfil == "leitura_multimodal":
+        return "Propor atividade de leitura e registro para que os estudantes relacionem imagem, texto verbal, legenda e dados do material, justificando como esses elementos constroem a mensagem."
+    if p.perfil == "resumo_retextualizacao":
+        return "Propor atividade de retextualizacao para que os estudantes transformem topicos, listas ou informacoes do infografico em paragrafos coerentes, evitando copia mecanica."
+    if p.perfil == "variacao_linguistica_registro":
+        return "Propor atividade de classificacao e registro para que os estudantes identifiquem exemplos de variacao linguistica e expliquem a adequacao de cada uso ao contexto."
+    if p.perfil == "argumentacao_debate":
+        return "Propor atividade de analise e planejamento para que os estudantes selecionem argumentos e contra-argumentos, registrem evidencias e preparem posicionamento para debate."
+    if p.perfil == "texto_digital_blog":
+        return "Propor atividade de comentario ou resposta para que os estudantes retomem o post de blog, mobilizem argumentos e escrevam com clareza e respeito ao interlocutor."
+    if p.perfil == "analise_linguistica_ortografia":
+        return "Propor atividade aplicada para que os estudantes retomem palavras, frases ou trechos do material, analisem o recurso linguistico estudado e revisem a escrita em contexto."
     if p.perfil == "conto_distopico":
         return "Iniciar a aula situando a narrativa distópica e levantando hipóteses sobre narrador, personagens, conflito e atmosfera de tensão presentes no conto."
     if p.perfil == "literatura_prosa":
@@ -481,10 +564,24 @@ def frase_foco(p: PistasPedagogicas) -> str:
     frase = ""
     if p.perfil == "texto_publicitario":
         frase = "Conduzir a análise do texto publicitário, destacando público-alvo, finalidade persuasiva, slogan, imagens, recursos sonoros ou audiovisuais e efeitos de sentido da campanha."
+    elif p.perfil == "diario_pessoal":
+        frase = "Conduzir a leitura orientada do diÃ¡rio pessoal, destacando escrita em primeira pessoa, organizaÃ§Ã£o temporal, marcas de intimidade, reflexÃµes do cotidiano e relaÃ§Ã£o entre experiÃªncia vivida e linguagem."
     elif p.perfil == "biografia":
         frase = "Conduzir a leitura orientada da biografia, destacando trajetória, fatos relevantes, organização temporal e uso do mapa conceitual como recurso para organizar informações."
     elif p.perfil == "noticia_multimodal":
         frase = "Conduzir a leitura crítica da notícia digital, destacando relação entre texto, fotos, vídeos, legenda, intencionalidade das imagens e efeitos de sentido no contexto jornalístico."
+    elif p.perfil == "leitura_multimodal":
+        frase = "Conduzir a leitura orientada do texto multimodal, destacando relacao entre imagem, texto verbal, dados, legenda e finalidade comunicativa."
+    elif p.perfil == "resumo_retextualizacao":
+        frase = "Explicar como selecionar informacoes principais do esquema ou infografico e transforma-las em paragrafos com topico frasal, coerencia e progressao de ideias."
+    elif p.perfil == "variacao_linguistica_registro":
+        frase = "Sistematizar a variacao linguistica presente no material, diferenciando usos regionais, sociais, historicos e situacionais sem reforcar preconceito linguistico."
+    elif p.perfil == "argumentacao_debate":
+        frase = "Conduzir a analise dos argumentos do material, destacando tese, contra-argumento, evidencias e criterios para sustentar posicionamentos com respeito."
+    elif p.perfil == "texto_digital_blog":
+        frase = "Conduzir a leitura orientada do post de blog, destacando tese, exemplos, registro de linguagem, interlocutor e efeitos de sentido no ambiente digital."
+    elif p.perfil == "analise_linguistica_ortografia":
+        frase = "Sistematizar o recurso linguistico ou ortografico do material, relacionando forma, clareza, adequacao ao contexto e construcao de sentido."
     elif p.perfil == "conto_distopico":
         frase = "Conduzir a leitura literária do conto distópico, destacando narrador, personagens, enredo, conflito, suspense e efeitos produzidos pelos tempos e modos verbais."
     elif p.perfil == "literatura_prosa":
@@ -534,8 +631,15 @@ def frase_foco(p: PistasPedagogicas) -> str:
 
     perfis_textuais = {
         "texto_publicitario",
+        "diario_pessoal",
         "biografia",
         "noticia_multimodal",
+        "leitura_multimodal",
+        "resumo_retextualizacao",
+        "variacao_linguistica_registro",
+        "argumentacao_debate",
+        "texto_digital_blog",
+        "analise_linguistica_ortografia",
         "conto_distopico",
         "literatura_prosa",
         "literatura_modernismo",
@@ -701,6 +805,18 @@ BANCO_ACOMPANHAMENTO = {
         "Conferir se os registros finais diferenciam publicidade, propaganda e notícia, evitando confusões entre gêneros.",
         "Acompanhar se a turma justifica interpretações com elementos presentes no material publicitário."
     ],
+    "diario_pessoal": [
+        "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexÃ£o presentes no diÃ¡rio pessoal.",
+        "Observar se relacionam experiÃªncias narradas, sentimentos e contexto de escrita ao sentido construÃ­do no texto.",
+        "Conferir se os registros finais retomam caracterÃ­sticas do gÃªnero sem confundi-lo com biografia, memÃ³ria ou notÃ­cia.",
+        "Acompanhar se a turma justifica interpretaÃ§Ãµes com trechos do diÃ¡rio e com elementos da linguagem analisada."
+    ],
+    "diario_pessoal": [
+        "Realizar leitura compartilhada do diÃ¡rio em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexÃµes aparecem no texto.",
+        "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
+        "Permitir registro em tÃ³picos, grifos no texto, esquema simples ou resposta oral mediada.",
+        "Retomar coletivamente a diferenÃ§a entre diÃ¡rio pessoal, biografia e relato informativo antes da atividade individual."
+    ],
     "biografia": [
         "Verificar se os estudantes identificam fatos relevantes da trajetória da pessoa biografada e organizam informações com coerência.",
         "Observar se compreendem a função do mapa conceitual como organizador de ideias, sem tratá-lo como mapa geográfico.",
@@ -822,6 +938,54 @@ BANCO_ACOMPANHAMENTO = {
         "Acompanhar se os estudantes utilizam o vocabulário da aula de forma progressivamente mais autônoma."
     ],
 }
+
+
+BANCO_ACOMPANHAMENTO.update(
+    {
+        "diario_pessoal": [
+            "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexao presentes no diario pessoal.",
+            "Observar se relacionam experiencias narradas, sentimentos e contexto de escrita ao sentido construido no texto.",
+            "Conferir se os registros finais retomam caracteristicas do genero sem confundi-lo com biografia, memoria ou noticia.",
+            "Acompanhar se a turma justifica interpretacoes com trechos do diario e com elementos da linguagem analisada.",
+        ],
+        "leitura_multimodal": [
+            "Verificar se os estudantes relacionam imagem, texto verbal, legenda, dados e organizacao visual na leitura do material multimodal.",
+            "Observar se reconhecem a finalidade comunicativa e justificam interpretacoes com elementos concretos do cartaz, infografico, tirinha ou campanha.",
+            "Conferir se os registros finais tratam a imagem como parte do texto, sem reduzi-la a ilustracao decorativa.",
+            "Acompanhar se a turma explica como os recursos verbais e nao verbais constroem sentido em conjunto.",
+        ],
+        "resumo_retextualizacao": [
+            "Verificar se os estudantes selecionam informacoes principais do esquema, lista ou infografico antes de escrever.",
+            "Observar se transformam topicos em paragrafos coerentes, com articulacao entre ideias e sem copia mecanica.",
+            "Conferir se os registros finais apresentam topico frasal, desenvolvimento e vocabulario adequado ao objetivo do resumo.",
+            "Acompanhar se a turma revisa o proprio texto considerando clareza, coesao e fidelidade ao material-base.",
+        ],
+        "variacao_linguistica_registro": [
+            "Verificar se os estudantes identificam exemplos de variacao linguistica e distinguem usos regionais, sociais, historicos e situacionais.",
+            "Observar se explicam a adequacao do registro ao contexto sem tratar a variacao como erro.",
+            "Conferir se os registros finais retomam evidencias do texto e evitam preconceito linguistico.",
+            "Acompanhar se a turma usa vocabulario da aula para justificar classificacoes e comparacoes.",
+        ],
+        "argumentacao_debate": [
+            "Verificar se os estudantes identificam tese, argumentos, contra-argumentos e evidencias no material-base.",
+            "Observar se selecionam informacoes relevantes para sustentar posicionamentos sem depender apenas de opiniao espontanea.",
+            "Conferir se os registros finais mostram planejamento do debate com argumentos favoraveis e contrarios.",
+            "Acompanhar se a turma justifica escolhas com dados, exemplos ou trechos do texto lido.",
+        ],
+        "texto_digital_blog": [
+            "Verificar se os estudantes reconhecem tese, argumentos, exemplos, registro de linguagem e publico leitor do post de blog.",
+            "Observar se relacionam comentario, interlocutor e circulacao digital aos efeitos de sentido do texto.",
+            "Conferir se os registros finais retomam o texto-base para sustentar respostas e comentarios.",
+            "Acompanhar se a turma escreve com clareza e respeito ao interlocutor, sem perder o foco argumentativo.",
+        ],
+        "analise_linguistica_ortografia": [
+            "Verificar se os estudantes reconhecem o recurso linguistico ou ortografico estudado em palavras, frases e trechos do material.",
+            "Observar se explicam como a escolha analisada contribui para clareza, adequacao e sentido do texto.",
+            "Conferir se os registros finais apresentam aplicacao contextualizada, e nao apenas repeticao de regra isolada.",
+            "Acompanhar se a turma revisa a escrita com base em exemplos do proprio material.",
+        ],
+    }
+)
 
 
 def gerar_acompanhamento(pistas: PistasPedagogicas) -> List[str]:
@@ -959,6 +1123,54 @@ BANCO_ACESSIBILIDADE = {
         "Organizar momentos de apoio em duplas para favorecer compreensão e participação."
     ],
 }
+
+
+BANCO_ACESSIBILIDADE.update(
+    {
+        "diario_pessoal": [
+            "Realizar leitura compartilhada do diario em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexoes aparecem no texto.",
+            "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
+            "Permitir registro em topicos, grifos no texto, esquema simples ou resposta oral mediada.",
+            "Retomar coletivamente a diferenca entre diario pessoal, biografia e relato informativo antes da atividade individual.",
+        ],
+        "leitura_multimodal": [
+            "Orientar a observacao de imagem, legenda, texto verbal e dados em etapas, antes de solicitar interpretacao global do material multimodal.",
+            "Disponibilizar perguntas-guia sobre finalidade comunicativa, informacoes principais e relacao entre elementos verbais e nao verbais.",
+            "Permitir registro em topicos, marcacoes no material ou resposta oral mediada.",
+            "Retomar coletivamente que a imagem faz parte do texto e precisa ser lida como fonte de sentido.",
+        ],
+        "resumo_retextualizacao": [
+            "Destacar visualmente topicos, palavras-chave e informacoes principais antes da escrita em paragrafos.",
+            "Oferecer modelo curto de topico frasal e roteiro de transformacao de lista em texto corrido.",
+            "Permitir planejamento em topicos, setas ou frases-base antes da versao final.",
+            "Organizar revisao com colega ou com o professor para verificar clareza e fidelidade ao material-base.",
+        ],
+        "variacao_linguistica_registro": [
+            "Disponibilizar exemplos comparativos de registros e variacoes para apoiar a classificacao sem reforcar preconceito linguistico.",
+            "Explicar com linguagem simples a diferenca entre adequado ao contexto e erro gramatical.",
+            "Permitir resposta oral mediada, registro em topicos ou quadro comparativo antes da resposta final.",
+            "Retomar coletivamente exemplos da propria turma, da familia ou da comunidade para concretizar o conceito.",
+        ],
+        "argumentacao_debate": [
+            "Disponibilizar quadro com tese, argumento, contra-argumento e evidencias para apoiar o planejamento do debate.",
+            "Oferecer modelo de resposta argumentativa curta antes da atividade autoral.",
+            "Permitir planejamento em dupla e registro por topicos antes da fala ou do texto final.",
+            "Retomar com a turma que o debate precisa de texto-base, dados e escuta respeitosa para acontecer com seguranca.",
+        ],
+        "texto_digital_blog": [
+            "Organizar a leitura do post em partes, destacando tese, exemplos, comentario e relacao com o publico leitor.",
+            "Disponibilizar roteiro com campos para tom do texto, argumento principal e comentario do estudante.",
+            "Permitir registro em frases curtas, topicos ou resposta oral mediada antes da escrita final.",
+            "Retomar coletivamente criterios de respeito ao interlocutor e adequacao ao genero digital.",
+        ],
+        "analise_linguistica_ortografia": [
+            "Apresentar exemplos retirados do proprio material com destaque visual para a palavra, estrutura ou escolha linguistica estudada.",
+            "Organizar explicacao passo a passo, ligando regra, efeito de sentido e contexto de uso.",
+            "Permitir consulta a exemplos-modelo durante a atividade individual ou em dupla.",
+            "Flexibilizar o registro com marcacoes no texto, topicos ou explicacao oral mediada quando necessario.",
+        ],
+    }
+)
 
 
 def gerar_acessibilidade(pistas: PistasPedagogicas) -> List[str]:

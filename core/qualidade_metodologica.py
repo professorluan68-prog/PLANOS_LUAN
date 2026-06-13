@@ -468,6 +468,51 @@ def _ajustar_texto_matematica(texto: str) -> str:
     return texto_final
 
 
+def _ajustar_texto_ciencias(texto: str) -> str:
+    texto_final = str(texto or "")
+    substituicoes = [
+        (
+            r"pontos de vista,\s*formas de preconceito ou conflito",
+            "informacoes principais, evidencias cientificas e relacoes com o conceito central da aula",
+        ),
+        (
+            r"\bAula\s+pratica\s+RPG\s*:\s*[^,]+,\s*",
+            "",
+        ),
+        (
+            r"\b(?:Governo|Comunidade local|Pesquisadores?|ONGs?)\s*:\s*respons[aá]vel[^,.;]*[,;]?\s*",
+            "",
+        ),
+        (
+            r"\bExplique que,\s*",
+            "",
+        ),
+        (
+            r"\bOriente os estudantes a\s+",
+            "",
+        ),
+        (
+            r"\bIniciar com uma pausa de para que\b",
+            "Iniciar com uma pausa breve para que",
+        ),
+        (
+            r"\bAssistir a um material impresso, quadro e registro no caderno sobre\b",
+            "Analisar com a turma um esquema e os registros no caderno sobre",
+        ),
+        (
+            r"\bAssistir a um material impresso, quadro e registro no caderno\b",
+            "Analisar com a turma um esquema e os registros no caderno",
+        ),
+    ]
+    for padrao, substituicao in substituicoes:
+        texto_final = re.sub(padrao, substituicao, texto_final, flags=re.I)
+    texto_final = re.sub(r"\s{2,}", " ", texto_final)
+    texto_final = re.sub(r"\s+,", ",", texto_final)
+    texto_final = re.sub(r",\s*,+", ", ", texto_final)
+    texto_final = re.sub(r"\s+\.", ".", texto_final)
+    return texto_final.strip(" ,;:-")
+
+
 def sanitizar_texto_cdp_estrito(texto: str) -> str:
     if not texto:
         return ""
@@ -561,6 +606,9 @@ def sanitizar_texto_metodologico(
 
     if perfil in {"matematica", "educacao_financeira"}:
         texto_final = _ajustar_texto_matematica(texto_final)
+
+    if perfil in {"ciencias_ef", "biologia", "quimica", "fisica"}:
+        texto_final = _ajustar_texto_ciencias(texto_final)
 
     if perfil == "projeto_de_vida":
         texto_norm = normalizar_texto(texto_final)

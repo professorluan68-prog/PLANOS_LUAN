@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from core.lote import _aula_por_pdf
+from core.revisao_final import VERSAO_GERADOR_ATUAL
 
 def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
     # Setup temporary PDF and JSON file next to it
@@ -29,7 +30,8 @@ def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
         ],
         "ia_usada": True,
         "ia_provedor": "Gemini",
-        "ia_erro": ""
+        "ia_erro": "",
+        "versao_gerador": VERSAO_GERADOR_ATUAL,
     }
     
     with open(json_file, "w", encoding="utf-8") as f:
@@ -55,3 +57,35 @@ def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
     assert resultado["acessibilidade"][0] == "Uso de frações coloridas em blocos."
     assert resultado["ia_usada"] is True
     assert resultado["ia_provedor"] == "Gemini"
+
+
+def test_aula_por_pdf_ignora_cache_com_versao_antiga(tmp_path):
+    pdf_file = tmp_path / "AULA_TESTE.pdf"
+    pdf_file.write_text("Conteudo novo do pdf", encoding="utf-8")
+
+    json_file = tmp_path / "AULA_TESTE.json"
+    json_data = {
+        "disciplina": "Lingua Portuguesa",
+        "tema": "Tema antigo em cache",
+        "material": "AULA_TESTE.pdf",
+        "numero_aula": "10",
+        "aprendizagem": "Aprendizagem antiga.",
+        "metodologia": [{"titulo": "Para comecar", "texto": "Texto antigo."}],
+        "acompanhamento": ["Item antigo 1", "Item antigo 2", "Item antigo 3"],
+        "acessibilidade": ["Item antigo 1", "Item antigo 2", "Item antigo 3"],
+        "versao_gerador": "1.0.0",
+    }
+
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, ensure_ascii=False, indent=2)
+
+    resultado = _aula_por_pdf(
+        caminho_pdf=str(pdf_file),
+        disciplina="Lingua Portuguesa",
+        turma="1 ANO",
+        bimestre="3o Bimestre",
+        usar_ia=False,
+        provedor_ia="",
+    )
+
+    assert resultado["tema"] != "Tema antigo em cache"

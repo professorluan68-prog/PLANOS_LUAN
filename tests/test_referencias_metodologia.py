@@ -29,6 +29,14 @@ def test_referencia_interdisciplinar_entra_como_complemento_seguro():
     assert "Riscos de Confusão no Código Python" not in referencia
 
 
+def test_referencia_ciencias_prioriza_nova_analise_dos_anos_finais():
+    referencia = carregar_referencia_metodologica("Ciencias", "8 ano A").lower()
+
+    assert "nao chame toda atividade de experimento" in referencia
+    assert "analise de dados" in referencia
+    assert "situacao-problema" in referencia
+
+
 def test_ler_docx_com_tabelas_e_paragrafos(tmp_path):
     import docx
     from core.referencias_metodologia import _ler_docx

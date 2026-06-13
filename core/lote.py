@@ -13,7 +13,7 @@ from core.orientacao_estudos_objetivos import (
 )
 from core.qualidade_metodologica import detectar_contexto_metodologico, naturalizar_metodologia_professor, revisar_metodologia
 from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas
-from core.lib.classificador import normalizar_texto as normalizar_texto_lote, perfil_disciplina as perfil_disciplina, contem_termos as _contem
+from core.lib.classificador import normalizar_texto as normalizar_texto_lote, perfil_disciplina as perfil_disciplina, contem_termos as _contem, detectar_tipo_aula as _detectar_tipo_aula_classificador
 from core.lib.extrator_pdf import extrair_texto_pdf as _extrair_texto_pdf, limpar_linhas as _limpar_linhas
 from core.lib.extrator_titulo import (
     _extrair_titulo_multilinha,
@@ -372,9 +372,11 @@ def _aprendizagem_matematica(tema: str, tipo: str, texto: str) -> str:
     return f"Compreender e aplicar conceitos relacionados a {tema}."
 
 
-def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
+def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str = "") -> str:
+    return _detectar_tipo_aula_classificador(texto, tema, disciplina, turma=turma)
+
     base = normalizar_texto_lote(f"{disciplina} {tema} {texto}")
-    perfil = perfil_disciplina(disciplina)
+    perfil = perfil_disciplina(disciplina, turma=turma)
     tema_base = normalizar_texto_lote(tema)
 
     if perfil == "educacao_financeira":
@@ -2410,7 +2412,6 @@ def _texto_tem_anatomia_especifica(texto_normalizado: str) -> bool:
             "esquema anatomico",
             "nomear oralmente cada estrutura",
             "nomes das estruturas",
-            "legenda",
         ]
     )
 
@@ -2431,6 +2432,30 @@ def _tema_virus_celulas(tema_normalizado: str) -> bool:
     return "virus" in tema_normalizado and any(
         termo in tema_normalizado
         for termo in ["celula", "celulas", "capsideo", "metabolismo", "intracelular", "bacteriofago"]
+    )
+
+
+def _tema_astronomia_terra_lua(tema_normalizado: str) -> bool:
+    return any(
+        termo in tema_normalizado
+        for termo in [
+            "astronomia",
+            "observacao do ceu",
+            "observacao da lua",
+            "sol",
+            "terra",
+            "lua",
+            "eclipse",
+            "eclipses",
+            "fases da lua",
+            "rotacao",
+            "translacao",
+            "precessao",
+            "orbita",
+            "estacoes do ano",
+            "estacao do ano",
+            "caixa lunar",
+        ]
     )
 
 
@@ -2657,11 +2682,17 @@ def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
             "☑ Observar se utilizam evidências, esquemas, cruzamentos ou dados do material para justificar as respostas.",
             "☑ Conferir se os registros apresentam vocabulário científico adequado e conexões coerentes entre conceito, exemplo e conclusão.",
         ]
+    if _tema_astronomia_terra_lua(base):
+        return [
+            f"☑ Verificar se os estudantes relacionam {tema} à observação do céu, aos movimentos dos astros ou às posições relativas discutidas na aula.",
+            "☑ Observar se utilizam imagens, modelos, registros ou esquemas para explicar o fenômeno estudado com vocabulário científico adequado.",
+            "☑ Conferir se as respostas apresentam relações coerentes entre observação, explicação científica e o foco conceitual trabalhado.",
+        ]
     if perfil in {"biologia", "ciencias_ef"}:
         return [
-            f"☑ Verificar se os estudantes compreendem os conceitos biológicos relacionados a {tema}.",
+            f"☑ Verificar se os estudantes compreendem os conceitos científicos relacionados a {tema}.",
             "☑ Observar participação, registros, interpretação de imagens ou esquemas e uso de evidências durante a aula.",
-            "☑ Conferir se as respostas apresentam vocabulário científico e medidas coerentes de prevenção, cuidado ou análise.",
+            "☑ Conferir se as respostas apresentam vocabulário científico e relações coerentes entre conceito, observação e análise.",
         ]
     return [
         f"☑ Verificar se os estudantes compreendem os conceitos centrais relacionados a {tema}.",
@@ -2695,6 +2726,12 @@ def _fallback_acessibilidade_tema(tema: str, perfil: str) -> list[str]:
             "â˜‘ Disponibilizar esquemas ampliados, quadros de cruzamento ou roteiros visuais para apoiar a leitura dos conceitos genÃ©ticos.",
             "â˜‘ Oferecer banco de palavras com termos como DNA, gene, alelo, heredograma, hereditariedade, biotecnologia e evidÃªncia.",
             "â˜‘ Permitir registro por desenho, tabela, setas ou frases curtas, com mediaÃ§Ã£o na interpretaÃ§Ã£o dos comandos.",
+        ]
+    if _tema_astronomia_terra_lua(base):
+        return [
+            "☑ Utilizar esquema visual com Sol, Terra, Lua, eixo, órbita, fases ou astros observados, conforme o foco da aula, para apoiar a compreensão do fenômeno.",
+            "☑ Destacar no quadro palavras-chave e relações espaciais importantes, com retomada oral antes do registro individual.",
+            "☑ Permitir registro por desenho identificado, setas, frases curtas ou explicação oral mediada durante a análise do modelo, imagem ou situação observada.",
         ]
     if perfil in {"biologia", "ciencias_ef"}:
         return [
@@ -3058,7 +3095,13 @@ _motor_metodologico = MotorMetodologico()
 
 
 def _perfil_gerador_colunas_habilitado(perfil: str) -> bool:
-    return perfil not in {"projeto_de_vida", "lideranca_oratoria", "leitura_redacao", "orientacao_estudos"}
+    return perfil not in {
+        "projeto_de_vida",
+        "lideranca_oratoria",
+        "leitura_redacao",
+        "orientacao_estudos",
+        "ciencias_ef",
+    }
 
 
 def _tentar_gerador_colunas_pedagogicas(
@@ -3293,7 +3336,7 @@ def _montar_resultado_aula_ia(
     aprendizagem_orientacao: str,
 ) -> dict:
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
-    tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base)
+    tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     habilidade_pdf = extracao.get("habilidade", "")
     objetivos_secao = extracao.get("objetivos_secao") or []
     conteudos_secao = extracao.get("conteudos_secao") or []
@@ -3481,7 +3524,7 @@ def _montar_resultado_aula_local(
     ia_erro: str,
 ) -> dict:
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
-    tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base)
+    tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     conceito = extracao.get("conceito_extraido", tema)
     habilidade = extracao.get("habilidade", "")
     recursos = extracao.get("recursos_detectados", [])
@@ -3641,7 +3684,7 @@ def _preparar_contexto_aula_pdf(
     numero_aula = _rotulo_aula_material(texto, caminho_pdf).replace("AULA", "", 1).strip()
     cdp_contextual = eh_cdp_contextual_disciplina(disciplina)
     disciplina_base = disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
-    perfil = perfil_disciplina(disciplina_base)
+    perfil = perfil_disciplina(disciplina_base, turma=turma)
 
     from core.lib.aprofundamento import obter_dados_aprofundamento
     dados_plan = obter_dados_aprofundamento(disciplina_base, numero_aula, turma=turma)
@@ -3666,7 +3709,7 @@ def _preparar_contexto_aula_pdf(
     aprendizagem_orientacao = formatar_objetivos_orientacao_estudos(objetivos_orientacao)
     extracao_pdf = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
-    tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base)
+    tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base, turma=turma)
     metodologia_fixa_pdf = _metodologia_fixa_pdf_especial(texto, disciplina_base, tema)
     modalidade_eja_ativa = bool(modalidade_eja and _perfil_suporta_eja(perfil))
     from core.disciplinas import eh_cdp
@@ -3738,8 +3781,12 @@ def _aula_por_pdf(
                     dados_json = json.load(f)
                 if isinstance(dados_json, dict) and "metodologia" in dados_json:
                     hash_salvo = dados_json.get("hash_pdf")
+                    versao_cache = str(dados_json.get("versao_gerador") or "")
+                    from core.revisao_final import VERSAO_GERADOR_ATUAL
                     if hash_salvo and hash_atual and hash_salvo != hash_atual:
                         # Ignorar cache inválido por alteração do arquivo PDF
+                        pass
+                    elif versao_cache != VERSAO_GERADOR_ATUAL:
                         pass
                     else:
                         aula_gerada = {
@@ -3805,12 +3852,40 @@ def _aula_por_pdf(
         )
     else:
         ia_erro = ""
+        rascunho_local = _montar_resultado_aula_local(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            turma=turma,
+            provedor_ia=provedor_ia,
+            perfil=perfil,
+            contexto_metodologico=contexto_metodologico,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            modalidade_eja_ativa=modalidade_eja_ativa,
+            metodologia_fixa_pdf=metodologia_fixa_pdf,
+            aprendizagem_pv=aprendizagem_pv,
+            objetivos_orientacao=objetivos_orientacao,
+            aprendizagem_orientacao=aprendizagem_orientacao,
+            usar_ia=usar_ia,
+            ia_erro="",
+        )
 
         if usar_ia:
             try:
                 from core.ia import processar_plano_ia
 
-                plano_ia = processar_plano_ia(texto, disciplina, turma, provedor_ia, modelo_ia, modalidade_eja=modalidade_eja_ativa)
+                plano_ia = processar_plano_ia(
+                    texto,
+                    disciplina,
+                    turma,
+                    provedor_ia,
+                    modelo_ia,
+                    modalidade_eja=modalidade_eja_ativa,
+                    rascunho_base=rascunho_local,
+                )
                 tema_ia = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
                 resultado_final = _montar_resultado_aula_ia(
                     texto=texto,
@@ -3835,26 +3910,10 @@ def _aula_por_pdf(
                 ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
 
         if resultado_final is None:
-            resultado_final = _montar_resultado_aula_local(
-                texto=texto,
-                tema=tema,
-                material_digital=material_digital,
-                numero_aula=numero_aula,
-                disciplina_base=disciplina_base,
-                turma=turma,
-                provedor_ia=provedor_ia,
-                perfil=perfil,
-                contexto_metodologico=contexto_metodologico,
-                indice_aula=indice_aula,
-                total_aulas=total_aulas,
-                modalidade_eja_ativa=modalidade_eja_ativa,
-                metodologia_fixa_pdf=metodologia_fixa_pdf,
-                aprendizagem_pv=aprendizagem_pv,
-                objetivos_orientacao=objetivos_orientacao,
-                aprendizagem_orientacao=aprendizagem_orientacao,
-                usar_ia=usar_ia,
-                ia_erro=ia_erro,
-            )
+            resultado_final = dict(rascunho_local)
+            resultado_final["ia_erro"] = ia_erro
+            if usar_ia:
+                resultado_final["ia_provedor"] = provedor_ia
 
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json

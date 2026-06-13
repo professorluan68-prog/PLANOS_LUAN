@@ -14,6 +14,8 @@ from core.lib.extrator_pdf import ExtratorPDF
 from core.orientacao_estudos_metodologia import montar_frases_orientacao_estudos
 from core.qualidade_metodologica import (
     corrigir_mojibake,
+    extrair_conceito_central,
+    limitar_texto_natural,
     naturalizar_texto_metodologico,
 )
 
@@ -175,6 +177,91 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Encerramento", "encerramento"),
         ]
 
+    if perfil == "lingua_portuguesa_ef":
+        if tipo == "leitura_multimodal":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("Na pratica", "pratica"),
+                ("Correcao dialogada", "socializacao"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "resumo_retextualizacao":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Todo mundo escreve", "todo_mundo_escreve"),
+                ("Na pratica", "pratica"),
+                ("Revisao com colega", "revisao_colega"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "variacao_linguistica":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "argumentacao_debate":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco"),
+                ("Pause e responda", "pause"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Planejamento do debate", "planejamento_debate"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "texto_digital_blog":
+            return [
+                ("Relembre", "relembre"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("Todo mundo escreve", "todo_mundo_escreve"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo in {"analise_linguistica_ortografia", "gramatica_contextualizada"}:
+            return [
+                ("Relembre", "relembre"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "leitura_jornalistica":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Hora da leitura", "hora_leitura"),
+                ("Foco no conteudo", "foco"),
+                ("Pause e responda", "pause"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "producao_textual":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("De olho no modelo", "de_olho_modelo"),
+                ("Todo mundo escreve", "todo_mundo_escreve"),
+                ("Na pratica", "pratica"),
+                ("Revisao com colega", "revisao_colega"),
+                ("Encerramento", "encerramento"),
+            ]
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+
     if perfil == "lingua_portuguesa_em":
         # Etapas várias por tipo de aula LP Ensino Médio
         if tipo == "pratica_oral":
@@ -235,6 +322,58 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "ciencias_ef":
+        if tipo == "analise_dados":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Analise de dados", "analise_dados"),
+                ("Foco no conteudo", "foco"),
+                ("Na pratica", "pratica"),
+                ("Correcao dialogada", "correcao_dialogada"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "modelagem_cientifica":
+            return [
+                ("Relembre", "relembre"),
+                ("Observacao inicial", "observacao_inicial"),
+                ("Mao na massa", "mao_na_massa"),
+                ("Socializacao", "socializacao"),
+                ("Correcao dialogada", "correcao_dialogada"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "situacao_problema":
+            return [
+                ("Relembre", "relembre"),
+                ("Situacao-problema", "situacao_problema"),
+                ("Na pratica", "pratica"),
+                ("Socializacao", "socializacao"),
+                ("Correcao dialogada", "correcao_dialogada"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "pratica_experimental":
+            return [
+                ("Relembre", "relembre"),
+                ("Para comecar", "para_comecar"),
+                ("Mao na massa", "mao_na_massa"),
+                ("Na pratica", "pratica"),
+                ("Correcao dialogada", "correcao_dialogada"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "investigativa":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Observacao inicial", "observacao_inicial"),
+                ("Na pratica", "pratica"),
+                ("Foco no conteudo", "foco"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "impacto_socioambiental":
+            return [
+                ("Para comecar", "para_comecar"),
+                ("Foco no conteudo", "foco"),
+                ("Analise de dados", "analise_dados"),
+                ("Na pratica", "pratica"),
+                ("Encerramento", "encerramento"),
+            ]
         if tipo == "revisao_retomada":
             return [
                 ("Relembre", "relembre"),
@@ -509,6 +648,79 @@ def _ajustar_por_recurso(base: dict[str, str], recurso_principal: str, tema: str
         base["pratica"] = (
             f"Conduzir a atividade experimental com registro de observações, comparação de resultados e conclusão baseada em evidências. Atividade central do material: {atividade or 'observar, registrar e concluir a partir da prática proposta.'}"
         )
+def _tema_base_ciencias(tema: str) -> str:
+    tema_limpo = corrigir_mojibake(str(tema or "")).strip(" .:-\"")
+    return extrair_conceito_central(tema_limpo) or tema_limpo or "o tema da aula"
+
+
+def _texto_extraido_ruidoso_ciencias(texto: str) -> bool:
+    texto_limpo = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
+    base = normalizar_texto(texto_limpo)
+    if not texto_limpo:
+        return True
+    if len(texto_limpo) > 180:
+        return True
+    if texto_limpo.count("?") >= 2:
+        return True
+    if any(
+        marcador in base
+        for marcador in [
+            "referencias",
+            "tempo",
+            "expectativas de resposta",
+            "dinamica de conducao",
+            "correcao",
+            "responda a questao",
+            "responda a pergunta",
+            "atividade 2",
+            "atividade 3",
+            "link para video",
+            "aplicativo",
+            "simulador",
+            "desenho explicacao",
+        ]
+    ):
+        return True
+    if re.search(r"(?:^|[\s(])[123]\)", texto_limpo):
+        return True
+    if any(simbolo in texto_limpo for simbolo in ["●", "•"]):
+        return True
+    return False
+
+
+def _conceito_ciencias_seguro(conceito: str, tema: str) -> str:
+    tema_base = _tema_base_ciencias(tema)
+    conceito_limpo = corrigir_mojibake(str(conceito or "")).strip(" .:-\"")
+    conceito_norm = normalizar_texto(conceito_limpo)
+    if conceito_norm in {"", "ciencias", "ciencia", "geral"}:
+        return tema_base
+    if conceito_norm == normalizar_texto(tema_base):
+        return tema_base
+    if _texto_extraido_ruidoso_ciencias(conceito_limpo):
+        return tema_base
+    return limitar_texto_natural(conceito_limpo, limite=110).strip(" .:-\"")
+
+
+def _atividade_ciencias_segura(atividade_extraida: str, tema: str) -> str:
+    tema_base = _tema_base_ciencias(tema)
+    fallback = f'atividades propostas no material, articuladas ao tema "{tema_base}"'
+    atividade_limpa = corrigir_mojibake(str(atividade_extraida or "")).strip()
+    atividade_limpa = re.sub(
+        r"^(?:atividade\s*\d+|correcao|hora da leitura|na pratica|situacao-problema)\s*[:\-]?\s*",
+        "",
+        atividade_limpa,
+        flags=re.I,
+    )
+    atividade_limpa = re.sub(
+        r"\b(?:responda a questao a seguir|responda a pergunta a seguir)\b[:\-]?\s*",
+        "",
+        atividade_limpa,
+        flags=re.I,
+    )
+    atividade_limpa = re.sub(r"\s{2,}", " ", atividade_limpa).strip(" .:-")
+    if _texto_extraido_ruidoso_ciencias(atividade_limpa):
+        return fallback
+    return limitar_texto_natural(atividade_limpa, limite=150).strip(" .:-")
 
 
 def _conceito_projeto_vida(conceito: str, tema: str, texto_base: str, atividade_extraida: str) -> str:
@@ -569,12 +781,23 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
     # Regra 04: Funções e Gráficos
     is_functions = any(p in combinado for p in ["funcao", "funcoes", "grafico", "parabola", "concavidade", "vertice", "raizes", "exponencial", "logarit"])
     # Regra 05: Probabilidade ou Análise Combinatória
-    is_prob = any(p in combinado for p in ["probabilidade", "combinatoria", "arranjo", "combinacao", "permutacao", "fatorial", "contagem", "multiplicativo", "possibilidades"])
+    is_prob = any(
+        p in combinado
+        for p in [
+            "probabilidade", "combinatoria", "arranjo", "combinacao", "permutacao",
+            "fatorial", "contagem", "multiplicativo", "possibilidades",
+            "arvore de possibilidades", "principio aditivo", "principio multiplicativo",
+            "espaco amostral", "evento favoravel", "diagrama de arvore",
+            "principios de contagem",
+        ]
+    )
     # Regra 06: Khan Academy
     is_khan = tipo == "khan" or "khan" in combinado
     # Regra 07: Novo / Regra 08: Revisão
     is_new_topic = tipo == "conceito_novo" or any(p in combinado for p in ["introducao", "conceito de", "definicao", "propriedade", "parte 1"])
-    is_revision = tipo == "revisao" or any(p in combinado for p in ["revisao", "retomada", "consolidar", "trilha"])
+    is_revision = tipo in {"revisao", "verificacao"} or any(
+        p in combinado for p in ["revisao", "retomada", "consolidar", "trilha", "parte 2", "parte 3", "parte 4"]
+    )
 
     # Regra 11: Ensino Fundamental / Regra 12: Ensino Médio
     turma_lower = (turma or "").lower()
@@ -603,6 +826,9 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
         para_comecar_txt += " Propor uma pergunta de sondagem de conhecimentos prévios para levantar as hipóteses iniciais dos estudantes."
     elif is_revision:
         para_comecar_txt += f" Retomar brevemente o conceito central da aula anterior solicitando que os estudantes o expliquem por meio da técnica {t_sint}."
+
+    if is_algebra:
+        para_comecar_txt += f" Solicitar um registro inicial individual por meio da técnica {t_reg}, para que cada estudante anote a hipótese de resolução antes da socialização."
 
     para_comecar_txt += f" Utilizar a técnica {t_disc} para socializar as ideias iniciais antes da formalização."
 
@@ -776,6 +1002,65 @@ def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dic
             "foco": f"Sistematizar o conteúdo gramatical de {tema} com base em exemplos extraídos de textos reais, conectando a estrutura aos efeitos de sentido.",
             "pratica": f"Orientar a leitura de texto âncora e propor exercícios práticos de identificação, análise e aplicação do conteúdo gramatical de {tema}, com correção imediata e explicada das questões e pausas do Pause e Responda.",
             "encerramento": f"Finalizar sintetizando a convenção gramatical de {tema} e sua importância para a clareza e expressividade na leitura e escrita."
+        }
+
+    if tipo == "leitura_multimodal":
+        return {
+            "para_comecar": f"Iniciar a aula com cartaz, campanha, infografico, tirinha ou imagem relacionada a {tema}, mobilizando hipoteses sobre a mensagem e a finalidade comunicativa.",
+            "hora_leitura": "Conduzir leitura orientada do texto multimodal, destacando relacao entre imagem, texto verbal, legenda, dados e informacoes principais.",
+            "foco": f"Sistematizar como os diferentes modos de linguagem constroem sentido em {tema}, mostrando como imagem, palavras e organizacao visual se articulam.",
+            "pratica": "Propor atividade de analise e registro para que a turma retome o material, identifique elementos verbais e nao verbais e justifique os efeitos de sentido percebidos.",
+            "socializacao": "Promover correcao dialogada das respostas, comparando diferentes leituras do texto multimodal e retomando as evidencias mais consistentes.",
+            "encerramento": f"Encerrar solicitando que os estudantes sintetizem o que observaram sobre a leitura multimodal em {tema} e como isso contribuiu para a compreensao."
+        }
+    if tipo == "resumo_retextualizacao":
+        return {
+            "para_comecar": f"Apresentar o esquema, cartaz, lista ou infografico de {tema}, mobilizando a turma para localizar informacoes principais antes da escrita.",
+            "hora_leitura": "Conduzir leitura guiada do material-base, destacando dados centrais, palavras-chave, topicos e a organizacao das informacoes.",
+            "foco": f"Explicar como transformar informacoes de {tema} em paragrafos coerentes, retomando topico frasal, desenvolvimento das ideias e articulacao entre frases.",
+            "de_olho_modelo": "Apresentar um exemplo comentado de resumo ou paragrafo, explicitando como selecionar informacoes e evitar copia mecanica.",
+            "todo_mundo_escreve": "Solicitar registro individual em topicos ou frases-base para planejar o resumo antes da escrita em paragrafos.",
+            "pratica": f"Orientar a producao de resumo ou retextualizacao sobre {tema}, pedindo que a turma reorganize as informacoes com clareza, coesao e adequacao ao objetivo da atividade.",
+            "revisao_colega": "Propor revisao entre pares para verificar se o texto esta coerente, bem paragrafado e fiel ao material-base sem mera copia.",
+            "encerramento": f"Finalizar retomando os criterios que ajudam a transformar informacoes de {tema} em texto organizado e autoral."
+        }
+    if tipo == "variacao_linguistica":
+        return {
+            "para_comecar": f"Iniciar a aula com situacao de uso real da lingua relacionada a {tema}, mobilizando repertorio sobre palavras, registros e modos de falar em diferentes contextos.",
+            "hora_leitura": "Conduzir leitura orientada do texto jornalistico ou da situacao apresentada, destacando exemplos de variacao e a relacao entre lingua, contexto e grupo social.",
+            "foco": f"Sistematizar o conceito de variacao linguistica em {tema}, diferenciando usos regionais, historicos, sociais e situacionais sem reforcar preconceito linguistico.",
+            "pause": "Realizar checagem rapida para que a turma classifique exemplos de variacao e justifique as escolhas com base no contexto de uso.",
+            "pratica": "Propor atividade de classificacao, comparacao e registro para que os estudantes identifiquem diferentes usos da lingua e discutam adequacao ao contexto.",
+            "encerramento": f"Encerrar solicitando sintese sobre como a variacao linguistica aparece em {tema} e por que adequacao ao contexto e diferente de certo ou errado."
+        }
+    if tipo == "argumentacao_debate":
+        return {
+            "para_comecar": f"Iniciar a aula com tema polemico ligado a {tema}, propondo conversa breve para diferenciar opiniao solta de argumento fundamentado.",
+            "foco": "Explicar tese, argumento, contra-argumento e estrategias como autoridade, exemplificacao e comparacao, mostrando como elas sustentam posicionamentos.",
+            "pause": "Realizar checagem objetiva para que os estudantes identifiquem o tipo de argumento presente em um exemplo e justifiquem a resposta.",
+            "hora_leitura": "Conduzir leitura orientada da noticia, reportagem ou texto de opiniao que servira de base para o debate, localizando informacoes principais e evidencias relevantes.",
+            "planejamento_debate": "Organizar a selecao de argumentos e contra-argumentos, definindo quais trechos, dados ou exemplos podem sustentar cada lado do debate.",
+            "pratica": f"Orientar atividade em que a turma identifique argumentos favoraveis e contrarios sobre {tema}, registre posicionamentos e se prepare para defender ideias com respeito e evidencias.",
+            "encerramento": f"Finalizar retomando que debater {tema} exige escuta, preparo, evidencias e respeito ao ponto de vista do outro."
+        }
+    if tipo == "texto_digital_blog":
+        return {
+            "relembre": f"Retomar a leitura anterior e os registros ja produzidos sobre {tema}, garantindo base para aprofundar tese, argumentos e interlocutor do post.",
+            "hora_leitura": "Conduzir leitura orientada do post de blog, destacando tese, exemplos, tom do texto, marcas de registro e relacao com o publico leitor.",
+            "foco": f"Sistematizar como o texto digital sobre {tema} organiza argumentos, escolhe um registro de linguagem e constroi efeitos de sentido adequados ao genero.",
+            "todo_mundo_escreve": "Solicitar registro individual de comentario, resposta ou sintese curta antes da socializacao, retomando o texto-base para justificar ideias.",
+            "pratica": f"Orientar a producao de comentario ou resposta sobre {tema}, pedindo que os estudantes mobilizem argumentos, clareza e respeito ao interlocutor.",
+            "encerramento": f"Encerrar retomando o que caracteriza a leitura critica de um post de blog sobre {tema} e como o comentario precisa dialogar com o texto lido."
+        }
+    if tipo == "analise_linguistica_ortografia":
+        return {
+            "relembre": f"Retomar exemplos do texto trabalhado em {tema}, recuperando o que a turma ja observou sobre escrita, organizacao e escolhas linguisticas.",
+            "hora_leitura": "Conduzir leitura do trecho-base, destacando palavras, estruturas, falas ou paragrafos que serao analisados de forma contextualizada.",
+            "foco": f"Sistematizar o recurso linguistico ou ortografico presente em {tema}, mostrando como ele contribui para clareza, adequacao e construcao de sentido.",
+            "de_olho_modelo": "Apresentar exemplos comentados retirados do proprio material para explicitar o criterio de analise antes da atividade individual.",
+            "pause": "Realizar checagem rapida para confirmar se a turma reconhece o recurso estudado e consegue justificar o efeito produzido no texto.",
+            "pratica": f"Orientar atividade aplicada sobre {tema}, pedindo que os estudantes retomem palavras, frases ou trechos do material para analisar e revisar a escrita em contexto.",
+            "encerramento": f"Finalizar sintetizando como o estudo contextualizado de {tema} ajuda a ler e escrever com mais consciencia."
         }
 
     # Tipos antigos de outros eixos para retrocompatibilidade
@@ -985,6 +1270,21 @@ def _metodologia_projeto_de_vida(texto_base: str, tema: str, tipo: str, conceito
         "virem_e_conversem": (
             f"Organizar duplas para o compartilhamento das produções: cada estudante apresenta seu registro, "
             f"explica suas escolhas e ouve as percepções do colega sobre {tema}, praticando a escuta ativa."
+        ),
+        "socializacao": (
+            "Promover correcao dialogada e socializacao de diferentes respostas, comparando caminhos de leitura e retomando "
+            "as evidencias mais consistentes do material."
+        ),
+        "planejamento_debate": (
+            "Organizar a selecao de argumentos e contra-argumentos, definindo quais evidencias podem sustentar cada "
+            "posicionamento antes do debate."
+        ),
+        "revisao_colega": (
+            "Orientar revisao em dupla ou com colega, verificando clareza, coerencia, organizacao das ideias e adequacao "
+            "ao genero antes da versao final."
+        ),
+        "fica_a_dica": (
+            "Destacar uma dica importante para evitar erros recorrentes e ajudar a turma a aplicar o conceito com mais seguranca."
         ),
         "encerramento": (
             f"Encerrar a aula com síntese pessoal escrita no caderno: o que você descobriu sobre {conceito_seguro}? "
@@ -1230,6 +1530,14 @@ def _metodologia_ingles(texto_base: str, tema: str, tipo: str, conceito: str = "
         "foco": (
             f"Formalizar o vocabulário e as expressões do material no quadro, explicando classe gramatical e usos."
         ),
+        "todo_mundo_escreve": (
+            f"Solicitar {t_reg} para que cada estudante registre individualmente respostas, comentarios, topicos ou paragrafos "
+            "antes da socializacao, retomando o texto-base para justificar as ideias."
+        ),
+        "de_olho_modelo": (
+            "Apresentar um modelo comentado de resposta, paragrafo, argumento ou procedimento de analise, explicando os "
+            "criterios que a turma devera observar antes da atividade autonoma."
+        ),
         "pause": (
             f"Realizar uma pausa para checagem rápida de vocabulário com perguntas direcionadas aos estudantes."
         ),
@@ -1246,14 +1554,185 @@ def _metodologia_ingles(texto_base: str, tema: str, tipo: str, conceito: str = "
 def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "") -> dict[str, str] | None:
     """Gerador especializado de frases para Ciencias EF."""
     base = normalizar_texto(" ".join([tema, texto_base, atividade_extraida]))
-    conceito_seguro = conceito if normalizar_texto(conceito) not in {"ciencias", "ciencia", "geral"} else tema
-    atividade = atividade_extraida or "as atividades propostas no material"
+    tema_base = _tema_base_ciencias(tema)
+    conceito_seguro = _conceito_ciencias_seguro(conceito, tema_base)
+    atividade = _atividade_ciencias_segura(atividade_extraida, tema_base)
+    eh_rpg_manejo = any(
+        marcador in base
+        for marcador in [
+            "rpg",
+            "plano de manejo",
+            "papel do governo",
+            "papel da comunidade",
+            "papel dos pesquisadores",
+            "unidade de conservacao",
+            "grupos assumem",
+        ]
+    )
 
     contexto = "uma situacao concreta do cotidiano, imagem, noticia ou dado apresentado no material"
+    recurso_visual = "a imagem, o esquema, o instrumento ou o modelo apresentado no material"
+    fonte_dados = "graficos, tabelas, mapas, infograficos ou dados apresentados no material"
     if any(k in base for k in ["inpe", "ibge", "detran", "fapesp", "jornal da usp", "g1", "cnn", "onu", "anvisa", "fiocruz"]):
         contexto = "o dado ou a fonte real apresentada no material"
+        fonte_dados = "a fonte real e os dados apresentados no material"
     elif any(k in base for k in ["sao paulo", "cantareira", "aricanduva", "praca da se", "goiania", "brasil"]):
         contexto = "o exemplo local ou brasileiro apresentado no material"
+    if any(k in base for k in ["modelo tridimensional", "modelo celular", "maquete", "representacao tridimensional"]):
+        recurso_visual = "o modelo cientifico ou a representacao construida no material"
+    elif "mapa" in base:
+        recurso_visual = "a imagem, o esquema, o mapa ou o modelo apresentado no material"
+    if any(k in base for k in ["anemometro", "barometro", "pluviometro", "termometro", "umidade relativa", "estacao meteorologica"]):
+        fonte_dados = "os instrumentos e as medidas apresentados no material"
+
+    if tipo == "analise_dados":
+        return {
+            "para_comecar": (
+                f"Contextualizar {tema} com {contexto}, mobilizando conhecimentos previos e levantando hipoteses sobre o que os dados podem revelar."
+            ),
+            "analise_dados": (
+                f"Orientar a leitura de {fonte_dados}, destacando titulo, fonte, legenda, unidades, comparacoes e tendencias antes da formulacao das conclusoes."
+            ),
+            "foco": (
+                f"Sistematizar {conceito_seguro}, relacionando os dados observados a explicacoes cientificas, relacoes de causa e consequencia e vocabulario proprio da area."
+            ),
+            "pratica": (
+                f"Organizar a analise em duplas ou grupos, solicitando que a turma utilize os dados do material para justificar respostas e explicar o fenomeno estudado. Atividade central: {atividade}."
+            ),
+            "correcao_dialogada": (
+                "Comparar as interpretacoes produzidas pela turma, corrigindo leituras apressadas dos dados e reforcando como as evidencias sustentam as conclusoes."
+            ),
+            "encerramento": (
+                f"Encerrar retomando o que os dados ajudaram a compreender sobre {tema}, com sintese curta em linguagem cientifica."
+            ),
+        }
+
+    if tipo == "modelagem_cientifica":
+        return {
+            "relembre": (
+                f"Retomar com a turma o que ja foi estudado sobre {tema}, destacando os componentes e as relacoes que precisarao aparecer na representacao."
+            ),
+            "observacao_inicial": (
+                f"Orientar a observacao de {recurso_visual}, identificando partes, funcoes e limites da representacao antes da construcao ou comparacao do modelo."
+            ),
+            "mao_na_massa": (
+                "Conduzir a construcao ou montagem do modelo passo a passo, utilizando apenas os materiais e orientacoes presentes no material e acompanhando o registro das escolhas do grupo."
+            ),
+            "socializacao": (
+                "Promover a apresentacao dos modelos, comparando semelhancas, diferencas, componentes identificados e a forma como cada grupo representou o processo ou a estrutura estudada."
+            ),
+            "correcao_dialogada": (
+                f"Retomar coletivamente os componentes de {conceito_seguro}, ajustando imprecisoes e reforcando que o modelo simplifica a realidade para favorecer a compreensao."
+            ),
+            "encerramento": (
+                f"Encerrar pedindo que os estudantes expliquem o que o modelo ajudou a compreender sobre {tema} e quais limites essa representacao apresenta."
+            ),
+        }
+
+    if tipo == "situacao_problema":
+        situacao_problema_txt = (
+            f"Apresentar o cenario do material e orientar os grupos a identificar problema central, causas, consequencias, agentes envolvidos e criterios para propor solucoes."
+        )
+        pratica_txt = (
+            f"Organizar o trabalho em equipes para elaborar respostas, plano de acao ou proposta de intervencao, exigindo justificativas apoiadas em conceitos e evidencias do material. Atividade central: {atividade}."
+        )
+        socializacao_txt = (
+            "Mediar a apresentacao das propostas, estimulando perguntas entre os grupos e comparacao entre solucoes, responsabilidades e impactos considerados."
+        )
+        correcao_txt = (
+            "Integrar as contribuicoes da turma, corrigindo simplificacoes, reforcando a complexidade do problema e validando as propostas com base nos conceitos cientificos."
+        )
+        encerramento_txt = (
+            f"Finalizar retomando por que a analise de {tema} exige acao coletiva, argumentacao baseada em evidencias e articulacao entre diferentes agentes."
+        )
+
+        if eh_rpg_manejo:
+            situacao_problema_txt = (
+                "Apresentar a situacao-problema do RPG e explicitar que os grupos assumirao papeis diferentes, como governo, comunidade local e pesquisadores, para analisar interesses, responsabilidades e limites de cada agente."
+            )
+            pratica_txt = (
+                f"Organizar os grupos por papel e orientar a construcao coletiva do plano de manejo, solicitando que cada equipe analise impactos, prioridades, evidencias do material e medidas viaveis antes de negociar a proposta final. Atividade central: {atividade}."
+            )
+            socializacao_txt = (
+                "Mediar a apresentacao e a negociacao entre os grupos, comparando argumentos, conflitos de interesse, medidas de protecao e responsabilidades assumidas por cada papel."
+            )
+            correcao_txt = (
+                "Retomar com a turma quais propostas ficaram mais coerentes com as evidencias cientificas, com os impactos observados e com a necessidade de preservar a unidade de conservacao."
+            )
+            encerramento_txt = (
+                "Encerrar sintetizando os pontos principais do RPG, retomando as propostas para o plano de manejo e verificando quais argumentos foram mais fundamentados em evidencias cientificas."
+            )
+
+        return {
+            "relembre": (
+                f"Retomar os conceitos necessarios para analisar {tema}, recuperando o que a turma ja sabe sobre causas, impactos e agentes envolvidos."
+            ),
+            "situacao_problema": situacao_problema_txt,
+            "pratica": pratica_txt,
+            "socializacao": socializacao_txt,
+            "correcao_dialogada": correcao_txt,
+            "encerramento": encerramento_txt,
+        }
+
+    if tipo == "pratica_experimental":
+        return {
+            "relembre": (
+                f"Retomar o conceito central de {tema} e o que a turma precisa observar para compreender o fenomeno durante a pratica."
+            ),
+            "para_comecar": (
+                "Apresentar a questao investigativa, os materiais e os cuidados necessarios, esclarecendo o procedimento antes do inicio da atividade."
+            ),
+            "mao_na_massa": (
+                "Conduzir o procedimento passo a passo, utilizando apenas os materiais e etapas indicados no material e acompanhando o registro das observacoes feitas pelos estudantes."
+            ),
+            "pratica": (
+                f"Orientar a comparacao dos resultados observados, solicitando que a turma relacione o que ocorreu ao conceito cientifico estudado. Atividade central: {atividade}."
+            ),
+            "correcao_dialogada": (
+                "Retomar as observacoes registradas pela turma, corrigindo interpretacoes precipitadas e reforcando como as evidencias ajudam a explicar o fenomeno."
+            ),
+            "encerramento": (
+                f"Encerrar com sintese breve sobre o que a pratica permitiu compreender a respeito de {tema}, sem antecipar resultados nao observados no material."
+            ),
+        }
+
+    if tipo == "investigativa":
+        return {
+            "para_comecar": (
+                f"Lancar a questao investigativa relacionada a {tema}, pedindo que os estudantes formulem hipoteses iniciais antes da explicacao formal."
+            ),
+            "observacao_inicial": (
+                f"Orientar a observacao de {recurso_visual}, destacando o que precisa ser registrado como evidencia durante a investigacao."
+            ),
+            "pratica": (
+                f"Conduzir o registro das evidencias e a comparacao entre hipoteses, incentivando a turma a justificar respostas com base no que observou. Atividade central: {atividade}."
+            ),
+            "foco": (
+                f"Sistematizar {conceito_seguro} a partir das evidencias levantadas, articulando observacao, explicacao cientifica e vocabulario proprio da aula."
+            ),
+            "encerramento": (
+                f"Retomar a pergunta inicial e solicitar que os estudantes expliquem como as evidencias analisadas ajudaram a compreender {tema}."
+            ),
+        }
+
+    if tipo == "impacto_socioambiental":
+        return {
+            "para_comecar": (
+                f"Apresentar {contexto} sobre {tema}, mobilizando conhecimentos previos e perguntas sobre impactos, responsabilidades e possiveis formas de enfrentamento."
+            ),
+            "foco": (
+                f"Explicar {conceito_seguro}, relacionando a aula a causas e consequencias, uso de recursos, saude, ambiente e responsabilidade coletiva."
+            ),
+            "analise_dados": (
+                f"Orientar a leitura de {fonte_dados}, relacionando os dados, as evidencias e os exemplos do material aos impactos discutidos."
+            ),
+            "pratica": (
+                f"Organizar a turma para analisar medidas possiveis, responsabilidades dos agentes envolvidos e propostas de acao, exigindo justificativas baseadas nos conceitos estudados. Atividade central: {atividade}."
+            ),
+            "encerramento": (
+                f"Encerrar com sintese sobre como {tema} envolve ciencia, ambiente, sociedade e tomada de decisao responsavel, retomando as perguntas iniciais da aula."
+            ),
+        }
 
     if tipo == "revisao_retomada":
         return {
@@ -1339,6 +1818,24 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
                 f"Conduzir reflexao final sobre o que foi aprendido durante a producao e como esse conhecimento se relaciona a ciencia, sociedade, saude ou ambiente."
             ),
         }
+
+    return {
+        "para_comecar": (
+            f"Apresentar {contexto} relacionado a {tema}, mobilizando conhecimentos previos, perguntas iniciais e relacoes com situacoes observaveis no cotidiano."
+        ),
+        "foco": (
+            f"Explicar {conceito_seguro}, retomando exemplos, imagens, esquemas ou comparacoes presentes no material para que a turma compreenda estrutura, processo ou funcionamento com vocabulario cientifico adequado."
+        ),
+        "pause": (
+            "Realizar uma pausa de checagem com pergunta objetiva, associacao entre conceito e exemplo ou explicacao curta, corrigindo duvidas antes da atividade principal."
+        ),
+        "pratica": (
+            f"Orientar as atividades do material, pedindo que os estudantes utilizem evidencias, esquemas, dados ou observacoes da aula para explicar {tema} com clareza. Atividade central: {atividade}."
+        ),
+        "encerramento": (
+            f"Encerrar retomando o que foi compreendido sobre {tema}, solicitando uma sintese curta que relacione conceito, exemplo observado e aplicacao no cotidiano."
+        ),
+    }
 
 def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "", habilidade: str = "") -> dict[str, str] | None:
     """Gerador especializado de frases para Biologia."""
@@ -1667,10 +2164,18 @@ def _frases_por_contexto(
             f"Retomar conhecimentos prévios da turma sobre {tema}. Propor {t_disc} "
             "para levantar hipóteses, exemplos e dúvidas iniciais."
         ),
+        "relembre": (
+            f"Retomar os registros e conceitos ja trabalhados sobre {tema}, pedindo que a turma explique com suas palavras "
+            "o que precisa ser lembrado para avancar na sequencia."
+        ),
         "leitura": (
             "Realizar leitura guiada dos textos, imagens, comandos e/ou exemplos do material, fazendo pausas "
             "para destacar informações relevantes. Organizar no quadro as ideias principais e as palavras-chave "
             "que orientam a atividade."
+        ),
+        "hora_leitura": (
+            f"Conduzir leitura orientada do texto-base sobre {tema}, fazendo pausas para destacar informacoes principais, "
+            "vocabulario relevante, relacao entre linguagem verbal e nao verbal e pistas que sustentam a compreensao."
         ),
         "contextualizacao": (
             f"Contextualizar {tema} a partir de situações do cotidiano, repertórios culturais ou exemplos do "
@@ -2147,8 +2652,8 @@ class MotorMetodologico:
             do lote.py) em vez do motor fraco do inteligencia_local.py.
             """
             # 1. Classificar
-            perfil = perfil_disciplina(disciplina)
-            tipo = detectar_tipo_aula(texto_pdf, tema, disciplina)
+            perfil = perfil_disciplina(disciplina, turma=turma)
+            tipo = detectar_tipo_aula(texto_pdf, tema, disciplina, turma=turma)
 
             # 2. Extrair conceito
             extracao = self.extrator.extrair(texto_pdf, tema)

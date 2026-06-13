@@ -148,3 +148,39 @@ def test_educacao_financeira_acompanhamento_e_acessibilidade_para_percentuais():
 
     assert any("percentuais" in item.lower() for item in acompanhamento)
     assert any("noticia" in item.lower() or "grafico" in item.lower() for item in acessibilidade)
+
+
+def test_matematica_parte_2_ganha_tom_de_continuidade_sem_perder_estrutura():
+    etapas = _montar_etapas_metodologia(
+        texto=(
+            "Princípios de contagem - Parte 2. "
+            "Retome os registros da aula anterior e resolva novas situações com árvore de possibilidades."
+        ),
+        disciplina="Matematica",
+        turma="2 ano A",
+        tema="Princípios de contagem - Parte 2",
+    )
+
+    titulos = [etapa["titulo"] for etapa in etapas]
+    texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+
+    assert "Para comecar" in titulos or "Para começar" in titulos
+    assert "retomar brevemente o conceito central da aula anterior" in texto
+    assert "com suas palavras" in texto
+
+
+def test_matematica_principios_de_contagem_ativa_regras_de_combinatoria():
+    etapas = _montar_etapas_metodologia(
+        texto=(
+            "Princípios de contagem. Resolver situações com diagrama de árvore, "
+            "evento favorável e espaço amostral antes da fórmula."
+        ),
+        disciplina="Matematica",
+        turma="2 ano A",
+        tema="Princípios de contagem",
+    )
+
+    texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+
+    assert "diagrama de árvore" in texto or "diagrama de arvore" in texto
+    assert "espaço amostral" in texto or "espaco amostral" in texto

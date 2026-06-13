@@ -50,6 +50,66 @@ def _tem_marcador_visao(base: str) -> bool:
     )
 
 
+def _tema_astronomia(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "astronomia",
+            "observacao do ceu",
+            "observacao da lua",
+            "sol",
+            "terra",
+            "lua",
+            "eclipse",
+            "eclipses",
+            "fases da lua",
+            "rotacao",
+            "translacao",
+            "precessao",
+            "orbita",
+            "estacoes do ano",
+            "estacao do ano",
+            "caixa lunar",
+        ]
+    )
+
+
+def _grupo_modelagem_astronomia(base: str) -> str:
+    if any(
+        termo in base
+        for termo in [
+            "rotacao",
+            "translacao",
+            "precessao",
+            "orbita",
+            "eixo",
+            "inclinacao",
+            "estacoes do ano",
+            "estacao do ano",
+        ]
+    ):
+        return "movimentos_terra"
+    if any(
+        termo in base
+        for termo in [
+            "fases da lua",
+            "movimentos da lua",
+            "observacao da lua",
+            "sistema sol",
+            "sol - terra - lua",
+            "sol terra lua",
+            "eclipse",
+            "eclipses",
+            "caixa lunar",
+            "lua",
+        ]
+    ):
+        return "sistema_sol_terra_lua"
+    if "astronomia" in base or "observacao do ceu" in base:
+        return "observacao_ceu"
+    return "geral"
+
+
 def gerar_acessibilidade_especifica_por_aula(
     tema: str,
     aprendizagem: str,
@@ -69,6 +129,18 @@ def gerar_acessibilidade_especifica_por_aula(
             "Oferecer roteiro com perguntas-chave para organizar a escrita do texto-síntese.",
             "Destacar palavras-chave no quadro e permitir produção inicial em tópicos antes do texto final.",
             "Realizar mediação individual para revisão de clareza, sequência de ideias e vocabulário científico.",
+        ]
+    if _grupo_modelagem_astronomia(base) == "observacao_ceu":
+        return [
+            "Ampliar a imagem do ceu, das estrelas ou dos astros citados na aula, destacando legendas e elementos essenciais antes da analise individual.",
+            "Destacar no quadro palavras-chave como astros, calendario, orientacao e observacao para apoiar a leitura e a participacao da turma.",
+            "Permitir registro em topicos, desenho identificado, setas ou explicacao oral mediada ao relacionar observacao do ceu e conhecimentos historicos.",
+        ]
+    if "tabela" in base and not recursos and any(k in base for k in ["sol", "terra", "lua", "eclipse", "fases", "rotacao", "translacao", "precessao", "orbita", "estacoes do ano", "estacao do ano"]):
+        return [
+            f"Preencher coletivamente uma linha da tabela com um exemplo ligado a {tema} antes do trabalho autonomo.",
+            "Destacar no quadro nomes de movimentos, fases, posicoes ou caracteristicas que a turma precisara comparar na tabela.",
+            "Permitir consulta ao material e ao quadro durante a atividade, com apoio em dupla para leitura dos comandos e conferencia dos registros.",
         ]
     if "tabela" in base and not recursos:
         return [
@@ -270,41 +342,121 @@ def _acessibilidade_matematica(tema: str, aprendizagem: str, desenvolvimento: st
 
 
 def _acessibilidade_ciencias(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    from core.lib.classificador import detectar_tipo_aula
+
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    tipo = detectar_tipo_aula(desenvolvimento, tema, "Ciencias")
 
-    if any(k in base for k in ["producao_projeto", "seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+    if tipo == "analise_dados":
         return [
-            "Disponibilizar roteiro simples com criterios da producao: conceito cientifico, exemplo, explicacao e organizacao visual.",
-            "Permitir que a apresentacao seja feita com apoio de topicos, cartaz, leitura parcial ou fala compartilhada entre integrantes.",
-            "Oferecer tempo para revisao orientada antes da socializacao, retomando vocabulario cientifico essencial.",
+            "☑ Ler coletivamente titulo, fonte, legenda, unidades e valores do grafico, tabela, mapa ou infografico antes da analise individual.",
+            "☑ Disponibilizar perguntas orientadoras para ajudar a turma a comparar dados, identificar tendencias e relacionar informacoes ao fenomeno estudado.",
+            "☑ Permitir registro em topicos, tabela simples, setas ou resposta oral mediada antes da conclusao discursiva completa.",
         ]
 
-    if any(k in base for k in ["estudo_caso", "estudo de caso", "situacao-problema", "situacao problema", "caso"]):
+    if tipo == "modelagem_cientifica" and _tema_astronomia(base):
+        grupo_astronomia = _grupo_modelagem_astronomia(base)
+        if grupo_astronomia == "movimentos_terra":
+            return [
+                "☑ Disponibilizar esquema visual com eixo terrestre, orbita, hemisferios e sentido dos movimentos para apoiar a leitura e a montagem do modelo.",
+                "☑ Organizar a atividade em etapas curtas, marcando no modelo o eixo, a direcao da rotacao e a incidencia de luz antes da socializacao.",
+                "☑ Permitir registro por desenho identificado, setas, frases curtas ou explicacao oral mediada ao comparar dia e noite, translacao ou estacoes do ano.",
+            ]
+        if grupo_astronomia == "sistema_sol_terra_lua":
+            return [
+                "☑ Disponibilizar esquema visual com Sol, Terra, Lua, iluminacao, sombra e posicoes relativas para apoiar a leitura e a montagem do modelo.",
+                "☑ Organizar a atividade em etapas curtas, com demonstracao inicial da fonte de luz, dos alinhamentos e da sequencia de fases ou eclipses.",
+                "☑ Permitir registro por desenho identificado, legenda, setas ou explicacao oral mediada ao justificar como o modelo representa fases, movimentos ou eclipses.",
+            ]
         return [
-            "Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidencias, explicar causas e registrar conclusao.",
-            "Disponibilizar esquema de causa e consequencia para apoiar a organizacao do raciocinio cientifico.",
-            "Permitir respostas em topicos, setas, desenho explicativo ou explicacao oral antes do registro final.",
+            "☑ Disponibilizar esquema visual com Sol, Terra, Lua, eixo, orbita ou fases identificados para apoiar a leitura e a montagem do modelo.",
+            "☑ Organizar a atividade em etapas curtas, com demonstracao inicial e marcacao das posicoes e movimentos antes da socializacao.",
+            "☑ Permitir registro por desenho identificado, legenda, setas ou explicacao oral mediada ao justificar como o modelo representa o fenomeno estudado.",
+        ]
+    if tipo == "modelagem_cientifica":
+        return [
+            "☑ Disponibilizar esquema visual com nomes das partes e funcao de cada componente para apoiar a construcao ou leitura do modelo.",
+            "☑ Organizar a atividade em etapas curtas, com demonstracao inicial e modelo parcialmente preenchido para consulta durante a montagem.",
+            "☑ Permitir registro por desenho identificado, legenda, topicos ou explicacao oral mediada ao apresentar o modelo construido.",
         ]
 
-    if any(k in base for k in ["leitura_analise", "noticia", "reportagem", "dados", "inpe", "ibge", "fonte", "hora da leitura"]):
+    if tipo == "situacao_problema":
         return [
-            "Realizar leitura mediada do texto ou dado, destacando fonte, tema, informacoes centrais e vocabulario cientifico.",
-            "Disponibilizar perguntas orientadoras para localizar evidencias e relacionar o texto aos conceitos da aula.",
-            "Permitir registro em frases curtas ou topicos antes da resposta discursiva completa.",
+            "☑ Dividir o cenario em perguntas menores para identificar problema, causas, impactos, agentes envolvidos e possiveis solucoes.",
+            "☑ Disponibilizar quadro comparativo ou roteiro com criterios de analise para orientar a elaboracao das propostas em grupo.",
+            "☑ Permitir respostas em topicos, esquema de causa e consequencia, plano simples de acao ou explicacao oral mediada antes do registro final.",
         ]
 
-    if any(k in base for k in ["revisao_retomada", "relembre", "exercicio resolvido", "retomar"]):
+    if tipo == "pratica_experimental":
         return [
-            "Apresentar um exemplo resolvido no quadro antes da atividade individual, explicitando cada etapa do raciocinio.",
-            "Disponibilizar quadro de palavras-chave e conceitos ja estudados para consulta durante a retomada.",
-            "Organizar pares de apoio para comparar respostas e revisar justificativas antes da correcao coletiva.",
+            "☑ Apresentar materiais, etapas e cuidados da pratica em sequencia visual curta, com retomada oral antes do inicio da atividade.",
+            "☑ Organizar grupos cooperativos com funcoes definidas para garantir participacao de todos durante observacao, registro e comparacao dos resultados.",
+            "☑ Permitir registro por desenho, tabela simples, palavras-chave ou explicacao oral mediada durante a observacao do fenomeno.",
         ]
 
+    if tipo == "investigativa":
+        return [
+            "☑ Disponibilizar quadro com pergunta inicial, hipoteses e evidencias para apoiar a organizacao do raciocinio cientifico.",
+            "☑ Utilizar perguntas orientadoras e retomadas passo a passo para ajudar a turma a observar, registrar e comparar pistas relevantes.",
+            "☑ Permitir respostas em frases curtas, topicos, setas ou explicacao oral mediada antes da sintese final escrita.",
+        ]
+
+    if tipo == "impacto_socioambiental":
+        return [
+            "☑ Ler coletivamente dados, noticias, mapas ou infograficos, destacando palavras-chave, fonte e relacoes de causa e consequencia.",
+            "☑ Disponibilizar perguntas orientadoras e quadro de impactos, agentes e medidas para apoiar a analise do problema socioambiental.",
+            "☑ Permitir registro em topicos, tabela simples, setas ou resposta oral mediada ao justificar propostas de acao e responsabilidade coletiva.",
+        ]
+
+    if tipo == "producao_projeto" or any(k in base for k in ["seminario", "cartilha", "campanha", "apresentacao", "produto final"]):
+        return [
+            "☑ Disponibilizar roteiro simples com criterios da producao: conceito cientifico, exemplo, explicacao e organizacao visual.",
+            "☑ Permitir que a apresentacao seja feita com apoio de topicos, cartaz, leitura parcial ou fala compartilhada entre integrantes.",
+            "☑ Oferecer tempo para revisao orientada antes da socializacao, retomando vocabulario cientifico essencial.",
+        ]
+
+    if tipo == "estudo_caso" or any(k in base for k in ["estudo_caso", "estudo de caso", "caso"]):
+        return [
+            "☑ Dividir o estudo de caso em perguntas menores: identificar o problema, localizar evidencias, explicar causas e registrar conclusao.",
+            "☑ Disponibilizar esquema de causa e consequencia para apoiar a organizacao do raciocinio cientifico.",
+            "☑ Permitir respostas em topicos, setas, desenho explicativo ou explicacao oral antes do registro final.",
+        ]
+
+    if tipo == "leitura_analise" or any(k in base for k in ["noticia", "reportagem", "inpe", "ibge", "fonte", "hora da leitura"]):
+        return [
+            "☑ Realizar leitura mediada do texto ou dado, destacando fonte, tema, informacoes centrais e vocabulario cientifico.",
+            "☑ Disponibilizar perguntas orientadoras para localizar evidencias e relacionar o texto aos conceitos da aula.",
+            "☑ Permitir registro em frases curtas ou topicos antes da resposta discursiva completa.",
+        ]
+
+    if tipo == "revisao_retomada" or any(k in base for k in ["relembre", "exercicio resolvido", "retomar"]):
+        return [
+            f"☑ Retomar coletivamente um esquema, imagem ou registro anterior sobre {tema} antes da atividade individual.",
+            "☑ Disponibilizar quadro de palavras-chave e relacoes centrais do fenomeno para consulta durante a retomada.",
+            "☑ Organizar pares de apoio para comparar respostas, revisar justificativas e retificar duvidas antes da correcao coletiva.",
+        ]
     return [
-        "Utilizar imagens, esquemas, tabelas e exemplos do cotidiano para tornar o conceito cientifico mais concreto.",
-        "Organizar o registro em etapas curtas: hipotese inicial, conceito estudado, evidencia observada e sintese final.",
-        "Permitir diferentes formas de resposta, como topicos, desenho, setas, frases curtas ou explicacao oral mediada.",
+        "☑ Utilizar imagens, esquemas, tabelas e exemplos do cotidiano para tornar o conceito cientifico mais concreto.",
+        "☑ Organizar o registro em etapas curtas: hipotese inicial, conceito estudado, evidencia observada e sintese final.",
+        "☑ Permitir diferentes formas de resposta, como topicos, desenho, setas, frases curtas ou explicacao oral mediada.",
     ]
+
+
+def _acessibilidade_ciencias_reforcada(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    itens = _acessibilidade_ciencias(tema, aprendizagem, desenvolvimento)
+    texto = normalizar_texto(" ".join(itens))
+    gatilhos_genericos = [
+        "tornar o conceito cientifico mais concreto",
+        "registro em etapas curtas",
+        "diferentes formas de resposta",
+    ]
+    if all(gatilho in texto for gatilho in gatilhos_genericos):
+        return [
+            f"☑ Utilizar imagens, esquemas, tabelas e exemplos do material para tornar mais concreto o estudo de {tema}.",
+            f"☑ Organizar o registro em etapas curtas ligadas a {tema}, com palavras-chave, evidencias observadas e sintese final para apoiar a compreensao.",
+            "☑ Permitir diferentes formas de resposta, como topicos, desenho, setas, frases curtas ou explicacao oral mediada, antes do registro final completo.",
+        ]
+    return itens
 
 
 def _acessibilidade_biologia(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
@@ -435,7 +587,7 @@ GERADORES_ACESSIBILIDADE_POR_PERFIL: dict[str, GeradorAcessibilidade] = {
     "lingua_portuguesa_em": _acessibilidade_lingua_portuguesa_em,
     "leitura_redacao": _acessibilidade_lingua_portuguesa,
     "matematica": _acessibilidade_matematica,
-    "ciencias_ef": _acessibilidade_ciencias,
+    "ciencias_ef": _acessibilidade_ciencias_reforcada,
     "biologia": _acessibilidade_biologia,
     "projeto_de_vida": _acessibilidade_projeto_vida,
 }

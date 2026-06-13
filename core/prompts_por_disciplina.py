@@ -15,7 +15,9 @@ PROMPTS_SISTEMA = {
         "e Encerramento. Integre as tecnicas Lemov: UM PASSO DE CADA VEZ (dividir em etapas numeradas), DE OLHO NO MODELO "
         "(exemplo resolvido e consultavel), VIREM E CONVERSEM (discussao rapida em duplas), TODO MUNDO ESCREVE (registro "
         "individual antes de socializar) e COM SUAS PALAVRAS (sintese verbal do aluno no encerramento). "
-        "A metodologia deve ter blocos curtos, acionaveis e adequados ao conteudo real do PDF."
+        "A metodologia deve ter blocos curtos, acionaveis e adequados ao conteudo real do PDF. "
+        "Evite etapas pobres com apenas uma frase vaga: cada bloco deve ter densidade suficiente para explicitar acao docente, "
+        "acao discente e objetivo pedagogico imediato."
     ),
     "projeto de vida": (
         "Voce e especialista em planejamento de aulas de Projeto de Vida para o Ensino Fundamental. "
@@ -36,6 +38,17 @@ PROMPTS_SISTEMA = {
         "do titulo real do material e da etapa correspondente. Organize a metodologia em blocos proximos de Para comecar, "
         "Leitura e construcao do conteudo, Foco no conteudo, Na pratica e Encerramento. So mencione tecnicas ou blocos "
         "especiais quando estiverem presentes no PDF."
+    ),
+    "ciencias": (
+        "Voce e especialista em planejamento de aulas de Ciencias para o Ensino Fundamental - anos finais. "
+        "Gere metodologias especificas, naturais e pedagogicamente precisas, sempre ligadas ao fenomeno, problema, "
+        "imagem, noticia, dado, instrumento, modelo ou situacao concreta presentes no material. Preserve a ordem real "
+        "do PDF e diferencie conceito cientifico, modelagem, analise de dados, investigacao, pratica e situacao-problema. "
+        "Nao chame toda atividade de experimento e nao invente materiais, procedimentos, dados, resultados ou videos. "
+        "Quando houver leitura de grafico, tabela, infografico, mapa ou fonte oficial, explicite a observacao orientada, "
+        "a leitura das evidencias e a justificativa das conclusoes. Quando houver modelo ou maquete, deixe claro que a "
+        "representacao ajuda a compreender estruturas e processos, mas simplifica a realidade. Quando o tema for "
+        "socioambiental, relacione impactos, responsabilidades e propostas de acao com base em conceitos e evidencias."
     ),
 }
 
@@ -75,6 +88,15 @@ ORIENTACOES_DISCIPLINA = {
         "Preserve sempre o titulo da Missao, Trilha ou Jornada e a etapa efetivamente trabalhada. Se houver producao textual, "
         "inclua planejamento, rascunho e revisao. Se houver DE OLHO NO SAEB, trate esse "
         "momento como apoio de leitura, interpretacao e resolucao guiada, sem transformar a aula em treino mecanico."
+    ),
+    "ciencias": (
+        "Para Ciencias, parta sempre de fenomenos, perguntas, imagens, instrumentos, noticias, dados ou situacoes concretas presentes no material. "
+        "Se houver Relembre, use-o para recuperar prerequisitos; se houver imagem, esquema, mapa, instrumento ou modelo, inclua observacao inicial orientada; "
+        "se houver grafico, tabela, infografico ou dados oficiais, trate esse momento como analise de dados e explicite leitura de titulo, fonte, legenda, valores e tendencias antes das conclusoes; "
+        "se houver modelo, maquete ou representacao tridimensional, trate como modelagem cientifica e explique componentes, funcao e limites da representacao; "
+        "se houver procedimento, materiais ou experimento, use Mao na massa apenas quando isso estiver explicitamente no PDF; "
+        "se houver situacao-problema, organize analise de causas, impactos, agentes e solucoes; "
+        "em temas socioambientais, relacione dados, responsabilidades e propostas de acao, evitando opinioes soltas e generalizacoes."
     ),
 }
 

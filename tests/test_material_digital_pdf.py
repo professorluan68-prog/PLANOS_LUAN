@@ -89,6 +89,21 @@ def test_material_digital_junta_titulo_quando_linha_intermediaria_termina_com_do
     assert material == "AULA 8 - Principais doencas humanas causadas por platelmintos: esquistossomose"
 
 
+def test_material_digital_junta_titulo_quando_primeira_parte_termina_com_virgula():
+    texto = (
+        "Biologia\n"
+        "Teorias cientificas:\n"
+        "experimentos de Redi,\n"
+        "Spallanzani e Pasteur\n"
+        "3o bimestre Ensino Medio\n"
+        "Aula 10 Medio\n"
+    )
+
+    material = _material_digital_por_texto(texto, "AULA_10.pdf", "Biologia")
+
+    assert material == "AULA 10 - Teorias cientificas experimentos de Redi, Spallanzani e Pasteur"
+
+
 def test_titulos_reais_biologia_silvana_aulas_5_a_8():
     casos = [
         (

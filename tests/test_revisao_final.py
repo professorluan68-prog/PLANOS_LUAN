@@ -10,7 +10,7 @@ def test_calcular_sha256(tmp_path):
     
     hash_val = calcular_sha256(temp_file)
     assert len(hash_val) == 64
-    assert hash_val == "a37f59798e4f552f9a764d932be1b816a7eb1c5482318721c5b6cc66580a8767"
+    assert hash_val == "66690828e56a5f43d36843c11accbd0687b296d9839af584aae86b234aecf013"
 
 def test_revisar_aula_gerada_auditoria():
     # 1. Aula perfeita (deve pontuar 100)

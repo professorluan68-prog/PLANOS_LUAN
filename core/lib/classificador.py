@@ -34,10 +34,23 @@ def contem_termo_exato(base: str, termos: list[str] | tuple[str, ...]) -> bool:
     return False
 
 
-def perfil_disciplina(disciplina: str) -> str:
+def _turma_indica_ensino_medio(turma: str) -> bool:
+    base = normalizar_texto(turma)
+    return bool(
+        base
+        and (
+            "ensino medio" in base
+            or re.search(r"(?<!\d)[123]\s*ano\b", base)
+            or re.search(r"(?<!\d)[123]\s*serie\b", base)
+        )
+    )
+
+
+def perfil_disciplina(disciplina: str, turma: str = "") -> str:
     """Retorna o perfil pedagogico da disciplina."""
     base = normalizar_texto(disciplina)
     compacto = normalizar_compacto(disciplina)
+    turma_base = normalizar_texto(turma)
 
     if ("orient" in base and "estud" in base) or "orienestudos" in base:
         return "orientacao_estudos"
@@ -50,7 +63,7 @@ def perfil_disciplina(disciplina: str) -> str:
     if contem_termo_exato(base, ["redacao e leitura", "leitura e redacao"]):
         return "leitura_redacao"
     if contem_termo_exato(base, ["lingua portuguesa", "portugues"]) or "portugues" in compacto:
-        if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]):
+        if contem_termo_exato(base, ["ensino medio", "medio", "1 ano", "2 ano", "3 ano", "em"]) or _turma_indica_ensino_medio(turma_base):
             return "lingua_portuguesa_em"
         return "lingua_portuguesa_ef"
     if (compacto.startswith("ci") and compacto.endswith("ncias")) or "ciencias" in compacto:
@@ -293,16 +306,56 @@ _LP_LEITURA_JORNALISTICA = [
     "resenha critica",
 ]
 
+_LP_LEITURA_MULTIMODAL = [
+    "cartaz", "campanha", "infografico", "tirinha", "charge",
+    "texto verbal", "texto nao verbal", "linguagem verbal e nao verbal",
+    "multimodal", "multissemiotico", "legenda", "imagem com legenda",
+]
+
+_LP_RESUMO_RETEXTUALIZACAO = [
+    "resumir", "resumo", "retextualizacao", "esquema", "notas", "topicos",
+    "informacoes principais", "converter em texto", "paragrafos",
+    "topico frasal", "coerencia", "coesao", "paragrafacao",
+]
+
+_LP_VARIACAO_LINGUISTICA = [
+    "variacao linguistica", "regionalismo", "registro formal",
+    "registro informal", "girias", "lingua viva", "preconceito linguistico",
+    "geografica", "historica", "social", "situacional", "biscoito", "bolacha",
+]
+
+_LP_ARGUMENTACAO_DEBATE = [
+    "argumento", "contra argumento", "contra-argumento", "tese",
+    "ponto de vista", "debate", "defender", "refutar",
+    "argumento de autoridade", "exemplificacao", "comparacao",
+    "planejar debate", "tema polemico", "lei", "celular",
+]
+
+_LP_TEXTO_DIGITAL_BLOG = [
+    "post de blog", "post", "blog", "postagem", "internet",
+    "comentario", "leitor", "linguagem respeitosa", "a voz da internet",
+    "mulheres na universidade",
+]
+
 _LP_PRODUCAO_TEXTUAL = [
     "produza", "escreva uma carta", "redija", "elabore",
     "carta do leitor", "resenha", "artigo", "producao",
     "estrutura do genero", "publico-alvo", "suporte", "circulacao",
+    "todo mundo escreve", "escreva um comentario", "registre em paragrafos",
+    "produza resposta", "revisao com colega", "comentario", "paragrafo",
 ]
 
 _LP_PESQUISA = [
     "scielo", "curadoria", "artigo cientifico", "plagio",
     "base de dados", "google academico", "fontes confiaveis",
     "divulgacao cientifica", "direitos autorais",
+]
+
+_LP_ANALISE_LINGUISTICA_ORTOGRAFIA = [
+    "ortografia", "concordancia nominal", "discurso direto",
+    "discurso indireto", "marcas linguisticas", "paragrafacao",
+    "topico frasal", "registro formal", "registro informal",
+    "x ou ch", "sc", "cedilha", "grafia", "reescrita",
 ]
 
 
@@ -344,6 +397,68 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
         return "gramatica_contextualizada"
 
     # Leitura literária (padrão para LP)
+    return "leitura_literaria"
+
+
+def _tipo_aula_lingua_portuguesa_ef(titulo: str, texto: str) -> str:
+    """Classifica tipos metodologicos de Portugues EF com maior granularidade."""
+    titulo_norm = normalizar_texto(titulo)
+    base_norm = normalizar_texto(f"{titulo} {texto}")
+    eh_continuidade = any(p in titulo_norm for p in ["parte 2", "parte 3", "parte 4"])
+
+    if eh_continuidade:
+        if contem_termos(base_norm, _LP_TEXTO_DIGITAL_BLOG):
+            return "texto_digital_blog"
+        if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA):
+            return "analise_linguistica_ortografia"
+        if contem_termos(base_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
+            return "gramatica_contextualizada"
+
+    if contem_termos(base_norm, _LP_PESQUISA):
+        return "pesquisa"
+
+    if contem_termos(base_norm, _LP_TEXTO_DIGITAL_BLOG):
+        return "texto_digital_blog"
+
+    if contem_termos(base_norm, _LP_ARGUMENTACAO_DEBATE) and any(
+        marcador in base_norm
+        for marcador in [
+            "debate", "contra argumento", "contra-argumento",
+            "refutar", "ponto de vista", "uso de celular", "celular",
+        ]
+    ):
+        return "argumentacao_debate"
+
+    if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA) and any(
+        marcador in base_norm
+        for marcador in ["ortografia", "concordancia nominal", "discurso direto", "discurso indireto", "x ou ch"]
+    ):
+        return "analise_linguistica_ortografia"
+
+    if contem_termos(base_norm, _LP_RESUMO_RETEXTUALIZACAO):
+        return "resumo_retextualizacao"
+
+    if contem_termos(base_norm, _LP_VARIACAO_LINGUISTICA):
+        return "variacao_linguistica"
+
+    if contem_termos(base_norm, _LP_LEITURA_JORNALISTICA) and contem_termos(
+        base_norm,
+        ["fato", "opiniao", "parcialidade", "veiculo", "intencionalidade", "manchete", "fonte", "citacao"],
+    ):
+        return "leitura_jornalistica"
+
+    if contem_termos(base_norm, _LP_LEITURA_MULTIMODAL):
+        return "leitura_multimodal"
+
+    if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA):
+        return "analise_linguistica_ortografia"
+
+    if contem_termos(base_norm, _LP_PRODUCAO_TEXTUAL):
+        return "producao_textual"
+
+    if contem_termos(base_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
+        return "gramatica_contextualizada"
+
     return "leitura_literaria"
 
 
@@ -399,8 +514,11 @@ def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
 
 
 _CIENCIAS_PRODUCAO_PROJETO = [
-    "producao", "projeto", "seminario", "apresentacao", "cartilha",
-    "campanha", "folder", "modelo", "de olho no modelo", "produto final",
+    "seminario", "cartilha", "campanha", "folder",
+    "produto final", "painel coletivo", "mostra cientifica",
+    "mostra escolar", "feira de ciencias", "feira científica",
+    "apresentacao final", "apresentacao do seminario",
+    "producao coletiva", "producao final",
 ]
 
 _CIENCIAS_REVISAO = [
@@ -408,20 +526,64 @@ _CIENCIAS_REVISAO = [
     "exercicio resolvido", "no 1 bimestre estudamos", "consolidar",
 ]
 
+_CIENCIAS_SITUACAO_PROBLEMA = [
+    "situacao-problema", "situacao problema", "resolucao de problemas",
+    "plano de acao", "voces sao", "equipe contratada", "assumam o papel",
+    "cenario municipal", "proponha solucoes", "rpg", "plano de manejo",
+    "construindo um plano", "grupos assumem", "papeis definidos",
+    "papel do governo", "papel da comunidade", "papel dos pesquisadores",
+    "unidade de conservacao",
+]
+
+_CIENCIAS_PRATICA_EXPERIMENTAL = [
+    "aula pratica", "mao na massa", "procedimento", "lista de materiais",
+    "experimento", "materiais necessarios", "registre os resultados",
+    "compare os resultados", "montagem do experimento",
+]
+
+_CIENCIAS_MODELAGEM_CIENTIFICA = [
+    "modelo tridimensional", "construcao de um modelo", "construcao do modelo",
+    "maquete", "modelo celular", "representacao tridimensional",
+    "modelo com materiais de baixo custo", "construindo um modelo",
+    "construindo modelo", "caixa lunar", "sistema sol-terra-lua",
+    "sistema sol terra lua",
+]
+
+_CIENCIAS_ANALISE_DADOS = [
+    "grafico", "tabela", "infografico", "porcentagem", "serie historica",
+    "dados do", "dados da", "mapbiomas", "inpe", "ibge", "fonte dos dados",
+    "estacao meteorologica", "anemometro", "barometro", "pluviometro",
+    "termometro", "umidade relativa", "velocidade do vento",
+]
+
 _CIENCIAS_ESTUDO_CASO = [
-    "estudo de caso", "situacao-problema", "situacao problema", "caso",
-    "cenario", "analise o caso", "explique as consequencias", "fadiga",
+    "estudo de caso", "analise o caso", "explique as consequencias", "fadiga",
     "radiacao", "atleta", "mitocondria", "cesio-137", "dna",
 ]
 
 _CIENCIAS_LEITURA_ANALISE = [
-    "hora da leitura", "texto", "noticia", "reportagem", "artigo",
+    "hora da leitura", "noticia", "reportagem", "artigo",
     "dados do inpe", "dados do ibge", "agencia fapesp", "jornal da usp",
     "g1", "cnn brasil", "lei n", "anvisa", "fiocruz", "fonte",
 ]
 
+_CIENCIAS_IMPACTO_SOCIOAMBIENTAL = [
+    "impactos ambientais", "impacto ambiental", "sustentabilidade",
+    "gestao de residuos", "logistica reversa", "coleta seletiva",
+    "recursos hidricos", "agua potavel", "saneamento", "conservacao",
+    "poluicao", "desmatamento", "queimadas", "cerrado", "biodiversidade",
+    "monocultura", "agropecuaria", "mata ciliar", "responsabilidade compartilhada",
+]
+
+_CIENCIAS_INVESTIGATIVA = [
+    "hipotese", "hipoteses", "investigar", "questao investigativa",
+    "evidencia", "evidencias", "levante hipoteses", "como descobrir",
+    "registre os resultados", "formule uma explicacao",
+]
+
 _CIENCIAS_CONCEITO_NOVO = [
-    "camadas da terra", "estrutura da terra", "foco no conteudo", "para comecar"
+    "camadas da terra", "estrutura da terra", "foco no conteudo", "para comecar",
+    "estrutura", "funcao", "processo", "classificacao", "glossario",
 ]
 
 _BIOLOGIA_ETICO = [
@@ -478,6 +640,23 @@ def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
     texto_norm = normalizar_texto(texto)
     base_norm = f"{titulo_norm} {texto_norm}"
 
+    if contem_termos(titulo_norm, _CIENCIAS_SITUACAO_PROBLEMA):
+        return "situacao_problema"
+    if contem_termos(titulo_norm, _CIENCIAS_MODELAGEM_CIENTIFICA):
+        return "modelagem_cientifica"
+    if contem_termos(titulo_norm, _CIENCIAS_IMPACTO_SOCIOAMBIENTAL) and not contem_termos(base_norm, _CIENCIAS_LEITURA_ANALISE):
+        return "impacto_socioambiental"
+    if contem_termos(titulo_norm, _CIENCIAS_ANALISE_DADOS) and not contem_termos(base_norm, _CIENCIAS_LEITURA_ANALISE):
+        return "analise_dados"
+
+    if contem_termos(base_norm, _CIENCIAS_SITUACAO_PROBLEMA):
+        return "situacao_problema"
+    if contem_termos(base_norm, _CIENCIAS_MODELAGEM_CIENTIFICA):
+        return "modelagem_cientifica"
+    if contem_termos(base_norm, _CIENCIAS_PRATICA_EXPERIMENTAL):
+        return "pratica_experimental"
+    if contem_termos(titulo_norm, _CIENCIAS_PRODUCAO_PROJETO):
+        return "producao_projeto"
     if contem_termos(base_norm, _CIENCIAS_PRODUCAO_PROJETO):
         return "producao_projeto"
     if contem_termos(base_norm, _CIENCIAS_REVISAO):
@@ -486,6 +665,12 @@ def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
         return "estudo_caso"
     if contem_termos(base_norm, _CIENCIAS_LEITURA_ANALISE):
         return "leitura_analise"
+    if contem_termos(base_norm, _CIENCIAS_IMPACTO_SOCIOAMBIENTAL):
+        return "impacto_socioambiental"
+    if contem_termos(base_norm, _CIENCIAS_ANALISE_DADOS):
+        return "analise_dados"
+    if contem_termos(base_norm, _CIENCIAS_INVESTIGATIVA):
+        return "investigativa"
     if contem_termos(base_norm, _CIENCIAS_CONCEITO_NOVO):
         return "conceito_novo"
     return "conceito_novo"
@@ -528,8 +713,8 @@ _TIPOS_MATEMATICA = [
     ("grandezas_medidas", ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]),
     ("algebra", ["equac", "equa", "variavel", "incognita", "express", "polinom", "sistema", "inequac", "logarit", "1 grau", "2 grau", "modulo"]),
     ("funcoes", ["func", "f(x)", "lei de formacao", "dominio", "imagem", "grafico de funcao", "taxa de variacao"]),
-    ("combinatoria", ["combinat", "permut", "arranjo", "fatorial", "contagem", "ordem importa", "anagrama", "comissao", "placa", "senha"]),
-    ("estatistica_probabilidade", ["estatist", "probab", "media", "mediana", "moda", "amostra", "espaco amostral", "evento", "frequencia", "censo", "pesquisa"]),
+    ("combinatoria", ["combinat", "permut", "arranjo", "fatorial", "contagem", "ordem importa", "anagrama", "comissao", "placa", "senha", "principio aditivo", "principio multiplicativo", "principios de contagem", "diagrama de arvore", "arvore de possibilidades"]),
+    ("estatistica_probabilidade", ["estatist", "probab", "media", "mediana", "moda", "amostra", "espaco amostral", "evento", "evento favoravel", "frequencia", "censo", "pesquisa"]),
     ("geometria", ["geometr", "area", "perimetro", "volume", "angulo", "triangulo", "figura", "solido", "pitagoras", "malha", "trigonom"]),
     ("numeros_operacoes", ["numero", "fracao", "decimal", "porcentagem", "potencia", "raiz", "divisibilidade", "operacao", "mmc", "mdc", "primo"]),
 ]
@@ -709,11 +894,11 @@ def _detectar_tipo_por_catalogo(
     return default
 
 
-def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
+def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str = "") -> str:
     """Classifica o tipo de aula a partir do conteudo."""
     base = normalizar_texto(f"{disciplina} {tema} {texto}")
     tema_base = normalizar_texto(tema)
-    perfil = perfil_disciplina(disciplina)
+    perfil = perfil_disciplina(disciplina, turma=turma)
 
     if perfil == "educacao_financeira":
         _EF_AULA_PRATICA = [
@@ -760,7 +945,7 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "") -> str:
     if perfil == "lingua_portuguesa_em":
         return _tipo_aula_lingua_portuguesa_em(tema, texto)
     if perfil in {"lingua_portuguesa_ef", "leitura_redacao"}:
-        return _tipo_aula_lingua_portuguesa(tema, texto)
+        return _tipo_aula_lingua_portuguesa_ef(tema, texto)
 
     # Projeto de Vida — classificador especializado
     if perfil == "projeto_de_vida":

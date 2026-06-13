@@ -98,6 +98,36 @@ def _limpar_json_markdown(texto: str) -> str:
     return texto
 
 
+def _serializar_rascunho_base(rascunho_base: dict | None) -> str:
+    if not isinstance(rascunho_base, dict):
+        return ""
+
+    linhas = []
+    tema = str(rascunho_base.get("tema") or "").strip()
+    aprendizagem = str(rascunho_base.get("aprendizagem") or "").strip()
+    metodologia = rascunho_base.get("metodologia") or []
+
+    if tema:
+        linhas.append(f"Tema base: {tema}")
+    if aprendizagem:
+        linhas.append(f"Aprendizagem base: {aprendizagem}")
+
+    blocos_metodologia = []
+    for item in metodologia:
+        if not isinstance(item, dict):
+            continue
+        titulo = str(item.get("titulo") or "").strip() or "Etapa"
+        texto = re.sub(r"\s+", " ", str(item.get("texto") or "")).strip()
+        if texto:
+            blocos_metodologia.append(f"- {titulo}: {texto}")
+
+    if blocos_metodologia:
+        linhas.append("Metodologia base:")
+        linhas.extend(blocos_metodologia[:6])
+
+    return "\n".join(linhas).strip()[:2500]
+
+
 def _extrair_json_openai(response) -> dict:
     mensagem = response.choices[0].message
     parsed = getattr(mensagem, "parsed", None)
@@ -113,6 +143,7 @@ def _montar_prompt(
     turma: str,
     modalidade_eja: bool = False,
     permitir_tecnicas_explicitamente: bool = True,
+    rascunho_base: dict | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
@@ -120,6 +151,20 @@ def _montar_prompt(
     orientacao = get_orientacao_disciplina(disciplina, turma=turma)
     referencia = carregar_referencia_metodologica(disciplina, turma)
     bloco_referencia = f"\n\nREFERENCIA METODOLOGICA DA DISCIPLINA:\n{referencia[:4200]}" if referencia else ""
+    bloco_rascunho = ""
+    rascunho_serializado = _serializar_rascunho_base(rascunho_base)
+    if rascunho_serializado:
+        bloco_rascunho = f"""
+
+RASCUNHO LOCAL DO SISTEMA:
+{rascunho_serializado}
+
+USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
+- Preserve o foco conceitual e a sequencia pedagogica do rascunho quando estiverem coerentes com o PDF.
+- Melhore a especificidade, a naturalidade e a clareza do texto, sem inventar conteudos fora do material.
+- Corrija trechos genericos do rascunho apenas quando o PDF trouxer pistas concretas para isso.
+- Se o rascunho ja estiver adequado, faca apenas um ajuste fino de linguagem.
+"""
     bloco_eja = ""
     if modalidade_eja:
         bloco_eja = """
@@ -169,6 +214,7 @@ NIVEL: {nivel}
 {orientacao}
 
 {regras_consolidadas_para_prompt(perfil, contexto, nivel)}
+{bloco_rascunho}
 
 REGRAS:
 1. Extraia o conceito central da aula. Nao devolva rotulos como "AULA 1", "2o bimestre", "Ensino Fundamental" ou "Parte 1" como tema principal.
@@ -190,6 +236,15 @@ CONTEUDO DO SLIDE:
 
 def _detectar_produto_atividade(texto_pdf: str) -> str:
     base = re.sub(r"\s+", " ", str(texto_pdf or "")).lower()
+    detectores_diretos = [
+        (r"\blivro do estudante\b|\bresponda(?:m)? no livro\b|\bregistre(?:m)? (?:as )?respostas? no livro\b|\batividades? no livro\b", "respostas no livro"),
+        (r"\bregistro(?:s)? escrito(?:s)?\b|\bregistre(?:m)? por escrito\b|\bresponda(?:m)? por escrito\b", "registro escrito"),
+        (r"\bmodelo tridimensional\b|\bconstr(?:ua|uir|ucao|u[cç][aã]o) de um modelo\b|\bcaixa lunar\b|\bmaquete\b", "modelo explicativo"),
+        (r"\bencenacao\b|\brepresentacao do sistema\b|\bcena original\b", "representacao do fenomeno"),
+    ]
+    for padrao, rotulo in detectores_diretos:
+        if re.search(padrao, base, flags=re.I):
+            return rotulo
     padroes = [
         (r"texto[-\s]?s[ií]ntese|s[ií]ntese individual", "texto-síntese"),
         (r"\btabela\b", "tabela"),
@@ -203,12 +258,39 @@ def _detectar_produto_atividade(texto_pdf: str) -> str:
     return ""
 
 
+def _frase_produto_atividade(produto: str) -> str:
+    produto_limpo = str(produto or "").strip()
+    if not produto_limpo:
+        return "realizem a atividade principal"
+
+    frases = {
+        "respostas no livro": "registrem respostas no livro",
+        "registro escrito": "organizem um registro escrito",
+        "modelo explicativo": "construam um modelo explicativo",
+        "representacao do fenomeno": "elaborem uma representacao do fenomeno",
+    }
+    return frases.get(produto_limpo, f"produzam {produto_limpo}")
+
+
 def _limpar_texto_curto(texto: str) -> str:
     saida = re.sub(r"\s+", " ", str(texto or "")).strip()
     saida = re.sub(r"\b(?:por|de|com|para)\s*\.$", ".", saida, flags=re.I)
     saida = re.sub(r"esta atividade deve durar cerca de\.?", "", saida, flags=re.I).strip(" .")
     for errado, certo in _CORRECOES_PONTUAIS.items():
         saida = re.sub(rf"\b{errado}\b", certo, saida, flags=re.I)
+    saida = re.sub(r"\bIniciar com uma pausa de para que\b", "Iniciar com uma pausa breve para que", saida, flags=re.I)
+    saida = re.sub(
+        r"\bAssistir a um material impresso, quadro e registro no caderno sobre\b",
+        "Analisar com a turma um esquema e os registros no caderno sobre",
+        saida,
+        flags=re.I,
+    )
+    saida = re.sub(
+        r"\bAssistir a um material impresso, quadro e registro no caderno\b",
+        "Analisar com a turma um esquema e os registros no caderno",
+        saida,
+        flags=re.I,
+    )
     padroes_bloqueio = [
         r"relacionar a explica.*?continuidade,\s*aprofundamento e novos desafios\.?",
         r"o docente apresenta",
@@ -392,6 +474,9 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
     if not itens:
         itens = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
 
+    if produto == "atividade do material":
+        produto = ""
+
     if produto:
         corpo = " ".join(i["texto"].lower() for i in itens)
         if produto not in corpo:
@@ -400,7 +485,7 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
                 pos,
                 {
                     "titulo": "Atividade",
-                    "texto": f"Orientar a atividade principal do material para que os estudantes produzam {produto}, acompanhando registros, duvidas e socializacao das respostas.",
+                    "texto": f"Orientar a atividade principal do material para que os estudantes {_frase_produto_atividade(produto)}, acompanhando registros, duvidas e socializacao das respostas.",
                 },
             )
 
@@ -517,6 +602,7 @@ def processar_plano_ia(
     modelo: str,
     modalidade_eja: bool = False,
     permitir_tecnicas_explicitamente: bool = True,
+    rascunho_base: dict | None = None,
 ) -> dict:
     prompt = _montar_prompt(
         texto_pdf,
@@ -524,6 +610,7 @@ def processar_plano_ia(
         turma,
         modalidade_eja=modalidade_eja,
         permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
+        rascunho_base=rascunho_base,
     )
     system_prompt = get_system_prompt(disciplina)
 

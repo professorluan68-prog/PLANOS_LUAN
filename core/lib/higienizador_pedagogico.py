@@ -672,8 +672,17 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
         }.get(perfil_pedagogico, "o tema discutido")
         texto_final = re.sub(r"\bo caso discutido\b", substituto_caso, texto_final, flags=re.I)
             
+    preservar_recursos_cientificos = perfil_pedagogico in {
+        "ciencias_conceitual",
+        "ciencias_impacto_socioambiental",
+        "biologia_conceitual",
+        "biologia_tabela_comparativa",
+    }
+
     # 3. Higienizar recursos ausentes (tabela, gráfico, mapa, experimento)
     for recurso, regras in REGRAS_RECURSOS.items():
+        if preservar_recursos_cientificos and recurso in {"tabela", "grafico", "mapa"}:
+            continue
         # Se o recurso foi marcado como ausente (ou não declarado presente)
         if not recursos_reais.get(recurso, False):
             for padrao, subst in regras:
@@ -685,7 +694,21 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
                         return subst[0].upper() + subst[1:]
                     return subst
                 texto_final = re.sub(padrao, substituir, texto_final, flags=re.I)
-                
+
+    ajustes_redacao = [
+        (r"\bMedir a observação\b", "Mediar a observação"),
+        (r"\bmedir a observação\b", "mediar a observação"),
+        (r"\bMedir a observacao\b", "Mediar a observação"),
+        (r"\bmedir a observacao\b", "mediar a observação"),
+        (r"\bestudiantes\b", "estudantes"),
+        (r"\buma conteúdo da aula\b", "um conteúdo da aula"),
+        (r"\buma conteudo da aula\b", "um conteúdo da aula"),
+        (r"\brotacionação\b", "rotação"),
+        (r"\brotacionacao\b", "rotação"),
+    ]
+    for padrao, subst in ajustes_redacao:
+        texto_final = re.sub(padrao, subst, texto_final, flags=re.I)
+
     return texto_final
 
 
