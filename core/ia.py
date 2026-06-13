@@ -82,6 +82,57 @@ def _aprendizagem_padrao_projeto_vida(tema: str) -> str:
     )
 
 
+def _extrair_codigo_bncc(texto: str) -> str:
+    match = re.search(r"\(([A-Za-z]{2}\d+[A-Za-z0-9]*)\)", str(texto or ""))
+    return f"({match.group(1).upper()})" if match else ""
+
+
+def _aplicar_codigo_bncc(codigo: str, texto: str) -> str:
+    texto_limpo = re.sub(r"\s+", " ", str(texto or "")).strip()
+    if not texto_limpo:
+        return ""
+    if codigo:
+        return f"Habilidade: {codigo} {texto_limpo}"
+    return texto_limpo
+
+
+def _aprendizagem_fallback_por_perfil(perfil: str, tema: str, codigo: str = "") -> str:
+    foco = extrair_conceito_central(tema) or re.sub(r"\s+", " ", str(tema or "")).strip(" .:-") or "o tema da aula"
+
+    if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+        return _aplicar_codigo_bncc(codigo, _aprendizagem_padrao_projeto_vida(foco))
+    if perfil == "matematica":
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Resolver e analisar situacoes-problema relacionadas a {foco}, mobilizando procedimentos de calculo, interpretacao e justificativa das estrategias utilizadas.",
+        )
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Analisar textos e linguagens relacionados a {foco}, desenvolvendo leitura, interpretacao, analise da linguagem e producao de sentidos de acordo com as propostas da aula.",
+        )
+    if perfil == "historia":
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Analisar sujeitos, contextos, permanencias e mudancas relacionados a {foco}, utilizando fontes, registros e argumentos historicos para sustentar as interpretacoes construidas na aula.",
+        )
+    if perfil in {"ciencias_ef", "biologia", "quimica", "fisica"}:
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Compreender e explicar aspectos relacionados a {foco}, articulando observacao, conceitos cientificos, leitura de esquemas e registro das evidencias trabalhadas na aula.",
+        )
+    if perfil == "geografia":
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Analisar aspectos relacionados a {foco}, relacionando territorio, sociedade, natureza e leitura de diferentes linguagens geograficas ao longo da aula.",
+        )
+
+    return _aplicar_codigo_bncc(
+        codigo,
+        f"Compreender e analisar conceitos relacionados a {foco}, articulando leitura, discussao orientada e registro das ideias centrais trabalhadas na aula.",
+    )
+
+
 def _serializar_modelo(objeto: Any) -> dict:
     if hasattr(objeto, "model_dump"):
         return objeto.model_dump()
@@ -537,10 +588,8 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
 
     aprendizagem = str(data.get("aprendizagem", "") or "").strip()
     if _aprendizagem_ia_invalida(aprendizagem, tema):
-        if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
-            aprendizagem = _aprendizagem_padrao_projeto_vida(tema)
-        else:
-            aprendizagem = f"Desenvolver habilidades relacionadas ao tema da aula, com foco em {tema}."
+        codigo = _extrair_codigo_bncc(aprendizagem)
+        aprendizagem = _aprendizagem_fallback_por_perfil(perfil, tema, codigo)
 
     return {
         "tema": tema,

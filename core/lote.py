@@ -2507,6 +2507,40 @@ def _aprendizagem_padrao_projeto_vida(tema: str) -> str:
     )
 
 
+def _aprendizagem_padrao_por_perfil(tema: str, perfil: str, conceito: str = "") -> str:
+    foco = _foco_limpo_aprendizagem(tema, conceito)
+
+    if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+        return _aprendizagem_padrao_projeto_vida(foco)
+    if perfil == "matematica":
+        return (
+            f"Resolver e analisar situacoes-problema relacionadas a {foco}, mobilizando procedimentos de calculo, "
+            "interpretacao e justificativa das estrategias utilizadas."
+        )
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return (
+            f"Analisar textos e linguagens relacionados a {foco}, desenvolvendo leitura, interpretacao, "
+            "analise da linguagem e producao de sentidos de acordo com as propostas da aula."
+        )
+    if perfil == "historia":
+        return (
+            f"Analisar sujeitos, contextos, permanencias e mudancas relacionados a {foco}, utilizando fontes, "
+            "registros e argumentos historicos para sustentar as interpretacoes construidas na aula."
+        )
+    if perfil in {"ciencias_ef", "biologia", "quimica", "fisica"}:
+        return (
+            f"Compreender e explicar aspectos relacionados a {foco}, articulando observacao, conceitos cientificos, "
+            "leitura de esquemas e registro das evidencias trabalhadas na aula."
+        )
+    if perfil == "geografia":
+        return (
+            f"Analisar criticamente aspectos relacionados a {foco}, relacionando territorio, sociedade, natureza "
+            "e leitura de diferentes linguagens geograficas ao longo da aula."
+        )
+
+    return f"Compreender e analisar conceitos relacionados a {foco}, articulando leitura, discussao orientada e registro das ideias centrais trabalhadas na aula."
+
+
 def _remover_residuos_aprendizagem(texto: str) -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
     padroes_corte = [
@@ -2555,10 +2589,10 @@ def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "", pe
         return _aprendizagem_padrao_projeto_vida(tema)
 
     if _trecho_incompleto_aprendizagem(texto) or _texto_incompativel_com_tema(texto, tema, conceito):
-        foco = _foco_limpo_aprendizagem(tema, conceito)
+        base_especifica = _aprendizagem_padrao_por_perfil(tema, perfil, conceito)
         if codigo:
-            return f"Habilidade: {codigo} Desenvolver habilidades relacionadas ao tema da aula, com foco em {foco}."
-        return f"Desenvolver habilidades relacionadas ao tema da aula, com foco em {foco}."
+            return f"Habilidade: {codigo} {base_especifica}"
+        return base_especifica
 
     if codigo and not texto.lower().startswith("habilidade:"):
         texto = f"Habilidade: {texto}"
@@ -2631,7 +2665,7 @@ def _sintetizar_objetivos_e_conteudos_para_aprendizagem(
     if conteudos:
         return f"Compreender e analisar conceitos relacionados a {foco_tema}, articulando os conteúdos trabalhados no material."
 
-    return f"Desenvolver habilidades relacionadas ao tema da aula, com foco em {foco_tema}."
+    return _aprendizagem_padrao_por_perfil(tema, perfil, " ".join(conteudos[:2]))
 
 
 def _montar_aprendizagem_inteligente(

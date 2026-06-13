@@ -8,7 +8,8 @@ def test_carrega_referencia_por_disciplina():
     referencia = carregar_referencia_metodologica("Língua Portuguesa", "7º ano A")
 
     assert "REGRAS FIXAS DO SISTEMA" in referencia
-    assert "LÍNGUA PORTUGUESA" in referencia
+    assert "Disciplina de Língua Portuguesa" in referencia
+    assert "produção de textos" in referencia
     assert "Não invente técnicas" in referencia
 
 
@@ -32,29 +33,29 @@ def test_referencia_interdisciplinar_entra_como_complemento_seguro():
 def test_referencia_ciencias_prioriza_nova_analise_dos_anos_finais():
     referencia = carregar_referencia_metodologica("Ciencias", "8 ano A").lower()
 
-    assert "nao chame toda atividade de experimento" in referencia
-    assert "analise de dados" in referencia
-    assert "situacao-problema" in referencia
+    assert "tipos de aula identificados" in referencia
+    assert "construção de modelo" in referencia
+    assert "virem e conversem" in referencia
 
 
 def test_ler_docx_com_tabelas_e_paragrafos(tmp_path):
     import docx
     from core.referencias_metodologia import _ler_docx
-    
+
     doc_file = tmp_path / "temp_ref.docx"
     doc = docx.Document()
     doc.add_paragraph("Este é um parágrafo de teste.")
-    
+
     table = doc.add_table(rows=2, cols=2)
     table.cell(0, 0).text = "Célula 1A"
     table.cell(0, 1).text = "Célula 1B"
     table.cell(1, 0).text = "Célula 2A"
     table.cell(1, 1).text = "Célula 2B"
-    
+
     doc.save(doc_file)
-    
+
     texto = _ler_docx(doc_file)
-    
+
     assert "Este é um parágrafo de teste." in texto
     assert "Célula 1A | Célula 1B" in texto
     assert "Célula 2A | Célula 2B" in texto

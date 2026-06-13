@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
@@ -7,7 +8,9 @@ REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA 
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+PASTA_ANALISES_NOVAS = Path(r"D:\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA")
 PASTAS_BUSCA = [
+    PASTA_ANALISES_NOVAS,
     BASE_DIR / "REFERENCIAS_METODOLOGIA",
     Path(r"C:\Users\Prof_L\Desktop\desktop\REFERENCIAS_METODOLOGIA"),
 ]
@@ -34,6 +37,28 @@ REFERENCIA_PV_FUNDAMENTAL = "ANÁLISE METODOLÓGICA - PROJETO DE VIDA ENSINO FUN
 REFERENCIA_PV_REFINADA_FUNDAMENTAL = "ANÁLISE METODOLÓGICA REFINADA - PROJETO DE VIDA ENSINO FUNDAMENTAL.md"
 REFERENCIA_PV_FUNDAMENTAL_ANOS_FINAIS = "ANÁLISE METODOLÓGICA - PROJETO DE VIDA - ENSINO FUNDAMENTAL ANOS FINAIS.md"
 REFERENCIA_PV_7_ANO = "ANÁLISE METODOLÓGICA - PROJETO DE VIDA 7º ANO.md"
+
+MAPA_REFERENCIAS_NOVAS = {
+    "arte": "analise_metodologica_arte.md",
+    "biologia": "analise_metodologica_biologia.md",
+    "ciencias": "analise_metodologica_ciencias.md",
+    "ciencia": "analise_metodologica_ciencias.md",
+    "educacao financeira": "analise_metodologica_educacao_financeira.md",
+    "geografia": "analise_metodologica_geografia.md",
+    "historia": "analise_metodologica_historia.md",
+    "ingles": "analise_metodologica_lingua_inglesa.md",
+    "english": "analise_metodologica_lingua_inglesa.md",
+    "lideranca e oratoria": "analise_metodologica_lideranca_e_oratoria.md",
+    "lingua portuguesa": "analise_metodologica_lingua_portuguesa.md",
+    "portugues": "analise_metodologica_lingua_portuguesa.md",
+    "matematica": "analise_metodologica_matematica.md",
+    "orientacao de estudos": "analise_metodologica_orientacao_de_estudos.md",
+    "projeto de vida": "analise_metodologica_projeto_de_vida.md",
+    "quimica": "analise_metodologica_quimica.md",
+    "redacao e leitura": "analise_metodologica_redacao_e_leitura.md",
+    "leitura e redacao": "analise_metodologica_redacao_e_leitura.md",
+    "tecnologia e inovacao": "analise_metodologica_tecnologia_e_inovacao.md",
+}
 
 MAPA_REFERENCIAS = {
     "matematica": (
@@ -105,6 +130,13 @@ def normalizar_disciplina(texto: str = "") -> str:
     texto = texto.translate(mapa)
     return re.sub(r"\s+", " ", texto)
 
+def normalizar_disciplina(texto: str = "") -> str:
+    texto = str(texto or "").strip().lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = texto.replace("º", "").replace("ª", "").replace("°", "")
+    return re.sub(r"\s+", " ", texto)
+
 
 def _eh_turma_fundamental(turma: str = "") -> bool:
     turma_norm = normalizar_disciplina(turma)
@@ -126,6 +158,26 @@ def _eh_projeto_vida(disciplina: str = "") -> bool:
     return "projeto de vida" in normalizar_disciplina(disciplina)
 
 
+def _combinar_arquivos(*grupos: Iterable[str]) -> Tuple[str, ...]:
+    vistos = set()
+    combinados = []
+    for grupo in grupos:
+        for arquivo in grupo or ():
+            if not arquivo or arquivo in vistos:
+                continue
+            vistos.add(arquivo)
+            combinados.append(arquivo)
+    return tuple(combinados)
+
+
+def _arquivos_novos_para_disciplina(disciplina: str = "") -> Tuple[str, ...]:
+    disciplina_norm = normalizar_disciplina(disciplina)
+    for chave, arquivo in MAPA_REFERENCIAS_NOVAS.items():
+        if chave in disciplina_norm:
+            return (arquivo,)
+    return ()
+
+
 def _arquivos_para_disciplina(disciplina: str = "") -> Tuple[str, ...]:
     disciplina_norm = normalizar_disciplina(disciplina)
     for chave, arquivos in MAPA_REFERENCIAS.items():
@@ -143,6 +195,42 @@ def _limpar_markdown(texto: str) -> str:
     texto = re.sub(r"\[(.*?)\]\((.*?)\)", r"\1", texto)
     texto = re.sub(r"\n{3,}", "\n\n", texto)
     return texto.strip()
+
+
+def _priorizar_analise_nova_markdown(texto: str) -> str:
+    bruto = str(texto or "")
+    titulo = ""
+    match_titulo = re.search(r"(?m)^#\s+(.+)$", bruto)
+    if match_titulo:
+        titulo = match_titulo.group(1).strip()
+
+    secoes_prioritarias = []
+    for numero in ("4", "5", "6", "7", "8", "9", "10"):
+        match = re.search(
+            rf"(?ims)^##\s*{numero}\.\s+.*?(?=^##\s+\d+\.|\Z)",
+            bruto,
+        )
+        if match:
+            secoes_prioritarias.append(match.group(0).strip())
+
+    secoes_contexto = []
+    for numero in ("2", "3"):
+        match = re.search(
+            rf"(?ims)^##\s*{numero}\.\s+.*?(?=^##\s+\d+\.|\Z)",
+            bruto,
+        )
+        if match:
+            secoes_contexto.append(match.group(0).strip())
+
+    partes = []
+    if titulo:
+        partes.append(f"# {titulo}")
+    partes.extend(secoes_prioritarias)
+    partes.extend(secoes_contexto)
+
+    if not partes:
+        return _limpar_markdown(bruto)
+    return _limpar_markdown("\n\n".join(partes))
 
 
 def _limpar_interdisciplinar(texto: str) -> str:
@@ -225,7 +313,10 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
         suffix = caminho.suffix.lower()
         if suffix == ".md":
             texto = caminho.read_text(encoding="utf-8", errors="ignore")
-            texto = _limpar_markdown(texto)
+            if caminho.parent == PASTA_ANALISES_NOVAS:
+                texto = _priorizar_analise_nova_markdown(texto)
+            else:
+                texto = _limpar_markdown(texto)
         elif suffix == ".docx":
             texto = _ler_docx(caminho)
         else:
@@ -240,7 +331,10 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
 
 @lru_cache(maxsize=32)
 def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> str:
-    if _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
+    arquivos_novos = _arquivos_novos_para_disciplina(disciplina)
+    if arquivos_novos:
+        arquivos = arquivos_novos
+    elif _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
         arquivos = (REFERENCIA_PORTUGUES_FUNDAMENTAL, REFERENCIA_PORTUGUES_GERAL)
     elif _eh_portugues(disciplina):
         arquivos = (REFERENCIA_PORTUGUES_MEDIO, REFERENCIA_PORTUGUES_GERAL)
@@ -283,8 +377,12 @@ def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> s
 
 def listar_referencias_disponiveis() -> Dict[str, str]:
     disponiveis = {}
-    for disciplina, arquivos in MAPA_REFERENCIAS.items():
-        lista = (arquivos,) if isinstance(arquivos, str) else tuple(arquivos)
+    chaves = set(MAPA_REFERENCIAS) | set(MAPA_REFERENCIAS_NOVAS)
+    for disciplina in sorted(chaves):
+        lista = _combinar_arquivos(
+            _arquivos_novos_para_disciplina(disciplina),
+            _arquivos_para_disciplina(disciplina),
+        )
         caminhos = []
         for arquivo in lista:
             caminho = resolver_caminho_referencia(arquivo)

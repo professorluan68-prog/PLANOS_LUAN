@@ -6,6 +6,16 @@ from typing import Callable
 from core.lib.classificador import contem_termos, normalizar_texto
 
 
+def _base_tem_termo(base: str, termo: str) -> bool:
+    termo = re.escape(normalizar_texto(termo))
+    termo = termo.replace(r"\ ", r"\s+")
+    return bool(re.search(rf"(?<!\w){termo}(?!\w)", base, flags=re.I))
+
+
+def _base_tem_algum(base: str, termos: list[str]) -> bool:
+    return any(_base_tem_termo(base, termo) for termo in termos)
+
+
 def _tem_marcador_visao(base: str) -> bool:
     return bool(
         re.search(
@@ -27,9 +37,9 @@ def _tem_marcador_audicao(base: str) -> bool:
 
 
 def _tema_astronomia(base: str) -> bool:
-    return any(
-        termo in base
-        for termo in [
+    return _base_tem_algum(
+        base,
+        [
             "astronomia",
             "observacao do ceu",
             "observacao da lua",
@@ -46,14 +56,14 @@ def _tema_astronomia(base: str) -> bool:
             "estacoes do ano",
             "estacao do ano",
             "caixa lunar",
-        ]
+        ],
     )
 
 
 def _grupo_modelagem_astronomia(base: str) -> str:
-    if any(
-        termo in base
-        for termo in [
+    if _base_tem_algum(
+        base,
+        [
             "rotacao",
             "translacao",
             "precessao",
@@ -62,28 +72,67 @@ def _grupo_modelagem_astronomia(base: str) -> str:
             "inclinacao",
             "estacoes do ano",
             "estacao do ano",
-        ]
+        ],
     ):
         return "movimentos_terra"
-    if any(
-        termo in base
-        for termo in [
+    if _base_tem_algum(
+        base,
+        [
             "fases da lua",
             "movimentos da lua",
             "observacao da lua",
             "sistema sol",
-            "sol - terra - lua",
             "sol terra lua",
             "eclipse",
             "eclipses",
             "caixa lunar",
             "lua",
-        ]
+        ],
     ):
         return "sistema_sol_terra_lua"
-    if "astronomia" in base or "observacao do ceu" in base:
+    if _base_tem_algum(base, ["astronomia", "observacao do ceu"]):
         return "observacao_ceu"
     return "geral"
+
+
+def _base_indica_matematica(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "matematica",
+            "porcent",
+            "media aritmetica",
+            "volume",
+            "area",
+            "esfera",
+            "equacao",
+            "funcao",
+            "juros",
+            "gols",
+            "notas",
+            "resolucao de problemas",
+        ]
+    )
+
+
+def _base_indica_historia(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "historia",
+            "reinado",
+            "regencial",
+            "revolta",
+            "revoltas",
+            "imperio",
+            "imperial",
+            "cabanagem",
+            "sabinada",
+            "farrapos",
+            "balaiada",
+            "males",
+        ]
+    )
 
 
 def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
@@ -112,12 +161,14 @@ def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desen
             "Observar se interpretam imagens, relatos ou registros do material para explicar como diferentes povos observaram os astros.",
             "Conferir se as respostas utilizam vocabulário científico coerente ao tratar de céu, estrelas, astros, calendários ou orientação.",
         ]
-    if "tabela" in base and any(k in base for k in ["sol", "terra", "lua", "eclipse", "fases", "rotacao", "translacao", "precessao", "orbita", "estacoes do ano", "estacao do ano"]):
+    if "tabela" in base and _tema_astronomia(base):
         return [
-            f"Verificar se os estudantes preenchem a tabela de {tema} com informacoes cientificas corretas e comparaveis.",
-            f"Observar se relacionam os dados da tabela aos movimentos, fases, posicoes ou caracteristicas estudadas em {tema}.",
+            f"Verificar se os estudantes preenchem a tabela de {tema} com informacoes corretas e comparaveis.",
+            f"Observar se relacionam os dados da tabela aos conceitos, movimentos ou caracteristicas estudadas em {tema}.",
             "Conferir se justificam oralmente ou por escrito as conclusoes registradas a partir da leitura da tabela.",
         ]
+    if "tabela" in base and (_base_indica_matematica(base) or _base_indica_historia(base)):
+        return []
     if "tabela" in base:
         return [
             "Verificar se os estudantes preenchem a tabela com informações corretas e completas.",

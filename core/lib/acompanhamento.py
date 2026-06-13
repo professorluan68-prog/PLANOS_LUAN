@@ -1,12 +1,12 @@
-"""
+﻿"""
 Compositor de acompanhamento da aprendizagem por camadas.
 
 Gera textos de acompanhamento contextualizados por:
 1. Perfil disciplinar
 2. Tipo de aula
 3. Etapas da metodologia
-4. Habilidade BNCC (quando disponível)
-5. Variação sequencial (posição da aula na sequência)
+4. Habilidade BNCC (quando disponÃ­vel)
+5. VariaÃ§Ã£o sequencial (posiÃ§Ã£o da aula na sequÃªncia)
 """
 
 import re
@@ -19,204 +19,204 @@ from core.lib.acompanhamento_perfis import (
 )
 
 
-# ── Frases-base por perfil disciplinar e tipo de aula ──────────────────────
+# â”€â”€ Frases-base por perfil disciplinar e tipo de aula â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
     "matematica": {
         "verificacao": [
-            "Observar a autonomia dos estudantes na resolução das atividades.",
-            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
-            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
+            "Observar a autonomia dos estudantes na resoluÃ§Ã£o das atividades.",
+            "â˜‘ Verificar se a turma consegue justificar as estratÃ©gias escolhidas e interpretar os resultados obtidos.",
+            "â˜‘ Acompanhar se os estudantes identificam e corrigem erros no prÃ³prio raciocÃ­nio durante a atividade.",
         ],
         "khan": [
-            "☑ Observar se os estudantes demonstram autonomia na resolução das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
-            "☑ Verificar se a turma consegue justificar as estratégias escolhidas e interpretar os resultados obtidos.",
-            "☑ Acompanhar se os estudantes identificam e corrigem erros no próprio raciocínio durante a atividade.",
+            "â˜‘ Observar se os estudantes demonstram autonomia na resoluÃ§Ã£o das atividades, aplicando corretamente os conceitos trabalhados no bloco.",
+            "â˜‘ Verificar se a turma consegue justificar as estratÃ©gias escolhidas e interpretar os resultados obtidos.",
+            "â˜‘ Acompanhar se os estudantes identificam e corrigem erros no prÃ³prio raciocÃ­nio durante a atividade.",
         ],
         "modelagem": [
-            "☑ Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
-            "☑ Acompanhar se a turma reconhece a relação entre o resultado obtido e o contexto da situação estudada, evitando respostas apenas numéricas.",
-            "☑ Conferir se os registros finais articulam cálculo, interpretação e conclusão, demonstrando compreensão do conceito trabalhado.",
+            "â˜‘ Verificar se os estudantes identificam corretamente os dados necessÃ¡rios e compreendem o que estÃ¡ sendo pedido em cada situaÃ§Ã£o.",
+            "â˜‘ Acompanhar se a turma reconhece a relaÃ§Ã£o entre o resultado obtido e o contexto da situaÃ§Ã£o estudada, evitando respostas apenas numÃ©ricas.",
+            "â˜‘ Conferir se os registros finais articulam cÃ¡lculo, interpretaÃ§Ã£o e conclusÃ£o, demonstrando compreensÃ£o do conceito trabalhado.",
         ],
         "grafico": [
-            "☑ Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informações apresentadas em gráficos ou tabelas do material.",
-            "☑ Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusões sem evidências.",
-            "☑ Observar se conseguem relacionar a representação gráfica ao contexto real da situação estudada.",
+            "â˜‘ Verificar se os estudantes interpretam corretamente os dados, eixos, valores e informaÃ§Ãµes apresentadas em grÃ¡ficos ou tabelas do material.",
+            "â˜‘ Acompanhar se a turma utiliza os dados do material para sustentar respostas, evitando conclusÃµes sem evidÃªncias.",
+            "â˜‘ Observar se conseguem relacionar a representaÃ§Ã£o grÃ¡fica ao contexto real da situaÃ§Ã£o estudada.",
         ],
         "resolucao_problemas": [
-            "☑ Verificar se os estudantes aplicam as etapas do método de resolução: compreender, planejar, executar e verificar.",
-            "☑ Acompanhar se a turma justifica a estratégia escolhida e verifica se o resultado faz sentido no contexto do problema.",
-            "☑ Observar se os estudantes conseguem resolver problemas variados, transferindo o raciocínio para situações novas.",
+            "â˜‘ Verificar se os estudantes aplicam as etapas do mÃ©todo de resoluÃ§Ã£o: compreender, planejar, executar e verificar.",
+            "â˜‘ Acompanhar se a turma justifica a estratÃ©gia escolhida e verifica se o resultado faz sentido no contexto do problema.",
+            "â˜‘ Observar se os estudantes conseguem resolver problemas variados, transferindo o raciocÃ­nio para situaÃ§Ãµes novas.",
         ],
         "_default": [
-            "☑ Verificar se os estudantes identificam corretamente os dados necessários e compreendem o que está sendo pedido em cada situação.",
-            "☑ Acompanhar se a turma reconhece a relação entre o resultado obtido e o contexto da situação estudada, evitando respostas apenas numéricas.",
-            "☑ Conferir se os registros finais articulam cálculo, interpretação e conclusão, demonstrando compreensão do conceito trabalhado.",
+            "â˜‘ Verificar se os estudantes identificam corretamente os dados necessÃ¡rios e compreendem o que estÃ¡ sendo pedido em cada situaÃ§Ã£o.",
+            "â˜‘ Acompanhar se a turma reconhece a relaÃ§Ã£o entre o resultado obtido e o contexto da situaÃ§Ã£o estudada, evitando respostas apenas numÃ©ricas.",
+            "â˜‘ Conferir se os registros finais articulam cÃ¡lculo, interpretaÃ§Ã£o e conclusÃ£o, demonstrando compreensÃ£o do conceito trabalhado.",
         ],
     },
     "lingua_portuguesa_ef": {
         "producao": [
-            "{v_obs} como os estudantes planejam, revisam e ajustam a produção textual, considerando gênero, finalidade comunicativa e organização das ideias.",
-            "{v_ver} se os estudantes incorporam as orientações discutidas na aula para qualificar clareza, coerência e adequação linguística.",
-            "{v_acomp} os registros produzidos, considerando avanços entre rascunho, revisão e versão final, bem como a autonomia no uso dos critérios trabalhados.",
+            "{v_obs} como os estudantes planejam, revisam e ajustam a produÃ§Ã£o textual, considerando gÃªnero, finalidade comunicativa e organizaÃ§Ã£o das ideias.",
+            "{v_ver} se os estudantes incorporam as orientaÃ§Ãµes discutidas na aula para qualificar clareza, coerÃªncia e adequaÃ§Ã£o linguÃ­stica.",
+            "{v_acomp} os registros produzidos, considerando avanÃ§os entre rascunho, revisÃ£o e versÃ£o final, bem como a autonomia no uso dos critÃ©rios trabalhados.",
         ],
         "argumentacao": [
-            "{v_obs} a participação dos estudantes nas discussões, considerando a escuta, a formulação de posicionamentos e o uso de argumentos consistentes.",
-            "{v_ver} se os estudantes identificam tese, argumentos e recursos persuasivos nos textos e interações analisados.",
-            "{v_acomp} se os registros e respostas evidenciam clareza de posicionamento, justificativa e respeito às diferentes perspectivas.",
+            "{v_obs} a participaÃ§Ã£o dos estudantes nas discussÃµes, considerando a escuta, a formulaÃ§Ã£o de posicionamentos e o uso de argumentos consistentes.",
+            "{v_ver} se os estudantes identificam tese, argumentos e recursos persuasivos nos textos e interaÃ§Ãµes analisados.",
+            "{v_acomp} se os registros e respostas evidenciam clareza de posicionamento, justificativa e respeito Ã s diferentes perspectivas.",
         ],
         "_default": [
-            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguísticos em foco.",
-            "{v_ver} a participação nas leituras, análises, discussões e registros, considerando interpretação, argumentação e ampliação de repertório.",
-            "{v_acomp} se os estudantes aplicam as estratégias de leitura, análise da linguagem ou produção de sentidos com autonomia crescente.",
+            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguÃ­sticos em foco.",
+            "{v_ver} a participaÃ§Ã£o nas leituras, anÃ¡lises, discussÃµes e registros, considerando interpretaÃ§Ã£o, argumentaÃ§Ã£o e ampliaÃ§Ã£o de repertÃ³rio.",
+            "{v_acomp} se os estudantes aplicam as estratÃ©gias de leitura, anÃ¡lise da linguagem ou produÃ§Ã£o de sentidos com autonomia crescente.",
         ],
     },
     "lingua_portuguesa_em": {
         "_default": [
-            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguísticos em foco.",
-            "{v_ver} a participação nas leituras, análises, discussões e registros, considerando interpretação, argumentação e ampliação de repertório.",
-            "{v_acomp} se os estudantes aplicam as estratégias de leitura, análise da linguagem ou produção de sentidos com autonomia crescente.",
+            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguÃ­sticos em foco.",
+            "{v_ver} a participaÃ§Ã£o nas leituras, anÃ¡lises, discussÃµes e registros, considerando interpretaÃ§Ã£o, argumentaÃ§Ã£o e ampliaÃ§Ã£o de repertÃ³rio.",
+            "{v_acomp} se os estudantes aplicam as estratÃ©gias de leitura, anÃ¡lise da linguagem ou produÃ§Ã£o de sentidos com autonomia crescente.",
         ],
     },
     "leitura_redacao": {
         "_default": [
-            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguísticos em foco.",
-            "{v_ver} a participação nas leituras, análises, discussões e registros, considerando interpretação, argumentação e ampliação de repertório.",
-            "{v_acomp} se os estudantes aplicam as estratégias de leitura, análise da linguagem ou produção de sentidos com autonomia crescente.",
+            "{v_obs} se os estudantes compreendem as ideias centrais de {tema} e reconhecem os elementos textuais ou linguÃ­sticos em foco.",
+            "{v_ver} a participaÃ§Ã£o nas leituras, anÃ¡lises, discussÃµes e registros, considerando interpretaÃ§Ã£o, argumentaÃ§Ã£o e ampliaÃ§Ã£o de repertÃ³rio.",
+            "{v_acomp} se os estudantes aplicam as estratÃ©gias de leitura, anÃ¡lise da linguagem ou produÃ§Ã£o de sentidos com autonomia crescente.",
         ],
     },
     "orientacao_estudos": {
         "_default": [
-            "{v_obs} se os estudantes utilizam as estratégias de organização, leitura, retomada e planejamento propostas durante a aula.",
-            "{v_ver} se os estudantes conseguem identificar dificuldades, selecionar procedimentos de estudo e explicar como podem aplicá-los em outras situações.",
-            "{v_acomp} os registros produzidos, considerando autonomia, constância e capacidade de monitorar o próprio processo de aprendizagem.",
+            "{v_obs} se os estudantes utilizam as estratÃ©gias de organizaÃ§Ã£o, leitura, retomada e planejamento propostas durante a aula.",
+            "{v_ver} se os estudantes conseguem identificar dificuldades, selecionar procedimentos de estudo e explicar como podem aplicÃ¡-los em outras situaÃ§Ãµes.",
+            "{v_acomp} os registros produzidos, considerando autonomia, constÃ¢ncia e capacidade de monitorar o prÃ³prio processo de aprendizagem.",
         ],
     },
     "ciencias_ef": {
         "_default": [
-            "{v_obs} se os estudantes relacionam {tema} aos conceitos científicos trabalhados e utilizam evidências para sustentar suas respostas.",
-            "{v_ver} a participação nas investigações, discussões, registros e socializações, considerando clareza de hipóteses e explicações.",
-            "{v_acomp} se os estudantes interpretam fenômenos, dados, experimentos ou representações com base nos conceitos desenvolvidos na aula.",
+            "{v_obs} se os estudantes relacionam {tema} aos conceitos cientÃ­ficos trabalhados e utilizam evidÃªncias para sustentar suas respostas.",
+            "{v_ver} a participaÃ§Ã£o nas investigaÃ§Ãµes, discussÃµes, registros e socializaÃ§Ãµes, considerando clareza de hipÃ³teses e explicaÃ§Ãµes.",
+            "{v_acomp} se os estudantes interpretam fenÃ´menos, dados, experimentos ou representaÃ§Ãµes com base nos conceitos desenvolvidos na aula.",
         ],
     },
     "biologia": {
         "_default": [
-            "{v_obs} se os estudantes relacionam fenômenos biológicos e ambientais, utilizando conceitos científicos para explicar causas, efeitos e interdependências.",
-            "{v_ver} se os estudantes interpretam dados, imagens, esquemas ou situações-problema com base nas evidências discutidas na aula.",
-            "{v_acomp} se os registros mostram uso progressivo do vocabulário científico e capacidade de justificar posições e soluções.",
+            "{v_obs} se os estudantes relacionam fenÃ´menos biolÃ³gicos e ambientais, utilizando conceitos cientÃ­ficos para explicar causas, efeitos e interdependÃªncias.",
+            "{v_ver} se os estudantes interpretam dados, imagens, esquemas ou situaÃ§Ãµes-problema com base nas evidÃªncias discutidas na aula.",
+            "{v_acomp} se os registros mostram uso progressivo do vocabulÃ¡rio cientÃ­fico e capacidade de justificar posiÃ§Ãµes e soluÃ§Ãµes.",
         ],
     },
     "quimica": {
         "_default": [
-            "{v_obs} se os estudantes identificam evidências, transformações e relações entre substâncias, materiais ou processos químicos em estudo.",
-            "{v_ver} se os estudantes organizam informações, analisam representações e explicam resultados utilizando conceitos e linguagem adequados.",
-            "{v_acomp} se os estudantes conseguem aplicar os conhecimentos trabalhados para interpretar fenômenos, comparar situações e justificar conclusões.",
+            "{v_obs} se os estudantes identificam evidÃªncias, transformaÃ§Ãµes e relaÃ§Ãµes entre substÃ¢ncias, materiais ou processos quÃ­micos em estudo.",
+            "{v_ver} se os estudantes organizam informaÃ§Ãµes, analisam representaÃ§Ãµes e explicam resultados utilizando conceitos e linguagem adequados.",
+            "{v_acomp} se os estudantes conseguem aplicar os conhecimentos trabalhados para interpretar fenÃ´menos, comparar situaÃ§Ãµes e justificar conclusÃµes.",
         ],
     },
     "fisica": {
         "_default": [
-            "{v_obs} se os estudantes identificam grandezas, variáveis e relações físicas envolvidas nas situações analisadas na aula.",
-            "{v_ver} se os estudantes interpretam esquemas, gráficos, experimentos ou problemas, articulando conceitos e evidências.",
-            "{v_acomp} se os estudantes explicam procedimentos, analisam resultados e utilizam os conceitos físicos para justificar suas respostas.",
+            "{v_obs} se os estudantes identificam grandezas, variÃ¡veis e relaÃ§Ãµes fÃ­sicas envolvidas nas situaÃ§Ãµes analisadas na aula.",
+            "{v_ver} se os estudantes interpretam esquemas, grÃ¡ficos, experimentos ou problemas, articulando conceitos e evidÃªncias.",
+            "{v_acomp} se os estudantes explicam procedimentos, analisam resultados e utilizam os conceitos fÃ­sicos para justificar suas respostas.",
         ],
     },
     "historia": {
         "_default": [
-            "{v_obs} se os estudantes identificam sujeitos, contextos, permanências, mudanças e relações temporais nas fontes e situações estudadas.",
-            "{v_ver} se os estudantes utilizam evidências históricas para interpretar acontecimentos, comparar perspectivas e sustentar explicações.",
-            "{v_acomp} os registros e respostas, considerando vocabulário histórico, organização das ideias e progressiva autonomia de análise.",
+            "{v_obs} se os estudantes identificam sujeitos, contextos, permanÃªncias, mudanÃ§as e relaÃ§Ãµes temporais nas fontes e situaÃ§Ãµes estudadas.",
+            "{v_ver} se os estudantes utilizam evidÃªncias histÃ³ricas para interpretar acontecimentos, comparar perspectivas e sustentar explicaÃ§Ãµes.",
+            "{v_acomp} os registros e respostas, considerando vocabulÃ¡rio histÃ³rico, organizaÃ§Ã£o das ideias e progressiva autonomia de anÃ¡lise.",
         ],
     },
     "geografia": {
         "_default": [
-            "{v_obs} se os estudantes interpretam paisagens, mapas, gráficos, tabelas e outras linguagens geográficas com atenção aos conceitos em foco.",
-            "{v_ver} se os estudantes relacionam território, sociedade, natureza e escalas de análise nas situações discutidas ao longo da aula.",
-            "{v_acomp} os registros produzidos, considerando clareza na leitura de dados, argumentação e aplicação dos conceitos trabalhados.",
+            "{v_obs} se os estudantes interpretam paisagens, mapas, grÃ¡ficos, tabelas e outras linguagens geogrÃ¡ficas com atenÃ§Ã£o aos conceitos em foco.",
+            "{v_ver} se os estudantes relacionam territÃ³rio, sociedade, natureza e escalas de anÃ¡lise nas situaÃ§Ãµes discutidas ao longo da aula.",
+            "{v_acomp} os registros produzidos, considerando clareza na leitura de dados, argumentaÃ§Ã£o e aplicaÃ§Ã£o dos conceitos trabalhados.",
         ],
     },
     "ingles": {
         "_default": [
-            "{v_obs} se os estudantes compreendem vocabulário, estruturas e comandos em língua inglesa nas atividades propostas.",
-            "{v_ver} se os estudantes participam das práticas de leitura, escuta, oralidade e escrita com apoio progressivamente mais autônomo.",
-            "{v_acomp} se os registros e interações evidenciam uso contextualizado da língua, ampliação de repertório e compreensão do tema estudado.",
+            "{v_obs} se os estudantes compreendem vocabulÃ¡rio, estruturas e comandos em lÃ­ngua inglesa nas atividades propostas.",
+            "{v_ver} se os estudantes participam das prÃ¡ticas de leitura, escuta, oralidade e escrita com apoio progressivamente mais autÃ´nomo.",
+            "{v_acomp} se os registros e interaÃ§Ãµes evidenciam uso contextualizado da lÃ­ngua, ampliaÃ§Ã£o de repertÃ³rio e compreensÃ£o do tema estudado.",
         ],
     },
     "arte": {
         "_default": [
-            "{v_obs} se os estudantes participam das práticas de apreciação, experimentação, criação e análise propostas durante a aula.",
-            "{v_ver} se os estudantes reconhecem elementos, linguagens, procedimentos e intencionalidades presentes nas produções artísticas estudadas.",
-            "{v_acomp} se os registros e produções revelam ampliação de repertório, argumentação sensível e uso de referências discutidas coletivamente.",
+            "{v_obs} se os estudantes participam das prÃ¡ticas de apreciaÃ§Ã£o, experimentaÃ§Ã£o, criaÃ§Ã£o e anÃ¡lise propostas durante a aula.",
+            "{v_ver} se os estudantes reconhecem elementos, linguagens, procedimentos e intencionalidades presentes nas produÃ§Ãµes artÃ­sticas estudadas.",
+            "{v_acomp} se os registros e produÃ§Ãµes revelam ampliaÃ§Ã£o de repertÃ³rio, argumentaÃ§Ã£o sensÃ­vel e uso de referÃªncias discutidas coletivamente.",
         ],
     },
     "projeto_de_vida": {
         "autoconhecimento": [
-            "{v_obs} se o estudante identifica pelo menos três possibilidades de futuro conectadas aos seus interesses e valores, com justificativa para cada escolha.",
-            "{v_ver} se o estudante reconhece fatores externos (contexto social, oportunidades, imprevistos) que influenciam suas escolhas, sem se limitar à vontade individual.",
-            "{v_acomp} a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
+            "{v_obs} se o estudante identifica pelo menos trÃªs possibilidades de futuro conectadas aos seus interesses e valores, com justificativa para cada escolha.",
+            "{v_ver} se o estudante reconhece fatores externos (contexto social, oportunidades, imprevistos) que influenciam suas escolhas, sem se limitar Ã  vontade individual.",
+            "{v_acomp} a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestÃµes pertinentes ao projeto de vida do outro.",
         ],
         "futureme": [
-            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar ‘a resposta certa’.",
-            "{v_ver} se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência, sem aceitar passivamente o resultado.",
-            "{v_acomp} a troca em duplas/trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano escolar e pessoal.",
+            "{v_obs} se o estudante completa o questionÃ¡rio da plataforma com autenticidade, respondendo com base em suas preferÃªncias reais, sem buscar â€˜a resposta certaâ€™.",
+            "{v_ver} se o estudante interpreta o relatÃ³rio de forma crÃ­tica, identificando o que faz sentido e o que nÃ£o se alinha Ã  sua experiÃªncia, sem aceitar passivamente o resultado.",
+            "{v_acomp} a troca em duplas/trios, avaliando se o estudante conecta os resultados da plataforma a situaÃ§Ãµes concretas do cotidiano escolar e pessoal.",
         ],
         "producao_coletiva": [
-            "{v_obs} se o grupo elabora um produto concreto (biomapa, campanha, vídeo) com elementos claros: objetivo, mensagem, público-alvo e estratégia de ação.",
-            "{v_ver} se todos os integrantes do grupo participam ativamente da produção, com funções definidas e contribuições visíveis.",
-            "{v_acomp} a apresentação do produto, avaliando se o grupo consegue explicar as escolhas feitas e conectá-las ao tema do bimestre.",
+            "{v_obs} se o grupo elabora um produto concreto (biomapa, campanha, vÃ­deo) com elementos claros: objetivo, mensagem, pÃºblico-alvo e estratÃ©gia de aÃ§Ã£o.",
+            "{v_ver} se todos os integrantes do grupo participam ativamente da produÃ§Ã£o, com funÃ§Ãµes definidas e contribuiÃ§Ãµes visÃ­veis.",
+            "{v_acomp} a apresentaÃ§Ã£o do produto, avaliando se o grupo consegue explicar as escolhas feitas e conectÃ¡-las ao tema do bimestre.",
         ],
         "convivencia": [
-            "{v_obs} se o estudante participa do Círculo de Convivência com escuta ativa, respeitando os acordos de fala e sem interromper os colegas.",
-            "{v_ver} se o estudante contribui com pelo menos uma proposta de solução para o dilema discutido, justificando com base nos efeitos para o grupo.",
-            "{v_acomp} o registro individual do compromisso, avaliando se o estudante identifica uma ação concreta que pode realizar para colocar a decisão coletiva em prática.",
+            "{v_obs} se o estudante participa do CÃ­rculo de ConvivÃªncia com escuta ativa, respeitando os acordos de fala e sem interromper os colegas.",
+            "{v_ver} se o estudante contribui com pelo menos uma proposta de soluÃ§Ã£o para o dilema discutido, justificando com base nos efeitos para o grupo.",
+            "{v_acomp} o registro individual do compromisso, avaliando se o estudante identifica uma aÃ§Ã£o concreta que pode realizar para colocar a decisÃ£o coletiva em prÃ¡tica.",
         ],
         "consciencia_social": [
-            "{v_obs} se o estudante reconhece a diferença entre privilégios e desvantagens como condições estruturais, e não apenas como resultado do esforço individual.",
-            "{v_ver} se o estudante identifica, no ambiente digital e na mídia, padrões de representação que privilegiam certos perfis e invisibilizam outros.",
-            "{v_acomp} o registro individual, avaliando se o estudante indica mudanças concretas em sua forma de agir ao reconhecer desigualdades.",
+            "{v_obs} se o estudante reconhece a diferenÃ§a entre privilÃ©gios e desvantagens como condiÃ§Ãµes estruturais, e nÃ£o apenas como resultado do esforÃ§o individual.",
+            "{v_ver} se o estudante identifica, no ambiente digital e na mÃ­dia, padrÃµes de representaÃ§Ã£o que privilegiam certos perfis e invisibilizam outros.",
+            "{v_acomp} o registro individual, avaliando se o estudante indica mudanÃ§as concretas em sua forma de agir ao reconhecer desigualdades.",
         ],
         "encerramento": [
-            "{v_obs} se o estudante identifica pelo menos uma descoberta significativa sobre si mesmo ao longo do bimestre, conectando-a a situações concretas vividas nas aulas.",
-            "{v_ver} se o estudante consegue nomear uma mudança no modo de agir, sentir ou ver o mundo a partir dos aprendizados do bimestre.",
-            "{v_acomp} a participação no ritual simbólico de encerramento, avaliando se o estudante escolhe palavras/compromissos que refletem os temas trabalhados.",
+            "{v_obs} se o estudante identifica pelo menos uma descoberta significativa sobre si mesmo ao longo do bimestre, conectando-a a situaÃ§Ãµes concretas vividas nas aulas.",
+            "{v_ver} se o estudante consegue nomear uma mudanÃ§a no modo de agir, sentir ou ver o mundo a partir dos aprendizados do bimestre.",
+            "{v_acomp} a participaÃ§Ã£o no ritual simbÃ³lico de encerramento, avaliando se o estudante escolhe palavras/compromissos que refletem os temas trabalhados.",
         ],
         "_default": [
-            "{v_obs} a participação dos estudantes nas reflexões e interações propostas, considerando escuta, respeito, cooperação e elaboração de ideias.",
-            "{v_ver} se os estudantes relacionam o tema da aula a escolhas, atitudes, estratégias de convivência e planejamento pessoal ou coletivo.",
-            "{v_acomp} os registros produzidos, valorizando argumentação, consciência crítica e apropriação dos conceitos sem exigir exposição excessiva.",
+            "{v_obs} a participaÃ§Ã£o dos estudantes nas reflexÃµes e interaÃ§Ãµes propostas, considerando escuta, respeito, cooperaÃ§Ã£o e elaboraÃ§Ã£o de ideias.",
+            "{v_ver} se os estudantes relacionam o tema da aula a escolhas, atitudes, estratÃ©gias de convivÃªncia e planejamento pessoal ou coletivo.",
+            "{v_acomp} os registros produzidos, valorizando argumentaÃ§Ã£o, consciÃªncia crÃ­tica e apropriaÃ§Ã£o dos conceitos sem exigir exposiÃ§Ã£o excessiva.",
         ],
     },
     "lideranca_oratoria": {
         "_default": [
-            "{v_obs} a participação dos estudantes nas reflexões e interações propostas, considerando escuta, respeito, cooperação e elaboração de ideias.",
-            "{v_ver} se os estudantes relacionam o tema da aula a escolhas, atitudes, estratégias de convivência e planejamento pessoal ou coletivo.",
-            "{v_acomp} os registros produzidos, valorizando argumentação, consciência crítica e apropriação dos conceitos sem exigir exposição excessiva.",
+            "{v_obs} a participaÃ§Ã£o dos estudantes nas reflexÃµes e interaÃ§Ãµes propostas, considerando escuta, respeito, cooperaÃ§Ã£o e elaboraÃ§Ã£o de ideias.",
+            "{v_ver} se os estudantes relacionam o tema da aula a escolhas, atitudes, estratÃ©gias de convivÃªncia e planejamento pessoal ou coletivo.",
+            "{v_acomp} os registros produzidos, valorizando argumentaÃ§Ã£o, consciÃªncia crÃ­tica e apropriaÃ§Ã£o dos conceitos sem exigir exposiÃ§Ã£o excessiva.",
         ],
     },
     "educacao_financeira": {
         "orcamento_planejamento": [
-            "{v_obs} se os estudantes identificam receitas, despesas, prioridades e metas em situações de organização financeira.",
-            "{v_ver} se os estudantes elaboram ou analisam o orçamento simulado com critérios claros, relacionando escolhas, limites e saldo.",
-            "{v_acomp} se os registros mostram compreensão progressiva sobre planejamento, controle de gastos e tomada de decisão responsável.",
+            "{v_obs} se os estudantes identificam receitas, despesas, prioridades e metas em situaÃ§Ãµes de organizaÃ§Ã£o financeira.",
+            "{v_ver} se os estudantes elaboram ou analisam o orÃ§amento simulado com critÃ©rios claros, relacionando escolhas, limites e saldo.",
+            "{v_acomp} se os registros mostram compreensÃ£o progressiva sobre planejamento, controle de gastos e tomada de decisÃ£o responsÃ¡vel.",
         ],
         "consumo_consciente": [
-            "{v_obs} se os estudantes diferenciam necessidade, desejo, prioridade e custo-benefício nas situações de consumo analisadas.",
-            "{v_ver} se os estudantes justificam escolhas de consumo com base em dados, consequências e critérios construídos na aula.",
-            "{v_acomp} se os registros evidenciam postura crítica sem julgamento moralista sobre hábitos pessoais ou familiares.",
+            "{v_obs} se os estudantes diferenciam necessidade, desejo, prioridade e custo-benefÃ­cio nas situaÃ§Ãµes de consumo analisadas.",
+            "{v_ver} se os estudantes justificam escolhas de consumo com base em dados, consequÃªncias e critÃ©rios construÃ­dos na aula.",
+            "{v_acomp} se os registros evidenciam postura crÃ­tica sem julgamento moralista sobre hÃ¡bitos pessoais ou familiares.",
         ],
         "investimento_poupanca": [
-            "{v_obs} se os estudantes compreendem a função da poupança, da reserva de emergência e do planejamento de metas.",
-            "{v_ver} se os estudantes interpretam valores, rendimentos, prazos ou cenários de acumulação, justificando decisões com coerência.",
-            "{v_acomp} se os registros relacionam constância, objetivo financeiro, imprevistos e uso responsável dos recursos.",
+            "{v_obs} se os estudantes compreendem a funÃ§Ã£o da poupanÃ§a, da reserva de emergÃªncia e do planejamento de metas.",
+            "{v_ver} se os estudantes interpretam valores, rendimentos, prazos ou cenÃ¡rios de acumulaÃ§Ã£o, justificando decisÃµes com coerÃªncia.",
+            "{v_acomp} se os registros relacionam constÃ¢ncia, objetivo financeiro, imprevistos e uso responsÃ¡vel dos recursos.",
         ],
         "credito_endividamento": [
-            "{v_obs} se os estudantes reconhecem juros, parcelas, custo total e riscos envolvidos no uso de crédito.",
-            "{v_ver} se os estudantes comparam alternativas de pagamento e justificam quando o crédito pode ser vantajoso ou arriscado.",
-            "{v_acomp} se os cálculos e registros mostram compreensão sobre endividamento, planejamento e uso responsável do crédito.",
+            "{v_obs} se os estudantes reconhecem juros, parcelas, custo total e riscos envolvidos no uso de crÃ©dito.",
+            "{v_ver} se os estudantes comparam alternativas de pagamento e justificam quando o crÃ©dito pode ser vantajoso ou arriscado.",
+            "{v_acomp} se os cÃ¡lculos e registros mostram compreensÃ£o sobre endividamento, planejamento e uso responsÃ¡vel do crÃ©dito.",
         ],
         "empreendedorismo": [
-            "{v_obs} se os estudantes identificam custos, preço, público, recursos necessários e viabilidade em propostas empreendedoras simples.",
-            "{v_ver} se os estudantes justificam decisões do projeto com base em planejamento, responsabilidade e análise do contexto.",
-            "{v_acomp} se os registros mostram articulação entre ideia, necessidade, produto ou serviço e organização financeira.",
+            "{v_obs} se os estudantes identificam custos, preÃ§o, pÃºblico, recursos necessÃ¡rios e viabilidade em propostas empreendedoras simples.",
+            "{v_ver} se os estudantes justificam decisÃµes do projeto com base em planejamento, responsabilidade e anÃ¡lise do contexto.",
+            "{v_acomp} se os registros mostram articulaÃ§Ã£o entre ideia, necessidade, produto ou serviÃ§o e organizaÃ§Ã£o financeira.",
         ],
         "analise_percentuais_noticias": [
             "{v_obs} se os estudantes identificam percentuais, valores de referencia e comparacoes presentes nas noticias analisadas.",
@@ -230,23 +230,23 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
         ],
         "impacto_decisoes_economicas": [
             "{v_obs} se os estudantes analisam como escolhas economicas afetam consumo, prioridades e planejamento do cotidiano.",
-            "{v_ver} se os estudantes comparam alternativas e justificam decisões com base em consequencias e criterios objetivos.",
+            "{v_ver} se os estudantes comparam alternativas e justificam decisÃµes com base em consequencias e criterios objetivos.",
             "{v_acomp} se os registros mostram relacao entre recursos disponiveis, metas e impactos das escolhas feitas.",
         ],
         "cidadania_financeira": [
-            "{v_obs} se os estudantes reconhecem direitos, responsabilidades e formas de proteção em situações de consumo.",
-            "{v_ver} se os estudantes analisam comprovantes, garantias, segurança e critérios de escolha em serviços ou compras.",
-            "{v_acomp} se as respostas indicam autonomia para tomar decisões financeiras mais seguras e conscientes.",
+            "{v_obs} se os estudantes reconhecem direitos, responsabilidades e formas de proteÃ§Ã£o em situaÃ§Ãµes de consumo.",
+            "{v_ver} se os estudantes analisam comprovantes, garantias, seguranÃ§a e critÃ©rios de escolha em serviÃ§os ou compras.",
+            "{v_acomp} se as respostas indicam autonomia para tomar decisÃµes financeiras mais seguras e conscientes.",
         ],
         "instituicoes_financeiras": [
-            "{v_obs} se os estudantes reconhecem a função das instituições financeiras na guarda, movimentação e proteção do dinheiro.",
-            "{v_ver} se os estudantes comparam serviços financeiros, identificando possibilidades, cuidados e critérios de segurança.",
-            "{v_acomp} se os registros relacionam instituição financeira, organização dos recursos e escolhas responsáveis.",
+            "{v_obs} se os estudantes reconhecem a funÃ§Ã£o das instituiÃ§Ãµes financeiras na guarda, movimentaÃ§Ã£o e proteÃ§Ã£o do dinheiro.",
+            "{v_ver} se os estudantes comparam serviÃ§os financeiros, identificando possibilidades, cuidados e critÃ©rios de seguranÃ§a.",
+            "{v_acomp} se os registros relacionam instituiÃ§Ã£o financeira, organizaÃ§Ã£o dos recursos e escolhas responsÃ¡veis.",
         ],
         "_default": [
-            "{v_obs} se os estudantes analisam situações de consumo, orçamento, planejamento e tomada de decisão com base em critérios claros.",
-            "{v_ver} se os estudantes interpretam cálculos, dados e cenários financeiros, justificando escolhas e prioridades com coerência.",
-            "{v_acomp} se os registros mostram compreensão progressiva das relações entre objetivos, recursos, limites e consequências das decisões.",
+            "{v_obs} se os estudantes analisam situaÃ§Ãµes de consumo, orÃ§amento, planejamento e tomada de decisÃ£o com base em critÃ©rios claros.",
+            "{v_ver} se os estudantes interpretam cÃ¡lculos, dados e cenÃ¡rios financeiros, justificando escolhas e prioridades com coerÃªncia.",
+            "{v_acomp} se os registros mostram compreensÃ£o progressiva das relaÃ§Ãµes entre objetivos, recursos, limites e consequÃªncias das decisÃµes.",
         ],
     },
     "tecnologia_inovacao": {
@@ -276,33 +276,33 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
             "{v_acomp} as propostas de campanha, listas ou orientacoes produzidas pela turma, considerando viabilidade, consciencia ambiental e clareza das ideias.",
         ],
         "_default": [
-            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de análise, discussão e registro.",
-            "{v_ver} se articulam o tema estudado a situações do cotidiano, usos da tecnologia e formas de resolver problemas ou se comunicar melhor.",
-            "{v_acomp} os registros produzidos, considerando clareza de ideias, autonomia crescente e aplicação prática do conhecimento trabalhado.",
+            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de anÃ¡lise, discussÃ£o e registro.",
+            "{v_ver} se articulam o tema estudado a situaÃ§Ãµes do cotidiano, usos da tecnologia e formas de resolver problemas ou se comunicar melhor.",
+            "{v_acomp} os registros produzidos, considerando clareza de ideias, autonomia crescente e aplicaÃ§Ã£o prÃ¡tica do conhecimento trabalhado.",
         ],
     },
     "sociologia": {
         "_default": [
-            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de análise, discussão e registro.",
-            "{v_ver} se os estudantes articulam o tema estudado a situações do cotidiano, contextos sociais ou usos práticos do conhecimento.",
-            "{v_acomp} os registros produzidos, considerando clareza de ideias, argumentação e autonomia crescente nas respostas.",
+            "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} e participam das atividades de anÃ¡lise, discussÃ£o e registro.",
+            "{v_ver} se os estudantes articulam o tema estudado a situaÃ§Ãµes do cotidiano, contextos sociais ou usos prÃ¡ticos do conhecimento.",
+            "{v_acomp} os registros produzidos, considerando clareza de ideias, argumentaÃ§Ã£o e autonomia crescente nas respostas.",
         ],
     },
 }
 
-# ── Conectores com etapas da metodologia ───────────────────────────────────
+# â”€â”€ Conectores com etapas da metodologia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _CONECTORES_ETAPAS = {
-    "para comecar": "nas trocas iniciais e no levantamento de conhecimentos prévios",
+    "para comecar": "nas trocas iniciais e no levantamento de conhecimentos prÃ©vios",
     "relembre": "na retomada dos conceitos trabalhados anteriormente",
-    "foco no conteudo": "durante a explicação e a análise do conteúdo central",
-    "na pratica": "na resolução das atividades propostas e nos registros individuais",
-    "pause e responda": "durante a verificação e a correção dialogada",
-    "encerramento": "na síntese final e nos registros de fechamento",
-    "leitura e construcao do conteudo": "durante a leitura guiada e a construção coletiva do conteúdo",
-    "contextualizacao": "durante a contextualização e a mobilização de repertórios",
-    "leitura analitica": "na análise dos textos, imagens e recursos apresentados",
-    "sistematizacao": "na sistematização dos conceitos e registros construídos",
+    "foco no conteudo": "durante a explicaÃ§Ã£o e a anÃ¡lise do conteÃºdo central",
+    "na pratica": "na resoluÃ§Ã£o das atividades propostas e nos registros individuais",
+    "pause e responda": "durante a verificaÃ§Ã£o e a correÃ§Ã£o dialogada",
+    "encerramento": "na sÃ­ntese final e nos registros de fechamento",
+    "leitura e construcao do conteudo": "durante a leitura guiada e a construÃ§Ã£o coletiva do conteÃºdo",
+    "contextualizacao": "durante a contextualizaÃ§Ã£o e a mobilizaÃ§Ã£o de repertÃ³rios",
+    "leitura analitica": "na anÃ¡lise dos textos, imagens e recursos apresentados",
+    "sistematizacao": "na sistematizaÃ§Ã£o dos conceitos e registros construÃ­dos",
 }
 
 _PRIORIDADE_ETAPA = [
@@ -327,7 +327,7 @@ def _etapa_principal(etapas: list[str] | None) -> str:
 
 
 class CompositorAcompanhamento:
-    """Motor de composição de acompanhamento por camadas."""
+    """Motor de composiÃ§Ã£o de acompanhamento por camadas."""
 
     def compor(
         self,
@@ -342,15 +342,15 @@ class CompositorAcompanhamento:
         desenvolvimento: str = "",
     ) -> list[str]:
         """
-        Compõe 3 itens de acompanhamento da aprendizagem, customizados por camadas.
+        CompÃµe 3 itens de acompanhamento da aprendizagem, customizados por camadas.
 
         Args:
             perfil: perfil disciplinar (ex: 'matematica', 'lingua_portuguesa_ef')
             tipo: tipo de aula (ex: 'leitura', 'producao', 'resolucao_problemas')
             tema: tema da aula
-            habilidade: habilidade BNCC extraída, se disponível
-            etapas_metodologia: lista de títulos de etapas na metodologia
-            indice_aula: posição da aula na sequência (0-based)
+            habilidade: habilidade BNCC extraÃ­da, se disponÃ­vel
+            etapas_metodologia: lista de tÃ­tulos de etapas na metodologia
+            indice_aula: posiÃ§Ã£o da aula na sequÃªncia (0-based)
             disciplina: nome da disciplina (fallback)
             aprendizagem: texto de aprendizagem
             desenvolvimento: texto de desenvolvimento/metodologia
@@ -366,11 +366,11 @@ class CompositorAcompanhamento:
         if not templates:
             templates = [
                 "{v_obs} se os estudantes compreendem os conceitos centrais relacionados a {tema} {conector}.",
-                "{v_ver} a participação, os registros produzidos e a forma como os estudantes justificam suas respostas ao longo da aula.",
+                "{v_ver} a participaÃ§Ã£o, os registros produzidos e a forma como os estudantes justificam suas respostas ao longo da aula.",
                 "{v_acomp} se os estudantes conseguem aplicar os conhecimentos trabalhados com autonomia progressiva nas atividades orientadas.",
             ]
 
-        # Camada 2: Resolver verbos com variação por posição
+        # Camada 2: Resolver verbos com variaÃ§Ã£o por posiÃ§Ã£o
         v_obs = verbo_observacao(indice_aula, tema)
         v_ver = verbo_verificacao(indice_aula, tema)
         v_acomp = verbo_acompanhamento(indice_aula, tema)
@@ -387,31 +387,31 @@ class CompositorAcompanhamento:
             )
             itens.append(texto)
 
-        # Camada 3: Enriquecer com referência à etapa da metodologia
+        # Camada 3: Enriquecer com referÃªncia Ã  etapa da metodologia
         if etapas_metodologia:
             etapa_principal = _etapa_principal(etapas_metodologia)
             conector_etapa = _CONECTORES_ETAPAS.get(etapa_principal, "")
             if conector_etapa and len(itens) >= 2:
-                # Enriquece o segundo item com referência à etapa
+                # Enriquece o segundo item com referÃªncia Ã  etapa
                 item_enriquecido = itens[1]
                 if not any(c in item_enriquecido.lower() for c in ["nas trocas", "na retomada", "durante a"]):
                     item_enriquecido = item_enriquecido.rstrip(".")
                     item_enriquecido += f", especialmente {conector_etapa}."
                     itens[1] = item_enriquecido
 
-        # Camada 4: Incorporar referência à habilidade BNCC
+        # Camada 4: Incorporar referÃªncia Ã  habilidade BNCC
         if habilidade and len(habilidade) > 10:
             codigo_match = re.search(r'((?:EM|EF)\d{2}[A-Z]{2}\d{2}[A-Z]?)', habilidade, re.I)
             if codigo_match:
                 codigo = codigo_match.group(1).upper()
                 if len(itens) >= 1:
                     itens[0] = itens[0].rstrip(".")
-                    itens[0] += f", em articulação com a habilidade ({codigo})."
+                    itens[0] += f", em articulaÃ§Ã£o com a habilidade ({codigo})."
 
         return itens
 
 
-# ── Instância global para uso direto ────────────────────────────────────────
+# â”€â”€ InstÃ¢ncia global para uso direto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _compositor = CompositorAcompanhamento()
 
@@ -425,8 +425,8 @@ def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[s
             continue
         if len(txt) > 220:
             txt = limitar_texto_natural(txt, 220)
-        txt = re.sub(r"^[☑•\-\*\u2013\u2014]\s*", "", txt)
-        txt = f"☑ {txt}"
+        txt = re.sub(r"^[^\w(]+", "", txt)
+        txt = f"\u2611 {txt}"
         saida.append(txt)
         if len(saida) >= maximo:
             break
@@ -448,8 +448,8 @@ def gerar_acompanhamento_aprimorado(
 ) -> list[str]:
     """
     Gera acompanhamento da aprendizagem aprimorado.
-    Compatível com a assinatura de gerar_acompanhamento_dinamico() do avaliacao.py,
-    mas com camadas adicionais de personalização.
+    CompatÃ­vel com a assinatura de gerar_acompanhamento_dinamico() do avaliacao.py,
+    mas com camadas adicionais de personalizaÃ§Ã£o.
     """
     from core.lib.classificador import perfil_disciplina, detectar_tipo_aula
 
@@ -486,3 +486,4 @@ def gerar_acompanhamento_aprimorado(
         aprendizagem=aprendizagem,
         desenvolvimento=desenvolvimento,
     ), minimo=2, maximo=3)
+

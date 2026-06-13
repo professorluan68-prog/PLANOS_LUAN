@@ -420,6 +420,39 @@ def _substituir_frases_problematicas(texto: str, tema: str) -> str:
         texto_final = padrao.sub(substituicao.format(tema=tema_limpo), texto_final, count=1)
         normalizado = normalizar_texto(texto_final)
 
+    substituicoes_diretas = [
+        (
+            r"\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+o\s+para\s+que\b",
+            "Propor uma breve acao orientada para que",
+        ),
+        (
+            r"\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+o\s+para\b",
+            "Propor uma breve acao orientada para",
+        ),
+        (
+            r"\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+o\s+em um exemplo pr[aá]tico\b",
+            "Retomar o conceito em um exemplo pratico",
+        ),
+        (
+            r"\bcom a abordagem\b",
+            "de forma guiada",
+        ),
+        (
+            r"\bcom a estrat[eé]gia,\s*onde\b",
+            "com uma sintese orientada, em que",
+        ),
+        (
+            r"\bao desenvolvimento da aula, articulando-a aos exemplos, registros e interven[cç][oõ]es do professor\.?",
+            "",
+        ),
+        (
+            r"\bmaterial impresso,\s*quadro e registro no caderno\b",
+            "o material da aula e os registros no caderno",
+        ),
+    ]
+    for padrao, substituicao in substituicoes_diretas:
+        texto_final = re.sub(padrao, substituicao, texto_final, flags=re.I)
+
     return texto_final
 
 
@@ -632,6 +665,10 @@ def sanitizar_texto_metodologico(
             flags=re.I,
         )
         texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
+
+    texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
+    texto_final = re.sub(r"\.\s*\.", ".", texto_final)
+    texto_final = re.sub(r",\s*,+", ", ", texto_final)
 
     return texto_final
 
