@@ -1857,8 +1857,8 @@ def _remover_abertura_generica(texto: str) -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
     padroes = [
         r"^Retomar conhecimentos previos da turma sobre [^.]+\.?\s*",
-        r"^Retomar conhecimentos pr[eÃ©]vios da turma sobre [^.]+\.?\s*",
-        r"^Promover discuss[aÃ£]o inicial sobre [^.]+\.?\s*",
+        r"^Retomar conhecimentos pr[eé]vios da turma sobre [^.]+\.?\s*",
+        r"^Promover discuss[aã]o inicial sobre [^.]+\.?\s*",
         r"^Apresentar [^.]+ e propor [^.]+ para que os estudantes mobilizem conhecimentos previos, levantem hipoteses e identifiquem o que precisa ser descoberto na situacao\.?\s*",
     ]
     for padrao in padroes:
@@ -1939,7 +1939,7 @@ def _ajustar_texto_por_sequencia(
 
     if chave in {"leitura", "contextualizacao", "leitura_analitica", "foco"} and not primeira:
         orientacao = (
-            "Retomar registros anteriores quando necessario, ajudando a turma a perceber a continuidade do estudo."
+            "Retomar registros anteriores quando necessário, ajudando a turma a perceber a continuidade do estudo."
         )
         return _anexar_orientacao_unica(texto, orientacao)
 
@@ -2154,13 +2154,27 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
 
 
 def _rotulo_aula_material(texto: str, caminho_pdf: str) -> str:
+    # 1. Tentar ler do texto do PDF
     padrao_texto = re.compile(r"\baula\s*(?:n[.o]?\s*)?(\d{1,3})\b", flags=re.I)
     for linha in _limpar_linhas(texto)[:30]:
         match = padrao_texto.search(linha)
         if match:
             return f"AULA {match.group(1)}"
 
-    match = re.search(r"\baula[_\s-]*(\d{1,3})\b", Path(caminho_pdf).stem, flags=re.I)
+    # 2. Tentar padrão com separador e número no final do nome do arquivo, ex: Nome_01.pdf
+    stem = Path(caminho_pdf).stem
+    # Limpar sufixos de cópia comuns
+    stem = re.sub(r"\s*\(\d+\)$", "", stem)
+    stem = re.sub(r"(?i)\s*-\s*c[oó]pia$", "", stem)
+    stem = re.sub(r"(?i)\s*-\s*copy$", "", stem)
+    stem = stem.strip()
+
+    match_end = re.search(r"[\s_.-]\s*(\d{1,4})$", stem)
+    if match_end:
+        return f"AULA {int(match_end.group(1))}"
+
+    # 3. Padrão clássico "aula 12" no nome do arquivo
+    match = re.search(r"\baula[_\s-]*(\d{1,3})\b", stem, flags=re.I)
     if match:
         return f"AULA {match.group(1)}"
     return ""
@@ -2783,9 +2797,9 @@ def _fallback_acessibilidade_tema(tema: str, perfil: str) -> list[str]:
         ]
     if any(termo in base for termo in ["hereditariedade", "heredograma", "mendel", "dna", "gene", "genes", "genetica", "biotecnologia", "clonagem", "bioetica", "biosseguranca"]):
         return [
-            "â˜‘ Disponibilizar esquemas ampliados, quadros de cruzamento ou roteiros visuais para apoiar a leitura dos conceitos genÃ©ticos.",
-            "â˜‘ Oferecer banco de palavras com termos como DNA, gene, alelo, heredograma, hereditariedade, biotecnologia e evidÃªncia.",
-            "â˜‘ Permitir registro por desenho, tabela, setas ou frases curtas, com mediaÃ§Ã£o na interpretaÃ§Ã£o dos comandos.",
+            "☑ Disponibilizar esquemas ampliados, quadros de cruzamento ou roteiros visuais para apoiar a leitura dos conceitos genéticos.",
+            "☑ Oferecer banco de palavras com termos como DNA, gene, alelo, heredograma, hereditariedade, biotecnologia e evidência.",
+            "☑ Permitir registro por desenho, tabela, setas ou frases curtas, com mediação na interpretação dos comandos.",
         ]
     if _tema_astronomia_terra_lua(base):
         return [
@@ -2820,14 +2834,16 @@ def _normalizar_itens_contextuais(
         for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]
     )
     termos_parasitologia = ["parasita", "parasit", "saneamento", "profilax", "hospedeiro", "transmissao", "doenca"]
-    if any(_texto_incompativel_com_tema(item, tema) for item in acomp):
+    
+    if not acomp or any(_texto_incompativel_com_tema(item, tema) for item in acomp):
         fallback = _fallback_acompanhamento_tema(tema, perfil)
         if fallback:
             acomp = fallback
-    if any(_texto_incompativel_com_tema(item, tema) for item in acess):
+    if not acess or any(_texto_incompativel_com_tema(item, tema) for item in acess):
         fallback = _fallback_acessibilidade_tema(tema, perfil)
         if fallback:
             acess = fallback
+            
     if tema_parasitologia:
         texto_acomp = normalizar_texto_lote(" ".join(acomp))
         texto_acess = normalizar_texto_lote(" ".join(acess))
@@ -2839,6 +2855,34 @@ def _normalizar_itens_contextuais(
             fallback = _fallback_acessibilidade_tema(tema, perfil)
             if fallback:
                 acess = fallback
+
+    def _formatar_item(it: str) -> str:
+        it = re.sub(r'^(?:[☑☒☐]|☑|[\u2611\u2612\u2610]|\s|[-*+•]|\[[ xX]\])+\s*', '', it.strip())
+        return f"☑ {it}"
+
+    acomp = [_formatar_item(x) for x in acomp if x.strip()]
+    acess = [_formatar_item(x) for x in acess if x.strip()]
+
+    fb_acomp = [_formatar_item(x) for x in _fallback_acompanhamento_tema(tema, perfil)]
+    fb_acess = [_formatar_item(x) for x in _fallback_acessibilidade_tema(tema, perfil)]
+
+    while len(acomp) < 3:
+        idx = len(acomp)
+        if idx < len(fb_acomp):
+            acomp.append(fb_acomp[idx])
+        else:
+            acomp.append(fb_acomp[0])
+
+    while len(acess) < 3:
+        idx = len(acess)
+        if idx < len(fb_acess):
+            acess.append(fb_acess[idx])
+        else:
+            acess.append(fb_acess[0])
+
+    acomp = acomp[:3]
+    acess = acess[:3]
+
     return acomp, acess
 
 

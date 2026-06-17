@@ -187,9 +187,9 @@ _REGRAS_PERFIL_LP = [
         "advergame", "unboxing", "social advertising",
     ]),
     ("diario_pessoal", [
-        "diario pessoal", "diÃ¡rio pessoal",
-        "genero diario pessoal", "gÃªnero diÃ¡rio pessoal",
-        "reflexoes do cotidiano", "reflexÃµes do cotidiano",
+        "diario pessoal", "diário pessoal",
+        "genero diario pessoal", "gênero diário pessoal",
+        "reflexoes do cotidiano", "reflexões do cotidiano",
     ]),
     ("biografia", [
         "historia de uma vida", "história de uma vida",
@@ -493,9 +493,9 @@ def frase_inicial(p: PistasPedagogicas) -> str:
     if p.perfil == "texto_publicitario":
         return "Iniciar a aula retomando anúncios e campanhas conhecidos pelos estudantes, observando como linguagem verbal, imagem, som e contexto buscam persuadir o público."
     if p.perfil == "diario_pessoal":
-        return "Iniciar a aula retomando situaÃ§Ãµes do cotidiano em que as pessoas registram vivÃªncias, sentimentos e reflexÃµes, preparando a turma para reconhecer caracterÃ­sticas do diÃ¡rio pessoal."
+        return "Iniciar a aula retomando situações do cotidiano em que as pessoas registram vivências, sentimentos e reflexões, preparando a turma para reconhecer características do diário pessoal."
     if p.perfil == "diario_pessoal":
-        return "Propor atividade de leitura e anÃ¡lise para que os estudantes identifiquem caracterÃ­sticas do diÃ¡rio pessoal, observem marcas de subjetividade e registrem como o autor organiza experiÃªncias e reflexÃµes."
+        return "Propor atividade de leitura e análise para que os estudantes identifiquem características do diário pessoal, observem marcas de subjetividade e registrem como o autor organiza experiências e reflexões."
     if p.perfil == "diario_pessoal":
         return "Propor atividade de leitura e analise para que os estudantes identifiquem caracteristicas do diario pessoal, observem marcas de subjetividade e registrem como o autor organiza experiencias e reflexoes."
     if p.perfil == "biografia":
@@ -565,7 +565,7 @@ def frase_foco(p: PistasPedagogicas) -> str:
     if p.perfil == "texto_publicitario":
         frase = "Conduzir a análise do texto publicitário, destacando público-alvo, finalidade persuasiva, slogan, imagens, recursos sonoros ou audiovisuais e efeitos de sentido da campanha."
     elif p.perfil == "diario_pessoal":
-        frase = "Conduzir a leitura orientada do diÃ¡rio pessoal, destacando escrita em primeira pessoa, organizaÃ§Ã£o temporal, marcas de intimidade, reflexÃµes do cotidiano e relaÃ§Ã£o entre experiÃªncia vivida e linguagem."
+        frase = "Conduzir a leitura orientada do diário pessoal, destacando escrita em primeira pessoa, organização temporal, marcas de intimidade, reflexões do cotidiano e relação entre experiência vivida e linguagem."
     elif p.perfil == "biografia":
         frase = "Conduzir a leitura orientada da biografia, destacando trajetória, fatos relevantes, organização temporal e uso do mapa conceitual como recurso para organizar informações."
     elif p.perfil == "noticia_multimodal":
@@ -806,16 +806,16 @@ BANCO_ACOMPANHAMENTO = {
         "Acompanhar se a turma justifica interpretações com elementos presentes no material publicitário."
     ],
     "diario_pessoal": [
-        "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexÃ£o presentes no diÃ¡rio pessoal.",
-        "Observar se relacionam experiÃªncias narradas, sentimentos e contexto de escrita ao sentido construÃ­do no texto.",
-        "Conferir se os registros finais retomam caracterÃ­sticas do gÃªnero sem confundi-lo com biografia, memÃ³ria ou notÃ­cia.",
-        "Acompanhar se a turma justifica interpretaÃ§Ãµes com trechos do diÃ¡rio e com elementos da linguagem analisada."
+        "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexão presentes no diário pessoal.",
+        "Observar se relacionam experiências narradas, sentimentos e contexto de escrita ao sentido construído no texto.",
+        "Conferir se os registros finais retomam características do gênero sem confundi-lo com biografia, memória ou notícia.",
+        "Acompanhar se a turma justifica interpretações com trechos do diário e com elementos da linguagem analisada."
     ],
     "diario_pessoal": [
-        "Realizar leitura compartilhada do diÃ¡rio em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexÃµes aparecem no texto.",
+        "Realizar leitura compartilhada do diário em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexões aparecem no texto.",
         "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
-        "Permitir registro em tÃ³picos, grifos no texto, esquema simples ou resposta oral mediada.",
-        "Retomar coletivamente a diferenÃ§a entre diÃ¡rio pessoal, biografia e relato informativo antes da atividade individual."
+        "Permitir registro em tópicos, grifos no texto, esquema simples ou resposta oral mediada.",
+        "Retomar coletivamente a diferença entre diário pessoal, biografia e relato informativo antes da atividade individual."
     ],
     "biografia": [
         "Verificar se os estudantes identificam fatos relevantes da trajetória da pessoa biografada e organizam informações com coerência.",

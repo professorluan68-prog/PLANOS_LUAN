@@ -40,8 +40,10 @@ def _turma_indica_ensino_medio(turma: str) -> bool:
         base
         and (
             "ensino medio" in base
-            or re.search(r"(?<!\d)[123]\s*ano\b", base)
-            or re.search(r"(?<!\d)[123]\s*serie\b", base)
+            or base == "em"
+            or re.search(r"\b(em|e\.m\.)\b", base)
+            or re.search(r"(?<!\d)[123]\s*(?:o|a)?\s*ano\b", base)
+            or re.search(r"(?<!\d)[123]\s*(?:o|a)?\s*serie\b", base)
         )
     )
 
@@ -466,48 +468,32 @@ def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
     """Classifica o tipo de aula de Língua Portuguesa Ensino Médio com base no título e texto."""
     titulo_norm = normalizar_texto(titulo)
     texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
 
-    # 1. Aula de prática oral (debate, seminário)
-    if any(k in titulo_norm for k in ["debate", "seminario", "apresentacao oral", "oralidade"]):
-        return "pratica_oral"
+    # Define as categorias e seus respectivos conjuntos de palavras-chave
+    categorias = [
+        ("autoavaliacao", ["autoavaliacao", "concluindo a jornada", "rubrica", "portfolio", "sintese do percurso"]),
+        ("texto_digital_blog", ["comentario", "texto digital", "blog", "rede social", "redes sociais"]),
+        ("pratica_oral", ["debate", "seminario", "apresentacao oral", "oralidade", "podcast", "producao oral", "producoes orais", "escuta ativa", "gravacao"]),
+        ("producao_textual", ["producao", "parte final", "escrita", "redigir", "elaborar"]),
+        ("literatura", [
+            "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
+            "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
+            "literario", "literaria", "estetica", "vanguardas", "romance", "conto", "poema", "poesia", "haicai", "verso"
+        ]),
+        ("genero_textual", ["diario", "manifesto", "playlist", "cronica", "noticia", "reportagem", "resenha", "fanzine", "genero"]),
+        ("gramatica_integrada", ["flexao", "regencia", "concordancia", "ortografia", "oracoes", "sintaxe", "semantica"]),
+    ]
 
-    # 2. Aula de produção textual
-    if any(k in titulo_norm for k in ["producao", "parte final", "escrita", "redigir", "elaborar"]):
-        return "producao_textual"
+    # Primeiro, tenta classificar com base apenas no título (prioridade máxima)
+    for cat, keywords in categorias:
+        if any(k in titulo_norm for k in keywords):
+            return cat
 
-    # 3. Aula de literatura
-    if any(k in titulo_norm for k in [
-        "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
-        "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
-        "estetica", "vanguardas", "romance", "conto", "poema", "poesia"
-    ]):
-        return "literatura"
-
-    # 4. Aula de gênero textual
-    if any(k in titulo_norm for k in [
-        "diario", "manifesto", "playlist", "cronica", "noticia",
-        "reportagem", "resenha", "fanzine", "podcast", "genero"
-    ]):
-        return "genero_textual"
-
-    # 5. Aula de gramática integrada (quando gramática é o foco principal)
-    if any(k in titulo_norm for k in [
-        "flexao", "regencia", "concordancia", "ortografia", "oracoes",
-        "sintaxe", "semantica"
-    ]):
-        return "gramatica_integrada"
-
-    # Verificação no texto_norm para fallbacks
-    if any(k in texto_norm for k in ["debate", "seminario", "apresentacao oral"]):
-        return "pratica_oral"
-    if any(k in texto_norm for k in ["producao textual", "produzir texto", "escrever", "redigir"]):
-        return "producao_textual"
-    if any(k in texto_norm for k in ["trovadorismo", "modernismo", "romantismo", "realismo", "literatura"]):
-        return "literatura"
-    if any(k in texto_norm for k in ["diario", "manifesto", "playlist", "cronica", "genero textual"]):
-        return "genero_textual"
-    if any(k in texto_norm for k in ["flexao verbal", "regencia", "concordancia", "oracoes subordinadas"]):
-        return "gramatica_integrada"
+    # Como fallback, tenta classificar com base no texto completo (base_norm)
+    for cat, keywords in categorias:
+        if any(k in base_norm for k in keywords):
+            return cat
 
     # Default
     return "genero_textual"
@@ -522,7 +508,7 @@ _CIENCIAS_PRODUCAO_PROJETO = [
 ]
 
 _CIENCIAS_REVISAO = [
-    "relembre", "retomar", "revisao", "anteriormente", "aulas anteriores",
+    "relembre", "retomar", "retomada", "revisao", "anteriormente", "aulas anteriores",
     "exercicio resolvido", "no 1 bimestre estudamos", "consolidar",
 ]
 
@@ -532,7 +518,6 @@ _CIENCIAS_SITUACAO_PROBLEMA = [
     "cenario municipal", "proponha solucoes", "rpg", "plano de manejo",
     "construindo um plano", "grupos assumem", "papeis definidos",
     "papel do governo", "papel da comunidade", "papel dos pesquisadores",
-    "unidade de conservacao",
 ]
 
 _CIENCIAS_PRATICA_EXPERIMENTAL = [
@@ -623,7 +608,7 @@ _BIOLOGIA_BIOTEC = [
 ]
 
 _BIOLOGIA_REVISAO = [
-    "relembre", "retomada", "revisao", "consolidacao", "consolidar", "retomar"
+    "retomada", "revisao", "consolidacao", "consolidar", "retomar", "recuperacao"
 ]
 
 _BIOLOGIA_CONCEITO_NOVO = [
@@ -639,6 +624,15 @@ def _tipo_aula_ciencias(titulo: str, texto: str) -> str:
     titulo_norm = normalizar_texto(titulo)
     texto_norm = normalizar_texto(texto)
     base_norm = f"{titulo_norm} {texto_norm}"
+
+    # Remover boilerplate conhecido do texto completo para evitar falsos positivos de retomada/revisão
+    base_norm = base_norm.replace(
+        "que ampliam as possibilidades de pratica de retomada e aprofundamento do conteudo estudado", ""
+    )
+
+    # Revisão/retomada explicitada no título tem prioridade máxima
+    if contem_termos(titulo_norm, _CIENCIAS_REVISAO):
+        return "revisao_retomada"
 
     if contem_termos(titulo_norm, _CIENCIAS_SITUACAO_PROBLEMA):
         return "situacao_problema"
@@ -682,6 +676,15 @@ def _tipo_aula_biologia(titulo: str, texto: str) -> str:
     texto_norm = normalizar_texto(texto)
     base_norm = f"{titulo_norm} {texto_norm}"
 
+    # Remover boilerplate conhecido do texto completo para evitar falsos positivos de retomada/revisão
+    base_norm = base_norm.replace(
+        "que ampliam as possibilidades de pratica de retomada e aprofundamento do conteudo estudado", ""
+    )
+
+    # Se o título indica explicitamente revisão/retomada/recuperação
+    if contem_termo_exato(titulo_norm, _BIOLOGIA_REVISAO):
+        return "revisao_aprofundamento"
+
     # Primeiro tenta pelo título para maior precisão usando termo exato
     if contem_termo_exato(titulo_norm, _BIOLOGIA_ETICO):
         return "etico_biotecnologico"
@@ -702,10 +705,69 @@ def _tipo_aula_biologia(titulo: str, texto: str) -> str:
     if contem_termo_exato(base_norm, _BIOLOGIA_BIOTEC):
         return "aplicacao_biotecnologica"
 
-    if contem_termo_exato(base_norm, _BIOLOGIA_REVISAO):
-        return "revisao_aprofundamento"
-
     return "conceito_novo"
+
+
+def _tipo_aula_historia(titulo: str, texto: str) -> str:
+    """Classifica aulas de História conforme a análise metodológica."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    # Remover boilerplate conhecido do texto completo para evitar falsos positivos
+    base_norm = base_norm.replace(
+        "que ampliam as possibilidades de pratica de retomada e aprofundamento do conteudo estudado", ""
+    )
+
+    # 1. Debate Crítico / Conflito de Narrativas
+    _HIST_DEBATE = [
+        "debate", "narrativas", "conflito de narrativas", "disputa", "opiniao", 
+        "dilema", "perspectivas", "pontos de vista", "posicionamento", "argumentacao",
+        "conflitos", "revolta", "resistencias", "repressao", "ditadura", "guerra",
+        "direitos civis", "cidadania", "legado da luta"
+    ]
+    # 2. Fonte Histórica / Análise Documental
+    _HIST_FONTE = [
+        "fonte historica", "documento historico", "linha do tempo", "cronologia",
+        "lei de", "decreto", "constituicao", "carta", "relato de", "diario",
+        "depoimento", "testemunho", "registro de epoca", "imagem de epoca",
+        "monumento", "ruinas", "arqueologia", "vestigios", "obra de arte",
+        "pintura", "charge", "caricatura", "leitura de fonte"
+    ]
+    # 3. Análise Geográfica / Cartografia Histórica
+    _HIST_GEOGRAFICA = [
+        "mapa", "territorio", "fronteira", "cartografia", "rotas comerciais",
+        "expansao territorial", "escala", "migracao", "circulacao de mercadorias"
+    ]
+    # 4. Produção / Projeto
+    _HIST_PRODUCAO = [
+        "producao", "cartaz", "painel", "mapa mental", "esquema", "escreva",
+        "elabore", "produza", "trabalho em grupo", "seminario"
+    ]
+
+    # Priorizar título
+    if contem_termos(titulo_norm, _HIST_DEBATE):
+        return "debate_critico"
+    if contem_termos(titulo_norm, _HIST_FONTE):
+        return "fonte_historica"
+    if contem_termos(titulo_norm, _HIST_PRODUCAO):
+        return "producao_projeto"
+    if contem_termos(titulo_norm, _HIST_GEOGRAFICA):
+        return "analise_geografica"
+
+    # Fallback para base completo
+    if contem_termos(base_norm, _HIST_DEBATE):
+        return "debate_critico"
+    if contem_termos(base_norm, _HIST_FONTE):
+        return "fonte_historica"
+    if contem_termos(base_norm, _HIST_PRODUCAO):
+        return "producao_projeto"
+    if contem_termos(base_norm, _HIST_GEOGRAFICA):
+        return "analise_geografica"
+
+    return "leitura"
+
+
 
 
 _TIPOS_MATEMATICA = [
@@ -950,6 +1012,11 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str =
     # Projeto de Vida — classificador especializado
     if perfil == "projeto_de_vida":
         return _tipo_aula_projeto_de_vida(tema, texto)
+
+    # História — classificador especializado
+    if perfil == "historia":
+        return _tipo_aula_historia(tema, texto)
+
 
     for tipo, termos in _TIPOS_GERAIS:
         if contem_termo_exato(tema_base, termos) or contem_termos(tema_base, termos):

@@ -18,12 +18,13 @@ def test_revisar_aula_gerada_auditoria():
         "tema": "Grandezas Proporcionais",
         "aprendizagem": "Resolver problemas envolvendo grandezas diretamente proporcionais.",
         "metodologia": [
-            {"titulo": "Para começar", "texto": "Expor slides iniciais com exemplos de proporcionalidade."},
-            {"titulo": "Foco no conteúdo", "texto": "Definição formal de razão, proporção e propriedades operacionais."},
-            {"titulo": "Na prática", "texto": "Resolução de um problema prático em conjunto com os alunos."}
+            {"titulo": "Para começar", "texto": "O professor apresenta o tema de grandezas proporcionais aos estudantes em uma roda de conversa inicial."},
+            {"titulo": "Foco no conteúdo", "texto": "O professor explica as propriedades das grandezas proporcionais e os alunos anotam os conceitos principais em seus cadernos."},
+            {"titulo": "Na prática", "texto": "O professor propõe que os estudantes se organizem em duplas para resolver problemas práticos de grandezas proporcionais em folha de registro."},
+            {"titulo": "Encerramento", "texto": "O professor orienta que os alunos façam um debate rápido compartilhando as resoluções sobre grandezas proporcionais e registrem a síntese final no caderno."}
         ],
         "acompanhamento": ["Observação", "Análise de resoluções", "Feedback imediato"],
-        "acessibilidade": ["Linguagem direta", "Apoio visual com gráficos", "Tempo estendido"]
+        "acessibilidade": ["Disponibilizar representações visuais de grandezas proporcionais.", "Permitir o uso de calculadora para resolver problemas.", "Oferecer tempo estendido para o registro das respostas."]
     }
     resultado = revisar_aula_gerada(aula_perfeita, "matematica")
     assert resultado["confidence_score"] == 100

@@ -1,257 +1,92 @@
-=== File: DOCUMENTACAO_ESTRUTURA_CORE_PLANOS_LUAN.docx ===
-
 Estrutura Atual da Pasta core do PLANOS_LUAN
 
-Documento atualizado em 05/06/2026, em linguagem simples, com foco na estrutura real do codigo.
+Documento atualizado automaticamente em 17/06/2026 às 00:42, em linguagem simples, com foco na estrutura real observada no codigo.
 
-Objetivo: registrar como a pasta core esta organizada hoje, o papel de cada modulo ou subpacote e em que parte do fluxo ele entra.
+Objetivo: registrar como a pasta core esta organizada hoje, quais modulos ficaram mais importantes depois das evolucoes recentes e onde entram as camadas de IA, auditoria, higienizacao e CDP.
 
-Visao Geral
+Visao geral
 
-A pasta core continua sendo o centro da inteligencia de negocio do PLANOS_LUAN, mas hoje ela esta mais distribuida do que estava na versao anterior da documentacao.
-Ela combina arquivos de infraestrutura, motores pedagogicos, camadas especializadas por disciplina ou modalidade e subpacotes como core/lib, core/cdp e core/eja.
-Para aulas comuns vindas de PDF, lote.py continua sendo o nucleo principal. Para CDP, o projeto passou a conviver com uma camada nova em pacote e uma camada legada de compatibilidade.
-Tambem surgiu uma integracao nova com o guia priorizado por meio de ae_priorizado.py.
+A pasta core continua sendo o centro da regra de negocio do PLANOS_LUAN, mas hoje ela esta mais distribuida e mais protegida por camadas de revisao do que estava no inicio do projeto. O fluxo PDF ainda nasce em core/lote.py, mas agora passa por classificacao modular em core/lib, higienizacao pedagogica, auditoria final e cache sidecar por PDF.
 
-Mapa Rapido dos Itens da Pasta core
+A camada de IA tambem mudou de papel: em vez de agir sozinha, ela pode trabalhar em modo hibrido, recebendo um rascunho local do proprio sistema como base para refinamento. Em paralelo, a pasta core ganhou modulos novos como constantes.py, normalizacao.py e revisao_final.py, enquanto core/lib ficou mais forte com higienizador_pedagogico.py e regras especializadas por disciplina.
 
---- Table ---
+Snapshot atual
+
+- Arquivos Python diretos em core: 27
+- Modulos mapeados em core/lib: 17
+- Arquivos de teste em tests/: 59
+- Bases de AE priorizado em assets/ae_priorizado: 14
+- Subpacotes principais vivos hoje: core/lib, core/cdp e core/eja.
+
+--- Table: Mapa rapido dos itens da pasta core ---
 Item | Tipo | Papel principal | Peso no sistema
-__init__.py | Arquivo | Marca a pasta core como pacote Python e habilita os imports internos do sistema. | Tecnico
-ae_priorizado.py | Arquivo | Aplica o modo AE priorizado para Portugues, lendo a base em assets/ae_priorizado e trocando a aprendizagem pelo AE correspondente. | Integracao piloto
-avaliacao.py | Arquivo | Gera frases de acompanhamento da aprendizagem e acessibilidade de forma dinamica. | Pedagogico
-base_conhecimento.py | Arquivo | Guarda padroes disciplinares e repertorios que ajudam a inteligencia local a montar aulas coerentes. | Referencia
-calendario.py | Arquivo | Calcula feriados nacionais, datas sem aula, extensao do mes e filtros de agenda. | Estrutural
-cdp/ | Pacote | Concentra a implementacao mais nova do fluxo CDP, especialmente em gerador_cdp.py. | Nucleo CDP atual
-cdp_legacy.py | Arquivo | Mantem a logica legada do CDP que ainda serve de base para funcoes importadas pelo pacote core.cdp. | Compatibilidade
-cdp_em_docx.py | Arquivo | Reescreve e ajusta documentos DOCX do fluxo CDP, com foco em cenarios como Matematica contextual e Ensino Medio. | Ajuste final
-database.py | Arquivo | Controla o banco SQLite do sistema, incluindo professores, turmas, vinculos, template_id, componente curricular e historico dos planos. | Estrutural
-disciplinas.py | Arquivo | Define disciplinas, bimestres e modos de funcionamento como PDF, CDP e CDP Fundamental. | Estrutural
-eja/ | Pacote | Agrupa adaptacoes para EJA, como consolidacao de blocos e tecnicas com linguagem adequada a jovens e adultos. | Especializacao
-helpers.py | Arquivo | Reune funcoes pequenas de formatacao e apoio, como horario_para_plano, texto_lista, relatorio simples e preservacao da ordem de envio dos arquivos. | Apoio
-ia.py | Arquivo | Integra o sistema com OpenAI e Gemini para extrair e montar tema, aprendizagem e metodologia. | Motor externo
-inteligencia_local.py | Arquivo | Executa heuristicas e geracao local sem depender de IA externa. | Motor local
-lib/ | Pacote | Agrupa extratores, classificadores, perfis de acompanhamento e acessibilidade, geradores de colunas pedagogicas, progressao, tecnicas e modalidades. | Base modular
-lote.py | Arquivo | Transforma PDFs comuns em aulas estruturadas com tema, material, aprendizagem, metodologia, acompanhamento e acessibilidade. | Nucleo central
-metodologia_texto.py | Arquivo | Faz ajustes linguisticos finos na metodologia, como regularizacao de verbos e polimento de frase. | Apoio textual
-modelos_docx.py | Arquivo | Resolve o template central correto por contexto, template_id, escola, disciplina e componente curricular. | Estrutural
-orientacao_estudos_metodologia.py | Arquivo | Gera metodologia altamente especifica para Orientacao de Estudos, com perfis por missao, trilha ou jornada. | Especializado
-orientacao_estudos_objetivos.py | Arquivo | Centraliza objetivos e apoio textual para o fluxo de Orientacao de Estudos. | Especializado
-planos_luan.db | Arquivo tecnico | Arquivo presente dentro da pasta core, mas que nao representa hoje o banco principal de operacao do sistema. | Artefato local
-professores_planos.py | Arquivo | Le, diagnostica, cria e atualiza modelos DOCX encontrados nas pastas dos professores. | Estrutural
-projeto_vida_escopo.py | Arquivo | Le e interpreta o escopo-sequencia de Projeto de Vida para localizar o item certo por turma, bimestre e aula. | Especializado
-prompts_por_disciplina.py | Arquivo | Guarda orientacoes por disciplina usadas pelo modulo de IA. | Referencia IA
-qualidade_metodologica.py | Arquivo | Revisa metodologia, corrige ortografia, detecta contexto pedagogico, naturaliza texto e combate mojibake. | Controle de qualidade
-redacao_leitura_metodologia.py | Arquivo | Gera a estrutura metodologica de Redacao e Leitura com etapas fixas e criterios mais autorais. | Especializado
-referencias_metodologia.py | Arquivo | Carrega textos de referencia metodologica salvos no projeto. | Referencia
-validador_plano.py | Arquivo | Valida aulas geradas e detecta problemas como tema repetido, metodologia pobre, aprendizagem curta e campos vazios. | Controle de qualidade
--------------
+__init__.py | Arquivo | Marca a pasta core como pacote Python e habilita os imports internos. | Tecnico
+ae_priorizado.py | Arquivo | Aplica AE priorizado quando o contexto da disciplina, turma e bimestre possui base estruturada em assets/ae_priorizado. | Integracao curricular
+avaliacao.py | Arquivo | Gera acompanhamento e acessibilidade dinamicos de forma compatível com o restante do sistema. | Pedagogico
+base_conhecimento.py | Arquivo | Guarda repertorios e padroes disciplinares usados pelos motores locais. | Referencia
+calendario.py | Arquivo | Calcula feriados, dias sem aula e apoio de agenda escolar. | Estrutural
+cdp/ | Pacote | Concentra a camada atual do fluxo CDP, hoje com destaque para gerador_cdp.py. | Nucleo CDP
+cdp_em_docx.py | Arquivo | Ajusta documentos Word no fluxo CDP e faz acabamento final em cenarios especificos. | Ajuste final
+cdp_legacy.py | Arquivo | Mantem a base legada ainda reutilizada por imports e compatibilidade do CDP. | Compatibilidade
+constantes.py | Arquivo | Centraliza constantes de apoio compartilhadas entre modulos. | Infraestrutura
+database.py | Arquivo | Controla SQLite, cadastro de professores, historico e memoria de geracao. | Banco de dados
+disciplinas.py | Arquivo | Define disciplinas, modalidades e regras de comportamento por contexto. | Estrutural
+eja/ | Pacote | Agrupa adaptacoes especificas da modalidade EJA. | Especializacao
+helpers.py | Arquivo | Reune utilitarios de horarios, ordenacao de uploads, relatorios e apoio geral ao app. | Apoio
+ia.py | Arquivo | Integra OpenAI e Gemini em modo hibrido, usando rascunho local do sistema como base para refinamento por IA. | Motor IA
+inteligencia_local.py | Arquivo | Mantem heuristicas e geracao local sem dependencia de IA externa. | Motor local
+lib/ | Pacote | Agrupa extratores, classificadores, motores metodologicos, higienizacao e perfis pedagogicos. | Base modular
+lote.py | Arquivo | Motor central do fluxo PDF, com extracao, cache sidecar JSON, auditoria final, IA opcional e fallback local. | Nucleo central
+metodologia_texto.py | Arquivo | Faz polimento linguistico fino de metodologias ja montadas. | Apoio textual
+modelos_docx.py | Arquivo | Escolhe template central por contexto, template_id, escola e disciplina. | Modelos centrais
+normalizacao.py | Arquivo | Concentra normalizacoes textuais reutilizadas por modulos diferentes. | Apoio
+orientacao_estudos_metodologia.py | Arquivo | Gera metodologia especializada para Orientacao de Estudos. | Especializado
+orientacao_estudos_objetivos.py | Arquivo | Centraliza objetivos e textos de apoio da Orientacao de Estudos. | Especializado
+planos_luan.db | Artefato tecnico | Arquivo interno presente em core, sem ser o banco principal utilizado em producao. | Tecnico
+professores_planos.py | Arquivo | Le e padroniza modelos DOCX dos professores para reaproveitamento no sistema. | Modelos locais
+projeto_vida_escopo.py | Arquivo | Interpreta o escopo-sequencia de Projeto de Vida por turma, bimestre e aula. | Especializado
+prompts_por_disciplina.py | Arquivo | Mantem instrucoes e reforcos de prompt por disciplina para a camada de IA. | Referencia IA
+qualidade_metodologica.py | Arquivo | Revisa, sanitiza e naturaliza metodologia, inclusive correcoes por disciplina e combate a mojibake. | Controle de qualidade
+redacao_leitura_metodologia.py | Arquivo | Gera estruturas metodologicas autorais para Redacao e Leitura. | Especializado
+referencias_metodologia.py | Arquivo | Carrega referencias em texto usadas como memoria pedagogica do projeto. | Memoria pedagogica
+revisao_final.py | Arquivo | Aplica auditoria final, confidence_score, avisos_validacao e grava cache JSON por PDF. | Auditoria final
+validador_plano.py | Arquivo | Valida tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes da entrega. | Controle de qualidade
 
-Explicacao Detalhada dos Itens
+Novidades relevantes em relacao a 05/06/2026
 
-__init__.py
+- revisao_final.py virou a ultima auditoria da aula, adicionando confidence_score, avisos_validacao e versao do gerador.
+- lote.py passou a salvar e reler cache sidecar .json por PDF, validado por hash do arquivo e versao do gerador.
+- ia.py hoje trabalha com rascunho_base, isto e, o sistema primeiro monta uma base local e depois pede refinamento a OpenAI ou Gemini.
+- core/lib ganhou mais peso com higienizador_pedagogico.py e com reforcos por perfil em acompanhamento e acessibilidade.
+- helpers.py e planos_luan_app.py passaram a sustentar melhor a ordem real de envio dos PDFs e a memoria da ultima aula gerada.
+- classificador.py e metodologia.py receberam classificadores e geradores especializados para Ciencias, Biologia e Historia.
 
-Tipo: Arquivo
-Funcao principal: Marca a pasta core como pacote Python e habilita os imports internos do sistema.
-Quando entra no fluxo: Aparece em todas as execucoes, porque sem ele o aplicativo, os testes e os scripts perderiam a referencia do pacote core.
-Observacoes: Nao concentra regra de negocio; seu papel hoje e organizacional.
+--- Table: Mapa rapido do subpacote core/lib ---
+Modulo | Papel hoje | Camada
+acessibilidade.py | Compositor principal de acessibilidade por camadas. | core/lib
+acessibilidade_perfis.py | Regras especificas de acessibilidade por disciplina, tipo de aula e tema. | core/lib
+acompanhamento.py | Compositor principal do acompanhamento da aprendizagem. | core/lib
+acompanhamento_perfis.py | Regras especificas de acompanhamento por disciplina, perfil e tema. | core/lib
+aprofundamento.py | Apoia leitura de pistas de aprofundamento, continuidade ou extensao. | core/lib
+classificador.py | Classifica perfil da disciplina, tipo de aula, nivel de ensino e contexto pedagogico. | core/lib
+extrator_blocos_pedagogicos.py | Extrai blocos pedagogicos menores diretamente do texto do PDF. | core/lib
+extrator_pdf.py | Faz leitura, limpeza e limite de texto dos PDFs. | core/lib
+extrator_titulo.py | Normaliza e limpa titulos das aulas e materiais digitais. | core/lib
+gerador_colunas_pedagogicas.py | Motor modular para aprendizagem, acompanhamento e acessibilidade. | core/lib
+higienizador_pedagogico.py | Remove contaminacao tematica e corrige recursos incoerentes com a aula. | core/lib
+metodologia.py | Grande motor das etapas metodologicas por disciplina e tipo de aula. | core/lib
+modalidades.py | Apoia variacoes por modalidade, incluindo EJA e cenarios especiais. | core/lib
+planejamento_colunas.py | Mantem compatibilidade e geracao auxiliar das colunas pedagogicas. | core/lib
+progressao.py | Varia verbos, progressao de linguagem e nao repeticao entre aulas. | core/lib
+tecnicas.py | Concentra tecnicas pedagogicas e pistas de uso contextual. | core/lib
+extrator_pptx.py | Modulo de apoio ainda sem resumo especifico. | core/lib
 
-ae_priorizado.py
+Leitura final da arquitetura atual
 
-Tipo: Arquivo
-Funcao principal: Aplica o modo AE priorizado para Portugues, lendo a base em assets/ae_priorizado e trocando a aprendizagem pelo AE correspondente.
-Quando entra no fluxo: Entra depois da extracao das aulas dos PDFs. Quando a opcao de AE esta ativa, ele identifica a aula, procura a chave do guia, substitui o texto e ainda reordena as aulas conforme a sequencia do guia.
-Observacoes: Hoje esta em modo de teste para Portugues do Ensino Medio no 2o bimestre, mas ja funciona como uma ponte real entre o sistema e o guia priorizado.
+Se a pergunta for onde nascem as aulas comuns, a resposta continua sendo core/lote.py, apoiado por extracao e classificacao em core/lib. Se a pergunta for onde o texto fica mais confiavel, hoje os pontos mais importantes sao qualidade_metodologica.py, higienizador_pedagogico.py, validador_plano.py e revisao_final.py. Se a pergunta for onde a IA entra, ela ja nao substitui o motor local: ela entra para refinar um rascunho base e pode cair de volta no motor heuristico se houver erro, timeout ou indisponibilidade externa.
 
-avaliacao.py
-
-Tipo: Arquivo
-Funcao principal: Gera frases de acompanhamento da aprendizagem e acessibilidade de forma dinamica.
-Quando entra no fluxo: E usado quando o sistema precisa transformar tema, aprendizagem e desenvolvimento em criterios de observacao e apoio ao estudante.
-Observacoes: Hoje convive com a camada mais modular de core/lib, funcionando como apoio e compatibilidade pedagogica.
-
-base_conhecimento.py
-
-Tipo: Arquivo
-Funcao principal: Guarda padroes disciplinares e repertorios que ajudam a inteligencia local a montar aulas coerentes.
-Quando entra no fluxo: E consultado por modulos que precisam saber quais tecnicas, focos e estruturas costumam combinar com cada disciplina.
-Observacoes: Serve como memoria pedagogica reutilizavel do projeto.
-
-calendario.py
-
-Tipo: Arquivo
-Funcao principal: Calcula feriados nacionais, datas sem aula, extensao do mes e filtros de agenda.
-Quando entra no fluxo: E chamado na montagem das datas do plano antes do upload dos PDFs, ajudando o app a excluir feriados e pontos facultativos e a completar a ultima semana do mes quando necessario.
-Observacoes: Hoje e uma das pecas mais importantes para evitar erro de contagem de aulas e preenchimento indevido em dias sem aula.
-
-cdp/
-
-Tipo: Pacote
-Funcao principal: Concentra a implementacao mais nova do fluxo CDP, especialmente em gerador_cdp.py.
-Quando entra no fluxo: Atende os planos CDP contextual, Ensino Medio, Fundamental e multisseriada, montando tema, aprendizagem, metodologia, acompanhamento e acessibilidade a partir das planilhas e documentos locais.
-Observacoes: O __init__.py do pacote reexporta tambem o conteudo legado, mantendo compatibilidade com imports antigos.
-
-cdp_legacy.py
-
-Tipo: Arquivo
-Funcao principal: Mantem a logica legada do CDP que ainda serve de base para funcoes importadas pelo pacote core.cdp.
-Quando entra no fluxo: Ainda participa do modo CDP por meio da camada de compatibilidade do pacote core/cdp.
-Observacoes: Mostra que o sistema esta em transicao: ja existe uma arquitetura mais nova, mas parte da base antiga continua viva.
-
-cdp_em_docx.py
-
-Tipo: Arquivo
-Funcao principal: Reescreve e ajusta documentos DOCX do fluxo CDP, com foco em cenarios como Matematica contextual e Ensino Medio.
-Quando entra no fluxo: Entra quando o plano CDP precisa ser corrigido ou reorganizado diretamente no Word, sem passar por um PDF comum.
-Observacoes: E a ponte entre o motor CDP e o acabamento final no documento.
-
-database.py
-
-Tipo: Arquivo
-Funcao principal: Controla o banco SQLite do sistema, incluindo professores, turmas, vinculos, template_id, componente curricular e historico dos planos.
-Quando entra no fluxo: E usado desde a abertura do app para carregar cadastros e volta a ser usado no final para gravar historico e recuperar arquivos gerados.
-Observacoes: Hoje o banco principal usado pelo sistema fica na raiz do projeto e e manipulado por este modulo.
-
-disciplinas.py
-
-Tipo: Arquivo
-Funcao principal: Define disciplinas, bimestres e modos de funcionamento como PDF, CDP e CDP Fundamental.
-Quando entra no fluxo: Ajuda a interface e os validadores a entenderem se a disciplina exige PDF, se usa modo contextual ou se ativa algum comportamento especial.
-Observacoes: Funciona como catalogo central das modalidades oficiais do app.
-
-eja/
-
-Tipo: Pacote
-Funcao principal: Agrupa adaptacoes para EJA, como consolidacao de blocos e tecnicas com linguagem adequada a jovens e adultos.
-Quando entra no fluxo: Entra em disciplinas que suportam modalidade EJA, hoje com destaque para Biologia e Ingles.
-Observacoes: Evita que a aula de EJA seja tratada como copia simplificada de uma aula regular.
-
-helpers.py
-
-Tipo: Arquivo
-Funcao principal: Reune funcoes pequenas de formatacao e apoio, como horario_para_plano, texto_lista, relatorio simples e preservacao da ordem de envio dos arquivos.
-Quando entra no fluxo: Aparece em varias partes do sistema, principalmente na montagem de horarios, relatorios e tratamento dos PDFs enviados pelo usuario.
-Observacoes: Embora pequeno, foi importante nas correcoes recentes da ordem dos PDFs e no polimento do fluxo.
-
-ia.py
-
-Tipo: Arquivo
-Funcao principal: Integra o sistema com OpenAI e Gemini para extrair e montar tema, aprendizagem e metodologia.
-Quando entra no fluxo: E acionado quando o usuario escolhe usar IA. Ele prepara prompt, aplica orientacoes por disciplina, traz referencias metodologicas e normaliza a resposta estruturada.
-Observacoes: Hoje trabalha junto com validacoes e revisoes textuais para reduzir respostas fracas ou artificiais.
-
-inteligencia_local.py
-
-Tipo: Arquivo
-Funcao principal: Executa heuristicas e geracao local sem depender de IA externa.
-Quando entra no fluxo: Serve como alternativa ou apoio ao fluxo com IA, especialmente quando se quer trabalhar so com regras internas do sistema.
-Observacoes: Continua importante como reserva de autonomia do projeto.
-
-lib/
-
-Tipo: Pacote
-Funcao principal: Agrupa extratores, classificadores, perfis de acompanhamento e acessibilidade, geradores de colunas pedagogicas, progressao, tecnicas e modalidades.
-Quando entra no fluxo: E a camada modular mais reaproveitada pelo lote.py, pela IA e pelos adaptadores pedagogicos.
-Observacoes: Hoje a inteligencia pedagogica do sistema esta muito mais espalhada aqui do que estava na versao mais antiga da documentacao.
-
-lote.py
-
-Tipo: Arquivo
-Funcao principal: Transforma PDFs comuns em aulas estruturadas com tema, material, aprendizagem, metodologia, acompanhamento e acessibilidade.
-Quando entra no fluxo: E o motor principal do fluxo PDF: extrai texto, identifica titulo e numero da aula, classifica o perfil e monta as colunas pedagogicas.
-Observacoes: Continua sendo o coracao da geracao das aulas comuns, mesmo com o crescimento dos subpacotes auxiliares.
-
-metodologia_texto.py
-
-Tipo: Arquivo
-Funcao principal: Faz ajustes linguisticos finos na metodologia, como regularizacao de verbos e polimento de frase.
-Quando entra no fluxo: Entra no pos-processamento do texto antes de a aula seguir para validacao e DOCX.
-Observacoes: Ajuda a evitar metodologia truncada ou com tom mecanico.
-
-modelos_docx.py
-
-Tipo: Arquivo
-Funcao principal: Resolve o template central correto por contexto, template_id, escola, disciplina e componente curricular.
-Quando entra no fluxo: E usado quando o sistema precisa escolher entre MODELOEGLE, MODELOPADRE e MODELOCDP sem depender apenas do arquivo legado do professor.
-Observacoes: Foi uma evolucao importante para deixar o fluxo mais previsivel.
-
-orientacao_estudos_metodologia.py
-
-Tipo: Arquivo
-Funcao principal: Gera metodologia altamente especifica para Orientacao de Estudos, com perfis por missao, trilha ou jornada.
-Quando entra no fluxo: E usado quando a disciplina exige uma abordagem propria, baseada em objetos, focos e referencias textuais dessa area.
-Observacoes: Hoje e um dos modulos especializados mais extensos do projeto.
-
-orientacao_estudos_objetivos.py
-
-Tipo: Arquivo
-Funcao principal: Centraliza objetivos e apoio textual para o fluxo de Orientacao de Estudos.
-Quando entra no fluxo: Complementa a montagem da aula nessa disciplina, ajudando na coerencia entre titulo, foco e expectativa de aprendizagem.
-Observacoes: Mantem a disciplina menos dependente de regras genericas.
-
-planos_luan.db
-
-Tipo: Arquivo tecnico
-Funcao principal: Arquivo presente dentro da pasta core, mas que nao representa hoje o banco principal de operacao do sistema.
-Quando entra no fluxo: Nao deve ser lido como modulo de negocio. O fluxo principal usa o banco gerenciado por core/database.py na raiz do projeto.
-Observacoes: Vale documentar sua existencia para evitar confusao futuras.
-
-professores_planos.py
-
-Tipo: Arquivo
-Funcao principal: Le, diagnostica, cria e atualiza modelos DOCX encontrados nas pastas dos professores.
-Quando entra no fluxo: Extrai cabecalho, datas, horarios e grade semanal dos planos-modelo e ajuda a converter isso em cadastro reutilizavel no app.
-Observacoes: E a ponte entre os arquivos reais do trabalho escolar e a base interna do sistema.
-
-projeto_vida_escopo.py
-
-Tipo: Arquivo
-Funcao principal: Le e interpreta o escopo-sequencia de Projeto de Vida para localizar o item certo por turma, bimestre e aula.
-Quando entra no fluxo: Entra quando Projeto de Vida precisa de um tratamento proprio, sem cair no comportamento generico das outras disciplinas.
-Observacoes: Ajuda o sistema a respeitar a logica pedagogica especifica desse componente.
-
-prompts_por_disciplina.py
-
-Tipo: Arquivo
-Funcao principal: Guarda orientacoes por disciplina usadas pelo modulo de IA.
-Quando entra no fluxo: Ajuda a montar instrucoes diferentes para Portugues, Matematica, Projeto de Vida, Redacao e outras areas.
-Observacoes: Evita que o comportamento da IA fique uniforme demais entre disciplinas muito diferentes.
-
-qualidade_metodologica.py
-
-Tipo: Arquivo
-Funcao principal: Revisa metodologia, corrige ortografia, detecta contexto pedagogico, naturaliza texto e combate mojibake.
-Quando entra no fluxo: Entra entre a geracao da aula e a validacao final, funcionando como camada de saneamento textual e pedagogico.
-Observacoes: E um dos modulos que mais contribuem para o plano final ficar profissional.
-
-redacao_leitura_metodologia.py
-
-Tipo: Arquivo
-Funcao principal: Gera a estrutura metodologica de Redacao e Leitura com etapas fixas e criterios mais autorais.
-Quando entra no fluxo: Atua quando o sistema identifica perfis como leitura literaria, planejamento de producao, devolutiva e producao final.
-Observacoes: Foi uma ampliacao importante do repertorio especializado do projeto.
-
-referencias_metodologia.py
-
-Tipo: Arquivo
-Funcao principal: Carrega textos de referencia metodologica salvos no projeto.
-Quando entra no fluxo: Entrega material de apoio por disciplina e turma para a IA e para modulos que precisam reforcar o tom pedagogico esperado.
-Observacoes: Funciona como uma biblioteca interna de memoria metodologica.
-
-validador_plano.py
-
-Tipo: Arquivo
-Funcao principal: Valida aulas geradas e detecta problemas como tema repetido, metodologia pobre, aprendizagem curta e campos vazios.
-Quando entra no fluxo: E uma das ultimas barreiras antes da revisao do usuario e da geracao do DOCX.
-Observacoes: Hoje tambem protege o sistema de contaminacao semantica entre disciplinas.
-
-Leitura Final da Arquitetura Atual
-
-Se a pergunta for "onde nascem as aulas comuns a partir dos PDFs?", a resposta principal continua sendo lote.py, apoiado hoje por uma base modular mais forte em core/lib.
-Se a pergunta for "onde esta o cadastro e o historico?", a resposta continua sendo core/database.py, mas com mais responsabilidade do que antes por causa de template_id e componente curricular.
-Se a pergunta for "onde o sistema entende o CDP?", a resposta agora precisa citar dois niveis: o pacote core/cdp como camada atual e cdp_legacy.py como camada de compatibilidade ainda em uso.
-Se a pergunta for "onde entram as novidades do guia priorizado?", a resposta e ae_priorizado.py junto da base em assets/ae_priorizado.
-Se a pergunta for "onde o texto final e saneado?", os destaques continuam sendo qualidade_metodologica.py, metodologia_texto.py e validador_plano.py.
+No CDP, a leitura correta continua sendo em duas camadas: core/cdp como nucleo atual e cdp_legacy.py como compatibilidade ainda ativa. No restante do sistema, a principal mudanca de maturidade foi a presenca de uma trilha completa de saneamento: extracao, classificacao, geracao, higienizacao, validacao, auditoria final e cache reaproveitavel por PDF.
 
 Observacao importante
-Esta documentacao descreve o estado atual observado em 05/06/2026. Como o projeto ainda tem camadas novas e legadas convivendo, o texto deve ser revisado sempre que a estrutura de core mudar de forma relevante.
+
+Esta documentacao descreve o estado atual observado em 17/06/2026. Ela passou a ser regenerada por script interno para reduzir envelhecimento entre uma rodada de melhorias e outra.

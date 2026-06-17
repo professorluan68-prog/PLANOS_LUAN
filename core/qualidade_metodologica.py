@@ -8,7 +8,7 @@ from typing import Any
 from core.normalizacao import normalizar_preservar_pontuacao as normalizar_texto
 
 
-_PADROES_MOJIBAKE = ("Ã", "Â", "â€", "â€“", "â€”", "�")
+_PADROES_MOJIBAKE = ("Ã", "Â", "â€", "–", "—", "�")
 _CORRECOES_PONTUAIS_MOJIBAKE = {
     "an?lise": "análise",
     "discuss?o": "discussão",
@@ -831,6 +831,66 @@ def encontrar_alertas_metodologia(texto: str, contexto: str = "regular") -> list
     return alertas
 
 
+def mapear_etapa_canonical(titulo: str, texto: str, index: int, total: int) -> str:
+    tit_norm = normalizar_texto(titulo).lower()
+    if any(k in tit_norm for k in ["comeca", "relembre", "inicial", "disparo", "warm", "aquecimento", "introduca"]):
+        return "Para começar"
+    if any(k in tit_norm for k in ["conteudo", "explicacao", "leitura", "conceito", "teoria", "vocabulario", "foco"]):
+        return "Foco no conteúdo"
+    if any(k in tit_norm for k in ["pratica", "exercic", "questo", "produca", "ativid", "tarefa"]):
+        return "Na prática"
+    if any(k in tit_norm for k in ["encerramento", "sintese", "fechamento", "revisao", "reescrita", "conclusao"]):
+        return "Encerramento"
+    
+    # Fallback por posição
+    pct = index / total if total > 1 else 0
+    if pct < 0.25:
+        return "Para começar"
+    elif pct < 0.5:
+        return "Foco no conteúdo"
+    elif pct < 0.75:
+        return "Na prática"
+    else:
+        return "Encerramento"
+
+
+def consolidar_quatro_etapas(metodologia: list[dict], tema: str = "") -> list[dict]:
+    agrupado = {
+        "Para começar": [],
+        "Foco no conteúdo": [],
+        "Na prática": [],
+        "Encerramento": []
+    }
+    
+    total = len(metodologia)
+    for idx, item in enumerate(metodologia):
+        titulo = item.get("titulo", "")
+        texto = item.get("texto", "")
+        canonical = mapear_etapa_canonical(titulo, texto, idx, total)
+        agrupado[canonical].append(texto)
+        
+    resultado = []
+    chaves = ["Para começar", "Foco no conteúdo", "Na prática", "Encerramento"]
+    
+    tema_mencionado = f" sobre {tema}" if tema else ""
+    
+    fallbacks = {
+        "Para começar": f"Iniciar a aula com uma breve ativação de conhecimentos prévios e contextualização do tema{tema_mencionado}.",
+        "Foco no conteúdo": f"Apresentar o concept central e os principais pontos do material sobre {tema or 'o tema da aula'}, explicando as definições de forma dialogada.",
+        "Na prática": f"Propor atividades e exercícios práticos para fixação e aplicação dos conceitos de {tema or 'a aula'} discutidos anteriormente.",
+        "Encerramento": f"Finalizar a aula com um momento de síntese, onde os alunos expressam o que compreenderam e se faz a verificação dos aprendizados."
+    }
+    
+    for chave in chaves:
+        textos = agrupado[chave]
+        texto_unido = " ".join([t.strip() for t in textos if t.strip()])
+        if not texto_unido:
+            texto_unido = fallbacks[chave]
+        resultado.append({"titulo": chave, "texto": texto_unido})
+        
+    return resultado
+
+
 def revisar_metodologia(
     metodologia: list[Any],
     perfil: str = "geral",
@@ -849,9 +909,12 @@ def revisar_metodologia(
             texto = str(item or "")
 
         texto_limpo = sanitizar_texto_metodologico(texto, perfil=perfil, tema=tema, contexto=contexto)
-        alertas.extend(f"{indice + 1}:{alerta}" for alerta in encontrar_alertas_metodologia(texto_limpo, contexto=contexto))
+        alertas.extend(f"{indice + 1}:{alerta}" for alerta in encontrar_alertas_metodologia(texto, contexto=contexto))
         if texto_limpo:
             revisada.append({"titulo": titulo, "texto": texto_limpo})
+
+    # Consolidar nas 4 etapas canônicas obrigatórias
+    revisada = consolidar_quatro_etapas(revisada, tema=tema)
 
     score = 100
     score -= min(60, 10 * len(alertas))

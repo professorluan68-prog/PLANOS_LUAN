@@ -110,7 +110,7 @@ def normalizar(texto: str = "") -> str:
         "ú": "u", "ù": "u", "û": "u",
         "ç": "c",
         "°": "º",
-        "Â°": "Âº",
+        "°": "º",
     }.items():
         texto = texto.replace(origem, destino)
     return texto

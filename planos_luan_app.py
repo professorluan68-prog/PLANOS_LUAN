@@ -1733,9 +1733,9 @@ if usar_ae_priorizado and contexto_ae_ok:
             "Modo AE ativo neste contexto. Ordem base do guia priorizado: "
             f"{_rotulo_sequencia_pdfs_esperada(sequencia_ae_contexto)}."
         )
-        st.caption("Mais abaixo, o envio dos PDFs do mÃªs usarÃ¡ essa mesma ordem.")
+        st.caption("Mais abaixo, o envio dos PDFs do mês usará essa mesma ordem.")
     else:
-        st.warning("Modo AE ativo, mas nÃ£o encontrei a sequÃªncia do guia para esta turma no 2Âº bimestre.")
+        st.warning("Modo AE ativo, mas não encontrei a sequência do guia para esta turma no 2º bimestre.")
 
 
 def _render_previa_aulas_cdp(preview: list[dict]):

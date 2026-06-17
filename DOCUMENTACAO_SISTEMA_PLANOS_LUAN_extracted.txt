@@ -1,155 +1,94 @@
-=== File: DOCUMENTACAO_SISTEMA_PLANOS_LUAN.docx ===
-
 Documentacao Atual do Sistema PLANOS_LUAN
 
-Documento atualizado em 05/06/2026, em linguagem simples, descrevendo o comportamento real do sistema no momento atual.
+Documento atualizado automaticamente em 17/06/2026 às 00:42, em linguagem simples, descrevendo o comportamento real do sistema hoje.
 
---- Table ---
-Leitura proposta | Este documento foi escrito para quem precisa entender o sistema como ferramenta de trabalho: o que ele resolve hoje, como as informacoes andam por dentro dele e quais partes do projeto sao mais importantes no uso diario.
--------------
+--- Table: Leitura proposta ---
+Campo | Descricao
+Leitura proposta | Documento escrito para quem precisa entender o sistema como ferramenta de trabalho: o que ele resolve hoje, como a informacao circula e o que mudou de forma concreta.
 
-1. O que faz o sistema hoje?
+1. O que faz o sistema hoje
 
-O PLANOS_LUAN continua sendo um sistema de montagem de planos de aula em Word, mas hoje ele esta mais amplo do que na versao descrita pela documentacao antiga.
-Ele gera planos a partir de PDFs comuns, reaproveita modelos DOCX ja existentes dos professores, consulta um banco de dados local, escolhe templates centrais por contexto, sincroniza agenda semanal com feriados e dias sem aula, salva historico e oferece revisao das aulas antes do documento final.
-Tambem suporta fluxos especiais como CDP contextual, CDP Fundamental, CDP multisseriada, modalidade EJA em disciplinas especificas e um piloto de AE priorizado para Portugues do Ensino Medio no 2o bimestre.
+O PLANOS_LUAN continua sendo um sistema de montagem de planos de aula em Word, mas hoje ele atua como uma linha de producao pedagogica mais completa. Ele combina banco de dados local, leitura de modelos DOCX, agenda escolar, entrada de PDFs em modos diferentes, extracao local, IA opcional, revisao humana e geracao final do documento.
+
+O sistema atende fluxos comuns por PDF, cenarios CDP, adaptacoes EJA em contextos especificos e AE priorizado quando existe base preparada para a combinacao de disciplina, turma e bimestre.
 
 2. Como o sistema trabalha por dentro hoje
 
-O uso atual pode ser lido como um fluxo guiado em seis momentos: contexto, agenda, materiais, processamento, revisao e geracao final.
-Primeiro o usuario escolhe professor, disciplina, turma, mes, bimestre, escola e, quando necessario, componente curricular, modalidade EJA ou turma espelho.
-Depois o sistema tenta localizar um modelo valido: pode vir da pasta do professor, do cadastro salvo no banco ou de um template central como MODELOEGLE, MODELOPADRE ou MODELOCDP.
-Na sequencia, a agenda do mes e montada a partir do cadastro ou do proprio modelo detectado. Nessa etapa entram extensao apos o mes, feriados nacionais e o campo Dias sem aula, que permite bloquear datas especificas.
-So depois disso o usuario organiza os PDFs, que podem ser enviados todos de uma vez ou um por aula. O sistema tambem consegue dividir metodologia em dois dias e gerar o mesmo conjunto para uma 2a turma.
-No processamento, o motor local ou a IA extraem tema, aprendizagem, metodologia, acompanhamento e acessibilidade. Se a opcao AE estiver ativa e o contexto for suportado, o sistema troca a aprendizagem pelo AE e segue a ordem do guia priorizado.
-Por fim, o usuario revisa as aulas na tela e gera o DOCX. O resultado e salvo no historico com professor, disciplina, turma e arquivo final.
+- Contexto: o usuario escolhe professor, disciplina, turma, mes, bimestre, escola, componente curricular e, quando necessario, modalidades especiais.
+- Modelo e agenda: o sistema tenta localizar modelo do professor, cadastro salvo ou template central; depois monta datas reais, feriados, dias sem aula e extensao do mes.
+- Entrada de PDFs: hoje existem tres modos principais de envio — Automatico, Todos de uma vez e Um por aula.
+- Memoria do sistema: no modo automatico, o app pode pre-selecionar PDFs a partir da ultima aula salva no historico.
+- Processamento: o motor local extrai tema, aprendizagem e metodologia; se a IA estiver ativa, a camada externa refina um rascunho base do proprio sistema.
+- Revisao: antes do DOCX final, o usuario revisa tema, aprendizagem, metodologia, acompanhamento e acessibilidade numa tela centralizada.
+- Geracao final: o DOCX e montado, pode ser salvo no historico ou nao, e o sistema atualiza a memoria da ultima aula apenas quando isso for autorizado.
 
---- Table ---
+--- Table: Estruturas principais do sistema ---
 Parte | Funcao principal | Tipo de conteudo
-planos_luan_app.py | Tela principal e orquestrador do fluxo de uso | Interface
-core/lote.py | Motor principal que transforma PDFs comuns em aulas | Nucleo PDF
-core/lib/ | Camada modular de extracao, classificacao, colunas pedagogicas e perfis | Base pedagogica
-core/cdp/ | Motor atual dos fluxos CDP contextual, fundamental e multisseriada | Nucleo CDP
-core/ae_priorizado.py + assets/ae_priorizado/ | Integracao piloto entre o guia priorizado e o plano de aula | AE priorizado
-core/calendario.py | Controle de feriados, dias sem aula e extensao do mes | Agenda
-core/database.py + planos_luan.db | Cadastro persistente e historico dos planos | Banco de dados
-core/professores_planos.py | Leitura e padronizacao dos modelos DOCX dos professores | Modelos locais
-core/modelos_docx.py + templates/ | Escolha de templates centrais por contexto | Modelos centrais
-docx_generator/ | Preenchimento final dos documentos Word | Saida DOCX
-Planos feitos/ + REFERENCIAS_METODOLOGIA/ | Base documental e pedagogica do modo CDP e das referencias metodologicas | Dados de apoio
-scripts/ | Ferramentas de manutencao, migracao, extracao e apoio tecnico | Operacao
-tests/ | Cobertura automatica das regras mais sensiveis do sistema | Qualidade
--------------
+planos_luan_app.py | Tela principal, memoria de uso, revisao centralizada e orquestracao do fluxo. | Interface
+core/lote.py | Motor principal do fluxo PDF, com cache por PDF, auditoria final e fallback local. | Nucleo PDF
+core/lib/ | Base modular de extracao, classificacao, metodologia, higienizacao e perfis pedagogicos. | Base pedagogica
+core/ia.py + core/prompts_por_disciplina.py | Camada de IA com OpenAI/Gemini em modo hibrido a partir de rascunho local. | IA opcional
+core/revisao_final.py | Auditoria final da aula com confidence_score e sidecar JSON. | Controle final
+core/database.py + planos_luan.db | Cadastro persistente, historico e memoria da ultima aula. | Banco de dados
+core/professores_planos.py | Leitura e reaproveitamento de modelos DOCX dos professores. | Modelos locais
+core/modelos_docx.py + templates/ | Escolha de templates centrais por contexto e template_id. | Modelos centrais
+core/cdp/ + cdp_legacy.py + cdp_em_docx.py | Fluxo CDP atual com camada de compatibilidade legada. | Nucleo CDP
+core/ae_priorizado.py + assets/ae_priorizado/ | Aplicacao de AE priorizado quando houver base compativel. | Integracao curricular
+docx_generator/ | Preenchimento final dos documentos Word para fluxo comum e CDP. | Saida DOCX
+tests/ | Cobertura automatica das regras mais sensiveis do sistema. | Qualidade
+scripts/atualizar_documentacao_sistema.py | Regeneracao automatica das documentacoes docx e txt. | Manutencao
 
-3. Estruturas principais do sistema
+3. Mudancas mais importantes desde a versao de 05/06/2026
 
-planos_luan_app.py - a tela principal e o grande orquestrador
+- A tela principal consolidou o fluxo em contexto, extracao, revisao e download, com mais destaque para revisao pedagógica antes do DOCX.
+- O envio de PDFs passou a trabalhar claramente com os modos Automatico, Todos de uma vez e Um por aula.
+- A memoria da ultima aula deixou de ser obrigatoria: hoje o usuario pode gerar o DOCX sem salvar no historico.
+- A camada de IA virou refinamento sobre rascunho local, em vez de trabalhar isoladamente.
+- Foi criada uma auditoria final por aula, com confidence_score, avisos_validacao, hash do PDF e cache JSON reaproveitavel.
+- A higienizacao pedagogica ficou mais forte, reduzindo contaminacao entre disciplinas e trocas indevidas de recurso.
+- A base de testes cresceu e hoje cobre fluxo principal sem lote, cache JSON, revisao final, timeout de IA e blocos pedagogicos mais recentes.
+- Padronizacao fisica de PDFs e atualizacao automatica de caminhos no arquivo central mapa_arquivos.csv para Matematica, Ciencias, Biologia e Historia.
+- Adicionados classificadores e metodologias autorais complexas (como linha do tempo, analise critica de fontes e debate de narrativas) para Historia, Ciencias e Biologia.
 
-O que e e para que serve: E o arquivo principal do aplicativo Streamlit. Hoje ele nao e apenas uma tela: organiza selecao de professor, disciplina, turma, bimestre, mes, agenda, PDF, revisao, geracao e download.
-Como funciona hoje: O fluxo atual ficou mais guiado do que na documentacao antiga. O usuario escolhe contexto, o sistema tenta localizar modelo automatico, sincroniza datas e horarios do mes, filtra feriados e dias sem aula, define modo de upload dos PDFs, processa as aulas, abre revisao centralizada e so depois gera o DOCX.
-Destaques em relacao a versao antiga: Hoje o app tambem oferece: modo de envio todos de uma vez ou um por aula; geracao para 2a turma; divisao de metodologia em dois dias; modalidade EJA para disciplinas suportadas; extensao apos o mes; e a opcao piloto de usar AE no lugar da habilidade em Portugues EM 2o bimestre.
+4. Partes que merecem leitura especial hoje
 
-config.py - configuracao central de caminhos e padroes
+planos_luan_app.py segue sendo o grande orquestrador do uso diario. Ele concentra a experiencia de tela, a memoria de historico, as escolhas de modo de upload e a revisao centralizada.
 
-O que e e para que serve: Centraliza caminhos externos e internos, como pasta principal de trabalho, pasta de backups, templates, banco, modelos padrao de IA e limites de leitura.
-Como funciona hoje: Ele liga a instalacao local do PLANOS_LUAN a caminhos como D:\PLANOS DE JUNHO e D:\PLANOS-FINALIZADOS, alem de criar automaticamente algumas pastas quando necessario.
-Destaques em relacao a versao antiga: A documentacao antiga ainda citava varios caminhos espalhados. Hoje o projeto ja concentra melhor essa parte, embora ainda haja espaco para evoluir.
+core/lote.py continua sendo o coracao do fluxo PDF, mas agora conversa mais fortemente com classificadores e higienizadores de core/lib, alem de revisar e gravar cache sidecar por PDF.
 
-core/database.py e planos_luan.db - o cadastro persistente
+core/ia.py, prompts_por_disciplina.py e referencias_metodologia.py formam a trilha de IA opcional. O desenho atual privilegia robustez: se a IA falhar, o motor local continua sustentando o plano.
 
-O que e e para que serve: Guardam professores, turmas, disciplinas, grade semanal, arquivo_modelo, template_id, componente curricular e historico dos planos em SQLite.
-Como funciona hoje: O modulo inicializa tabelas, migra um JSON legado quando existir e oferece operacoes de salvar, atualizar, duplicar, excluir vinculos e recuperar historico de geracao.
-Destaques em relacao a versao antiga: Em comparacao com a versao antiga da documentacao, o cadastro agora esta mais rico: nao guarda so professor/turma, mas tambem template central e componente curricular associado.
+core/revisao_final.py e tests/ viraram pecas mais relevantes do que eram nos documentos antigos, porque agora o sistema nao apenas gera: ele pontua, valida, reaproveita e tenta evitar que um PDF ja processado precise ser refeito sem necessidade.
 
-core/professores_planos.py - a ponte com os modelos reais dos professores
+5. Operacao e artefatos do dia a dia
 
-O que e e para que serve: Le planos DOCX das pastas dos professores, extrai cabecalhos, semanas, datas e horarios e ajuda a criar ou atualizar modelos padronizados.
-Como funciona hoje: Ele identifica tabelas de cabecalho e tabelas de aulas, resume a grade semanal e devolve ao sistema informacoes que depois viram cadastro reaproveitavel.
-Destaques em relacao a versao antiga: Hoje essa leitura e ainda mais importante porque o sistema usa a agenda detectada no modelo para sincronizar o mes, em vez de depender so da quantidade fixa de aulas por semana.
+- O banco principal usado pelo app continua na raiz: planos_luan.db.
+- Cada PDF processado pode ganhar um sidecar .json com hash, tema, metodologia, confidence_score e avisos.
+- Hoje existem 14 bases JSON de AE priorizado em assets/ae_priorizado, ainda concentradas no 2o bimestre.
+- O projeto possui 59 arquivos de teste automatizado em tests/.
+- As versoes .txt extraidas da documentacao continuam existindo para leitura rapida fora do Word.
 
-core/modelos_docx.py e templates/ - camada nova de templates centrais
+6. Como a documentacao fica atualizada agora
 
-O que e e para que serve: Escolhem o template central correto entre MODELOEGLE, MODELOPADRE e MODELOCDP.
-Como funciona hoje: Quando o cadastro traz template_id ou quando o contexto sugere escola, disciplina ou modo CDP, o sistema consegue cair num modelo central coerente mesmo sem depender exclusivamente do arquivo legado da pasta do professor.
-Destaques em relacao a versao antiga: Essa e uma das mudancas mais importantes desde a documentacao antiga, porque tornou a selecao de modelo mais previsivel.
+A documentacao passou a ser regenerada por um script proprio do projeto: scripts/atualizar_documentacao_sistema.py. Esse script atualiza os dois DOCX e tambem as versoes TXT extraidas, reduzindo o risco de a descricao envelhecer depois de novas melhorias.
 
-core/calendario.py - agenda escolar, feriados e dias sem aula
+7. Pontos fortes atuais
 
-O que e e para que serve: Calcula feriados nacionais, sugere datas bloqueadas, permite filtragem de dias sem aula e controla a extensao do mes para fechar a ultima semana.
-Como funciona hoje: O app monta a agenda do mes a partir do cadastro ou do modelo detectado, depois passa por esse modulo para remover feriados e datas marcadas manualmente.
-Destaques em relacao a versao antiga: Ajustes recentes fizeram a contagem semanal do plano passar a refletir a carga real daquela semana, inclusive quando a primeira semana tem feriado.
+- Fluxo mais guiado e menos manual do que nas versoes mais antigas.
+- Capacidade de trabalhar com PDF comum, CDP, EJA e AE priorizado sem trocar de sistema.
+- IA opcional com fallback local e pos-processamento forte.
+- Revisao humana antes do documento final.
+- Historico persistente, memoria de ultima aula e opcao de nao avancar essa memoria quando o plano ainda nao estiver ok.
+- Cobertura de testes mais madura e mais alinhada ao comportamento real do sistema.
 
-core/lote.py, core/lib/ e core/eja/ - o motor pedagogico do fluxo PDF
+8. Prioridades naturais de evolucao
 
-O que e e para que serve: Conjunto que extrai texto dos PDFs, identifica titulo e numero da aula, classifica o perfil pedagogico e monta tema, aprendizagem, metodologia, acompanhamento e acessibilidade.
-Como funciona hoje: lote.py continua como nucleo, mas hoje trabalha apoiado numa base modular maior: extrator_pdf, extrator_titulo, classificador, gerador_colunas_pedagogicas, modulos de progressao, tecnicas, acompanhamento, acessibilidade e adaptacoes EJA.
-Destaques em relacao a versao antiga: Na pratica, o sistema ficou menos monolitico no miolo pedagogico, mesmo que planos_luan_app.py ainda seja grande.
+- Continuar modularizando planos_luan_app.py, que ainda concentra muitas responsabilidades de interface e orquestracao.
+- Expandir a base estruturada de AE priorizado para mais contextos quando os dados estiverem prontos.
+- Reduzir sobreposicao entre camadas novas e legadas do CDP.
+- Fortalecer diagnosticos automaticos de modelos Word, bases externas e configuracoes locais.
+- Manter a documentacao e a automacao diaria como artefatos oficiais de manutencao do projeto.
 
-core/ia.py, prompts_por_disciplina.py e referencias_metodologia.py - a camada opcional de IA
+9. Conclusao
 
-O que e e para que serve: Permitem usar OpenAI ou Gemini para montar aulas com apoio externo, mantendo orientacoes por disciplina e referencias pedagogicas do proprio projeto.
-Como funciona hoje: Quando o usuario ativa IA, o sistema monta um prompt contextualizado, injeta referencias metodologicas e normaliza a resposta para o mesmo formato usado no fluxo local.
-Destaques em relacao a versao antiga: O sistema continua podendo funcionar sem IA, o que e importante para custo, autonomia e robustez em ambiente escolar.
-
-core/ae_priorizado.py, assets/ae_priorizado/ e scripts de extracao - a nova integracao com o guia priorizado
-
-O que e e para que serve: Representam a nova camada criada para permitir que o plano use AE no lugar da habilidade normal.
-Como funciona hoje: Primeiro o guia priorizado foi recortado e transformado em base estruturada. Depois o sistema ganhou uma opcao de tela que, quando ativa no contexto suportado, procura a aula no mapa, troca a aprendizagem pelo AE e reorganiza a sequencia segundo a ordem do guia.
-Destaques em relacao a versao antiga: Hoje esse recurso esta em fase piloto para Portugues do Ensino Medio, 2o bimestre, mas ja mudou o comportamento do sistema de forma relevante.
-
-core/cdp/, cdp_legacy.py, cdp_em_docx.py e Planos feitos/ - o universo CDP
-
-O que e e para que serve: Controlam o fluxo que gera planos sem depender de PDFs comuns, usando planilhas e documentos locais de habilidades.
-Como funciona hoje: Esse bloco trabalha com CDP contextual, Ensino Medio, Fundamental e multisseriada, selecionando habilidades, objetos, titulos e colunas pedagogicas a partir dos arquivos locais.
-Destaques em relacao a versao antiga: A arquitetura atual mistura uma camada nova em pacote com uma camada de compatibilidade legado. Isso precisa aparecer na documentacao para nao dar a impressao de que existe um unico modulo CDP simples.
-
-docx_generator/preencher.py e preencher_cdp.py - montagem final do Word
-
-O que e e para que serve: Transformam as aulas revisadas em documento DOCX final, respeitando o modelo escolhido.
-Como funciona hoje: Esses modulos substituem cabecalho, distribuem aulas por semana, preenchem data, horario, titulo, aprendizagem, metodologia, acompanhamento e acessibilidade. Tambem removem semanas vazias e ajustam o layout das tabelas.
-Destaques em relacao a versao antiga: Uma correcao recente importante foi a contagem real de aulas previstas na semana com base no horario das aulas, e nao apenas no valor fixo do cadastro.
-
-scripts/ - manutencao, migracao e extracao
-
-O que e e para que serve: Agrupam tarefas de apoio tecnico, como normalizacao de data/hora, padronizacao de nomes dos modelos, migracao de modelos legados e extracao da base de AE priorizado.
-Como funciona hoje: Nao fazem parte do uso normal do professor, mas ajudam a manter o sistema limpo, coerente e com base documental atualizada.
-Destaques em relacao a versao antiga: Os scripts de AE priorizado mostram que o sistema ganhou uma etapa nova de preparacao de dados externos antes da geracao dos planos.
-
-assets/, tests/ e arquivos de abertura - acabamento, seguranca e operacao
-
-O que e e para que serve: assets guarda estilo visual e base de AE priorizado; tests protege regras sensiveis; arquivos .bat/.ps1/.vbs ajudam a abrir, fechar e reiniciar o sistema.
-Como funciona hoje: A interface atual usa style.css e hero-planejamento.svg, enquanto os testes cobrem pontos como feriados, AE priorizado, limpeza de DOCX, CDP e perfis pedagogicos.
-Destaques em relacao a versao antiga: Essa camada de apoio ficou mais rica desde a documentacao anterior e contribui diretamente para estabilidade e usabilidade.
-
-4. Mudancas relevantes desde a documentacao anterior
-
-A tela principal ficou mais guiada e ganhou uma etapa de revisao centralizada antes do DOCX.
-O sistema passou a sincronizar agenda mensal com feriados, extensao do mes e dias sem aula selecionados pelo usuario.
-A selecao de template deixou de depender apenas do arquivo da pasta do professor e passou a usar template_id e contexto.
-O fluxo PDF ganhou modos de upload diferentes, divisao de metodologia em dois dias e geracao para 2a turma.
-Foi criada a integracao piloto com AE priorizado para Portugues EM 2o bimestre.
-A contagem semanal de aulas no documento final passou a refletir a carga real da semana, inclusive em semanas com feriado.
-A camada core se expandiu com subpacotes especializados como core/lib, core/cdp e core/eja.
-
-5. Pontos fortes atuais
-
-Fluxo mais guiado e menos manual na tela principal.
-Capacidade de trabalhar com PDF comum, CDP, EJA e AE priorizado piloto sem trocar de sistema.
-Uso combinado de modelo do professor, template central e banco de dados.
-Revisao das aulas antes da geracao do DOCX, o que reduz retrabalho.
-Historico persistente dos planos gerados.
-Base de testes melhor do que a que existia quando a documentacao antiga foi escrita.
-
-6. Prioridades de evolucao
-
-Continuar modularizando planos_luan_app.py, que ainda concentra muitas responsabilidades.
-Expandir o modo AE priorizado para outras disciplinas e para 3o e 4o bimestres quando a base estiver pronta.
-Reduzir a sobreposicao entre camada nova e camada legada do CDP.
-Fortalecer diagnosticos de modelo Word e de base de dados externos.
-Manter scripts e documentacao como artefatos oficiais de manutencao, para evitar novo envelhecimento da descricao do sistema.
-
-7. Conclusao
-
-Hoje o PLANOS_LUAN deve ser entendido como uma linha de producao pedagogica mais madura do que aquela registrada na documentacao antiga.
-A tela principal organiza o uso, o cadastro e os modelos alimentam a agenda, o motor PDF ou CDP monta as aulas, a revisao humana refina o conteudo e o gerador DOCX entrega o documento final no formato esperado pela escola.
-O sistema ja nao e apenas um leitor de PDF com Word na saida: ele combina agenda escolar, banco de dados, camadas pedagogicas especializadas, templates centrais, revisao, historico e integracoes novas como o AE priorizado.
+Hoje o PLANOS_LUAN deve ser entendido como uma linha de producao pedagogica com varias camadas de seguranca: cadastro, agenda, leitura de modelos, extracao, IA opcional, higienizacao, revisao humana, auditoria final e geracao Word. Ele ja nao funciona apenas como leitor de PDF com Word na saida; ele organiza memoria, contexto e qualidade antes da entrega.

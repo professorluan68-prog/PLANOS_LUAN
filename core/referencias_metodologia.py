@@ -332,14 +332,12 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
 @lru_cache(maxsize=32)
 def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> str:
     arquivos_novos = _arquivos_novos_para_disciplina(disciplina)
-    if arquivos_novos:
-        arquivos = arquivos_novos
-    elif _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
-        arquivos = (REFERENCIA_PORTUGUES_FUNDAMENTAL, REFERENCIA_PORTUGUES_GERAL)
+    if _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
+        arquivos_padrao = (REFERENCIA_PORTUGUES_FUNDAMENTAL, REFERENCIA_PORTUGUES_GERAL)
     elif _eh_portugues(disciplina):
-        arquivos = (REFERENCIA_PORTUGUES_MEDIO, REFERENCIA_PORTUGUES_GERAL)
+        arquivos_padrao = (REFERENCIA_PORTUGUES_MEDIO, REFERENCIA_PORTUGUES_GERAL)
     elif _eh_projeto_vida(disciplina) and _ano_turma(turma) == 7:
-        arquivos = (
+        arquivos_padrao = (
             REFERENCIA_PV_GERAL,
             REFERENCIA_PV_REFINADA_FUNDAMENTAL,
             REFERENCIA_PV_7_ANO,
@@ -347,14 +345,21 @@ def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> s
             REFERENCIA_PV_FUNDAMENTAL_ANOS_FINAIS,
         )
     elif _eh_projeto_vida(disciplina):
-        arquivos = (
+        arquivos_padrao = (
             REFERENCIA_PV_GERAL,
             REFERENCIA_PV_REFINADA_FUNDAMENTAL,
             REFERENCIA_PV_FUNDAMENTAL,
             REFERENCIA_PV_FUNDAMENTAL_ANOS_FINAIS,
         )
     else:
-        arquivos = _arquivos_para_disciplina(disciplina)
+        arquivos_padrao = _arquivos_para_disciplina(disciplina)
+    
+    disc_norm = normalizar_disciplina(disciplina)
+    if "redacao" in disc_norm or "leitura" in disc_norm:
+        arquivos = _combinar_arquivos(arquivos_padrao, arquivos_novos)
+    else:
+        arquivos = arquivos_novos if arquivos_novos else arquivos_padrao
+        
     if not arquivos:
         return ""
 

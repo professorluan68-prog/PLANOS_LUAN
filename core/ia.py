@@ -97,7 +97,17 @@ def _aplicar_codigo_bncc(codigo: str, texto: str) -> str:
 
 
 def _aprendizagem_fallback_por_perfil(perfil: str, tema: str, codigo: str = "") -> str:
-    foco = extrair_conceito_central(tema) or re.sub(r"\s+", " ", str(tema or "")).strip(" .:-") or "o tema da aula"
+    foco = extrair_conceito_central(tema)
+    foco_norm = normalizar_texto(foco).lower()
+    is_comando = (
+        any(foco_norm.startswith(v) for v in ["observe", "leia", "responda", "analise", "assista", "copie", "preencha", "complete"])
+        or any(k in foco_norm for k in ["perguntas propostas", "propostas no material", "de olho no material", "no caderno"])
+        or len(foco.split()) > 8
+    )
+    if is_comando or not foco:
+        foco = "o tema da aula"
+    else:
+        foco = re.sub(r"\s+", " ", str(foco)).strip(" .:-")
 
     if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
         return _aplicar_codigo_bncc(codigo, _aprendizagem_padrao_projeto_vida(foco))

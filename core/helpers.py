@@ -231,8 +231,30 @@ def _buscar_pasta_pdf_flexivel(
 
 def numero_aula_pdf(arquivo) -> int | None:
     nome = getattr(arquivo, "name", None) or Path(str(arquivo)).name
+    nome_base = Path(nome).stem
+    
+    # Limpar sufixos de cópia comuns
+    nome_base = re.sub(r"\s*\(\d+\)$", "", nome_base)  # remove " (1)"
+    nome_base = re.sub(r"(?i)\s*-\s*c[oó]pia$", "", nome_base)  # remove " - copia"
+    nome_base = re.sub(r"(?i)\s*-\s*copy$", "", nome_base)  # remove " - copy"
+    nome_base = nome_base.strip()
+
+    # 1. Tentar encontrar padrão de número no final precedido de _, -, ou espaço (ex: Nome_01, Nome-01, Nome 01)
+    match_end = re.search(r"[\s_.-]\s*(\d{1,4})$", nome_base)
+    if match_end:
+        return int(match_end.group(1))
+    
+    # 2. Fallback clássico "AULA XX"
     match = re.search(r"\bAULA[_\s-]*(\d{1,4})\b", str(nome), flags=re.I)
-    return int(match.group(1)) if match else None
+    if match:
+        return int(match.group(1))
+    
+    # 3. Fallback geral para qualquer número no nome
+    match_any = re.search(r"(\d{1,4})", nome_base)
+    if match_any:
+        return int(match_any.group(1))
+    return None
+
 
 
 def ordenar_pdfs_por_numero(arquivos) -> list:

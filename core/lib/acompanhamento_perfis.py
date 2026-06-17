@@ -181,6 +181,20 @@ def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desen
 def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
 
+    if any(k in base for k in ["autoavaliacao", "avaliando com consciencia", "concluindo a jornada", "portfolio", "rubrica", "percurso de aprendizagem"]):
+        return [
+            "☑ Verificar se o estudante retoma evidências do próprio percurso para reconhecer avanços e dificuldades.",
+            "☑ Observar se o estudante registra metas ou próximos passos coerentes com os critérios de autoavaliação.",
+            "☑ Acompanhar a participação na socialização das percepções de aprendizagem de forma respeitosa.",
+        ]
+
+    if any(k in base for k in ["apresentacao oral", "apresentacoes orais", "podcast", "vlog", "video", "audiovisual", "esquete"]):
+        return [
+            "☑ Verificar se os estudantes organizam a fala ou o roteiro considerando público, finalidade e conteúdo estudado.",
+            "☑ Observar clareza, postura, escuta e respeito aos turnos durante apresentações, gravações ou socializações.",
+            "☑ Acompanhar os registros e ajustes realizados a partir dos critérios combinados com a turma.",
+        ]
+
     if any(k in base for k in ["trilha", "alice no pais das maravilhas", "pequeno principe", "peter pan", "leitura compartilhada", "predicao guiada"]):
         return [
             "Observar a participação nas discussões sobre a narrativa lida.",
@@ -360,6 +374,34 @@ def _acompanhamento_matematica(tema: str, aprendizagem: str, desenvolvimento: st
             "☑ Observar a autonomia na resolução das atividades da aula.",
             "☑ Verificar se justificam as estratégias e interpretam resultados.",
             "☑ Acompanhar se identificam e corrigem erros no raciocínio.",
+        ]
+
+    if any(k in base for k in ["fracao", "fracoes", "decimal", "decimais", "adicao", "adicoes", "subtracao", "subtracoes", "multiplicacao", "multiplicacoes", "divisao", "divisoes", "racionais", "dizima", "dizimas", "operacao", "operacoes", "potencia", "potencias", "raiz", "raizes", "numero", "numeros"]):
+        return [
+            "☑ Avaliar se os estudantes conseguem transitar entre diferentes representações numéricas (como fração e decimal) na resolução de problemas.",
+            "☑ Acompanhar se realizam os procedimentos de cálculo manual passo a passo de forma organizada e precisa.",
+            "☑ Verificar se a turma valida os resultados obtidos por meio de estimativas ou operações inversas.",
+        ]
+
+    if any(k in base for k in ["proporcao", "proporcoes", "proporcional", "proporcionais", "razao", "razoes", "regra de tres", "partes desiguais", "partes proporcionais", "grandeza", "grandezas", "inversamente", "diretamente", "escala", "escalas"]):
+        return [
+            "☑ Acompanhar se os estudantes identificam corretamente a relação de dependência entre as grandezas (direta ou inversamente proporcional).",
+            "☑ Verificar se utilizam a constante de proporcionalidade de maneira adequada na estruturação dos cálculos.",
+            "☑ Observar se aplicam corretamente a regra de três simples ou composta e validam a coerência física/prática do resultado.",
+        ]
+
+    if any((_base_tem_termo(base, k) if k in {"pa", "pg"} else k in base) for k in ["sequencia", "sequencias", "progressao", "progressoes", "pa", "pg", "regularidade", "regularidades", "generalizacao", "generalizacoes", "padrao numerico"]):
+        return [
+            "☑ Verificar se os estudantes deduzem o padrão ou regularidade numérica de forma indutiva a partir dos termos iniciais.",
+            "☑ Acompanhar se conseguem formular e aplicar a expressão geral ou termo geral da sequência de maneira lógica.",
+            "☑ Observar se identificam a diferença essencial entre progressões aritméticas e geométricas.",
+        ]
+
+    if any(k in base for k in ["algoritmo", "algoritmos", "fluxograma", "fluxogramas"]):
+        return [
+            "☑ Observar se os estudantes interpretam corretamente as decisões e ramificações lógicas propostas no fluxograma.",
+            "☑ Acompanhar se conseguem traduzir a sequência lógica do problem em passos estruturados e ordenados (algoritmos).",
+            "☑ Verificar se realizam testes de mesa para validar a corretude do algoritmo em diferentes cenários.",
         ]
 
     if any(k in base for k in ["grafico", "representacao grafica", "plano cartesiano", "eixo", "tabela", "pares ordenados"]):
@@ -632,30 +674,72 @@ def _acompanhamento_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
 
 
 def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
-    from core.lib.classificador import detectar_tipo_aula
-    tipo_aula = detectar_tipo_aula(desenvolvimento, tema, "Língua Portuguesa")
+    from core.lib.classificador import detectar_tipo_aula, normalizar_texto
+    import re
+    tipo_aula = detectar_tipo_aula(desenvolvimento, tema, "Língua Portuguesa", turma="EM")
+    
+    tema_norm = normalizar_texto(tema)
+    aprend_norm = normalizar_texto(aprendizagem)
     
     # Identificar se há termos gramaticais específicos ou de movimentos literários no tema/aprendizagem
     movimento = ""
-    for mov in ["trovadorismo", "modernismo", "romantismo", "realismo", "parnasianismo", "simbolismo", "naturalismo", "classicismo"]:
-        if mov in tema.lower() or mov in aprendizagem.lower():
+    movimentos_list = ["trovadorismo", "modernismo", "romantismo", "realismo", "parnasianismo", "simbolismo", "naturalismo", "classicismo"]
+    for mov in movimentos_list:
+        if re.search(r'\b' + mov + r'\b', tema_norm) or re.search(r'\b' + mov + r'\b', aprend_norm):
             movimento = mov.title()
             break
     if not movimento:
         movimento = tema
         
     gramatica = ""
-    for gram in ["tempo verbal", "modo verbal", "sintaxe", "ortografia", "oracao", "regencia", "concordancia", "coesao", "verbos", "adjetiva", "coordenada", "subordinada", "polissemia"]:
-        if gram in tema.lower() or gram in aprendizagem.lower():
-            gramatica = gram
+    gramatica_mapping = [
+        ("tempo verbal", r"\btempo(s)? verbal(is)?\b"),
+        ("modo verbal", r"\bmodo(s)? verbal(is)?\b"),
+        ("sintaxe", r"\bsintaxe\b"),
+        ("ortografia", r"\bortografia\b"),
+        ("oracao", r"\boraca(o|oes)\b"),
+        ("regencia", r"\bregencia\b"),
+        ("concordancia", r"\bconcordancia\b"),
+        ("coesao", r"\bcoesao\b"),
+        ("verbos", r"\bverbo(s)?\b"),
+        ("adjetiva", r"\badjetiva(s)?\b"),
+        ("coordenada", r"\bcoordenada(s)?\b"),
+        ("subordinada", r"\bsubordinada(s)?\b"),
+        ("polissemia", r"\bpolissemia\b"),
+    ]
+    for gram_key, pattern in gramatica_mapping:
+        if re.search(pattern, tema_norm) or re.search(pattern, aprend_norm):
+            gramatica = gram_key
             break
     if not gramatica:
         gramatica = "recursos gramaticais/linguísticos"
         
     genero = ""
-    for gen in ["diario", "manifesto", "playlist", "cronica", "noticia", "reportagem", "resenha", "debate", "podcast", "editorial", "carta", "vlog", "meme", "infografico"]:
-        if gen in tema.lower() or gen in aprendizagem.lower():
-            genero = gen.title()
+    generos_mapping = [
+        ("diario", r"\bdiario(s)?\b"),
+        ("manifesto", r"\bmanifesto(s)?\b"),
+        ("playlist", r"\bplaylist(s)?\b"),
+        ("cronica", r"\bcronica(s)?\b"),
+        ("noticia", r"\bnoticia(s)?\b"),
+        ("reportagem", r"\breportagem(ns)?\b"),
+        ("resenha", r"\bresenha(s)?\b"),
+        ("debate", r"\bdebate(s)?\b"),
+        ("podcast", r"\bpodcast(s)?\b"),
+        ("editorial", r"\beditorial(is)?\b"),
+        ("carta", r"\bcarta(s)?\b"),
+        ("vlog", r"\bvlog(s)?\b"),
+        ("meme", r"\bmeme(s)?\b"),
+        ("infografico", r"\binfografico(s)?\b"),
+        ("anuncio", r"\banuncio(s)?\b"),
+        ("publicidade", r"\bpublicidade(s)?\b"),
+        ("propaganda", r"\bpropaganda(s)?\b"),
+    ]
+    for gen_key, pattern in generos_mapping:
+        if re.search(pattern, tema_norm) or re.search(pattern, aprend_norm):
+            if gen_key in ["anuncio", "publicidade", "propaganda"]:
+                genero = "Anúncio publicitário"
+            else:
+                genero = gen_key.title()
             break
     if not genero:
         genero = "gênero estudado"
@@ -664,7 +748,7 @@ def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolv
         return [
             f"☑ Observar se o estudante identifica as características de {movimento} no texto lido.",
             f"☑ Verificar se o estudante relaciona o contexto histórico com as marcas estéticas da obra/trecho de {tema} analisado.",
-            f"☑ Avaliar se o estudante emprega corretamente {gramatica} em suas produções ou respostas escritas.",
+            "☑ Acompanhar se o estudante sustenta oralmente ou por escrito suas interpretações com elementos do texto.",
         ]
     elif tipo_aula == "genero_textual":
         return [

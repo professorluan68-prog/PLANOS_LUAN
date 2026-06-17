@@ -49,7 +49,7 @@ def test_contexto_cdp_evitaliza_recurso_digital():
         contexto=contexto,
     )
 
-    texto = normalizar_texto(metodologia[0]["texto"])
+    texto = normalizar_texto(metodologia[2]["texto"])
     assert "computador" not in texto
     assert "internet" not in texto
     assert "o material da aula" in texto

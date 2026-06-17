@@ -178,6 +178,23 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
         ]
 
     if perfil == "lingua_portuguesa_ef":
+        if tipo == "autoavaliacao":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco"),
+                ("Na pratica", "pratica"),
+                ("Socializacao", "socializacao"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "pratica_oral":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteudo", "foco"),
+                ("Planejamento da apresentacao", "planejamento_oral"),
+                ("Na pratica", "pratica"),
+                ("Socializacao", "socializacao"),
+                ("Encerramento", "encerramento"),
+            ]
         if tipo == "leitura_multimodal":
             return [
                 ("Para comecar", "para_comecar"),
@@ -264,6 +281,23 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
 
     if perfil == "lingua_portuguesa_em":
         # Etapas várias por tipo de aula LP Ensino Médio
+        if tipo == "autoavaliacao":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "foco"),
+                ("Na prática", "pratica"),
+                ("Socialização", "socializacao"),
+                ("Encerramento", "encerramento"),
+            ]
+        if tipo == "pratica_oral":
+            return [
+                ("Relembre", "relembre"),
+                ("Foco no conteúdo", "foco"),
+                ("Planejamento da apresentação", "planejamento_oral"),
+                ("Na prática", "pratica"),
+                ("Socialização", "socializacao"),
+                ("Encerramento", "encerramento"),
+            ]
         if tipo == "pratica_oral":
             return [
                 ("Relembre", "relembre"),
@@ -570,6 +604,15 @@ def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
             ("Foco no conteúdo", "construindo_o_conceito"),
             ("Na prática", "colocando_em_pratica"),
             ("Compartilhamento", "virem_e_conversem"),
+            ("Encerramento", "encerramento"),
+        ]
+
+    if perfil == "historia":
+        return [
+            ("Para começar", "para_comecar"),
+            ("Foco no conteúdo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na prática", "pratica"),
             ("Encerramento", "encerramento"),
         ]
 
@@ -969,6 +1012,14 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
 def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
     """Gerador especializado de frases para o perfil Lingua Portuguesa."""
     # Tipos novos da especificação do Ensino Médio (3º Bimestre)
+    if tipo == "autoavaliacao":
+        return {
+            "relembre": f"Retomar com a turma o percurso de estudo relacionado a {tema}, recuperando textos, atividades, produções e critérios já trabalhados.",
+            "foco": f"Apresentar os critérios de autoavaliação de {tema}, explicando o que será observado na leitura, na análise, na produção ou na participação.",
+            "pratica": f"Orientar o preenchimento da autoavaliação ou rubrica sobre {tema}, pedindo que os estudantes usem evidências do próprio percurso e registrem avanços, dúvidas e próximos passos.",
+            "socializacao": "Promover socialização breve e respeitosa das percepções da turma, destacando estratégias de estudo, revisão e melhoria que podem ser retomadas nas próximas aulas.",
+            "encerramento": f"Encerrar sistematizando os aprendizados de {tema} e combinando uma meta concreta de continuidade para leitura, escrita, análise linguística ou participação oral."
+        }
     if tipo == "literatura":
         return {
             "para_comecar": f"Apresentar imagens, contexto histórico ou perguntas instigantes sobre {tema} para ativar os conhecimentos prévios e iniciar a discussão no grande grupo.",
@@ -992,9 +1043,12 @@ def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dic
         }
     if tipo == "pratica_oral":
         return {
-            "relembre": f"Retomar oralmente as regras, estrutura, divisão de tempo e o papel de cada participante no debate ou seminário sobre {tema}.",
-            "pratica": f"Organizar a sala fisicamente, orientar a mediação e guiar a realização da prática oral (debates, apresentações de argumentos, réplicas e tréplicas) sobre {tema}, garantindo tempo de fala equitativo.",
-            "encerramento": f"Finalizar com um balanço crítico coletivo sobre os argumentos apresentados no debate e a postura adotada durante a prática oral sobre {tema}."
+            "relembre": f"Retomar o gênero oral ou audiovisual relacionado a {tema}, recuperando finalidade, público, suporte e combinados de escuta respeitosa.",
+            "foco": f"Sistematizar os recursos de linguagem de {tema}, destacando organização do roteiro, clareza da fala, escolha de exemplos, postura, entonação e uso de imagem ou áudio quando houver.",
+            "planejamento_oral": f"Orientar a organização do roteiro ou dos tópicos de fala sobre {tema}, definindo papéis, tempo de apresentação, evidências do material e critérios de participação.",
+            "pratica": f"Conduzir a prática oral ou audiovisual sobre {tema}, acompanhando apresentações, gravações, escuta ativa, comentários dos colegas e ajustes necessários durante a atividade.",
+            "socializacao": "Promover devolutiva coletiva com base nos critérios combinados, valorizando clareza, respeito ao interlocutor, uso de argumentos e relação com o material estudado.",
+            "encerramento": f"Finalizar com uma síntese sobre como a linguagem oral ou audiovisual contribuiu para comunicar ideias e interpretar o tema {tema}."
         }
     if tipo == "gramatica_integrada":
         return {
@@ -2144,6 +2198,136 @@ def _metodologia_biologia(texto_base: str, tema: str, tipo: str, conceito: str =
         ),
     }
 
+def _metodologia_historia(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "") -> dict[str, str] | None:
+    """Gerador especializado de frases para História EF."""
+    if tipo == "fonte_historica":
+        return {
+            "para_comecar": (
+                f"Iniciar a aula desenhando uma linha do tempo na lousa para situar o período de {tema}. "
+                "Fazer uma pergunta provocativa sobre o que a turma já conhece a respeito dessa época."
+            ),
+            "foco": (
+                f"Apresentar o contexto histórico de {conceito}, identificando os sujeitos históricos, "
+                "o tempo, o espaço e os conflitos sociais envolvidos. Explicitar a importância de se "
+                "analisar documentos de época para compreender as intencionalidades dos agentes do passado."
+            ),
+            "pratica": (
+                "Orientar a análise crítica de fontes históricas presentes no material (textos de lei, diários, cartas, charges ou imagens). "
+                "Mediar o trabalho com três perguntas norteadoras: "
+                "1. Quem produziu essa fonte e em qual contexto? "
+                "2. Qual a mensagem ou ponto de vista implícito do autor? "
+                "3. Como esse documento nos ajuda a compreender o período estudado? "
+                "Pedir que os estudantes registrem suas evidências individualmente."
+            ),
+            "pause": (
+                "Socializar as análises dos estudantes, destacando a diferença entre fato histórico "
+                "e interpretação, e mediando a leitura crítica dos discursos presentes nas fontes."
+            ),
+            "encerramento": (
+                f"Encerrar a aula conectando {tema} à atualidade, identificando permanências, "
+                "legados ou rupturas desse processo histórico em nossa sociedade atual."
+            )
+        }
+
+    if tipo == "debate_critico":
+        return {
+            "para_comecar": (
+                f"Traçar uma linha do tempo na lousa localizando o contexto de {tema}. "
+                "Propor uma questão-problema sobre pontos de vista conflitantes do período para motivar a discussão."
+            ),
+            "foco": (
+                f"Expor de forma dialogada os conceitos centrais de {conceito}, explicitando que a História é construída "
+                "a partir de diferentes narrativas e interesses em disputa, situando os agentes sociais e seus discursos."
+            ),
+            "pratica": (
+                f"Organizar a turma para analisar os discursos ou narrativas em conflito sobre {tema}. "
+                "Orientar que identifiquem os argumentos de cada lado e os confrontem com as fontes do material. "
+                "Estimular a argumentação crítica e fundamentada em evidências históricas."
+            ),
+            "pause": (
+                "Mediar a socialização dos debates, garantindo que os estudantes percebam que os conflitos do passado "
+                "possuem intencionalidades claras de seus agentes, evitando anacronismos na avaliação histórica."
+            ),
+            "encerramento": (
+                f"Encerrar refletindo sobre como a disputa de narrativas em {tema} deixou marcas, legados "
+                "ou lições que influenciam as discussões e direitos civis do presente."
+            )
+        }
+
+    if tipo == "analise_geografica":
+        return {
+            "para_comecar": (
+                f"Inserir a coordenada temporal de {tema} em uma linha do tempo na lousa. "
+                "Propor uma análise rápida de um mapa histórico ou de uma rota de deslocamento para ativar a curiosidade."
+            ),
+            "foco": (
+                f"Explicar {conceito} com foco na dimensão espacial da História: rotas comerciais, fronteiras, "
+                "expansão territorial ou fluxos migratórios. Relacionar as transformações no espaço às decisões políticas e econômicas de época."
+            ),
+            "pratica": (
+                "Orientar a leitura crítica do mapa histórico ou recurso visual do material. "
+                "Solicitar que os estudantes localizem os territórios, identifiquem as transformações espaciais "
+                "e registrem as relações de causa e consequência observadas."
+            ),
+            "pause": (
+                "Conduzir a correção dialogada da leitura cartográfica, relacionando a ocupação do espaço "
+                "aos conflitos e dinâmicas sociais da época estudada."
+            ),
+            "encerramento": (
+                f"Concluir relacionando a configuração territorial do período de {tema} com a geografia política "
+                "atual, identificando legados históricos na fronteira ou na ocupação do espaço hoje."
+            )
+        }
+
+    if tipo == "producao_projeto":
+        return {
+            "para_comecar": (
+                f"Localizar temporalmente {tema} na lousa com uma linha do tempo. "
+                "Apresentar a proposta do produto que será elaborado (painel, cartaz, mapa mental ou linha do tempo coletiva)."
+            ),
+            "foco": (
+                f"Apresentar de maneira sintetizada os fatos, sujeitos e conceitos de {conceito} necessários para fundamentar "
+                "a produção prática da turma, tirando dúvidas conceituais antes da atividade."
+            ),
+            "pratica": (
+                "Orientar a elaboração do trabalho prático em equipes. Acompanhar a seleção de fontes e evidências "
+                "do material pelos grupos para compor o produto, estimulando a autonomia e o trabalho colaborativo."
+            ),
+            "pause": (
+                "Mediar o andamento das produções, tirando dúvidas sobre a organização cronológica e a fidedignidade "
+                "histórica das informações selecionadas."
+            ),
+            "encerramento": (
+                f"Promover o compartilhamento das produções e finalizar conectando as conclusões do projeto sobre {tema} "
+                "a reflexões críticas sobre a atualidade."
+            )
+        }
+
+    # Fallback / Leitura
+    return {
+        "para_comecar": (
+            f"Iniciar a aula desenhando uma linha do tempo na lousa para situar o período de {tema}. "
+            "Propor que os estudantes compartilhem o que sabem ou imaginam sobre esse contexto histórico."
+        ),
+        "foco": (
+            f"Conduzir a explicação dialogada sobre {conceito}, situando os sujeitos históricos, "
+            "as relações de poder, tempo, espaço e conflitos característicos desse período."
+        ),
+        "pratica": (
+            "Orientar a leitura orientada dos textos e fontes documentais do material. Solicitar que os estudantes "
+            "registrem individualmente as informações principais e respondam às questões de interpretação histórica."
+        ),
+        "pause": (
+            "Realizar a correção dialogada, confrontando as respostas dos estudantes com as evidências do texto "
+            "e mediando a compreensão do contexto histórico."
+        ),
+        "encerramento": (
+            f"Finalizar a aula identificando permanências, rupturas ou legados do período de {tema} "
+            "na nossa organização social atual."
+        )
+    }
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
     turma: str, tecnicas: dict, texto_base: str = "",
@@ -2290,6 +2474,12 @@ def _frases_por_contexto(
                 base.update(_frases_biologia)
                 return base
 
+    elif perfil == "historia":
+            _frases_historia = _metodologia_historia(texto_base, tema, tipo, conceito, atividade_extraida)
+            if _frases_historia is not None:
+                base.update(_frases_historia)
+                return base
+
     elif perfil in {"quimica", "fisica"}:
             base["para_comecar"] = (
                 f"Contextualizar {tema} com uma situação-problema, imagem, dado ou exemplo do cotidiano. Propor "
@@ -2304,15 +2494,7 @@ def _frases_por_contexto(
                 "Retomar as evidências usadas pelos estudantes para justificar as respostas."
             )
 
-    elif perfil == "historia":
-            base["foco"] = (
-                f"Apresentar o contexto histórico de {conceito}, situando sujeitos, tempo, espaço e conflitos envolvidos. "
-                "Relacionar as ideias iniciais da turma com os conceitos históricos em estudo."
-            )
-            base["pratica"] = (
-                f"Orientar a análise de fontes, imagens, mapas, linhas do tempo ou textos do material, usando {t_reg}. Solicitar registro "
-                "das evidências encontradas e mediação para diferenciar fato, interpretação e contexto."
-            )
+
 
     elif perfil == "geografia":
             base["foco"] = (
