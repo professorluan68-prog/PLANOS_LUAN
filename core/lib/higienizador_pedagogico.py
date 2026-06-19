@@ -347,8 +347,8 @@ REGRAS_RECURSOS = {
         (r"\banalizar mapa\b", "analisar a imagem do material"),
         (r"\bleitura de mapa\b", "leitura das informações"),
         (r"\bmapa real\b", "imagem do material"),
-        (r"\bmapas\b", "informações do material"),
-        (r"\bmapa\b", "informação do material"),
+        (r"\bmapas\b(?!\s+mentais)", "informações do material"),
+        (r"\bmapa\b(?!\s+mental)", "informação do material"),
         (r"\ban[aá]lise cartogr[aá]fica\b", "análise de informações"),
     ],
     "experimento": [
@@ -778,7 +778,10 @@ def higienizar_plano(
 
 
 _PLACEHOLDERS_ACESSIBILIDADE = {
+    r"\binforma[cç][oõ]es do material mentais\b": "mapas mentais",
+    r"\brecursos? do material mental\b": "mapa mental",
     r"\binforma[cç][aã]o do material simples\b": "tabela simples",
+    r"\binforma[cç][oõ]es do material\b": "recursos do material",
     r"\binforma[cç][aã]o do material\b": "recurso do material",
     r"\bo material simples\b": "tabela simples",
 }

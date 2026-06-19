@@ -791,17 +791,145 @@ def naturalizar_texto_metodologico(texto: str) -> str:
 
     if not preservar_tecnicas_explicitadas:
         texto_final = re.sub(r"\bt[eé?]cnica\s+[\"']([^\"']+)[\"']", r"estrategia de \1", texto_final, flags=re.I)
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
+        "Promover conversa em duplas para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+o\s+Virem\s+e\s+conversem\s+para\b",
+        "Promover conversa em duplas para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Todo\s+mundo\s+escreve\s+para\b",
+        "Solicitar registro individual no caderno para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Hora\s+da\s+leitura\s+para\b",
+        "Conduzir leitura orientada para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\s+para\b",
+        "Organizar a explicação em etapas para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Com\s+suas\s+palavras\s+para\b",
+        "Pedir síntese oral ou escrita para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+PAUSE\s+E\s+RESPONDA\s+para\b",
+        "Realizar pausa de checagem para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+([A-Za-zÀ-ÿ\s]+)",
+        r"Utilizar a estratégia \1",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Utilizar|Usar|Aplicar)\s+a\s+atividade\s+Com\s+suas\s+palavras\s+para\b",
+        "Pedir que os estudantes expliquem com suas próprias palavras para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:com|usando|utilizando|aplicando)\s+a\s+t[eé]cnica\s+Hora\s+da\s+leitura\b",
+        "por meio de leitura orientada",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\baplicando\s+a\s+Hora\s+da\s+leitura,\s*onde\b",
+        "em leitura orientada, na qual",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\butilizando\s+o\s+para\s+promover\s+a\s+troca\s+de\s+ideias\b",
+        "promovendo conversa em duplas para troca de ideias",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\butilizando\s+o\s+para\b",
+        "com apoio de perguntas orientadoras para",
+        texto_final,
+        flags=re.I,
+    )
     texto_final = re.sub(r"\s+", " ", texto_final).strip()
     texto_final = re.sub(r"\.\s*,", ".", texto_final)
     texto_final = re.sub(r",\s*\.", ".", texto_final)
     texto_final = re.sub(r"\s+\.", ".", texto_final)
     texto_final = re.sub(r"\.{2,}", ".", texto_final)
+    texto_final = re.sub(
+        r'can[cç][aã]o\s+["“]Pela\s+o\s+material\s+da\s+aula\s+e\s+os\s+registros\s+no\s+caderno["”]\s+de\s+Gilberto\s+Gil',
+        'canção "Pela internet", de Gilberto Gil',
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r'["“]Pela\s+o\s+material\s+da\s+aula\s+e\s+os\s+registros\s+no\s+caderno["”]',
+        '"Pela internet"',
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(r"\bde Gilberto Gil e acompanhando\b", "de Gilberto Gil, e acompanhando", texto_final, flags=re.I)
+    texto_final = re.sub(r"\brelacionadas?\s+[àa]\s+o\s+material\s+da\s+aula\s+e\s+os\s+registros\s+no\s+caderno\b", "relacionadas ao uso da internet, à comunicação digital e às ideias registradas pela turma", texto_final, flags=re.I)
+    texto_final = re.sub(r"\brelacionados?\s+[àa]\s+o\s+material\s+da\s+aula\s+e\s+os\s+registros\s+no\s+caderno\b", "relacionados ao uso da internet, à comunicação digital e às ideias registradas pela turma", texto_final, flags=re.I)
+    texto_final = re.sub(r"\busando a t[eé]cnica,\s*", "", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bPropor uma breve a[cç][aã]o orientada para promover a troca de ideias\.?\s*", "Propor uma conversa inicial com perguntas orientadoras para mobilizar conhecimentos prévios. ", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bConduzir uma breve troca de ideias de forma individual\b", "Solicitar um registro individual breve", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bApresentar o concept central\b", "Apresentar o conceito central", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bIniciar a aula retomar\b", "Iniciar a aula retomando", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bConduzir a realiza[cç][aã]o individual e realizar a atividade\b", "Orientar a realização individual da atividade", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bessa t[eé]cnica nas produ[cç][oõ]es textuais\b", "esse recurso nas produções textuais", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bConduzir a,\s*em que todos leem juntos\b", "Conduzir leitura compartilhada em que todos leem juntos", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAplicar o com a leitura em voz alta\b", "Conduzir a leitura em voz alta", texto_final, flags=re.I)
+    texto_final = re.sub(r"\balunos responda\b", "alunos respondam", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bestudantes compartilharem\b", "estudantes compartilhem", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAplicar\s+Virem\s+e\s+conversem\s+por\s+para\b", "Promover conversa em duplas para", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAplicar\s+o\s+Virem\s+e\s+conversem\s+para\b", "Promover conversa em duplas para", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bUtilizar\s+a\s+atividade\s+Hora\s+da\s+leitura\s+para\b", "Conduzir leitura orientada para", texto_final, flags=re.I)
+    texto_final = re.sub(r"\balunos respondam em duplas questões\b", "alunos respondam às questões em duplas", texto_final, flags=re.I)
+    texto_final = re.sub(r"\balunos respondam em duplas as questões\b", "alunos respondam às questões em duplas", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bOrientar uma conversa r[aá]pida de forma individual\b", "Orientar um registro individual breve", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bos alunos se dividem de forma individual para\b", "os estudantes realizam individualmente a atividade para", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bse dividem de forma individual para\b", "realizam individualmente a atividade para", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bum discuss[aã]o\b", "uma discussão", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsuasFiguras\b", "suas figuras", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bpor para\b", "para", texto_final, flags=re.I)
     texto_final = re.sub(r"\bpersonagen\b", "personagens", texto_final, flags=re.I)
     texto_final = re.sub(r"\bD[ií]vida a turma\b", "Dividir a turma", texto_final, flags=re.I)
     texto_final = re.sub(r"\bclasifiquem\b", "classifiquem", texto_final, flags=re.I)
 
     # Correções de ortografia/concordância adicionadas
     texto_final = re.sub(r"\bavancos\b", "avanços", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bavancar\b", "avançar", texto_final, flags=re.I)
+    texto_final = re.sub(r"\brapida\b", "rápida", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bimpressoes\b", "impressões", texto_final, flags=re.I)
+    texto_final = re.sub(r"\banotacoes\b", "anotações", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bconstruidos\b", "construídos", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bverificacao\b", "verificação", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bestrategica\b", "estratégica", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bfacam\b", "façam", texto_final, flags=re.I)
+    texto_final = re.sub(r"\breferencia\b", "referência", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsequencia\b", "sequência", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bserao\b", "serão", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bat[eé]\s+aqui\b", "até aqui", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bja\b", "já", texto_final, flags=re.I)
     texto_final = re.sub(r"\bproxima\b", "próxima", texto_final, flags=re.I)
     texto_final = re.sub(r"\bnecessaria\b", "necessária", texto_final, flags=re.I)
     texto_final = re.sub(r"\bsuas proprias palavras\b", "suas próprias palavras", texto_final, flags=re.I)

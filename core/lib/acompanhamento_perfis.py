@@ -180,6 +180,49 @@ def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desen
 
 def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    base_aula = normalizar_texto(" ".join([tema, desenvolvimento]))
+
+    if any(k in base_aula for k in ["cancao", "pela internet", "letra da cancao", "musica"]) and not any(k in base_aula for k in ["intertextualidade", "monte castelo", "amor i love you"]):
+        return [
+            "Verificar se os estudantes diferenciam música e canção a partir da letra lida e escutada.",
+            "Observar se relacionam versos, tema e efeitos de sentido às ideias discutidas pela turma.",
+            "Acompanhar os registros sobre impressões, palavras-chave e interpretações da canção.",
+        ]
+
+    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
+        return [
+            "Verificar se os estudantes identificam figuras de linguagem nos versos ou trechos analisados.",
+            "Observar se explicam o efeito de sentido produzido pela repetição, contraste ou sonoridade.",
+            "Acompanhar os registros individuais e as justificativas apresentadas durante a leitura do poema.",
+        ]
+
+    if any(k in base_aula for k in ["miniconto", "minicontos", "pequenas historias", "o falatorio"]):
+        return [
+            "Verificar se os estudantes compreendem a concisão e o efeito principal do miniconto lido.",
+            "Observar se inferem contextos, conflito ou desfecho a partir das pistas do texto.",
+            "Acompanhar os registros sobre vírgula, ritmo narrativo e interpretação dos minicontos.",
+        ]
+
+    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
+        return [
+            "Verificar se os estudantes identificam personagens, conflito e progressão narrativa no trecho da novela.",
+            "Observar se relacionam ações das personagens ao contexto e à crítica social da obra.",
+            "Acompanhar os registros, resumos ou respostas interpretativas sobre os trechos lidos.",
+        ]
+
+    if any(k in base_aula for k in ["haicai", "haikai", "basho", "matsuo"]):
+        return [
+            "Verificar se os estudantes reconhecem concisão, imagens poéticas e estrutura do haicai.",
+            "Observar se relacionam escolha de palavras, natureza e efeito de sentido nos poemas lidos.",
+            "Acompanhar os registros, reorganização de versos ou produção breve inspirada no gênero.",
+        ]
+
+    if any(k in base_aula for k in ["intertextualidade", "monte castelo", "amor i love you", "o primo basilio"]):
+        return [
+            "Verificar se os estudantes reconhecem relações entre os textos, a canção e as referências mobilizadas.",
+            "Observar se justificam a intertextualidade com trechos, imagens ou evidências do material.",
+            "Acompanhar os registros em tabela, esquema ou resposta escrita sobre intertextualidade explícita ou implícita.",
+        ]
 
     if any(k in base for k in ["autoavaliacao", "avaliando com consciencia", "concluindo a jornada", "portfolio", "rubrica", "percurso de aprendizagem"]):
         return [

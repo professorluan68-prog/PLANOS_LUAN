@@ -550,6 +550,19 @@ def test_sanitiza_aprendizagem_de_redacao_sem_metodologia_colada():
     assert "Disparo inicial" not in aprendizagem
 
 
+def test_sanitiza_aprendizagem_remove_fonte_bibliografica_e_duplicacao():
+    aprendizagem = _sanitizar_aprendizagem(
+        "Habilidade: Habilidade (EF89LP33) Ler, de forma autônoma, e compreender poemas e outros textos literários. (SÃO PAULO, 2019)",
+        "Conexões entre canção e reflexão",
+        perfil="lingua_portuguesa_ef",
+    )
+
+    assert aprendizagem.startswith("Habilidade: (EF89LP33)")
+    assert "Habilidade: Habilidade" not in aprendizagem
+    assert "SÃO PAULO" not in aprendizagem
+    assert "2019" not in aprendizagem
+
+
 def test_parece_titulo_atividade_filter():
     from core.lib.extrator_pdf import _parece_titulo_atividade
     assert _parece_titulo_atividade("Discussão sobre tipos de gastos") is True
@@ -562,6 +575,12 @@ def test_limpar_placeholders_acessibilidade():
     from core.lib.higienizador_pedagogico import _limpar_placeholders_acessibilidade
     texto = "Organizar despesas em informação do material simples no quadro."
     assert _limpar_placeholders_acessibilidade(texto) == "Organizar despesas em tabela simples no quadro."
+
+    texto = "Permitir respostas orais, desenhos, informações do material mentais ou registros em tópicos."
+    assert "mapas mentais" in _limpar_placeholders_acessibilidade(texto)
+
+    texto = "Permitir registro em tópicos, desenho, recurso do material mental ou resposta oral mediada."
+    assert "mapa mental" in _limpar_placeholders_acessibilidade(texto)
 
 
 def test_detectar_tipo_aula_ef_pratica():

@@ -200,3 +200,40 @@ def test_correcoes_ortograficas_naturalizar():
     t2_corr = naturalizar_texto_metodologico(t2)
     assert "explicação das" in t2_corr
     assert "compartilhem suas impressões" in t2_corr
+
+
+def test_naturalizar_corrige_falhas_do_plano_lp_9ano():
+    texto = (
+        'Executar a atividade, ouvindo a canção "Pela o material da aula e os registros no caderno" '
+        "de Gilberto Gil e acompanhando a letra. Orientar uma conversa rapida de forma individual. "
+        "Aplicar Virem e conversem por para que os alunos compartilhem impressoes antes de avancar. "
+        "Apresentar o concept central. Conduzir a, em que todos leem juntos três minicontos. "
+        "Aplicar o com a leitura em voz alta. Utilizar a técnica Todo mundo escreve para que os alunos responda em duplas questões. "
+        "Aplicar o Virem e conversem para que os estudantes compartilharem suas impressões. "
+        "As suasFiguras de linguagem serao retomadas na sequencia. "
+        "Perguntar o que conhecem sobre canção, utilizando o para promover a troca de ideias. "
+        "Realizar leitura orientada com a técnica Hora da leitura. "
+        "Iniciar a aula retomar a discussão. Conduzir a realização individual e realizar a atividade."
+    )
+
+    corrigido = naturalizar_texto_metodologico(texto)
+
+    assert '"Pela internet"' in corrigido
+    assert "de Gilberto Gil, e acompanhando" in corrigido
+    assert "Pela o material" not in corrigido
+    assert "registro individual breve" in corrigido
+    assert "Promover conversa em duplas para" in corrigido
+    assert "conceito central" in corrigido
+    assert "Conduzir leitura compartilhada" in corrigido
+    assert "Conduzir a leitura em voz alta" in corrigido
+    assert "alunos respondam às questões em duplas" in corrigido
+    assert "estudantes compartilhem suas impressões" in corrigido
+    assert "impressões" in corrigido
+    assert "avançar" in corrigido
+    assert "suas figuras" in corrigido
+    assert "serão" in corrigido
+    assert "sequência" in corrigido
+    assert "utilizando o para" not in corrigido
+    assert "técnica Hora da leitura" not in corrigido
+    assert "Iniciar a aula retomando" in corrigido
+    assert "Orientar a realização individual da atividade" in corrigido

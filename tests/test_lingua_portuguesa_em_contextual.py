@@ -142,3 +142,101 @@ def test_continuidade_metodologica_preserva_acentos():
 
     assert "necessário" in texto
     assert "necessario" not in texto
+
+
+def test_lp_ef_acompanhamento_e_acessibilidade_especificos_por_conteudo():
+    casos = [
+        (
+            "Conexões entre canção e reflexão",
+            "Ler a letra da canção Pela internet e registrar impressões.",
+            ["canção", "letra"],
+        ),
+        (
+            "Explorando a intertextualidade",
+            "Comparar Monte Castelo com Camões e reconhecer intertextualidade.",
+            ["intertextualidade", "quadro comparativo"],
+        ),
+        (
+            "Versos que envolvem",
+            "Analisar figuras de linguagem e anáfora no poema.",
+            ["figuras de linguagem", "versos"],
+        ),
+        (
+            "Haicai: simplicidade e profundidade",
+            "Ler haicai de Matsuo Bashô e observar imagens poéticas.",
+            ["haicai", "três versos"],
+        ),
+        (
+            "Pequenas histórias, grandes mensagens",
+            "Ler minicontos e analisar pistas, vírgula e efeito final.",
+            ["miniconto", "pistas"],
+        ),
+        (
+            "Tramas das novelas literárias",
+            "Ler trecho de O alienista, Casa Verde e personagens da novela.",
+            ["novela", "personagens"],
+        ),
+    ]
+
+    for tema, desenvolvimento, esperados in casos:
+        acompanhamento = gerar_acompanhamento_por_perfil(
+            "lingua_portuguesa_ef",
+            tema,
+            "Ler e interpretar textos literários e multissemióticos.",
+            desenvolvimento,
+        )
+        acessibilidade = gerar_acessibilidade_por_perfil(
+            "lingua_portuguesa_ef",
+            tema,
+            "Ler e interpretar textos literários e multissemióticos.",
+            desenvolvimento,
+        )
+        texto_total = " ".join(acompanhamento + acessibilidade).lower()
+
+        assert len(acompanhamento) == 3
+        assert len(acessibilidade) == 3
+        assert all(palavra in texto_total for palavra in esperados)
+        assert "narrador, personagens e conflito" not in texto_total
+        assert "checklist simplificado" not in texto_total
+        assert "roteiro de fala ou gravação" not in texto_total
+
+
+def test_lp_ef_habilidade_generica_nao_contamina_genero_da_aula():
+    habilidade_ef89lp33 = (
+        "Ler romances, contos contemporâneos, minicontos, novelas, poemas de forma livre "
+        "e fixa como haicai, expressando avaliação sobre o texto lido."
+    )
+    casos = [
+        (
+            "Pequenas histórias, grandes mensagens",
+            "Ler minicontos e analisar pistas, vírgula, concisão e efeito final.",
+            ["miniconto", "pistas"],
+            ["haicai", "três versos", "imagem poética"],
+        ),
+        (
+            "Tramas das novelas literárias",
+            "Ler trecho de O Alienista e interpretar personagens, conflito e crítica social.",
+            ["novela", "personagens"],
+            ["haicai", "três versos", "imagem poética"],
+        ),
+    ]
+
+    for tema, desenvolvimento, esperados, proibidos in casos:
+        acompanhamento = gerar_acompanhamento_por_perfil(
+            "lingua_portuguesa_ef",
+            tema,
+            habilidade_ef89lp33,
+            desenvolvimento,
+        )
+        acessibilidade = gerar_acessibilidade_por_perfil(
+            "lingua_portuguesa_ef",
+            tema,
+            habilidade_ef89lp33,
+            desenvolvimento,
+        )
+        texto_total = " ".join(acompanhamento + acessibilidade).lower()
+
+        assert len(acompanhamento) == 3
+        assert len(acessibilidade) == 3
+        assert all(palavra in texto_total for palavra in esperados)
+        assert not any(palavra in texto_total for palavra in proibidos)

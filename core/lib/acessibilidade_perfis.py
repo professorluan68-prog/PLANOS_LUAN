@@ -206,6 +206,49 @@ def gerar_acessibilidade_especifica_por_aula(
 
 def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    base_aula = normalizar_texto(" ".join([tema, desenvolvimento]))
+
+    if any(k in base_aula for k in ["cancao", "pela internet", "letra da cancao", "musica"]) and not any(k in base_aula for k in ["intertextualidade", "monte castelo", "amor i love you"]):
+        return [
+            "Realizar leitura guiada da letra da canção, com pausas para explicar palavras-chave e sentidos dos versos.",
+            "Disponibilizar quadro com tema, eu lírico, palavras recorrentes e impressões da turma.",
+            "Permitir registro em tópicos, desenho, mapa mental ou resposta oral mediada sobre a canção.",
+        ]
+
+    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
+        return [
+            "Ler os versos em voz alta, marcando repetições, contrastes ou sons que ajudam a perceber a figura de linguagem.",
+            "Disponibilizar banco de exemplos curtos para apoiar a identificação das figuras no poema.",
+            "Permitir explicação oral mediada ou registro em tópicos sobre o efeito de sentido percebido.",
+        ]
+
+    if any(k in base_aula for k in ["miniconto", "minicontos", "pequenas historias", "o falatorio"]):
+        return [
+            "Realizar leitura guiada dos minicontos, pausando para localizar pistas, conflito e efeito final.",
+            "Disponibilizar perguntas orientadoras sobre quem participa, o que acontece e que sentido fica implícito.",
+            "Permitir registro em tópicos, continuação oral mediada ou mapa de ideias antes da resposta escrita.",
+        ]
+
+    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
+        return [
+            "Disponibilizar quadro com personagens, espaço, conflito e acontecimento principal do trecho lido.",
+            "Realizar leitura mediada da novela, retomando vocabulário e contexto antes das perguntas.",
+            "Permitir resumo em tópicos, resposta oral mediada ou esquema de relações entre personagens.",
+        ]
+
+    if any(k in base_aula for k in ["haicai", "haikai", "basho", "matsuo"]):
+        return [
+            "Apresentar modelo visual de haicai com três versos destacados e palavras-chave sobre imagem poética.",
+            "Realizar leitura pausada dos haicais, retomando vocabulário, natureza e sensação sugerida pelo texto.",
+            "Permitir produção com frases curtas, desenho associado ou organização de versos com apoio do professor.",
+        ]
+
+    if any(k in base_aula for k in ["intertextualidade", "monte castelo", "amor i love you", "o primo basilio"]):
+        return [
+            "Oferecer quadro comparativo simples para aproximar texto-base, canção e referência intertextual.",
+            "Destacar palavras-chave como referência, alusão, explícita e implícita antes da atividade.",
+            "Permitir respostas em tópicos ou com setas ligando trechos, imagens e ideias relacionadas.",
+        ]
 
     if any(k in base for k in ["autoavaliacao", "avaliando com consciencia", "concluindo a jornada", "portfolio", "rubrica", "percurso de aprendizagem"]):
         return [

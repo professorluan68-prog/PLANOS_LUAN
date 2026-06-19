@@ -2615,6 +2615,8 @@ def _sanitizar_aprendizagem(aprendizagem: str, tema: str, conceito: str = "", pe
         flags=re.I,
     ).strip()
     texto = re.sub(r"^(?:Habilidades?)\s*:\s*", "", texto, flags=re.I).strip()
+    texto = re.sub(r"^(?:Habilidade\s+)+", "", texto, flags=re.I).strip()
+    texto = re.sub(r"\s*\((?:S[ÃA]O\s+PAULO|BRASIL),\s*\d{4}\)\s*\.?", "", texto, flags=re.I).strip()
     match = _PADRAO_CODIGO_APRENDIZAGEM.search(texto)
     codigo = f"({match.group(1).upper()})" if match else ""
 
