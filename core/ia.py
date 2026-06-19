@@ -205,6 +205,7 @@ def _montar_prompt(
     modalidade_eja: bool = False,
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
+    contexto_geracao: dict | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
@@ -263,6 +264,23 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
     else:
         regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas genericas e naturais."
 
+    bloco_variacao = ""
+    if contexto_geracao and (contexto_geracao.get("perfil_metodologico") or contexto_geracao.get("tipo_aula")):
+        perfil_sel = contexto_geracao.get("perfil_metodologico", "LEITURA INVESTIGATIVA")
+        tipo_aula = contexto_geracao.get("tipo_aula", "simples")
+        bloco_variacao = f"""
+CONTEXTO DE VARIAÇÃO METODOLÓGICA:
+- Perfil selecionado: {perfil_sel}
+- Organização da aula: {tipo_aula}
+- Esta metodologia deve manter o conteúdo do PDF, mas apresentar percurso pedagógico próprio.
+- Não copie literalmente o rascunho.
+- Não altere apenas verbos ou sinônimos.
+- Varie ações concretas, agrupamento, forma de leitura, registro, socialização e encerramento.
+- Não invente recursos ausentes do material.
+- Preserve textos, fragmentos, imagens, vídeos e atividades realmente identificados.
+- Não mencione o nome do professor na metodologia.
+"""
+
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
@@ -289,6 +307,7 @@ REGRAS:
 6. Devolva APENAS JSON valido seguindo a estrutura solicitada.
 7. Evite frases genericas/repetitivas e trechos incompletos.
 {bloco_referencia}
+{bloco_variacao}
 
 CONTEUDO DO SLIDE:
 {texto_pdf[:6000]}
@@ -309,7 +328,7 @@ def _detectar_produto_atividade(texto_pdf: str) -> str:
     padroes = [
         (r"texto[-\s]?s[ií]ntese|s[ií]ntese individual", "texto-síntese"),
         (r"\btabela\b", "tabela"),
-        (r"legend[ae]r?|legenda(?:r)? (?:a )?(?:figura|imagem|esquema)", "legenda de figura"),
+        (r"legenda\s+de\s+figura|legendar\s+(?:a\s+)?figura|legendar\s+(?:a\s+)?imagem|legende\s+(?:a\s+)?figura|legende\s+(?:a\s+)?imagem|\blegenda\s+da\s+figura\b|\blegenda\s+da\s+imagem\b", "legenda de figura"),
         (r"\bresumo\b", "resumo"),
         (r"todo mundo escreve|na pr[aá]tica|veja no livro|pause e responda|hora da leitura", "atividade do material"),
     ]
@@ -662,6 +681,7 @@ def processar_plano_ia(
     modalidade_eja: bool = False,
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
+    contexto_geracao: dict | None = None,
 ) -> dict:
     prompt = _montar_prompt(
         texto_pdf,
@@ -670,8 +690,9 @@ def processar_plano_ia(
         modalidade_eja=modalidade_eja,
         permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
         rascunho_base=rascunho_base,
+        contexto_geracao=contexto_geracao,
     )
-    system_prompt = get_system_prompt(disciplina)
+    system_prompt = get_system_prompt(disciplina, turma)
 
     if provedor.lower() == "openai":
         if not OpenAI or not os.getenv("OPENAI_API_KEY"):

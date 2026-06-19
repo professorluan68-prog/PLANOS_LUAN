@@ -3,6 +3,23 @@ import pytest
 from core.lib.classificador import detectar_tipo_aula
 from core.lib.gerador_colunas_pedagogicas import montar_colunas_pedagogicas, norm
 from core.lib.metodologia import MotorMetodologico
+from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
+
+
+def test_prompt_lingua_portuguesa_reconhece_turma_fundamental_com_ordinal():
+    prompt = get_system_prompt("Língua Portuguesa", "7º ano A")
+    orientacao = get_orientacao_disciplina("Língua Portuguesa", turma="7º ano A")
+
+    assert "Ensino Fundamental" in prompt
+    assert "Ensino Medio" not in prompt
+    assert "Ensino Fundamental" in orientacao
+
+
+def test_prompt_lingua_portuguesa_medio_permanece_medio():
+    prompt = get_system_prompt("Língua Portuguesa", "1º ano C")
+
+    assert "Ensino Medio" in prompt
+    assert "Ensino Fundamental" not in prompt
 
 
 @pytest.mark.parametrize(

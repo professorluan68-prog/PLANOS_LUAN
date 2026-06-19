@@ -2032,6 +2032,7 @@ def _montar_etapas_metodologia(
     tema: str,
     indice_aula: int = 0,
     total_aulas: int = 1,
+    contexto_geracao: dict | None = None,
 ) -> list[dict]:
     perfil = perfil_disciplina(disciplina)
     if perfil == "leitura_redacao":
@@ -2044,6 +2045,7 @@ def _montar_etapas_metodologia(
         tema=tema,
         indice_aula=indice_aula,
         total_aulas=total_aulas,
+        contexto_geracao=contexto_geracao,
     )
     mapa_titulos = {
         "para comecar": "Para comecar",
@@ -3626,6 +3628,7 @@ def _montar_resultado_aula_local(
     aprendizagem_orientacao: str,
     usar_ia: bool,
     ia_erro: str,
+    contexto_geracao: dict | None = None,
 ) -> dict:
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
@@ -3716,6 +3719,7 @@ def _montar_resultado_aula_local(
             tema,
             indice_aula=indice_aula,
             total_aulas=total_aulas,
+            contexto_geracao=contexto_geracao,
         )
         tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
         if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
@@ -3893,8 +3897,6 @@ def _preparar_contexto_aula_pdf(
         "fonte_extracao": fonte_extracao,
         "arquivo_fonte_extracao": arquivo_fonte_extracao,
     }
-
-
 def _aula_por_pdf(
     caminho_pdf: str,
     disciplina: str,
@@ -3906,7 +3908,17 @@ def _aula_por_pdf(
     indice_aula: int = 0,
     total_aulas: int = 1,
     modalidade_eja: bool = False,
+    professor: str = "",
+    dividir_aula_atual: bool = False,
 ) -> dict:
+    from core.variacao_metodologica import (
+        obter_professor_id_por_nome,
+        selecionar_perfil_metodologico,
+        selecionar_proximo_perfil,
+        montar_fingerprint_contexto,
+        detectar_similaridade_excessiva,
+    )
+
     hash_atual = ""
     hash_fonte_extracao_esperada = ""
     caminho_fonte_extracao_esperada = caminho_pdf
@@ -3922,6 +3934,25 @@ def _aula_por_pdf(
         except Exception:
             pass
 
+    prof_id = obter_professor_id_por_nome(professor)
+    perfil_metodologico = selecionar_perfil_metodologico(professor, turma, disciplina, bimestre)
+    tipo_duracao = "dupla" if dividir_aula_atual else "simples"
+
+    from core.revisao_final import VERSAO_GERADOR_ATUAL
+
+    fingerprint_atual = montar_fingerprint_contexto(
+        hash_pdf=hash_atual,
+        versao_gerador=VERSAO_GERADOR_ATUAL,
+        professor_nome=professor,
+        turma=turma,
+        disciplina=disciplina,
+        bimestre=bimestre,
+        tipo_aula=tipo_duracao,
+        perfil_metodologico=perfil_metodologico,
+    )
+
+    dados_json_antigos = None
+
     # Verificar cache JSON pré-gerado
     if caminho_pdf:
         try:
@@ -3932,14 +3963,15 @@ def _aula_por_pdf(
                 with open(caminho_json, "r", encoding="utf-8") as f:
                     dados_json = json.load(f)
                 if isinstance(dados_json, dict) and "metodologia" in dados_json:
+                    dados_json_antigos = dados_json
                     hash_salvo = dados_json.get("hash_pdf")
                     hash_fonte_salva = dados_json.get("hash_fonte_extracao") or ""
                     versao_cache = str(dados_json.get("versao_gerador") or "")
                     fonte_cache = str(dados_json.get("fonte_extracao") or "pdf").lower()
                     arquivo_cache = str(dados_json.get("arquivo_fonte_extracao") or caminho_pdf)
-                    from core.revisao_final import VERSAO_GERADOR_ATUAL
+                    fingerprint_salvo = dados_json.get("fingerprint_contexto")
+
                     if hash_salvo and hash_atual and hash_salvo != hash_atual:
-                        # Ignorar cache inválido por alteração do arquivo PDF
                         pass
                     elif caminho_pptx_correspondente and fonte_cache != "pptx":
                         pass
@@ -3951,6 +3983,36 @@ def _aula_por_pdf(
                         pass
                     elif versao_cache != VERSAO_GERADOR_ATUAL:
                         pass
+                    elif fingerprint_salvo != fingerprint_atual:
+                        perfil_disc = perfil_disciplina(disciplina, turma=turma)
+                        if perfil_disc in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+                            pass
+                        else:
+                            # Para outras disciplinas, não invalidamos o cache apenas pelo fingerprint
+                            aula_gerada = {
+                                "disciplina": dados_json.get("disciplina") or disciplina,
+                                "tema": dados_json.get("tema") or "",
+                                "material": dados_json.get("material") or Path(caminho_pdf).name,
+                                "numero_aula": dados_json.get("numero_aula") or "",
+                                "aprendizagem": dados_json.get("aprendizagem") or "",
+                                "metodologia": dados_json["metodologia"],
+                                "acompanhamento": dados_json.get("acompanhamento") or [],
+                                "acessibilidade": dados_json.get("acessibilidade") or [],
+                                "ia_usada": dados_json.get("ia_usada", False),
+                                "ia_provedor": dados_json.get("ia_provedor", ""),
+                                "ia_erro": dados_json.get("ia_erro", ""),
+                                "hash_pdf": hash_salvo or hash_atual,
+                                "fonte_extracao": fonte_cache,
+                                "arquivo_fonte_extracao": arquivo_cache,
+                                "hash_fonte_extracao": hash_fonte_salva,
+                                "confidence_score": dados_json.get("confidence_score", 100),
+                                "avisos_validacao": dados_json.get("avisos_validacao") or [],
+                                "fingerprint_contexto": fingerprint_salvo,
+                                "versao_gerador": versao_cache,
+                            }
+                            if "avisos_validacao" not in dados_json:
+                                aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
+                            return aula_gerada
                     else:
                         aula_gerada = {
                             "disciplina": dados_json.get("disciplina") or disciplina,
@@ -3964,13 +4026,14 @@ def _aula_por_pdf(
                             "ia_usada": dados_json.get("ia_usada", False),
                             "ia_provedor": dados_json.get("ia_provedor", ""),
                             "ia_erro": dados_json.get("ia_erro", ""),
-                            # Campos extras da auditoria
                             "hash_pdf": hash_salvo or hash_atual,
                             "fonte_extracao": fonte_cache,
                             "arquivo_fonte_extracao": arquivo_cache,
                             "hash_fonte_extracao": hash_fonte_salva,
                             "confidence_score": dados_json.get("confidence_score", 100),
                             "avisos_validacao": dados_json.get("avisos_validacao") or [],
+                            "fingerprint_contexto": fingerprint_salvo,
+                            "versao_gerador": versao_cache,
                         }
                         if "avisos_validacao" not in dados_json:
                             aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -4006,6 +4069,20 @@ def _aula_por_pdf(
     fonte_extracao = contexto.get("fonte_extracao", "pdf")
     arquivo_fonte_extracao = contexto.get("arquivo_fonte_extracao", caminho_fonte_extracao_esperada)
 
+    contexto_geracao = {
+        "professor": professor,
+        "professor_id": prof_id,
+        "disciplina": disciplina,
+        "turma": turma,
+        "bimestre": bimestre,
+        "numero_aula": indice_aula + 1,
+        "titulo": tema,
+        "aulas_consecutivas": 2 if dividir_aula_atual else 1,
+        "duracao_minutos": 90 if dividir_aula_atual else 45,
+        "perfil_metodologico": perfil_metodologico,
+        "tipo_aula": tipo_duracao,
+    }
+
     resultado_final = None
 
     if cdp_contextual:
@@ -4020,73 +4097,102 @@ def _aula_por_pdf(
             extracao_pdf=extracao_pdf,
         )
     else:
-        ia_erro = ""
-        rascunho_local = _montar_resultado_aula_local(
-            texto=texto,
-            tema=tema,
-            material_digital=material_digital,
-            numero_aula=numero_aula,
-            disciplina_base=disciplina_base,
-            turma=turma,
-            provedor_ia=provedor_ia,
-            perfil=perfil,
-            contexto_metodologico=contexto_metodologico,
-            indice_aula=indice_aula,
-            total_aulas=total_aulas,
-            modalidade_eja_ativa=modalidade_eja_ativa,
-            metodologia_fixa_pdf=metodologia_fixa_pdf,
-            aprendizagem_pv=aprendizagem_pv,
-            objetivos_orientacao=objetivos_orientacao,
-            aprendizagem_orientacao=aprendizagem_orientacao,
-            usar_ia=usar_ia,
-            ia_erro="",
-        )
+        metodologia_anterior = dados_json_antigos.get("metodologia") if dados_json_antigos else None
+        perfil_disciplina_atual = perfil_disciplina(disciplina)
 
-        if usar_ia:
-            try:
-                from core.ia import processar_plano_ia
+        tentativas = 0
+        max_tentativas = 3
+        perfil_atual = perfil_metodologico
+        resultado_candidato = None
 
-                plano_ia = processar_plano_ia(
-                    texto,
-                    disciplina,
-                    turma,
-                    provedor_ia,
-                    modelo_ia,
-                    modalidade_eja=modalidade_eja_ativa,
-                    rascunho_base=rascunho_local,
-                )
-                tema_ia = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
-                resultado_final = _montar_resultado_aula_ia(
-                    texto=texto,
-                    tema=tema_ia,
-                    material_digital=material_digital,
-                    numero_aula=numero_aula,
-                    disciplina_base=disciplina_base,
-                    turma=turma,
-                    provedor_ia=provedor_ia,
-                    perfil=perfil,
-                    contexto_metodologico=contexto_metodologico,
-                    indice_aula=indice_aula,
-                    total_aulas=total_aulas,
-                    modalidade_eja_ativa=modalidade_eja_ativa,
-                    plano_ia=plano_ia,
-                    metodologia_fixa_pdf=metodologia_fixa_pdf,
-                    aprendizagem_pv=aprendizagem_pv,
-                    objetivos_orientacao=objetivos_orientacao,
-                    aprendizagem_orientacao=aprendizagem_orientacao,
-                )
-            except Exception as e:
-                ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
+        while tentativas < max_tentativas:
+            contexto_geracao["perfil_metodologico"] = perfil_atual
+            rascunho_local = _montar_resultado_aula_local(
+                texto=texto,
+                tema=tema,
+                material_digital=material_digital,
+                numero_aula=numero_aula,
+                disciplina_base=disciplina_base,
+                turma=turma,
+                provedor_ia=provedor_ia,
+                perfil=perfil,
+                contexto_metodologico=contexto_metodologico,
+                indice_aula=indice_aula,
+                total_aulas=total_aulas,
+                modalidade_eja_ativa=modalidade_eja_ativa,
+                metodologia_fixa_pdf=metodologia_fixa_pdf,
+                aprendizagem_pv=aprendizagem_pv,
+                objetivos_orientacao=objetivos_orientacao,
+                aprendizagem_orientacao=aprendizagem_orientacao,
+                usar_ia=usar_ia,
+                ia_erro="",
+                contexto_geracao=contexto_geracao,
+            )
+
+            ia_erro = ""
+            resultado_candidato = None
+
+            if usar_ia:
+                try:
+                    from core.ia import processar_plano_ia
+
+                    plano_ia = processar_plano_ia(
+                        texto,
+                        disciplina,
+                        turma,
+                        provedor_ia,
+                        modelo_ia,
+                        modalidade_eja=modalidade_eja_ativa,
+                        rascunho_base=rascunho_local,
+                        contexto_geracao=contexto_geracao,
+                    )
+                    tema_ia = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
+                    resultado_candidato = _montar_resultado_aula_ia(
+                        texto=texto,
+                        tema=tema_ia,
+                        material_digital=material_digital,
+                        numero_aula=numero_aula,
+                        disciplina_base=disciplina_base,
+                        turma=turma,
+                        provedor_ia=provedor_ia,
+                        perfil=perfil,
+                        contexto_metodologico=contexto_metodologico,
+                        indice_aula=indice_aula,
+                        total_aulas=total_aulas,
+                        modalidade_eja_ativa=modalidade_eja_ativa,
+                        plano_ia=plano_ia,
+                        metodologia_fixa_pdf=metodologia_fixa_pdf,
+                        aprendizagem_pv=aprendizagem_pv,
+                        objetivos_orientacao=objetivos_orientacao,
+                        aprendizagem_orientacao=aprendizagem_orientacao,
+                    )
+                except Exception as e:
+                    ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
+
+            if resultado_candidato is None:
+                resultado_candidato = dict(rascunho_local)
+                resultado_candidato["ia_erro"] = ia_erro
+                if usar_ia:
+                    resultado_candidato["ia_provedor"] = provedor_ia
+
+            if (metodologia_anterior and
+                perfil_disciplina_atual in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"} and
+                detectar_similaridade_excessiva(resultado_candidato.get("metodologia"), metodologia_anterior)):
+
+                perfil_atual = selecionar_proximo_perfil(perfil_atual)
+                tentativas += 1
+            else:
+                resultado_final = resultado_candidato
+                break
 
         if resultado_final is None:
-            resultado_final = dict(rascunho_local)
-            resultado_final["ia_erro"] = ia_erro
-            if usar_ia:
-                resultado_final["ia_provedor"] = provedor_ia
+            resultado_final = resultado_candidato
 
     resultado_final["fonte_extracao"] = fonte_extracao
     resultado_final["arquivo_fonte_extracao"] = arquivo_fonte_extracao
     resultado_final["hash_fonte_extracao"] = hash_fonte_extracao_esperada or hash_atual
+    resultado_final["fingerprint_contexto"] = fingerprint_atual
+    resultado_final["versao_gerador"] = VERSAO_GERADOR_ATUAL
 
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json
@@ -4111,6 +4217,7 @@ def processar_varios_pdfs(
     dividir_por_pdf: list[bool] | None = None,
     modalidade_eja: bool = False,
     progress_callback=None,
+    professor: str = "",
 ) -> list[dict]:
     aulas = []
     total_aulas = len(caminhos_pdf or [])
@@ -4120,6 +4227,14 @@ def processar_varios_pdfs(
                 progress_callback(idx, total_aulas, caminho)
             except Exception:
                 pass
+        dividir_aula_atual = bool(dividir_por_pdf[idx]) if dividir_por_pdf and idx < len(dividir_por_pdf) else dividir_metodologia
+        import inspect
+        sig = inspect.signature(_aula_por_pdf)
+        kwargs = {}
+        if "professor" in sig.parameters:
+            kwargs["professor"] = professor
+        if "dividir_aula_atual" in sig.parameters:
+            kwargs["dividir_aula_atual"] = dividir_aula_atual
         aula = _aula_por_pdf(
             caminho,
             disciplina,
@@ -4131,8 +4246,8 @@ def processar_varios_pdfs(
             indice_aula=idx,
             total_aulas=total_aulas,
             modalidade_eja=modalidade_eja,
+            **kwargs
         )
-        dividir_aula_atual = bool(dividir_por_pdf[idx]) if dividir_por_pdf and idx < len(dividir_por_pdf) else dividir_metodologia
         if dividir_aula_atual:
             texto = _texto_metodologia(aula["metodologia"])
             parte1, parte2 = processar_pdf_e_dividir_metodologia(texto)

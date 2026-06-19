@@ -768,6 +768,90 @@ def _tipo_aula_historia(titulo: str, texto: str) -> str:
     return "leitura"
 
 
+def _tipo_aula_arte(titulo: str, texto: str) -> str:
+    """Classifica aulas de Arte conforme a análise metodológica."""
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    base_norm = f"{titulo_norm} {texto_norm}"
+
+    # Remover boilerplate conhecido do texto completo para evitar falsos positivos
+    base_norm = base_norm.replace(
+        "que ampliam as possibilidades de pratica de retomada e aprofundamento do conteudo estudado", ""
+    )
+
+    # 1. Dobradura e Origami
+    _ARTE_DOBRADURA = ["dobradura", "dobraduras", "origami", "papiroflexia", "dobra", "dobras", "papel"]
+    # 2. Stop Motion e Flipbook
+    _ARTE_STOP_MOTION = [
+        "flipbook", "flipbooks", "stop-motion", "stop motion", "animacao", "animação",
+        "cinema de animacao", "cinema de animação", "frames", "quadro a quadro", "persistência da visão",
+        "persistenca da visao", "filme de animacao", "filme de animação"
+    ]
+    # 3. Assemblage e Mosaico
+    _ARTE_ASSEMBLAGE = [
+        "assemblage", "assemblages", "mosaico", "mosaicos", "vik muniz", "objetos do cotidiano",
+        "colagem de objetos", "residuos", "resíduos", "sucata", "descarte", "montagem"
+    ]
+    # 4. Muralismo e Grafite
+    _ARTE_MURALISMO = [
+        "mural", "muralismo", "grafite", "graffiti", "sticker", "stickers", "lambe-lambe",
+        "arte urbana", "intervencao urbana", "intervenção urbana", "letras 3d", "letras 3d na arte",
+        "intervencoes", "intervenções", "pixação", "pichação"
+    ]
+    # 5. Arte Indígena
+    _ARTE_INDIGENA = [
+        "indigena", "indígena", "tupinamba", "tupinambá", "manto tupinamba", "manto tupinambá",
+        "grafismo", "ceramica", "cerâmica", "adornos", "mascaras", "máscaras", "artesanato indigena",
+        "artesanato indígena", "argila", "modelagem"
+    ]
+    # 6. Fotografia e Composição
+    _ARTE_FOTOGRAFIA = [
+        "fotografia", "fotos", "enquadramento", "luz e sombra", "composicao", "composição",
+        "bidimensional", "tridimensional", "gravura", "xilogravura", "profundidade", "cinética",
+        "cinetica", "estáticas", "estaticas", "dinâmicas", "dinamicas", "perspectiva"
+    ]
+    # 7. Exposição e Revisão
+    _ARTE_EXPOSICAO = [
+        "exposicao", "exposição", "curadoria", "feira de trocas", "inauguracao", "inauguração",
+        "revisao", "revisão", "retrospectiva", "projeto final", "revisar", "apreciação", "apreciacao"
+    ]
+
+    # Priorizar título
+    if contem_termos(titulo_norm, _ARTE_DOBRADURA):
+        return "dobradura_origami"
+    if contem_termos(titulo_norm, _ARTE_STOP_MOTION):
+        return "stop_motion_flipbook"
+    if contem_termos(titulo_norm, _ARTE_ASSEMBLAGE):
+        return "assemblage_mosaico"
+    if contem_termos(titulo_norm, _ARTE_MURALISMO):
+        return "muralismo_grafite"
+    if contem_termos(titulo_norm, _ARTE_INDIGENA):
+        return "arte_indigena"
+    if contem_termos(titulo_norm, _ARTE_FOTOGRAFIA):
+        return "fotografia_composicao"
+    if contem_termos(titulo_norm, _ARTE_EXPOSICAO):
+        return "exposicao_revisao"
+
+    # Fallback para base completo
+    if contem_termos(base_norm, _ARTE_DOBRADURA):
+        return "dobradura_origami"
+    if contem_termos(base_norm, _ARTE_STOP_MOTION):
+        return "stop_motion_flipbook"
+    if contem_termos(base_norm, _ARTE_ASSEMBLAGE):
+        return "assemblage_mosaico"
+    if contem_termos(base_norm, _ARTE_MURALISMO):
+        return "muralismo_grafite"
+    if contem_termos(base_norm, _ARTE_INDIGENA):
+        return "arte_indigena"
+    if contem_termos(base_norm, _ARTE_FOTOGRAFIA):
+        return "fotografia_composicao"
+    if contem_termos(base_norm, _ARTE_EXPOSICAO):
+        return "exposicao_revisao"
+
+    return "geral"
+
+
+
 
 
 _TIPOS_MATEMATICA = [
@@ -1016,6 +1100,10 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str =
     # História — classificador especializado
     if perfil == "historia":
         return _tipo_aula_historia(tema, texto)
+
+    # Arte — classificador especializado
+    if perfil == "arte":
+        return _tipo_aula_arte(tema, texto)
 
 
     for tipo, termos in _TIPOS_GERAIS:

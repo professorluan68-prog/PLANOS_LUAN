@@ -127,6 +127,7 @@ def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> P
             "avisos_validacao": aula.get("avisos_validacao") or [],
             "versao_gerador": aula.get("versao_gerador", VERSAO_GERADOR_ATUAL),
             "perfil": aula.get("perfil") or "",
+            "fingerprint_contexto": aula.get("fingerprint_contexto") or "",
         }
         with open(caminho_json, "w", encoding="utf-8") as f:
             json.dump(dados_salvar, f, ensure_ascii=False, indent=2)

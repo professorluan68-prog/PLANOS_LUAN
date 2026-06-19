@@ -1298,7 +1298,7 @@ def _metodologia_app_para_blocos(texto: str):
         blocos.append(atual)
     return blocos or [str(texto or "").strip()]
 
-def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False, usar_ae_priorizado: bool = False, progress_callback=None):
+def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False, usar_ae_priorizado: bool = False, progress_callback=None, professor: str = ""):
     temp_paths = []
     try:
         dados_aulas = []
@@ -1316,7 +1316,7 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
             temp_paths, disciplina=disciplina, turma=turma_atual, bimestre=bimestre, usar_ia=modo_ia != "Sem IA",
             provedor_ia=modo_ia.lower(), modelo_ia=(modelo_openai if modo_ia == "OpenAI" else modelo_gemini) if modo_ia != "Sem IA" else "",
             dividir_metodologia=dividir_metodologia, dividir_por_pdf=dividir_por_pdf, modalidade_eja=modalidade_eja,
-            progress_callback=progress_callback,
+            progress_callback=progress_callback, professor=professor,
         )
         if not aulas: raise RuntimeError("Nenhuma aula foi extraída.")
         if modo_ia != "Sem IA":
@@ -2100,6 +2100,7 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                         modalidade_eja,
                         usar_ae_priorizado=usar_ae_priorizado,
                         progress_callback=_callback_pdf,
+                        professor=professor,
                     )
                     turmas_processadas.append({"turma": t, "aulas": res["aulas"]})
                     avisos_turma = []

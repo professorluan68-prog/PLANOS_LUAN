@@ -799,6 +799,19 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     texto_final = re.sub(r"\bpersonagen\b", "personagens", texto_final, flags=re.I)
     texto_final = re.sub(r"\bD[ií]vida a turma\b", "Dividir a turma", texto_final, flags=re.I)
     texto_final = re.sub(r"\bclasifiquem\b", "classifiquem", texto_final, flags=re.I)
+
+    # Correções de ortografia/concordância adicionadas
+    texto_final = re.sub(r"\bavancos\b", "avanços", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bproxima\b", "próxima", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bnecessaria\b", "necessária", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsuas proprias palavras\b", "suas próprias palavras", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsuas próprias palavras\b", "suas próprias palavras", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bPAUSE E RESPOSTA\b", "Pause e responda", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bproduzam legenda de figura\b", "elaborem a legenda de figura", texto_final, flags=re.I)
+    texto_final = texto_final.replace("explicacao de as", "explicação das")
+    texto_final = texto_final.replace("explicação de as", "explicação das")
+    texto_final = texto_final.replace("compartilhem suas impressionantes", "compartilhem suas impressões")
+
     return texto_final
 
 

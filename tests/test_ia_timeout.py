@@ -33,7 +33,7 @@ def test_processar_plano_ia_openai_usa_chat_completions_parse(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "token-openai")
     monkeypatch.setattr(ia, "OpenAI", DummyClient)
     monkeypatch.setattr(ia, "_montar_prompt", lambda *args, **kwargs: "PROMPT")
-    monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina: "SYSTEM")
+    monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina, turma="": f"SYSTEM {turma}")
     monkeypatch.setattr(ia, "_normalizar_saida_ia", lambda data, *args, **kwargs: data)
 
     saida = ia.processar_plano_ia(
@@ -49,6 +49,7 @@ def test_processar_plano_ia_openai_usa_chat_completions_parse(monkeypatch):
     assert capturado["timeout"] == ia.IA_TIMEOUT_SEGUNDOS
     assert capturado["parse_kwargs"]["model"] == "gpt-4o-mini"
     assert capturado["parse_kwargs"]["response_format"] is ia.PlanoAulaIA
+    assert capturado["parse_kwargs"]["messages"][0]["content"] == "SYSTEM 1º ANO A"
 
 
 def test_processar_plano_ia_gemini_define_timeout_http(monkeypatch):
@@ -79,7 +80,7 @@ def test_processar_plano_ia_gemini_define_timeout_http(monkeypatch):
         ),
     )
     monkeypatch.setattr(ia, "_montar_prompt", lambda *args, **kwargs: "PROMPT")
-    monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina: "SYSTEM")
+    monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina, turma="": f"SYSTEM {turma}")
     monkeypatch.setattr(ia, "_normalizar_saida_ia", lambda data, *args, **kwargs: data)
 
     saida = ia.processar_plano_ia(
@@ -94,6 +95,7 @@ def test_processar_plano_ia_gemini_define_timeout_http(monkeypatch):
     assert saida["tema"] == "Tema teste"
     assert capturado["api_key"] == "token-teste"
     assert capturado["client_http_options"]["timeout"] == timeout_esperado
+    assert capturado["generate_kwargs"]["contents"].startswith("SYSTEM 2º ANO C")
     assert capturado["generate_kwargs"]["config"]["response_mime_type"] == "application/json"
     assert capturado["generate_kwargs"]["config"]["http_options"]["timeout"] == timeout_esperado
 

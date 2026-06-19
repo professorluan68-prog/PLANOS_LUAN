@@ -52,8 +52,20 @@ class ValidadorQualidade:
         return validada
 
 
-def _etapas_por_perfil(perfil: str, tipo: str) -> list[tuple[str, str]]:
+def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = None) -> list[tuple[str, str]]:
     """Define as etapas metodológicas adequadas ao perfil e tipo de aula."""
+    tipo_aula = contexto_geracao.get("tipo_aula", "simples") if contexto_geracao else "simples"
+
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"} and tipo_aula == "dupla":
+        return [
+            ("Para começar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteúdo", "foco"),
+            ("Na prática", "pratica"),
+            ("Socialização", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+
 
     if perfil == "ingles":
         if tipo == "leitura_em":
@@ -1009,131 +1021,296 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
     ]
 
 
-def _metodologia_lingua_portuguesa(texto_base: str, tema: str, tipo: str) -> dict[str, str] | None:
-    """Gerador especializado de frases para o perfil Lingua Portuguesa."""
-    # Tipos novos da especificação do Ensino Médio (3º Bimestre)
-    if tipo == "autoavaliacao":
-        return {
-            "relembre": f"Retomar com a turma o percurso de estudo relacionado a {tema}, recuperando textos, atividades, produções e critérios já trabalhados.",
-            "foco": f"Apresentar os critérios de autoavaliação de {tema}, explicando o que será observado na leitura, na análise, na produção ou na participação.",
-            "pratica": f"Orientar o preenchimento da autoavaliação ou rubrica sobre {tema}, pedindo que os estudantes usem evidências do próprio percurso e registrem avanços, dúvidas e próximos passos.",
-            "socializacao": "Promover socialização breve e respeitosa das percepções da turma, destacando estratégias de estudo, revisão e melhoria que podem ser retomadas nas próximas aulas.",
-            "encerramento": f"Encerrar sistematizando os aprendizados de {tema} e combinando uma meta concreta de continuidade para leitura, escrita, análise linguística ou participação oral."
-        }
-    if tipo == "literatura":
-        return {
-            "para_comecar": f"Apresentar imagens, contexto histórico ou perguntas instigantes sobre {tema} para ativar os conhecimentos prévios e iniciar a discussão no grande grupo.",
-            "foco": f"Apresentar a estética, autores, obras e características do movimento literário de {tema} de forma gradual, destacando as marcas do período no contexto histórico-social.",
-            "pratica": f"Conduzir a leitura compartilhada e orientada de trecho literário de {tema}, propondo análise crítica e interpretação das escolhas estéticas, e em seguida realizar atividade gramatical integrada a partir dos exemplos do texto, com correção coletiva e explicada.",
-            "encerramento": f"Encerrar a aula propondo uma reflexão coletiva para que os estudantes sintetizem com suas próprias palavras os aprendizados literários e estéticos sobre {tema}."
-        }
-    if tipo == "genero_textual":
-        return {
-            "para_comecar": f"Iniciar a aula conectando o gênero textual de {tema} ao cotidiano dos estudantes a partir de situações práticas ou perguntas motivadoras.",
-            "foco": f"Apresentar a definição, características estruturais, marcas linguísticas, suporte, público-alvo e circulação social do gênero relacionado a {tema}.",
-            "pratica": f"Conduzir a leitura analítica e compartilhada de um texto modelo do gênero {tema}, seguida de atividades práticas de interpretação textual e análise gramatical contextualizada a partir dos trechos lidos.",
-            "encerramento": f"Encerrar solicitando que os estudantes expliquem com suas próprias palavras a função social e as marcas principais do gênero {tema}."
-        }
-    if tipo == "producao_textual":
-        return {
-            "para_comecar": f"Apresentar a proposta de escrita sobre {tema}, discutindo o propósito comunicativo, o público-alvo e o suporte onde o texto circulará.",
-            "foco": f"Apresentar os critérios de qualidade e o roteiro de planejamento estrutural para a elaboração do gênero textual associado a {tema}.",
-            "pratica": f"Orientar os estudantes nas etapas de planejamento, escrita do rascunho individual (curadoria e autoria) e na revisão colaborativa entre pares das produções sobre {tema}.",
-            "encerramento": f"Encerrar convidando os estudantes a compartilharem suas ideias e refletirem sobre a importância das etapas de reescrita para qualificar o texto de {tema}."
-        }
-    if tipo == "pratica_oral":
-        return {
-            "relembre": f"Retomar o gênero oral ou audiovisual relacionado a {tema}, recuperando finalidade, público, suporte e combinados de escuta respeitosa.",
-            "foco": f"Sistematizar os recursos de linguagem de {tema}, destacando organização do roteiro, clareza da fala, escolha de exemplos, postura, entonação e uso de imagem ou áudio quando houver.",
-            "planejamento_oral": f"Orientar a organização do roteiro ou dos tópicos de fala sobre {tema}, definindo papéis, tempo de apresentação, evidências do material e critérios de participação.",
-            "pratica": f"Conduzir a prática oral ou audiovisual sobre {tema}, acompanhando apresentações, gravações, escuta ativa, comentários dos colegas e ajustes necessários durante a atividade.",
-            "socializacao": "Promover devolutiva coletiva com base nos critérios combinados, valorizando clareza, respeito ao interlocutor, uso de argumentos e relação com o material estudado.",
-            "encerramento": f"Finalizar com uma síntese sobre como a linguagem oral ou audiovisual contribuiu para comunicar ideias e interpretar o tema {tema}."
-        }
-    if tipo == "gramatica_integrada":
-        return {
-            "para_comecar": f"Apresentar uma pergunta motivadora ou trecho textual curto contendo o fenômeno de {tema} para ativar a atenção da turma.",
-            "foco": f"Sistematizar o conteúdo gramatical de {tema} com base em exemplos extraídos de textos reais, conectando a estrutura aos efeitos de sentido.",
-            "pratica": f"Orientar a leitura de texto âncora e propor exercícios práticos de identificação, análise e aplicação do conteúdo gramatical de {tema}, com correção imediata e explicada das questões e pausas do Pause e Responda.",
-            "encerramento": f"Finalizar sintetizando a convenção gramatical de {tema} e sua importância para a clareza e expressividade na leitura e escrita."
-        }
+# Repertórios controlados de variação pedagógica
+REPERTORIO_RETOMADA = {
+    "LEITURA INVESTIGATIVA": "recuperar a pergunta ou problema central da aula anterior para orientar nossa analise de hoje",
+    "COMPARAÇÃO E DIÁLOGO": "reler a sintese anterior e revisar palavras-chave coletivamente para situar a turma",
+    "ANÁLISE MODELADA": "comparar duas respostas ou registros anteriores dos estudantes para tirar duvidas e mapear progressos",
+    "ESCRITA E AUTORIA": "retomar brevemente um trecho estudado ou reconstruir uma ideia em esquema no quadro"
+}
 
-    if tipo == "leitura_multimodal":
-        return {
-            "para_comecar": f"Iniciar a aula com cartaz, campanha, infografico, tirinha ou imagem relacionada a {tema}, mobilizando hipoteses sobre a mensagem e a finalidade comunicativa.",
-            "hora_leitura": "Conduzir leitura orientada do texto multimodal, destacando relacao entre imagem, texto verbal, legenda, dados e informacoes principais.",
-            "foco": f"Sistematizar como os diferentes modos de linguagem constroem sentido em {tema}, mostrando como imagem, palavras e organizacao visual se articulam.",
-            "pratica": "Propor atividade de analise e registro para que a turma retome o material, identifique elementos verbais e nao verbais e justifique os efeitos de sentido percebidos.",
-            "socializacao": "Promover correcao dialogada das respostas, comparando diferentes leituras do texto multimodal e retomando as evidencias mais consistentes.",
-            "encerramento": f"Encerrar solicitando que os estudantes sintetizem o que observaram sobre a leitura multimodal em {tema} e como isso contribuiu para a compreensao."
-        }
-    if tipo == "resumo_retextualizacao":
-        return {
-            "para_comecar": f"Apresentar o esquema, cartaz, lista ou infografico de {tema}, mobilizando a turma para localizar informacoes principais antes da escrita.",
-            "hora_leitura": "Conduzir leitura guiada do material-base, destacando dados centrais, palavras-chave, topicos e a organizacao das informacoes.",
-            "foco": f"Explicar como transformar informacoes de {tema} em paragrafos coerentes, retomando topico frasal, desenvolvimento das ideias e articulacao entre frases.",
-            "de_olho_modelo": "Apresentar um exemplo comentado de resumo ou paragrafo, explicitando como selecionar informacoes e evitar copia mecanica.",
-            "todo_mundo_escreve": "Solicitar registro individual em topicos ou frases-base para planejar o resumo antes da escrita em paragrafos.",
-            "pratica": f"Orientar a producao de resumo ou retextualizacao sobre {tema}, pedindo que a turma reorganize as informacoes com clareza, coesao e adequacao ao objetivo da atividade.",
-            "revisao_colega": "Propor revisao entre pares para verificar se o texto esta coerente, bem paragrafado e fiel ao material-base sem mera copia.",
-            "encerramento": f"Finalizar retomando os criterios que ajudam a transformar informacoes de {tema} em texto organizado e autoral."
-        }
-    if tipo == "variacao_linguistica":
-        return {
-            "para_comecar": f"Iniciar a aula com situacao de uso real da lingua relacionada a {tema}, mobilizando repertorio sobre palavras, registros e modos de falar em diferentes contextos.",
-            "hora_leitura": "Conduzir leitura orientada do texto jornalistico ou da situacao apresentada, destacando exemplos de variacao e a relacao entre lingua, contexto e grupo social.",
-            "foco": f"Sistematizar o conceito de variacao linguistica em {tema}, diferenciando usos regionais, historicos, sociais e situacionais sem reforcar preconceito linguistico.",
-            "pause": "Realizar checagem rapida para que a turma classifique exemplos de variacao e justifique as escolhas com base no contexto de uso.",
-            "pratica": "Propor atividade de classificacao, comparacao e registro para que os estudantes identifiquem diferentes usos da lingua e discutam adequacao ao contexto.",
-            "encerramento": f"Encerrar solicitando sintese sobre como a variacao linguistica aparece em {tema} e por que adequacao ao contexto e diferente de certo ou errado."
-        }
-    if tipo == "argumentacao_debate":
-        return {
-            "para_comecar": f"Iniciar a aula com tema polemico ligado a {tema}, propondo conversa breve para diferenciar opiniao solta de argumento fundamentado.",
-            "foco": "Explicar tese, argumento, contra-argumento e estrategias como autoridade, exemplificacao e comparacao, mostrando como elas sustentam posicionamentos.",
-            "pause": "Realizar checagem objetiva para que os estudantes identifiquem o tipo de argumento presente em um exemplo e justifiquem a resposta.",
-            "hora_leitura": "Conduzir leitura orientada da noticia, reportagem ou texto de opiniao que servira de base para o debate, localizando informacoes principais e evidencias relevantes.",
-            "planejamento_debate": "Organizar a selecao de argumentos e contra-argumentos, definindo quais trechos, dados ou exemplos podem sustentar cada lado do debate.",
-            "pratica": f"Orientar atividade em que a turma identifique argumentos favoraveis e contrarios sobre {tema}, registre posicionamentos e se prepare para defender ideias com respeito e evidencias.",
-            "encerramento": f"Finalizar retomando que debater {tema} exige escuta, preparo, evidencias e respeito ao ponto de vista do outro."
-        }
-    if tipo == "texto_digital_blog":
-        return {
-            "relembre": f"Retomar a leitura anterior e os registros ja produzidos sobre {tema}, garantindo base para aprofundar tese, argumentos e interlocutor do post.",
-            "hora_leitura": "Conduzir leitura orientada do post de blog, destacando tese, exemplos, tom do texto, marcas de registro e relacao com o publico leitor.",
-            "foco": f"Sistematizar como o texto digital sobre {tema} organiza argumentos, escolhe um registro de linguagem e constroi efeitos de sentido adequados ao genero.",
-            "todo_mundo_escreve": "Solicitar registro individual de comentario, resposta ou sintese curta antes da socializacao, retomando o texto-base para justificar ideias.",
-            "pratica": f"Orientar a producao de comentario ou resposta sobre {tema}, pedindo que os estudantes mobilizem argumentos, clareza e respeito ao interlocutor.",
-            "encerramento": f"Encerrar retomando o que caracteriza a leitura critica de um post de blog sobre {tema} e como o comentario precisa dialogar com o texto lido."
-        }
-    if tipo == "analise_linguistica_ortografia":
-        return {
-            "relembre": f"Retomar exemplos do texto trabalhado em {tema}, recuperando o que a turma ja observou sobre escrita, organizacao e escolhas linguisticas.",
-            "hora_leitura": "Conduzir leitura do trecho-base, destacando palavras, estruturas, falas ou paragrafos que serao analisados de forma contextualizada.",
-            "foco": f"Sistematizar o recurso linguistico ou ortografico presente em {tema}, mostrando como ele contribui para clareza, adequacao e construcao de sentido.",
-            "de_olho_modelo": "Apresentar exemplos comentados retirados do proprio material para explicitar o criterio de analise antes da atividade individual.",
-            "pause": "Realizar checagem rapida para confirmar se a turma reconhece o recurso estudado e consegue justificar o efeito produzido no texto.",
-            "pratica": f"Orientar atividade aplicada sobre {tema}, pedindo que os estudantes retomem palavras, frases ou trechos do material para analisar e revisar a escrita em contexto.",
-            "encerramento": f"Finalizar sintetizando como o estudo contextualizado de {tema} ajuda a ler e escrever com mais consciencia."
-        }
+REPERTORIO_LEITURA = {
+    "LEITURA INVESTIGATIVA": "leitura silenciosa com marcacao individual de termos-chave e evidencias textuais",
+    "COMPARAÇÃO E DIÁLOGO": "leitura comparativa e atenta entre dois trechos, imagens ou elementos linguisticos do material",
+    "ANÁLISE MODELADA": "leitura em partes com pausas para perguntas de compreensao orientadas pelo professor",
+    "ESCRITA E AUTORIA": "leitura expressiva e compartilhada do texto de referencia, observando as escolhas do autor"
+}
 
-    # Tipos antigos de outros eixos para retrocompatibilidade
-    if tipo == "gramatica_contextualizada":
+REPERTORIO_REGISTRO = {
+    "LEITURA INVESTIGATIVA": "registro de anotacao de evidencias e elaboracao de resposta fundamentada no caderno",
+    "COMPARAÇÃO E DIÁLOGO": "construcao de um quadro comparativo ou esquema destacando semelhancas e diferencas encontradas",
+    "ANÁLISE MODELADA": "sintese em duas frases ou resumo estruturado das ideias principais do texto",
+    "ESCRITA E AUTORIA": "elaboracao de um pequeno comentario interpretativo ou planejamento do rascunho de escrita"
+}
+
+REPERTORIO_ENCERRAMENTO = {
+    "LEITURA INVESTIGATIVA": "anotacao de uma evidencia textual conclusiva no caderno",
+    "COMPARAÇÃO E DIÁLOGO": "revisao colaborativa em dupla e explicacao do aprendizado com as proprias palavras",
+    "ANÁLISE MODELADA": "registro de uma pergunta de continuidade para orientar o proximo estudo",
+    "ESCRITA E AUTORIA": "preenchimento de um bilhete de saida com resposta sintetica a questao central da aula"
+}
+
+def _metodologia_lingua_portuguesa(
+    texto_base: str,
+    tema: str,
+    tipo: str,
+    perfil_metodologico: str = None,
+    tipo_aula: str = "simples"
+) -> dict[str, str] | None:
+    """Gerador especializado de frases para o perfil Lingua Portuguesa com variacao controlada."""
+    # Obter perfil de variacao pedagogica
+    if not perfil_metodologico:
+        perfil_metodologico = "LEITURA INVESTIGATIVA"
+
+    retomada = REPERTORIO_RETOMADA.get(perfil_metodologico, REPERTORIO_RETOMADA["LEITURA INVESTIGATIVA"])
+    leitura = REPERTORIO_LEITURA.get(perfil_metodologico, REPERTORIO_LEITURA["LEITURA INVESTIGATIVA"])
+    registro = REPERTORIO_REGISTRO.get(perfil_metodologico, REPERTORIO_REGISTRO["LEITURA INVESTIGATIVA"])
+    encerramento = REPERTORIO_ENCERRAMENTO.get(perfil_metodologico, REPERTORIO_ENCERRAMENTO["LEITURA INVESTIGATIVA"])
+
+    # Se for aula dupla, retornamos a estrutura de 6 etapas
+    if tipo_aula == "dupla":
+        if tipo == "autoavaliacao":
+            return {
+                "para_comecar": f"Retomar o percurso de estudo de {tema} e {retomada} para ativar os conhecimentos.",
+                "hora_leitura": f"Conduzir {leitura} dos criterios de autoavaliacao estabelecidos no material.",
+                "foco": f"Apresentar a definicao e o proposito de cada criterio de avaliacao sobre {tema}.",
+                "pratica": f"Orientar o preenchimento da autoavaliacao ou rubrica de forma individual com {registro}.",
+                "socializacao": "Promover devolutiva e socializacao breve das percepcoes da turma, trocando estrategias de estudo.",
+                "encerramento": f"Encerrar sistematizando metas coletivas e realizando {encerramento}."
+            }
+        if tipo == "literatura":
+            return {
+                "para_comecar": f"Apresentar imagens, contexto historico ou perguntas sobre {tema} e {retomada} para aquecimento.",
+                "hora_leitura": f"Conduzir {leitura} de trechos literarios selecionados para analise critica.",
+                "foco": f"Apresentar a estetica, autores e marcas literarias de {tema} integradas ao contexto social.",
+                "pratica": f"Orientar exercicio aplicado de analise de recursos expressivos com {registro}.",
+                "socializacao": "Promover socializacao em duplas comparando percepcoes e efeitos de sentido identificados.",
+                "encerramento": f"Finalizar consolidando a sintese dos aprendizados esteticos com {encerramento}."
+            }
+        if tipo == "genero_textual":
+            return {
+                "para_comecar": f"Iniciar conectando o genero de {tema} ao cotidiano e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de um texto modelo do genero para identificar sua estrutura.",
+                "foco": f"Apresentar a definicao, marcas linguisticas, publico-alvo e circulacao social do genero de {tema}.",
+                "pratica": f"Propor exercicios praticos de interpretacao e analise linguistica com {registro}.",
+                "socializacao": "Organizar socializacao das respostas em pequenos grupos para discussao das marcas do genero.",
+                "encerramento": f"Finalizar sistematizando a funcao social do genero com {encerramento}."
+            }
+        if tipo == "producao_textual":
+            return {
+                "para_comecar": f"Apresentar a proposta de escrita sobre {tema} e realizar {retomada} dos objetivos.",
+                "hora_leitura": f"Conduzir {leitura} das referencias de escrita e instrucoes de producao.",
+                "foco": f"Apresentar os criterios de qualidade e roteiro de planejamento estrutural do texto de {tema}.",
+                "pratica": f"Orientar as etapas de planejamento e escrita do rascunho autoral com {registro}.",
+                "socializacao": "Organizar revisao colaborativa entre pares para troca de sugestoes de aprimoramento.",
+                "encerramento": f"Finalizar estimulando a reflexao sobre o processo de reescrita e aplicar {encerramento}."
+            }
+        if tipo == "pratica_oral":
+            return {
+                "para_comecar": f"Retomar a finalidade da pratica oral de {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de roteiros, exemplos de apresentacao ou guias de escuta ativa.",
+                "foco": f"Sistematizar os recursos de linguagem oral de {tema}, como entonacao, postura e clareza.",
+                "pratica": f"Orientar a preparacao e o ensaio ou apresentacao dos estudantes com {registro}.",
+                "socializacao": "Promover apresentacao e socializacao das producoes orais com devolutiva respeitosa da turma.",
+                "encerramento": f"Encerrar avaliando como a oralidade colaborou para expressar o tema e aplicar {encerramento}."
+            }
+        if tipo == "gramatica_integrada":
+            return {
+                "para_comecar": f"Apresentar pergunta motivadora ou trecho curto sobre o fenomeno de {tema} e {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} do texto-base localizando o fenomeno gramatical em foco.",
+                "foco": f"Sistematizar o conteudo gramatical de {tema} conectando a regra aos efeitos de sentido.",
+                "pratica": f"Propor exercicios aplicados de identificacao e escrita com {registro}.",
+                "socializacao": "Realizar correcao dialogada e compartilhamento de duvidas comuns sobre {tema}.",
+                "encerramento": f"Finalizar sintetizando a importancia da convencao estudada e realizar {encerramento}."
+            }
+        if tipo == "leitura_multimodal":
+            return {
+                "para_comecar": f"Iniciar analisando cartaz, imagem ou infografico sobre {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} do texto multimodal articulando os diferentes modos de linguagem.",
+                "foco": f"Sistematizar como recursos verbais e visuais constroem sentido no material sobre {tema}.",
+                "pratica": f"Propor atividade aplicada de analise de elementos visuais com {registro}.",
+                "socializacao": "Promover correcao dialogada comparando as diferentes leituras e hipoteses da turma.",
+                "encerramento": f"Finalizar destacando a leitura critica do texto multimodal e aplicar {encerramento}."
+            }
+        if tipo == "resumo_retextualizacao":
+            return {
+                "para_comecar": f"Apresentar esquema, cartaz ou infografico de {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} do texto-base destacando topicos, palavras-chave e dados centrais.",
+                "foco": f"Explicar como transformar informacoes do material em texto coerente e autoral sobre {tema}.",
+                "pratica": f"Orientar a producao de resumo ou retextualizacao no caderno com {registro}.",
+                "socializacao": "Organizar leitura cruzada entre duplas para verificacao de coesao e fidelidade ao original.",
+                "encerramento": f"Finalizar consolidando os criterios de resumo e realizar {encerramento}."
+            }
+        if tipo == "variacao_linguistica":
+            return {
+                "para_comecar": f"Iniciar apresentando situacao real de uso da lingua sobre {tema} e {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} destacando exemplos de variacao regional, social ou historica.",
+                "foco": f"Sistematizar o conceito de variacao linguistica em {tema} contra o preconceito linguistico.",
+                "pratica": f"Propor atividade de classificacao, analise e {registro} no caderno.",
+                "socializacao": "Promover discussao dialogada sobre a adequacao da fala aos diferentes contextos de uso.",
+                "encerramento": f"Finalizar reforcando que adequacao e diferente de erro e realizar {encerramento}."
+            }
+        if tipo == "argumentacao_debate":
+            return {
+                "para_comecar": f"Apresentar tema polemico sobre {tema} e realizar {retomada} para aquecimento.",
+                "hora_leitura": f"Conduzir {leitura} de artigo de opiniao ou editorial localizando a tese e argumentos.",
+                "foco": "Explicar a estrutura da argumentacao (tese, argumentos, contra-argumentos e evidencias).",
+                "pratica": f"Orientar a definicao e o registro de posicionamentos fundamentados com {registro}.",
+                "socializacao": "Organizar debate regrado ou roda de conversa para socializacao dos argumentos da turma.",
+                "encerramento": f"Finalizar sintetizando a importancia de argumentar com respeito e aplicar {encerramento}."
+            }
+        if tipo == "texto_digital_blog":
+            return {
+                "para_comecar": f"Retomar a leitura anterior e os registros sobre {tema} fazendo {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de post de blog ou postagem analisando o tom do texto e o leitor.",
+                "foco": f"Sistematizar a organizacao e a linguagem do texto digital sobre {tema}.",
+                "pratica": f"Orientar a escrita de um comentario ou resposta argumentativa com {registro}.",
+                "socializacao": "Promover compartilhamento dos comentarios e devolutiva coletiva sobre clareza e respeito.",
+                "encerramento": f"Finalizar discutindo a leitura critica no meio digital e aplicar {encerramento}."
+            }
+        if tipo == "analise_linguistica_ortografia":
+            return {
+                "para_comecar": f"Retomar exemplos linguisticos do texto estudado em {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} focalizando palavras ou marcas especificas a serem analisadas.",
+                "foco": f"Sistematizar a regra ortografica ou recurso linguistico em {tema} e seu efeito de sentido.",
+                "pratica": f"Orientar atividade aplicada de analise de palavras e revisao escrita com {registro}.",
+                "socializacao": "Realizar correcao comentada no quadro tirando duvidas recorrentes.",
+                "encerramento": f"Finalizar sintetizando como o estudo da escrita amplia a expressividade com {encerramento}."
+            }
+        # Fallback de dupla
         return {
-            "relembre": "Retomar conhecimentos anteriores sobre o fenômeno gramatical em foco, utilizando exemplos curtos ou situações de uso.",
-            "foco": f"Explicar o funcionamento da norma-padrão ou variação linguística em {tema}, conectando a regra ao efeito de sentido gerado no texto.",
-            "pause": "Realizar pausas para análise de trechos específicos, verificando se a turma identifica a aplicação do conteúdo gramatical estudado.",
-            "pratica": "Orientar a aplicação dos conceitos em frases ou pequenos textos, focando na adequação do uso da língua à intenção comunicativa.",
-            "encerramento": f"Sintetizar a regra ou norma estudada em {tema}, destacando como o domínio dessa convenção amplia as possibilidades de escrita e leitura."
+            "para_comecar": f"Iniciar a aula conectando {tema} aos conhecimentos previos e realizar {retomada}.",
+            "hora_leitura": f"Conduzir {leitura} de trechos selecionados do material de {tema}.",
+            "foco": f"Sistematizar os principais conceitos de {tema} com base em exemplos contextualizados.",
+            "pratica": f"Orientar a resolucao das questoes propostas com {registro} no caderno.",
+            "socializacao": "Promover correcao dialogada e partilha de duvidas.",
+            "encerramento": f"Finalizar sintetizando as aprendizagens centrais e aplicar {encerramento}."
         }
-    if tipo == "leitura_jornalistica":
-        return {
-            "para_comecar": f"Mobilizar conhecimentos sobre o tema {tema} a partir de manchetes ou contextos atuais de circulação social.",
-            "hora_leitura": "Conduzir a leitura analítica do texto jornalístico, identificando lide, fato, dados e recursos de linguagem presentes.",
-            "pratica": "Propor questões de compreensão e análise crítica, incentivando a busca por evidências no texto.",
-            "foco": "Explorar o papel do jornalismo e a construção de sentidos no texto, destacando a importância da veracidade e da clareza na informação.",
-            "encerramento": "Sintetizar as percepções sobre o tema e a leitura, reforçando o valor da informação consciente."
-        }
+    else:
+        # AULA SIMPLES (Garante as chaves específicas que o motor de etapas necessita)
+        if tipo == "autoavaliacao":
+            return {
+                "para_comecar": f"Retomar com a turma o percurso de {tema} e {retomada}.",
+                "foco": f"Apresentar os criterios de autoavaliacao estabelecidos para {tema}.",
+                "pratica": f"Orientar a autoavaliacao de forma individual com {registro}.",
+                "socializacao": "Promover partilha das impressoes e autoavaliacoes em duplas.",
+                "encerramento": f"Finalizar discutindo as metas individuais de avanco e aplicar {encerramento}."
+            }
+        if tipo == "literatura":
+            return {
+                "para_comecar": f"Apresentar imagens ou contexto do autor de {tema} e {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} dos trechos literarios ou fragmentos selecionados.",
+                "foco": f"Explorar a estetica, marcas literarias e construcao de sentidos em {tema}.",
+                "pratica": f"Orientar exercicio de analise critica do texto com {registro}.",
+                "encerramento": f"Finalizar com reflexao sobre o tema estetico e aplicar {encerramento}."
+            }
+        if tipo == "genero_textual":
+            return {
+                "para_comecar": f"Iniciar conectando o genero de {tema} ao cotidiano e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de um texto modelo representativo do genero.",
+                "foco": f"Apresentar definicao, suporte, publico-alvo e marcas do genero de {tema}.",
+                "pratica": f"Propor exercicios praticos de interpretacao do genero com {registro}.",
+                "encerramento": f"Finalizar sintetizando a funcao social do genero e aplicar {encerramento}."
+            }
+        if tipo == "producao_textual":
+            return {
+                "para_comecar": f"Apresentar a proposta de escrita sobre {tema} e {retomada} dos objetivos.",
+                "foco": f"Apresentar os criterios de qualidade e roteiro de planejamento para {tema}.",
+                "pratica": f"Conduzir {leitura} e orientar planejamento e rascunho com {registro}.",
+                "encerramento": f"Finalizar refletindo sobre a escrita e revisao, aplicando {encerramento}."
+            }
+        if tipo == "pratica_oral":
+            return {
+                "relembre": f"Retomar a finalidade da atividade oral sobre {tema} e {retomada}.",
+                "foco": f"Sistematizar resources da linguagem oral de {tema}, como entonacao e clareza.",
+                "planejamento_oral": f"Orientar a organizacao do roteiro ou dos topicos de fala sobre {tema}.",
+                "pratica": f"Conduzir a preparacao e a apresentacao oral com base em {leitura} e {registro}.",
+                "socializacao": "Promover devolutiva coletiva valorizando clareza e respeito.",
+                "encerramento": f"Finalizar sintetizando as percepcoes orais coletivas e aplicando {encerramento}."
+            }
+        if tipo == "gramatica_integrada":
+            return {
+                "para_comecar": f"Apresentar pergunta motivadora ou trecho curto sobre {tema} e realizar {retomada}.",
+                "foco": f"Sistematizar o conteudo gramatical de {tema} relacionando a regra ao texto.",
+                "pratica": f"Conduzir {leitura} e propor exercicios praticos com {registro}.",
+                "encerramento": f"Finalizar consolidando o uso correto da convencao estudada com {encerramento}."
+            }
+        if tipo == "leitura_multimodal":
+            return {
+                "para_comecar": f"Iniciar analisando imagem, cartaz ou infografico sobre {tema} e realizar {retomada}.",
+                "foco": f"Sistematizar como recursos verbais e visuais constroem sentido em {tema}.",
+                "pratica": f"Conduzir {leitura} orientada do texto multimodal seguida de {registro}.",
+                "socializacao": "Promover compartilhamento de leituras e visões sobre o texto multimodal.",
+                "encerramento": f"Finalizar destacando a leitura critica do texto e aplicar {encerramento}."
+            }
+        if tipo == "resumo_retextualizacao":
+            return {
+                "para_comecar": f"Apresentar esquema, cartaz ou infografico de {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} guiada e orientar a producao do resumo com {registro}.",
+                "foco": f"Explicar a transformacao de dados do material em texto coerente sobre {tema}.",
+                "de_olho_modelo": f"Apresentar exemplo estruturado de resumo para orientar a producao.",
+                "todo_mundo_escreve": f"Solicitar escrita de topicos-chave para estruturacao do texto.",
+                "pratica": f"Propor exercicios praticos de sintese baseados em {leitura}.",
+                "revisao_colega": f"Promover a troca de resumos para revisao gramatical e textual simples.",
+                "encerramento": f"Finalizar consolidando os criterios de resumo e realizar {encerramento}."
+            }
+        if tipo == "variacao_linguistica":
+            return {
+                "para_comecar": f"Iniciar apresentando situacao real de uso da lingua de {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} destacando exemplos de variacao regional, social ou historica.",
+                "foco": f"Sistematizar conceito de variacao em {tema} contra preconceitos.",
+                "pause": f"Realizar pausa formativa para classificar casos de adequacao contextual.",
+                "pratica": f"Propor atividade de classificacao, analise e {registro} no caderno.",
+                "encerramento": f"Finalizar reforcando a adequacao ao contexto e aplicar {encerramento}."
+            }
+        if tipo == "argumentacao_debate":
+            return {
+                "para_comecar": f"Apresentar tema polemico sobre {tema} e realizar {retomada}.",
+                "foco": f"Explicar a estrutura da argumentacao (tese, argumentos e evidencias) em {tema}.",
+                "pause": f"Realizar checagem objetiva dos tipos de argumentos identificados.",
+                "hora_leitura": f"Conduzir {leitura} do texto argumentativo ou de opiniao estudado.",
+                "planejamento_debate": f"Organizar roteiro simples de argumentos e contra-argumentos.",
+                "pratica": f"Orientar o registro de posicionamento com {registro} e discussao.",
+                "encerramento": f"Finalizar incentivando a argumentacao respeitosa e aplicar {encerramento}."
+            }
+        if tipo == "texto_digital_blog":
+            return {
+                "para_comecar": f"Retomar a leitura anterior e os registros sobre {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de post de blog analisando a linguagem e interlocutores.",
+                "foco": f"Sistematizar a organizacao e linguagem do texto digital de {tema}.",
+                "todo_mundo_escreve": f"Orientar elaboracao de comentario curto ou resposta argumentativa.",
+                "pratica": f"Orientar escrita do comentario final no caderno com {registro}.",
+                "encerramento": f"Finalizar com discussao critica sobre leitura digital e aplicar {encerramento}."
+            }
+        if tipo == "analise_linguistica_ortografia":
+            return {
+                "para_comecar": f"Retomar marcas ou palavras do texto estudado em {tema} e realizar {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} focada nas palavras a serem analisadas.",
+                "foco": f"Sistematizar recurso linguistico ou ortografico de {tema} e seus efeitos.",
+                "pratica": f"Conduzir {leitura} e propor exercicio de analise ortografica com {registro}.",
+                "socializacao": f"Realizar correcao dialogada comparando registros no quadro.",
+                "encerramento": f"Finalizar sintetizando o estudo contextualizado com {encerramento}."
+            }
+
+        # Fallbacks antigos para compatibilidade
+        if tipo == "gramatica_contextualizada":
+            return {
+                "relembre": f"Retomar conhecimentos sobre o fenomeno gramatical e realizar {retomada}.",
+                "foco": f"Explicar a norma-padrao ou variacao linguistica em {tema} conectando regra e sentido.",
+                "pause": f"Realizar pausas para analise de trechos especificos do material.",
+                "pratica": f"Orientar aplicacao dos conceitos com {registro} no caderno.",
+                "encerramento": f"Sintetizar regra ou norma estudada em {tema} e aplicar {encerramento}."
+            }
+        if tipo == "leitura_jornalistica":
+            return {
+                "para_comecar": f"Mobilizar conhecimentos sobre {tema} a partir de manchetes e {retomada}.",
+                "hora_leitura": f"Conduzir {leitura} de texto jornalistico identificando lide e dados.",
+                "pratica": f"Propor questoes de compreensao e analise com {registro}.",
+                "foco": f"Explorar papel do jornalismo e construcao de sentidos em {tema}.",
+                "encerramento": f"Sintetizar as percepcoes sobre leitura e aplicar {encerramento}."
+            }
+
+        return None
     return None
 
 
@@ -2328,6 +2505,197 @@ def _metodologia_historia(texto_base: str, tema: str, tipo: str, conceito: str =
     }
 
 
+def _metodologia_arte(texto_base: str, tema: str, tipo: str, conceito: str = "", atividade_extraida: str = "", tecnicas: dict = None) -> dict[str, str] | None:
+    """Gerador especializado de frases para Arte AF."""
+    if not tecnicas:
+        tecnicas = {}
+    t_disc = tecnicas.get("abertura", "Virem e conversem")
+    t_reg = tecnicas.get("registro", "Todo mundo escreve")
+    t_sint = tecnicas.get("sintese", "Com suas palavras")
+    t_verif = tecnicas.get("verificacao", "Pause e responda")
+
+    if tipo == "dobradura_origami":
+        return {
+            "para_comecar": (
+                f"Apresentar um example visual ou modelo físico de dobradura relacionado a {tema}. "
+                f"Propor {t_disc} para instigar a turma sobre como formas geométricas bidimensionais se transformam em objetos tridimensionais com dobras."
+            ),
+            "foco": (
+                f"Explicar o conceito de {conceito}, demonstrando a importância cultural, a precisão geométrica e os "
+                "passos fundamentais para a criação da dobradura (origami)."
+            ),
+            "pratica": (
+                f"Propor a experimentação e confecção prática de dobraduras pelos estudantes, seguindo o passo a passo ilustrado do material. "
+                f"Solicitar {t_reg} no diário de bordo e incentivar a colaboração mútua no manuseio do papel."
+            ),
+            "pause": (
+                f"Propor {t_verif} acompanhando os estudantes que enfrentam dificuldades nos vincos e dobras, "
+                "estimulando a persistência e valorizando o processo de aprendizagem prática."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} reunindo as dobraduras produzidas para refletir sobre a composição visual final obtida e "
+                "como a repetição de dobras cria volume e significado artístico."
+            )
+        }
+
+    if tipo == "stop_motion_flipbook":
+        return {
+            "para_comecar": (
+                f"Apresentar uma animação rápida ou um flipbook físico para demonstrar a ilusão de movimento em imagens estáticas. "
+                f"Propor {t_disc} para provocar a reflexão sobre como percebemos o movimento no cinema."
+            ),
+            "foco": (
+                f"Explicar a técnica de animação ligada a {conceito}, abordando a persistência da visão, a estrutura de quadros (frames) "
+                "e a sequência narrativa necessária para criar movimento."
+            ),
+            "pratica": (
+                f"Orientar os estudantes na elaboração prática do flipbook ou na captura de quadros para o stop-motion. "
+                f"Solicitar {t_reg} registrando pequenas variações entre os desenhos ou objetos e estimulando a paciência no processo criativo."
+            ),
+            "pause": (
+                f"Propor {t_verif} para ajudar os grupos a verificar se a fluidez do movimento está funcionando e se a narrativa faz sentido quadro a quadro."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} para compartilhar as animações ou flipbooks produzidos, discutindo como o tempo e o espaço são manipulados na linguagem audiovisual."
+            )
+        }
+
+    if tipo == "assemblage_mosaico":
+        return {
+            "para_comecar": (
+                f"Exibir imagens de obras que utilizam colagem de objetos ou fragmentos tridimensionais (assemblage/mosaico). "
+                f"Propor {t_disc} provocando a reflexão se objetos comuns do cotidiano podem se tornar obras de arte."
+            ),
+            "foco": (
+                f"Desenvolver a reflexão sobre {conceito}, abordando como a ressignificação de objetos e resíduos (como na obra de Vik Muniz) "
+                "amplia o conceito de montagem, textura e bidimensionalidade/tridimensionalidade."
+            ),
+            "pratica": (
+                f"Orientar a criação de uma assemblage pessoal ou mosaico utilizando materiais alternativos, recortes ou objetos descartados. "
+                f"Solicitar {t_reg} no diário de bordo registrando as escolhas dos materiais e explorando texturas e relevos."
+            ),
+            "pause": (
+                f"Propor {t_verif} para que os estudantes compartilhem suas ideias e experimentem combinações inusitadas de objetos em suas composições."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} refletindo sobre como a assemblage recontextualiza o descarte em produções expressivas, "
+                "discutindo o impacto ambiental e poético da escolha de materiais."
+            )
+        }
+
+    if tipo == "muralismo_grafite":
+        return {
+            "para_comecar": (
+                f"Exibir fotografias de intervenções urbanas (muralismo, grafite, stickers, lambe-lambe). "
+                f"Propor {t_disc} para debater com a turma a diferença entre arte na galeria e arte na rua."
+            ),
+            "foco": (
+                f"Apresentar os conceitos de {conceito}, abordando a história da arte urbana, a dimensão pública do muralismo, "
+                "o uso de suportes alternativos e a relação entre arte e espaço urbano."
+            ),
+            "pratica": (
+                f"Orientar o planejamento de um mural ou intervenção artística em papel (projeto/esboço), integrando desenhos, letras 3D ou lambe-lambes. "
+                f"Solicitar {t_reg} focando na mensagem social ou poética que o grupo deseja transmitir."
+            ),
+            "pause": (
+                f"Propor {t_verif} mediando a produção coletiva ou individual dos esboços, auxiliando na harmonia estética das letras e elementos visuais integrados."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} para socializar as propostas de murais, discutindo como a arte urbana ressignifica os espaços coletivos."
+            )
+        }
+
+    if tipo == "arte_indigena":
+        return {
+            "para_comecar": (
+                f"Apresentar um padrão de grafismo indígena, máscara ou objeto tradicional (como o Manto Tupinambá). "
+                f"Propor {t_disc} para convidar a turma a pensar sobre o papel e significado desses objetos em sua cultura de origem."
+            ),
+            "foco": (
+                f"Explicar os conceitos de {conceito}, valorizando a arte indígena (grafismo, cerâmica, adornos), sua importância cosmológica, "
+                "simbólica e a diferença fundamental entre artesanato utilitário e arte sagrada."
+            ),
+            "pratica": (
+                f"Propor a experimentação prática com argila, modelagem ou composição de grafismos geométricos utilizando materiais alternativos. "
+                f"Solicitar {t_reg} no diário de bordo acompanhando a exploração tátil e visual dos estudantes."
+            ),
+            "pause": (
+                f"Propor {t_verif} acompanhando o manuseio dos materiais e a aplicação das técnicas de modelagem, estimulando a criatividade e o respeito às técnicas tradicionais."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} reunindo as produções para debater sobre a repatriação de objetos históricos sagrados e "
+                "a valorização da arte dos povos originários na cultura brasileira contemporânea."
+            )
+        }
+
+    if tipo == "fotografia_composicao":
+        return {
+            "para_comecar": (
+                f"Exibir imagens de enquadramentos fotográficos, gravuras ou obras clássicas de {tema}. "
+                f"Propor {t_disc} estimulando a percepção de luz, sombra, cor e perspectiva que dão sensação de profundidade."
+            ),
+            "foco": (
+                f"Apresentar {conceito}, abordando conceitos de enquadramento fotográfico, profundidade em gravura (como xilogravura), "
+                "luz e sombra, e a representação tridimensional em superfícies bidimensionais."
+            ),
+            "pratica": (
+                f"Orientar os estudantes em atividades de captura fotográfica na escola ou na criação de desenhos que simulem a técnica de gravura. "
+                f"Solicitar {t_reg} estimulando a exploração do espaço e do enquadramento."
+            ),
+            "pause": (
+                f"Propor {t_verif} orientando os estudantes nos ajustes de luz, enquadramento ou textura das composições."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} socializando as composições visuais ou fotografias, analisando como escolhas de enquadramento e iluminação transformam o olhar."
+            )
+        }
+
+    if tipo == "exposicao_revisao":
+        return {
+            "para_comecar": (
+                f"Apresentar a proposta de montagem de uma exposição colaborativa ou feira de trocas com as produções de {tema}. "
+                f"Propor {t_disc} discutindo a importância de expor e partilhar produções artísticas com a comunidade."
+            ),
+            "foco": (
+                f"Explicar os papéis da curadoria, expografia e mediação cultural em {conceito}, orientando os estudantes a pensar em como organizar "
+                "o espaço para a exposição das obras."
+            ),
+            "pratica": (
+                f"Organizar a montagem prática da exposição coletiva. Orientar a fixação das obras, a elaboração de etiquetas explicativas "
+                f"e solicitar {t_reg} no diário de bordo sobre o trajeto e organização da visitação."
+            ),
+            "pause": (
+                f"Propor {t_verif} mediando a curadoria do espaço para garantir visibilidade e respeito a todas as produções dos estudantes."
+            ),
+            "encerramento": (
+                f"Conduzir {t_sint} realizando a apreciação coletiva das produções expostas, permitindo que a turma reflita criticamente sobre a jornada criativa vivenciada no bimestre."
+            )
+        }
+
+    # Fallback / Geral
+    return {
+        "para_comecar": (
+            f"Apresentar referências visuais ou sonoras relacionadas a {tema} para sensibilizar os estudantes. "
+            f"Propor {t_disc} para colher as diferentes percepções iniciais da turma."
+        ),
+        "foco": (
+            f"Explicar os conceitos centrais de {conceito}, contextualizando historicamente a linguagem artística em questão "
+            "e integrando teoria e appreciation estética."
+        ),
+        "pratica": (
+            f"Propor experimentação prática, criação ou apreciação orientada relacionada a {tema}. "
+            f"Solicitar {t_reg} no diário de bordo socializando as produções ou percepções dos estudantes."
+        ),
+        "pause": (
+            f"Propor {t_verif} acompanhando os processos individuais ou coletivos dos estudantes, mediando dúvidas estéticas e estimulando a autonomia."
+        ),
+        "encerramento": (
+            f"Conduzir {t_sint} finalizando com um momento de reflexão coletiva sobre as produções ou discussões realizadas, "
+            "valorizando a diversidade de olhares e leituras expressivas."
+        )
+    }
+
+
 def _frases_por_contexto(
     perfil: str, tipo: str, tema: str, conceito: str,
     turma: str, tecnicas: dict, texto_base: str = "",
@@ -2335,6 +2703,7 @@ def _frases_por_contexto(
     recursos_detectados: list[str] | None = None,
     etapas_detectadas: list[str] | None = None,
     habilidade: str = "",
+    contexto_geracao: dict | None = None,
 ) -> dict[str, str]:
     """Gera frases contextualizadas para cada etapa da metodologia."""
 
@@ -2400,7 +2769,11 @@ def _frases_por_contexto(
 
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         # Delegar para o gerador especializado de LP se o tipo for reconhecido
-        _frases_lp = _metodologia_lingua_portuguesa(texto_base, tema, tipo)
+        perf_met = contexto_geracao.get("perfil_metodologico") if contexto_geracao else None
+        tipo_a = contexto_geracao.get("tipo_aula", "simples") if contexto_geracao else "simples"
+        _frases_lp = _metodologia_lingua_portuguesa(
+            texto_base, tema, tipo, perfil_metodologico=perf_met, tipo_aula=tipo_a
+        )
         if _frases_lp is not None:
             base.update(_frases_lp)
             return base
@@ -2505,6 +2878,12 @@ def _frases_por_contexto(
                 f"Orientar leitura de mapas, imagens, gráficos ou situações-problema, solicitando {t_reg} para que os estudantes "
                 "identifiquem elementos espaciais e expliquem relações de causa e consequência."
             )
+
+    elif perfil == "arte":
+        _frases_arte = _metodologia_arte(texto_base, tema, tipo, conceito, atividade_extraida, tecnicas)
+        if _frases_arte is not None:
+            base.update(_frases_arte)
+            return base
 
     elif perfil == "ingles":
             base["para_comecar"] = (
@@ -2826,6 +3205,7 @@ class MotorMetodologico:
             tema: str,
             indice_aula: int = 0,
             total_aulas: int = 1,
+            contexto_geracao: dict | None = None,
     ) -> list[dict]:
             """
             Gera metodologia completa com etapas variáveis por perfil.
@@ -2861,10 +3241,11 @@ class MotorMetodologico:
                 recursos_detectados=recursos,
                 etapas_detectadas=etapas_pdf,
                 habilidade=habilidade,
+                contexto_geracao=contexto_geracao,
             )
 
             # 5. Montar etapas
-            etapas_config = _etapas_por_perfil(perfil, tipo)
+            etapas_config = _etapas_por_perfil(perfil, tipo, contexto_geracao=contexto_geracao)
             metodologia = []
             for titulo, chave in etapas_config:
                 texto_etapa = frases.get(chave, "").strip()

@@ -1,3 +1,4 @@
+import re
 from core.referencias_metodologia import normalizar_disciplina
 
 
@@ -50,6 +51,22 @@ PROMPTS_SISTEMA = {
         "representacao ajuda a compreender estruturas e processos, mas simplifica a realidade. Quando o tema for "
         "socioambiental, relacione impactos, responsabilidades e propostas de acao com base em conceitos e evidencias."
     ),
+    "lingua portuguesa fundamental": (
+        "Voce e especialista em planejamento de aulas de Lingua Portuguesa para o Ensino Fundamental - anos finais. "
+        "Gere metodologias focadas em leitura, interpretacao, analise linguistica e producao textual. "
+        "Mantenha total fidelidade ao texto e material do PDF, sem inventar trechos, videos ou recursos. "
+        "A analise linguistica/gramatica deve estar relacionada ao texto da aula. "
+        "Integre o perfil metodologico recebido e varie as acoes pedagogicas (agrupamento, forma de leitura, registro e socializacao). "
+        "Nao varie apenas por sinonimos. Respeite a duracao da aula."
+    ),
+    "lingua portuguesa medio": (
+        "Voce e especialista em planejamento de aulas de Lingua Portuguesa para o Ensino Medio. "
+        "Gere metodologias focadas em leitura critica, interpretacao de textos e fragmentos literarios, genero textual, argumentacao e analise linguistica contextualizada. "
+        "Em literatura, parta de texto, fragmento, imagem ou efeito de sentido sem transformar a aula em lista mecanica de caracteristicas ou aula de Historia pura. "
+        "Mantenha total fidelidade ao PDF, sem inventar recursos, videos ou trechos que nao estao no material. "
+        "Integre o perfil metodologico recebido e varie as acoes pedagogicas de forma concreta (agrupamento, tipo de leitura, registro e encerramento). "
+        "Respeite a duracao da aula e nao varie apenas por sinonimos."
+    )
 }
 
 
@@ -98,6 +115,18 @@ ORIENTACOES_DISCIPLINA = {
         "se houver situacao-problema, organize analise de causas, impactos, agentes e solucoes; "
         "em temas socioambientais, relacione dados, responsabilidades e propostas de acao, evitando opinioes soltas e generalizacoes."
     ),
+    "lingua portuguesa fundamental": (
+        "Para Lingua Portuguesa do Ensino Fundamental, a metodologia deve partir de pelo menos um elemento real: texto, genero, leitura, analise linguistica contextualizada, producao ou oralidade. "
+        "A analise linguistica deve estar conectada ao texto trabalhado. "
+        "Utilize o perfil metodologico indicado para estruturar a abertura, a leitura orientada, o agrupamento dos alunos, o tipo de registro individual e o fechamento da aula. "
+        "Evite inventar recursos ou copiar grandes trechos do PDF."
+    ),
+    "lingua portuguesa medio": (
+        "Para Lingua Portuguesa do Ensino Medio, garanta fidelidade ao texto do PDF. "
+        "Em literatura, parta do texto ou fragmento literario real, relacionando contexto historico e construcao de sentidos sem transformar a aula em lista de caracteristicas teoricas. "
+        "A analise linguistica deve ser contextualizada. "
+        "Adapte as etapas de acordo com a duracao e o perfil metodologico informado, variando acoes concretas como agrupamento, socializacao e forma de registro."
+    )
 }
 
 
@@ -105,11 +134,27 @@ def _chave_disciplina(disciplina: str) -> str:
     return normalizar_disciplina(disciplina or "").strip()
 
 
-def get_system_prompt(disciplina: str = "") -> str:
+def _eh_fundamental(turma: str) -> bool:
+    t = str(turma or "").strip().lower()
+    t = t.replace("º", "o").replace("ª", "a").replace("°", "o")
+    return bool(re.search(r"\b(?:6|7|8|9)\s*(?:o|a)?\s*(?:ano|anos)?\s*[a-e]?\b", t))
+
+
+def get_system_prompt(disciplina: str = "", turma: str = "") -> str:
     chave = _chave_disciplina(disciplina)
+    if chave == "lingua portuguesa":
+        if _eh_fundamental(turma):
+            return PROMPTS_SISTEMA["lingua portuguesa fundamental"]
+        else:
+            return PROMPTS_SISTEMA["lingua portuguesa medio"]
     return PROMPTS_SISTEMA.get(chave, PROMPTS_SISTEMA["default"])
 
 
 def get_orientacao_disciplina(disciplina: str = "", tema: str = "", turma: str = "") -> str:
     chave = _chave_disciplina(disciplina)
+    if chave == "lingua portuguesa":
+        if _eh_fundamental(turma):
+            return ORIENTACOES_DISCIPLINA["lingua portuguesa fundamental"]
+        else:
+            return ORIENTACOES_DISCIPLINA["lingua portuguesa medio"]
     return ORIENTACOES_DISCIPLINA.get(chave, ORIENTACOES_DISCIPLINA["default"])

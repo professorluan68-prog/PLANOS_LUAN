@@ -220,6 +220,23 @@ def migrar_json_para_sqlite():
         print(f"Erro na migracao do JSON: {e}")
 
 
+def obter_professor_id_por_nome(nome: str) -> int | None:
+    """Retorna o ID do professor pelo nome cadastrado (sem criar se não existir)."""
+    if not nome or not isinstance(nome, str):
+        return None
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            nome_norm = _normalizar_campo(nome).upper()
+            cursor.execute("SELECT id FROM professores WHERE nome = ?", (nome_norm,))
+            row = cursor.fetchone()
+            if row:
+                return int(row[0])
+    except Exception:
+        pass
+    return None
+
+
 def obter_professores_db():
     with get_connection() as conn:
         cursor = conn.cursor()
