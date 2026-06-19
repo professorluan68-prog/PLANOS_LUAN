@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 
+_NOME_REFERENCIA_PRIORITARIA_8_ANO = "Metodologias_Educacao_Financeira_8_Ano_CORRIGIDO.docx"
+
+
 def _normalizar_espacos(texto: str) -> str:
     return re.sub(r"\s+", " ", str(texto or "")).strip()
 
@@ -21,30 +24,15 @@ def _normalizar_busca(texto: str) -> str:
 
 def _tokens_titulo(texto: str) -> set[str]:
     ignorar = {
-        "a",
-        "o",
-        "as",
-        "os",
-        "e",
-        "de",
-        "do",
-        "da",
-        "dos",
-        "das",
-        "um",
-        "uma",
-        "para",
-        "por",
-        "que",
-        "em",
-        "no",
-        "na",
-        "nos",
-        "nas",
-        "aula",
-        "parte",
+        "a", "o", "as", "os", "e", "de", "do", "da", "dos", "das",
+        "um", "uma", "para", "por", "que", "em", "no", "na", "nos", "nas",
+        "aula", "parte",
     }
-    return {tok for tok in re.findall(r"[a-z0-9]+", _normalizar_busca(texto)) if tok not in ignorar and len(tok) > 1}
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", _normalizar_busca(texto))
+        if token not in ignorar and len(token) > 1
+    }
 
 
 def _parte_titulo(texto: str) -> str:
@@ -69,8 +57,7 @@ def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
 def _normalizar_numero_aula(valor: Any) -> int:
     if isinstance(valor, int):
         return valor
-    texto = str(valor or "")
-    match = re.search(r"\d{1,2}", texto)
+    match = re.search(r"\d{1,2}", str(valor or ""))
     return int(match.group(0)) if match else 0
 
 
@@ -85,7 +72,7 @@ def _paragrafos_docx(caminho_docx: str) -> list[str]:
     except Exception:
         return []
 
-    return [_normalizar_espacos(par.text) for par in doc.paragraphs if _normalizar_espacos(par.text)]
+    return [_normalizar_espacos(paragrafo.text) for paragrafo in doc.paragraphs if _normalizar_espacos(paragrafo.text)]
 
 
 def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[int, dict[str, Any]]) -> None:
@@ -147,9 +134,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
                     f"{aula_atual['metodologia'][-1]['texto']} {texto}"
                 )
         elif secao in {"acompanhamento", "acessibilidade"}:
-            item = texto
-            if not item.startswith("☑"):
-                item = f"☑ {item.lstrip('☑ ').strip()}"
+            item = texto if texto.startswith("☑") else f"☑ {texto.lstrip('☑ ').strip()}"
             aula_atual[secao].append(_normalizar_espacos(item))
 
     _finalizar_aula(aula_atual, aulas)
@@ -172,6 +157,10 @@ def localizar_docx_referencia(caminho_pdf: str | Path) -> Path | None:
     caminho = Path(caminho_pdf)
     if not caminho_pdf or not caminho.parent.exists():
         return None
+
+    referencia_prioritaria = caminho.parent / _NOME_REFERENCIA_PRIORITARIA_8_ANO
+    if referencia_prioritaria.is_file():
+        return referencia_prioritaria
 
     candidatos = list(caminho.parent.glob("Metodologias_Educacao_Financeira*_Ano*.docx"))
     candidatos.extend(caminho.parent.glob("*Metodologia*.docx"))
@@ -224,4 +213,5 @@ def referencia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = ""
         "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
         "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],
         "fonte": str(docx),
+        "referencia_pedagogica_aplicada": True,
     }
