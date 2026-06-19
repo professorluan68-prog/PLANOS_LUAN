@@ -696,6 +696,34 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
                 texto_final = re.sub(padrao, substituir, texto_final, flags=re.I)
 
     ajustes_redacao = [
+        (r"\bpara que os alunos discuta\b", "para que os estudantes discutam"),
+        (r"\bpara que os estudantes discuta\b", "para que os estudantes discutam"),
+        (r"\bAplicar o conversa inicial em duplas\b", "Promover conversa inicial em duplas"),
+        (r"\baplicar o conversa inicial em duplas\b", "promover conversa inicial em duplas"),
+        (r"\bPropor uma breve acao orientada\b", "Propor uma breve ação orientada"),
+        (r"\bpropor uma breve acao orientada\b", "propor uma breve ação orientada"),
+        (r"\bacao orientada\b", "ação orientada"),
+        (r"\bAcao orientada\b", "Ação orientada"),
+        (
+            r"\bRealizar uma parada estrat[eé]gica para verifica[cç][aã]o para conferir\b",
+            "Realizar uma parada estratégica para verificar",
+        ),
+        (
+            r"\brealizar uma parada estrat[eé]gica para verifica[cç][aã]o para conferir\b",
+            "realizar uma parada estratégica para verificar",
+        ),
+        (
+            r"\bpausa de checagem formativa\s*\(pausa de checagem\)\b",
+            "pausa de checagem formativa",
+        ),
+        (
+            r"\bNa pr[aá]tica:\s*em que os estudantes organizam\b",
+            "Na prática: orientar os estudantes a organizar",
+        ),
+        (
+            r"\bNa pratica:\s*em que os estudantes organizam\b",
+            "Na prática: orientar os estudantes a organizar",
+        ),
         (r"\bMedir a observação\b", "Mediar a observação"),
         (r"\bmedir a observação\b", "mediar a observação"),
         (r"\bMedir a observacao\b", "Mediar a observação"),
@@ -715,6 +743,115 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
         texto_final = re.sub(padrao, subst, texto_final, flags=re.I)
 
     return texto_final
+
+
+def _tema_educacao_financeira_protegido(tema: str, disciplina: str) -> bool:
+    disc_norm = normalizar_para_busca(str(disciplina or ""))
+    if "educacao financeira" not in disc_norm and "educação financeira" not in disc_norm:
+        return False
+    tema_norm = normalizar_para_busca(str(tema or ""))
+    return _contem_algum(
+        tema_norm,
+        [
+            "economia domestica",
+            "orcamento",
+            "orçamento",
+            "despesas",
+            "gastos",
+            "receitas",
+            "saldo",
+            "reserva",
+            "metas financeiras",
+            "planilha",
+            "classificando e analisando",
+            "estrutura de um orcamento",
+            "estrutura de um orçamento",
+            "analisando um orcamento",
+            "analisando um orçamento",
+        ],
+    )
+
+
+def _higienizar_residuos_educacao_financeira(texto: str, tema: str, disciplina: str) -> str:
+    if not _tema_educacao_financeira_protegido(tema, disciplina):
+        return texto
+
+    texto_final = str(texto or "")
+    substituicoes = [
+        (
+            r"\bcustos,\s*pre[cç]o,\s*p[uú]blico,\s*recursos necess[aá]rios e viabilidade em propostas empreendedoras simples\b",
+            "receitas, despesas, prioridades e saldo em situações de orçamento familiar",
+        ),
+        (
+            r"\bpropostas empreendedoras simples\b",
+            "situações de organização financeira",
+        ),
+        (
+            r"\bcustos,\s*pre[cç]o,\s*p[uú]blico,\s*viabilidade e revis[aã]o\b",
+            "receitas, despesas, prioridades, saldo e revisão",
+        ),
+        (
+            r"\bideia,\s*necessidade,\s*produto ou servi[cç]o e organiza[cç][aã]o financeira\b",
+            "receitas, despesas, prioridades e organização financeira",
+        ),
+        (
+            r"\bproduto ou servi[cç]o\b",
+            "situação financeira analisada",
+        ),
+        (
+            r"\bproduto ou o servi[cç]o\b",
+            "situação financeira analisada",
+        ),
+        (
+            r"\bprojeto em etapas curtas:\s*ideia,\s*p[uú]blico,\s*recursos,\s*custos,\s*pre[cç]o,\s*viabilidade e revis[aã]o\b",
+            "planejamento em etapas curtas: receitas, despesas, prioridades, saldo e revisão",
+        ),
+        (
+            r"\bOrganizar o projeto em etapas curtas\b",
+            "Organizar o planejamento em etapas curtas",
+        ),
+        (
+            r"\borganizar o projeto em etapas curtas\b",
+            "organizar o planejamento em etapas curtas",
+        ),
+        (
+            r"\bsolicitando que os alunos discutam itens essenciais para uma feira cultural,\s*relacionando essa atividade com o orçamento familiar\b",
+            "solicitando que os estudantes identifiquem despesas essenciais e supérfluas no orçamento familiar",
+        ),
+        (
+            r"\bsolicitando que os estudantes discutam itens essenciais para uma feira cultural,\s*relacionando essa atividade com o orçamento familiar\b",
+            "solicitando que os estudantes identifiquem despesas essenciais e supérfluas no orçamento familiar",
+        ),
+        (
+            r"\bitens essenciais para uma feira cultural\b",
+            "despesas essenciais e supérfluas de uma família",
+        ),
+        (
+            r"\bprojeto\b",
+            "planejamento",
+        ),
+    ]
+    for padrao, substituto in substituicoes:
+        texto_final = re.sub(padrao, substituto, texto_final, flags=re.I)
+    return texto_final
+
+
+def _higienizar_lista_residuos_ef(itens: list, tema: str, disciplina: str) -> list:
+    return [_higienizar_residuos_educacao_financeira(str(item), tema, disciplina) for item in itens]
+
+
+def _higienizar_metodologia_residuos_ef(desenvolvimento, tema: str, disciplina: str):
+    if isinstance(desenvolvimento, list):
+        novos = []
+        for etapa in desenvolvimento:
+            if isinstance(etapa, dict):
+                etapa_nova = dict(etapa)
+                etapa_nova["texto"] = _higienizar_residuos_educacao_financeira(etapa_nova.get("texto", ""), tema, disciplina)
+                novos.append(etapa_nova)
+            else:
+                novos.append(_higienizar_residuos_educacao_financeira(str(etapa), tema, disciplina))
+        return novos
+    return _higienizar_residuos_educacao_financeira(str(desenvolvimento), tema, disciplina)
 
 
 def higienizar_plano(
@@ -778,6 +915,11 @@ def higienizar_plano(
 
         acomp_higienizado = [sanitizar_texto_cdp_estrito(item) for item in acomp_higienizado]
         acess_higienizado = [sanitizar_texto_cdp_estrito(item) for item in acess_higienizado]
+
+    if _tema_educacao_financeira_protegido(tema, disciplina):
+        desenv_higienizado = _higienizar_metodologia_residuos_ef(desenv_higienizado, tema, disciplina)
+        acomp_higienizado = _higienizar_lista_residuos_ef(acomp_higienizado, tema, disciplina)
+        acess_higienizado = _higienizar_lista_residuos_ef(acess_higienizado, tema, disciplina)
 
     return desenv_higienizado, acomp_higienizado, acess_higienizado
 

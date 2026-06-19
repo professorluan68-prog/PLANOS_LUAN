@@ -1,7 +1,127 @@
-from core.lote import _detectar_tipo_aula, _montar_etapas_metodologia
+from docx import Document
+
+from core.lote import _detectar_tipo_aula, _montar_etapas_metodologia, _montar_resultado_aula_local
+from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.lib.classificador import perfil_disciplina
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+from core.lib.higienizador_pedagogico import higienizar_plano
+
+
+def _criar_docx_referencia_financeira(caminho):
+    doc = Document()
+    doc.add_paragraph("AULA 1 - Reserva de emergencia")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para comecar: Retomar uma situacao de imprevisto financeiro e levantar hipoteses da turma.")
+    doc.add_paragraph("Na pratica: Orientar o registro de receitas, gastos e valor destinado a reserva.")
+    doc.add_paragraph("Encerramento: Socializar criterios para manter a reserva sem expor dados pessoais.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("\u2611 Verificar se os estudantes identificam imprevistos e custos envolvidos.")
+    doc.add_paragraph("\u2611 Observar os registros de receitas, gastos e reserva planejada.")
+    doc.add_paragraph("\u2611 Conferir as justificativas usadas para definir prioridades.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("\u2611 Disponibilizar quadro com receitas, gastos e reserva.")
+    doc.add_paragraph("\u2611 Oferecer perguntas orientadoras em frases curtas.")
+    doc.add_paragraph("\u2611 Permitir resposta oral mediada antes do registro escrito.")
+    doc.save(caminho)
+
+
+def test_referencia_educacao_financeira_le_docx_da_pasta_do_pdf(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Educacao_Financeira_7_Ano.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_financeira(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    referencia = referencia_por_pdf(caminho_pdf, "1")
+
+    assert referencia["titulo"] == "Reserva de emergencia"
+    assert [etapa["titulo"] for etapa in referencia["metodologia"]] == ["Para comecar", "Na pratica", "Encerramento"]
+    assert len(referencia["acompanhamento"]) == 3
+    assert len(referencia["acessibilidade"]) == 3
+
+
+def test_referencia_educacao_financeira_prefere_docx_corrigido(tmp_path):
+    antigo = tmp_path / "Metodologias_Educacao_Financeira_7_Ano.docx"
+    corrigido = tmp_path / "Metodologias_Educacao_Financeira_7_Ano_CORRIGIDO.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_financeira(antigo)
+    _criar_docx_referencia_financeira(corrigido)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    escolhido = localizar_docx_referencia(caminho_pdf)
+
+    assert escolhido == corrigido
+
+
+def test_referencia_educacao_financeira_pode_casar_por_titulo(tmp_path):
+    doc = Document()
+    doc.add_paragraph("AULA 1 - Tema antigo")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para comecar: Texto antigo.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("\u2611 Verificar um registro.")
+    doc.add_paragraph("\u2611 Observar uma resposta.")
+    doc.add_paragraph("\u2611 Conferir uma justificativa.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("\u2611 Apoiar com quadro.")
+    doc.add_paragraph("\u2611 Apoiar com perguntas.")
+    doc.add_paragraph("\u2611 Apoiar com resposta oral.")
+    doc.add_paragraph("AULA 2 - Simulando rendimentos - Parte 2")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para comecar: Retomar os calculos de rendimento da parte 2.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("\u2611 Verificar os calculos de rendimento.")
+    doc.add_paragraph("\u2611 Observar as comparacoes realizadas.")
+    doc.add_paragraph("\u2611 Conferir a justificativa do resultado.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("\u2611 Disponibilizar tabela de apoio.")
+    doc.add_paragraph("\u2611 Oferecer roteiro de calculo.")
+    doc.add_paragraph("\u2611 Permitir resposta oral mediada.")
+    caminho_docx = tmp_path / "Metodologias_Educacao_Financeira_7_Ano.docx"
+    caminho_pdf = tmp_path / "Simulando_rendimentos_Parte_2_01.pdf"
+    doc.save(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    referencia = referencia_por_pdf(caminho_pdf, "1", tema="Simulando rendimentos - Parte 2")
+
+    assert referencia["titulo"] == "Simulando rendimentos - Parte 2"
+    assert "parte 2" in referencia["metodologia"][0]["texto"]
+
+
+def test_educacao_financeira_resultado_local_usa_docx_sem_trocar_titulo_da_planilha(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Educacao_Financeira_7_Ano.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_financeira(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    resultado = _montar_resultado_aula_local(
+        texto="Aula sobre juros e compras parceladas que nao deve prevalecer sobre o DOCX.",
+        tema="Titulo vindo da planilha",
+        material_digital="AULA 1 - Titulo vindo da planilha",
+        numero_aula="1",
+        disciplina_base="Educacao Financeira",
+        turma="7 ano A",
+        provedor_ia="",
+        perfil="educacao_financeira",
+        contexto_metodologico="",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        caminho_pdf=str(caminho_pdf),
+    )
+
+    assert resultado["tema"] == "Titulo vindo da planilha"
+    assert resultado["material"] == "AULA 1 - Titulo vindo da planilha"
+    assert resultado["metodologia"][0]["titulo"] == "Para comecar"
+    assert "imprevisto financeiro" in resultado["metodologia"][0]["texto"]
+    assert len(resultado["acompanhamento"]) == 3
+    assert len(resultado["acessibilidade"]) == 3
 
 
 def test_educacao_financeira_tolera_disciplina_com_caracter_quebrado():
@@ -74,6 +194,69 @@ def test_educacao_financeira_classifica_tipos_especificos():
         )
         == "governo_economia"
     )
+    assert (
+        _detectar_tipo_aula(
+            "Texto contaminado com produto, servico, mercado, lucro e viabilidade.",
+            "Entendendo a Economia Domestica",
+            "Educacao Financeira",
+        )
+        == "orcamento_planejamento"
+    )
+
+
+def test_educacao_financeira_higieniza_residuos_de_empreendedorismo_e_frases_quebradas():
+    metodologia = [
+        {
+            "titulo": "Para começar",
+            "texto": (
+                "Utilizar a técnica para que os alunos discuta impactos no orçamento. "
+                "Aplicar o conversa inicial em duplas, solicitando que os alunos discutam "
+                "itens essenciais para uma feira cultural, relacionando essa atividade com o orçamento familiar."
+            ),
+        },
+        {
+            "titulo": "Na prática",
+            "texto": (
+                "Na prática: em que os estudantes organizam receitas e despesas. "
+                "Realizar uma parada estratégica para verificação para conferir a compreensão."
+            ),
+        },
+    ]
+    acompanhamento = [
+        "☑ Observar se os estudantes identificam custos, preço, público, recursos necessários e viabilidade em propostas empreendedoras simples.",
+        "☑ Conferir se articulam ideia, necessidade, produto ou serviço e organização financeira.",
+        "☑ Acompanhar os registros.",
+    ]
+    acessibilidade = [
+        "☑ Organizar o projeto em etapas curtas: ideia, público, recursos, custos, preço, viabilidade e revisão.",
+        "☑ Utilizar quadro de apoio.",
+        "☑ Permitir resposta oral.",
+    ]
+
+    metodologia_h, acompanhamento_h, acessibilidade_h = higienizar_plano(
+        metodologia,
+        acompanhamento,
+        acessibilidade,
+        perfil="educacao_financeira",
+        disciplina="Educacao Financeira",
+        tema="Classificando e analisando as despesas de uma familia - Parte 1",
+        recursos_reais={"tabela": True},
+    )
+    texto = " ".join(
+        [etapa["texto"] for etapa in metodologia_h]
+        + acompanhamento_h
+        + acessibilidade_h
+    ).lower()
+
+    assert "os alunos discuta" not in texto
+    assert "para que os estudantes discutam" in texto
+    assert "aplicar o conversa" not in texto
+    assert "verificação para conferir" not in texto
+    assert "feira cultural" not in texto
+    assert "propostas empreendedoras" not in texto
+    assert "produto ou serviço" not in texto
+    assert "viabilidade" not in texto
+    assert "orçamento familiar" in texto or "organizacao financeira" in texto or "organização financeira" in texto
 
 
 def test_educacao_financeira_metodologia_usa_regras_da_analise():

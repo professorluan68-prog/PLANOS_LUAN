@@ -316,10 +316,18 @@ class ExtratorPDF:
         "de olho no pnld",
     ]
 
-    def extrair(self, texto: str, tema: str, disciplina: str = "", numero_aula: str = "", turma: str = "") -> dict:
+    def extrair(
+        self,
+        texto: str,
+        tema: str,
+        disciplina: str = "",
+        numero_aula: str = "",
+        turma: str = "",
+        bimestre: str = "",
+    ) -> dict:
         from core.lib.aprofundamento import obter_dados_aprofundamento, quebrar_e_limpar_itens
 
-        dados_plan = obter_dados_aprofundamento(disciplina, numero_aula, turma=turma)
+        dados_plan = obter_dados_aprofundamento(disciplina, numero_aula, turma=turma, bimestre=bimestre)
 
         linhas = [linha.strip() for linha in corrigir_mojibake(texto).split("\n") if linha.strip()]
         linhas_limpas = [_limpar_trecho(linha) for linha in linhas if not _trecho_descartavel(linha)]

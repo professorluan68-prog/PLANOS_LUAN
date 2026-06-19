@@ -249,8 +249,10 @@ def numero_aula_pdf(arquivo) -> int | None:
     if match:
         return int(match.group(1))
     
-    # 3. Fallback geral para qualquer número no nome
-    match_any = re.search(r"(\d{1,4})", nome_base)
+    # 3. Fallback geral, evitando IDs longos da SEDUC como "1612757.pdf".
+    if re.fullmatch(r"\d{5,}", nome_base):
+        return None
+    match_any = re.search(r"(?<!\d)(\d{1,3})(?!\d)", nome_base)
     if match_any:
         return int(match_any.group(1))
     return None

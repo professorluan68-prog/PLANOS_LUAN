@@ -1,6 +1,12 @@
 from datetime import date, timedelta
 
 
+DATAS_SEM_AULA_FIXAS = {
+    date(2026, 8, 6),
+    date(2026, 8, 7),
+}
+
+
 def data_pascoa(ano: int) -> date:
     """Calcula a data da Pascoa pelo algoritmo gregoriano."""
     a = ano % 19
@@ -39,6 +45,14 @@ def feriados_nacionais_brasil(ano: int) -> set[date]:
     }
 
 
+def datas_sem_aula_fixadas(ano: int) -> set[date]:
+    return {data_aula for data_aula in DATAS_SEM_AULA_FIXAS if data_aula.year == ano}
+
+
+def datas_sem_aula_calendario(ano: int) -> set[date]:
+    return feriados_nacionais_brasil(ano) | datas_sem_aula_fixadas(ano)
+
+
 def rotulo_data_sem_aula(data_aula: date) -> str:
     dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]
     return f"{data_aula.strftime('%d/%m/%Y')} ({dias[data_aula.weekday()]})"
@@ -47,7 +61,7 @@ def rotulo_data_sem_aula(data_aula: date) -> str:
 def datas_sem_aula_padrao(itens: list[dict]) -> list[date]:
     if not itens:
         return []
-    feriados = feriados_nacionais_brasil(next(iter(itens))["data"].year)
+    feriados = datas_sem_aula_calendario(next(iter(itens))["data"].year)
     datas = []
     for item in itens:
         data_aula = item.get("data")
@@ -59,7 +73,7 @@ def datas_sem_aula_padrao(itens: list[dict]) -> list[date]:
 def datas_feriado_padrao(datas_base: list[date]) -> list[date]:
     if not datas_base:
         return []
-    feriados = feriados_nacionais_brasil(datas_base[0].year)
+    feriados = datas_sem_aula_calendario(datas_base[0].year)
     return [data_aula for data_aula in datas_base if data_aula in feriados]
 
 

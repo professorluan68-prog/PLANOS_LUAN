@@ -362,3 +362,59 @@ def test_tabela_aulas_recebe_geometria_estavel_para_evitar_corte_visual():
     aprendizagem_tc_w = tabela.rows[1].cells[2]._tc.tcPr.tcW
     assert material_tc_w.get(qn("w:w")) == "2100"
     assert aprendizagem_tc_w.get(qn("w:w")) == "2350"
+
+
+def test_cabecalho_data_horario_fica_curto_no_docx():
+    doc = _gerar([_aula("05/06")])
+
+    assert doc.tables[1].rows[0].cells[0].text == "DATA\nHOR."
+
+
+def test_remove_paragrafos_vazios_finais_do_docx():
+    modelo = _modelo_com_semanas(["01/06 a 05/06"], linhas_aulas=1)
+    doc_modelo = Document(modelo)
+    for _ in range(8):
+        doc_modelo.add_paragraph("")
+    modelo_com_sobra = BytesIO()
+    doc_modelo.save(modelo_com_sobra)
+    modelo_com_sobra.seek(0)
+
+    doc = Document(
+        preencher_documento(
+            modelo_com_sobra,
+            [_aula("05/06")],
+            professor="ADRIANA",
+            disciplina="Educacao Financeira",
+            turma="7o ANO A",
+            mes="JUNHO",
+            bimestre="2o Bimestre",
+        )
+    )
+
+    filhos = list(doc._element.body)
+    indice = len(filhos) - 1
+    while indice >= 0 and filhos[indice].tag == qn("w:sectPr"):
+        indice -= 1
+
+    assert filhos[indice].tag != qn("w:p")
+
+
+def test_metodologia_educacao_financeira_fica_compacta_no_docx():
+    aula = _aula("05/06", "Entendendo a Economia Domestica")
+    aula["disciplina"] = "Educacao Financeira"
+    aula["metodologia"] = [
+        {"titulo": "Para começar", "texto": "Primeira frase de abertura. Segunda frase de abertura. Terceira frase longa que não precisa ir inteira para o Word."},
+        {"titulo": "Foco no conteúdo", "texto": "Primeira frase de conteúdo. Segunda frase de conteúdo. Terceira frase longa que não precisa ir inteira para o Word."},
+        {"titulo": "Pause e responda", "texto": "Checagem intermediária que pode existir no JSON, mas não precisa ocupar outra linha no Word."},
+        {"titulo": "Na prática", "texto": "Primeira frase prática. Segunda frase prática. Terceira frase longa que não precisa ir inteira para o Word."},
+        {"titulo": "Socialização", "texto": "Socialização extra que pode deixar a tabela longa."},
+        {"titulo": "Encerramento", "texto": "Primeira frase de fechamento. Segunda frase de fechamento. Terceira frase longa que não precisa ir inteira para o Word."},
+    ]
+
+    doc = _gerar([aula])
+    desenvolvimento = doc.tables[1].rows[1].cells[3].text
+
+    assert "Pause e responda" not in desenvolvimento
+    assert "Socialização extra" not in desenvolvimento
+    assert desenvolvimento.count(":") == 4
+    assert "Terceira frase longa" not in desenvolvimento

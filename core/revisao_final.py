@@ -6,7 +6,7 @@ from pathlib import Path
 from core.qualidade_metodologica import extrair_conceito_central
 from core.validador_plano import validar_aula_final
 
-VERSAO_GERADOR_ATUAL = "1.2.5"
+VERSAO_GERADOR_ATUAL = "1.2.8"
 
 
 def _limpar_tema_final(tema: str) -> str:
@@ -121,6 +121,14 @@ def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> P
             "fonte_extracao": aula.get("fonte_extracao") or "pdf",
             "arquivo_fonte_extracao": aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
             "hash_fonte_extracao": aula.get("hash_fonte_extracao") or hash_pdf,
+            "fonte_principal": aula.get("fonte_principal") or aula.get("fonte_extracao") or "pdf",
+            "arquivo_fonte": aula.get("arquivo_fonte") or aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
+            "cache_reutilizado": bool(aula.get("cache_reutilizado", False)),
+            "origem_metodologia": aula.get("origem_metodologia") or "",
+            "fonte_referencia_metodologia": aula.get("fonte_referencia_metodologia") or "",
+            "perfil_metodologico": aula.get("perfil_metodologico") or "",
+            "versao_prompt": aula.get("versao_prompt") or "",
+            "etapas_detectadas": aula.get("etapas_detectadas") or [],
             # Metadados de auditoria e integridade
             "hash_pdf": hash_pdf,
             "confidence_score": aula.get("confidence_score", 100),

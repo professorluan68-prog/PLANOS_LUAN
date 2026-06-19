@@ -230,6 +230,25 @@ def _normalizar_layout_tabela_aulas(tabela) -> None:
         for indice, celula in enumerate(celulas[: len(_LARGURAS_TABELA_AULAS)]):
             _definir_largura_celula(celula, _LARGURAS_TABELA_AULAS[indice])
             _definir_margens_celula(celula)
+    _encurtar_cabecalho_data_horario(tabela)
+
+
+def _encurtar_cabecalho_data_horario(tabela) -> None:
+    if not tabela.rows:
+        return
+    celulas = _celulas_unicas(tabela.rows[0])
+    if not celulas:
+        return
+    primeira = celulas[0]
+    texto = _normalizar_cabecalho_coluna(primeira.text)
+    if "AULA SEMANAL" not in texto and "DATA" not in texto:
+        return
+    _limpar_celula(primeira)
+    paragrafo = _paragrafo_base(primeira)
+    paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragrafo.paragraph_format.space_before = Pt(0)
+    paragrafo.paragraph_format.space_after = Pt(0)
+    _aplicar_fonte(paragrafo.add_run("DATA\nHOR."), tamanho=Pt(8.5), bold=True)
 
 
 def _tamanho_por_texto(texto: str, padrao: float = 10.0, medio: float = 9.0, pequeno: float = 8.5) -> Pt:
@@ -437,6 +456,82 @@ def _normalizar_para_busca(texto: str) -> str:
     return _remover_acentos(texto).lower().strip()
 
 
+def _eh_aula_educacao_financeira(aula: dict) -> bool:
+    return "educacao financeira" in _normalizar_para_busca(aula.get("disciplina") or "")
+
+
+def _limitar_texto_etapa_docx(texto: str, max_frases: int = 2, max_chars: int = 280) -> str:
+    texto = _polir_texto_docx(texto)
+    frases = re.split(r"(?<=[.!?])\s+", texto)
+    if len(frases) <= max_frases and len(texto) <= max_chars:
+        return texto
+
+    resumo = " ".join(frase.strip() for frase in frases[:max_frases] if frase.strip()).strip()
+    if not resumo:
+        resumo = texto[:max_chars].rsplit(" ", 1)[0].strip()
+    if len(resumo) > max_chars:
+        resumo = resumo[:max_chars].rsplit(" ", 1)[0].strip()
+    if resumo and resumo[-1] not in ".!?":
+        resumo += "."
+    return resumo
+
+
+def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
+    itens = [item for item in list(metodologia or []) if item]
+    if len(_texto_metodologia_lista(itens)) <= 1250 and len(itens) <= 4:
+        return itens
+
+    por_titulo = {}
+    for item in itens:
+        if not isinstance(item, dict):
+            continue
+        titulo = str(item.get("titulo") or "").strip()
+        titulo_norm = _normalizar_para_busca(titulo)
+        por_titulo.setdefault(titulo_norm, item)
+
+    ordem_preferida = [
+        ("para comecar", "Para começar"),
+        ("foco no conteudo", "Foco no conteúdo"),
+        ("na pratica", "Na prática"),
+        ("encerramento", "Encerramento"),
+    ]
+
+    compactos = []
+    for chave, titulo_padrao in ordem_preferida:
+        item = por_titulo.get(chave)
+        if not item:
+            continue
+        compactos.append(
+            {
+                "titulo": item.get("titulo") or titulo_padrao,
+                "texto": _limitar_texto_etapa_docx(item.get("texto", "")),
+            }
+        )
+
+    if compactos:
+        return compactos
+
+    resultado = []
+    for item in itens[:4]:
+        if isinstance(item, dict):
+            resultado.append(
+                {
+                    "titulo": item.get("titulo", ""),
+                    "texto": _limitar_texto_etapa_docx(item.get("texto", "")),
+                }
+            )
+        else:
+            resultado.append(_limitar_texto_etapa_docx(str(item)))
+    return resultado
+
+
+def _metodologia_para_docx(aula: dict):
+    metodologia = aula.get("metodologia")
+    if _eh_aula_educacao_financeira(aula):
+        return _metodologia_compacta_educacao_financeira_docx(metodologia)
+    return metodologia
+
+
 def _preencher_celula_aprendizagem(celula, texto: str) -> None:
     """Preenche a coluna Aprendizagem: código BNCC em vermelho+bold, resto bold preto, centralizado."""
     _limpar_celula(celula)
@@ -628,6 +723,27 @@ def _remover_tabela(tabela) -> None:
 def _remover_linha(linha) -> None:
     elemento = linha._tr
     elemento.getparent().remove(elemento)
+
+
+def _paragrafo_ooxml_vazio(elemento) -> bool:
+    if elemento.tag != qn("w:p"):
+        return False
+    if "".join(elemento.xpath(".//w:t/text()")).strip():
+        return False
+    if elemento.xpath(".//w:drawing|.//w:pict|.//w:object"):
+        return False
+    return True
+
+
+def _remover_paragrafos_vazios_finais(documento) -> None:
+    body = documento._element.body
+    filhos = list(body)
+    indice = len(filhos) - 1
+    while indice >= 0 and filhos[indice].tag == qn("w:sectPr"):
+        indice -= 1
+    while indice >= 0 and _paragrafo_ooxml_vazio(filhos[indice]):
+        body.remove(filhos[indice])
+        indice -= 1
 
 
 def _clonar_par_semana(pares: list[tuple]) -> tuple:
@@ -929,7 +1045,7 @@ def _preencher_linha_aula(linha, aula: dict, numero: int, cabecalho=None) -> Non
     # Col 2: Aprendizagem — código BNCC vermelho, texto bold preto, centralizado
     _preencher_celula_aprendizagem(celulas[indices["aprendizagem"]], aula.get("aprendizagem", ""))
     # Col 3: Metodologia — título bold, texto normal, Arial 10
-    _preencher_celula_metodologia(celulas[indices["desenvolvimento"]], aula.get("metodologia"))
+    _preencher_celula_metodologia(celulas[indices["desenvolvimento"]], _metodologia_para_docx(aula))
     # Col 4: Acompanhamento — Arial 10
     _preencher_celula_lista(celulas[indices["acompanhamento"]], aula.get("acompanhamento"))
     # Col 5: Acessibilidade — Arial 10
@@ -1102,6 +1218,7 @@ def preencher_documento(
         observacao,
         aulas_previstas_manual,
     )
+    _remover_paragrafos_vazios_finais(documento)
 
     saida = BytesIO()
     documento.save(saida)

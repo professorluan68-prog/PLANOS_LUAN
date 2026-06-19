@@ -9,6 +9,7 @@ import math
 import traceback
 import zipfile
 import unicodedata
+import hashlib
 from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -231,6 +232,20 @@ def _limpar_erro_processamento() -> None:
     st.session_state.pop("erro_processamento_detalhe", None)
 
 
+def _assinatura_pdfs_automaticos(arquivos) -> str:
+    """Identifica a lista atual de PDFs para evitar selecao antiga do Streamlit."""
+    partes = []
+    for arquivo in ordenar_pdfs_por_numero(arquivos or []):
+        caminho = Path(arquivo)
+        try:
+            stat = caminho.stat()
+            partes.append(f"{caminho.name}|{stat.st_size}|{stat.st_mtime_ns}|{numero_aula_pdf(caminho) or ''}")
+        except OSError:
+            partes.append(f"{caminho.name}|0|0|{numero_aula_pdf(caminho) or ''}")
+    base = "\n".join(partes)
+    return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
+
+
 def _salvar_planos_gerados_se_configurado(planos_gerados, professor: str, disciplina: str) -> bool:
     if not st.session_state.get("salvar_historico_geracao", False):
         return False
@@ -430,6 +445,23 @@ def _salvar_pdf_temporario(pdf_file) -> str:
         f.write(pdf_file.read())
         
     return caminho_completo
+
+
+def _preparar_pdf_para_processamento(pdf_file) -> tuple[str, bool]:
+    """Retorna o caminho do PDF e se ele deve ser apagado ao final.
+
+    No modo automatico, o arquivo ja existe em D:\\PDF novos. Usar esse caminho
+    real preserva os JSONs, DOCXs de referencia e hashes da pasta original.
+    No upload manual, criamos uma copia temporaria como antes.
+    """
+    caminho_local = getattr(pdf_file, "path", None)
+    if caminho_local:
+        caminho = Path(caminho_local)
+        if caminho.exists():
+            return str(caminho), False
+
+    return _salvar_pdf_temporario(pdf_file), True
+
 
 def _proxima_data_pelo_dia(dia_nome: str, data_referencia: date) -> date:
     dias = {"segunda": 0, "terça": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "domingo": 6}
@@ -1300,6 +1332,7 @@ def _metodologia_app_para_blocos(texto: str):
 
 def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False, usar_ae_priorizado: bool = False, progress_callback=None, professor: str = ""):
     temp_paths = []
+    caminhos_para_apagar = []
     try:
         dados_aulas = []
         avisos_ia = []
@@ -1307,7 +1340,10 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
         dividir_por_pdf = []
         for grupo in grupos:
             aula_envio = aulas_envio[grupo["indices"][0]]
-            temp_paths.append(_salvar_pdf_temporario(aula_envio["pdf"]))
+            caminho_pdf, apagar_ao_final = _preparar_pdf_para_processamento(aula_envio["pdf"])
+            temp_paths.append(caminho_pdf)
+            if apagar_ao_final:
+                caminhos_para_apagar.append(caminho_pdf)
             dividir_por_pdf.append(bool(grupo["dividir"]))
         for aula_envio in aulas_envio:
             dados_aulas.append({"data": aula_envio["data"].strftime("%d/%m"), "horario": horario_para_plano(aula_envio["horario"])})
@@ -1355,7 +1391,7 @@ def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bime
                     metodologia[i] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item))).strip()
         return {"aulas": aulas, "avisos_repeticao": avisos_repeticao, "avisos_ae": avisos_ae, "avisos_ia": avisos_ia}
     finally:
-        for caminho_temp in temp_paths:
+        for caminho_temp in caminhos_para_apagar:
             if caminho_temp:
                 try: os.unlink(caminho_temp)
                 except OSError: pass
@@ -1402,6 +1438,52 @@ st.markdown(
         .app-hero { background: linear-gradient(135deg, #F8FCFE 0%, #E7F5FB 52%, #C9E8F7 100%); padding: 28px; border-radius: 8px; margin-bottom: 24px; }
         .app-title { font-size: 2.4rem; font-weight: 800; margin: 0; }
         .app-subtitle { font-size: 1.05rem; color: #557386; }
+        /* Travar a cor dos componentes nativos do Streamlit em azul. */
+        .stButton > button[kind="primary"],
+        .stDownloadButton > button[kind="primary"],
+        button[kind="primary"] {
+            background-color: #2563EB !important;
+            border-color: #2563EB !important;
+            color: #FFFFFF !important;
+        }
+        .stButton > button[kind="primary"]:hover,
+        .stDownloadButton > button[kind="primary"]:hover,
+        button[kind="primary"]:hover {
+            background-color: #1D4ED8 !important;
+            border-color: #1D4ED8 !important;
+            color: #FFFFFF !important;
+        }
+        [data-testid="stRadio"] input:checked + div,
+        [data-testid="stCheckbox"] input:checked + div {
+            border-color: #2563EB !important;
+            background-color: #2563EB !important;
+        }
+        [data-testid="stRadio"] [aria-checked="true"],
+        [data-testid="stCheckbox"] [aria-checked="true"] {
+            border-color: #2563EB !important;
+            color: #2563EB !important;
+        }
+        [data-testid="stMultiSelect"] [data-baseweb="tag"] {
+            background-color: #2563EB !important;
+            border-color: #2563EB !important;
+            color: #FFFFFF !important;
+        }
+        [data-testid="stMultiSelect"] [data-baseweb="tag"] span,
+        [data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
+            color: #FFFFFF !important;
+            fill: #FFFFFF !important;
+        }
+        [data-baseweb="select"] div:focus,
+        [data-baseweb="select"] div:focus-within,
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stNumberInput"] input:focus,
+        [data-testid="stTextArea"] textarea:focus {
+            border-color: #2563EB !important;
+            box-shadow: 0 0 0 1px #2563EB !important;
+        }
+        [data-testid="stProgress"] > div > div > div {
+            background-color: #2563EB !important;
+        }
     </style>
     """, unsafe_allow_html=True,
 )
@@ -1436,7 +1518,7 @@ modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
-if modo_cadastro_professor: _renderizar_cadastro_professor(); st.stop()
+if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_reescrita_cdp_em: _renderizar_reescrita_cdp_em(); st.stop()
 
@@ -1665,6 +1747,11 @@ def _render_painel_pdfs(
     carregados = max(0, int(carregados or 0))
     total_aulas = max(0, int(total_aulas or 0))
     encontrados = max(0, int(encontrados or 0))
+    modo_texto = str(modo or "-").strip()
+    if modo_texto != "Automatico":
+        pasta = ""
+        encontrados = 0
+        faltantes_ae = []
     faltam = max(necessarios - carregados, 0)
     excedentes = max(carregados - necessarios, 0)
     progresso = 0 if necessarios <= 0 else min(100, int(round((carregados / necessarios) * 100)))
@@ -1701,7 +1788,7 @@ def _render_painel_pdfs(
             st.info(status_texto)
 
         col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Modo", str(modo or "-"))
+        col1.metric("Modo", modo_texto)
         col2.metric("Aulas previstas", aulas_rotulo)
         col3.metric("PDFs necessarios", necessarios)
         col4.metric("Selecionados", carregados)
@@ -1869,10 +1956,12 @@ else:
             if pasta_pdfs.exists():
                 pdfs_encontrados = list(pasta_pdfs.glob("*.pdf"))
                 pdfs_auto_total = len(pdfs_encontrados)
+                pdfs_com_numero = [pdf for pdf in pdfs_encontrados if numero_aula_pdf(pdf) is not None]
+                pdfs_para_ordenar = pdfs_com_numero or pdfs_encontrados
                 if sequencia_pdf_esperada_ae:
-                    pdf_files_disponiveis = ordenar_pdfs_por_sequencia(pdfs_encontrados, sequencia_pdf_esperada_ae)
+                    pdf_files_disponiveis = ordenar_pdfs_por_sequencia(pdfs_para_ordenar, sequencia_pdf_esperada_ae)
                 else:
-                    pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_encontrados)
+                    pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_para_ordenar)
 
             if pdf_files_disponiveis:
                 default_selection = []
@@ -1904,6 +1993,7 @@ else:
                         default_selection = pdf_files_filtrados[:est_necessarios]
 
                 faltantes_ae_auto = numeros_pdfs_faltantes(pdf_files_disponiveis, sequencia_pdf_esperada_ae)
+                assinatura_pdfs_auto = _assinatura_pdfs_automaticos(pdf_files_disponiveis)
 
                 chave_contexto_auto = "_".join(
                     [
@@ -1915,6 +2005,7 @@ else:
                         "-".join(str(numero) for numero in sequencia_pdf_esperada_ae) or "sem_ae",
                         f"ultima_{ultima_aula}",
                         str(est_necessarios or 0),
+                        f"pdfs_{assinatura_pdfs_auto}",
                     ]
                 )
                 selecionados = st.multiselect(

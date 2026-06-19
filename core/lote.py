@@ -7,6 +7,7 @@ from pathlib import Path
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
+from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -62,6 +63,33 @@ _acessibilidade_cdp_contextual = acessibilidade_cdp_contextual
 _normalizar = normalizar_texto_lote
 _perfil_disciplina = perfil_disciplina
 logger = logging.getLogger(__name__)
+
+
+def _assinatura_docx_referencia_financeira(caminho_pdf: str, disciplina: str, turma: str = "") -> str:
+    if perfil_disciplina(disciplina, turma=turma) != "educacao_financeira" or not caminho_pdf:
+        return ""
+    try:
+        docx = localizar_docx_referencia(caminho_pdf)
+        if not docx:
+            return ""
+        stat = docx.stat()
+        return f"{docx.name}|{stat.st_size}|{stat.st_mtime_ns}"
+    except Exception:
+        return ""
+
+
+def _itens_referencia_financeira(referencia: dict | None, chave: str) -> list[str]:
+    if not referencia:
+        return []
+    itens = []
+    for item in list(referencia.get(chave) or [])[:3]:
+        texto = str(item or "").strip()
+        if not texto:
+            continue
+        if not texto.startswith("☑"):
+            texto = f"☑ {texto.lstrip('☑ ').strip()}"
+        itens.append(texto)
+    return itens
 
 _ORIENTACAO_ESTUDOS_TITULOS = {
     ("missao", 1): "Jogos com palavras e imagens",
@@ -2284,8 +2312,16 @@ def _montar_resultado_aula_ia(
     aprendizagem_pv: str,
     objetivos_orientacao: list[str],
     aprendizagem_orientacao: str,
+    caminho_pdf: str = "",
+    bimestre: str = "",
 ) -> dict:
-    extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
+    referencia_financeira = (
+        referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+        if perfil == "educacao_financeira" and caminho_pdf
+        else None
+    )
+
+    extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     habilidade_pdf = extracao.get("habilidade", "")
     objetivos_secao = extracao.get("objetivos_secao") or []
@@ -2428,6 +2464,11 @@ def _montar_resultado_aula_ia(
             perfil,
         )
 
+    if referencia_financeira:
+        metodologia = naturalizar_metodologia_professor(referencia_financeira.get("metodologia") or [])
+        acompanhamento = list(referencia_financeira.get("acompanhamento") or [])[:3]
+        acessibilidade = list(referencia_financeira.get("acessibilidade") or [])[:3]
+
     from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
 
     recursos_reais = detectar_recursos_reais(texto)
@@ -2435,6 +2476,13 @@ def _montar_resultado_aula_ia(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
+    if referencia_financeira:
+        acompanhamento_ref = _itens_referencia_financeira(referencia_financeira, "acompanhamento")
+        acessibilidade_ref = _itens_referencia_financeira(referencia_financeira, "acessibilidade")
+        if len(acompanhamento_ref) == 3:
+            acompanhamento = acompanhamento_ref
+        if len(acessibilidade_ref) == 3:
+            acessibilidade = acessibilidade_ref
 
     aula_gerada = {
         "disciplina": disciplina_base,
@@ -2445,6 +2493,8 @@ def _montar_resultado_aula_ia(
         "metodologia": metodologia,
         "acompanhamento": acompanhamento,
         "acessibilidade": acessibilidade,
+        "origem_metodologia": "docx_referencia_educacao_financeira" if referencia_financeira else "ia_refinada",
+        "fonte_referencia_metodologia": (referencia_financeira or {}).get("fonte", ""),
         "ia_usada": True,
         "ia_provedor": provedor_ia,
         "ia_erro": "",
@@ -2473,8 +2523,16 @@ def _montar_resultado_aula_local(
     usar_ia: bool,
     ia_erro: str,
     contexto_geracao: dict | None = None,
+    caminho_pdf: str = "",
+    bimestre: str = "",
 ) -> dict:
-    extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
+    referencia_financeira = (
+        referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+        if perfil == "educacao_financeira" and caminho_pdf
+        else None
+    )
+
+    extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     conceito = extracao.get("conceito_extraido", tema)
     habilidade = extracao.get("habilidade", "")
@@ -2597,6 +2655,11 @@ def _montar_resultado_aula_local(
             perfil,
         )
 
+    if referencia_financeira:
+        metodologia = naturalizar_metodologia_professor(referencia_financeira.get("metodologia") or [])
+        acompanhamento = list(referencia_financeira.get("acompanhamento") or [])[:3]
+        acessibilidade = list(referencia_financeira.get("acessibilidade") or [])[:3]
+
     from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
 
     recursos_reais = detectar_recursos_reais(texto)
@@ -2604,6 +2667,13 @@ def _montar_resultado_aula_local(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
+    if referencia_financeira:
+        acompanhamento_ref = _itens_referencia_financeira(referencia_financeira, "acompanhamento")
+        acessibilidade_ref = _itens_referencia_financeira(referencia_financeira, "acessibilidade")
+        if len(acompanhamento_ref) == 3:
+            acompanhamento = acompanhamento_ref
+        if len(acessibilidade_ref) == 3:
+            acessibilidade = acessibilidade_ref
 
     aula_gerada = {
         "disciplina": disciplina_base,
@@ -2614,6 +2684,8 @@ def _montar_resultado_aula_local(
         "metodologia": metodologia,
         "acompanhamento": acompanhamento,
         "acessibilidade": acessibilidade,
+        "origem_metodologia": "docx_referencia_educacao_financeira" if referencia_financeira else "motor_local",
+        "fonte_referencia_metodologia": (referencia_financeira or {}).get("fonte", ""),
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
@@ -2676,7 +2748,7 @@ def _preparar_contexto_aula_pdf(
     perfil = perfil_disciplina(disciplina_base, turma=turma)
 
     from core.lib.aprofundamento import obter_dados_aprofundamento
-    dados_plan = obter_dados_aprofundamento(disciplina_base, numero_aula, turma=turma)
+    dados_plan = obter_dados_aprofundamento(disciplina_base, numero_aula, turma=turma, bimestre=bimestre)
     if dados_plan and dados_plan.get("titulo"):
         tema = dados_plan["titulo"]
         material_digital = f"AULA {numero_aula} - {tema}"
@@ -2696,7 +2768,7 @@ def _preparar_contexto_aula_pdf(
         else []
     )
     aprendizagem_orientacao = formatar_objetivos_orientacao_estudos(objetivos_orientacao)
-    extracao_pdf = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma)
+    extracao_pdf = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
     tipo = _detectar_tipo_aula(texto_prioritario_pdf, tema, disciplina_base, turma=turma)
     metodologia_fixa_pdf = _metodologia_fixa_pdf_especial(texto, disciplina_base, tema)
@@ -2784,8 +2856,11 @@ def _aula_por_pdf(
 
     from core.revisao_final import VERSAO_GERADOR_ATUAL
 
+    assinatura_referencia_financeira = _assinatura_docx_referencia_financeira(caminho_pdf, disciplina, turma)
+    hash_contexto_fingerprint = f"{hash_atual}|ref:{assinatura_referencia_financeira}" if assinatura_referencia_financeira else hash_atual
+
     fingerprint_atual = montar_fingerprint_contexto(
-        hash_pdf=hash_atual,
+        hash_pdf=hash_contexto_fingerprint,
         versao_gerador=VERSAO_GERADOR_ATUAL,
         professor_nome=professor,
         turma=turma,
@@ -2814,6 +2889,36 @@ def _aula_por_pdf(
                     fonte_cache = str(dados_json.get("fonte_extracao") or "pdf").lower()
                     arquivo_cache = str(dados_json.get("arquivo_fonte_extracao") or caminho_pdf)
                     fingerprint_salvo = dados_json.get("fingerprint_contexto")
+                    referencia_financeira_cache = None
+                    metodologia_cache = dados_json["metodologia"]
+                    acompanhamento_cache = dados_json.get("acompanhamento") or []
+                    acessibilidade_cache = dados_json.get("acessibilidade") or []
+                    if perfil_disciplina(disciplina, turma=turma) == "educacao_financeira":
+                        referencia_financeira_cache = referencia_por_pdf(
+                            caminho_pdf,
+                            dados_json.get("numero_aula") or "",
+                            tema=dados_json.get("tema") or "",
+                        )
+                        if referencia_financeira_cache:
+                            metodologia_cache = referencia_financeira_cache.get("metodologia") or metodologia_cache
+                            acompanhamento_ref = _itens_referencia_financeira(
+                                referencia_financeira_cache,
+                                "acompanhamento",
+                            )
+                            acessibilidade_ref = _itens_referencia_financeira(
+                                referencia_financeira_cache,
+                                "acessibilidade",
+                            )
+                            if len(acompanhamento_ref) == 3:
+                                acompanhamento_cache = acompanhamento_ref
+                            if len(acessibilidade_ref) == 3:
+                                acessibilidade_cache = acessibilidade_ref
+                    origem_metodologia_cache = dados_json.get("origem_metodologia") or (
+                        "docx_referencia_educacao_financeira" if referencia_financeira_cache else ""
+                    )
+                    fonte_referencia_cache = dados_json.get("fonte_referencia_metodologia") or (
+                        referencia_financeira_cache or {}
+                    ).get("fonte", "")
 
                     if hash_salvo and hash_atual and hash_salvo != hash_atual:
                         pass
@@ -2829,7 +2934,12 @@ def _aula_por_pdf(
                         pass
                     elif fingerprint_salvo != fingerprint_atual:
                         perfil_disc = perfil_disciplina(disciplina, turma=turma)
-                        if perfil_disc in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+                        if perfil_disc in {
+                            "lingua_portuguesa_ef",
+                            "lingua_portuguesa_em",
+                            "leitura_redacao",
+                            "educacao_financeira",
+                        }:
                             pass
                         else:
                             # Para outras disciplinas, não invalidamos o cache apenas pelo fingerprint
@@ -2839,9 +2949,9 @@ def _aula_por_pdf(
                                 "material": dados_json.get("material") or Path(caminho_pdf).name,
                                 "numero_aula": dados_json.get("numero_aula") or "",
                                 "aprendizagem": dados_json.get("aprendizagem") or "",
-                                "metodologia": dados_json["metodologia"],
-                                "acompanhamento": dados_json.get("acompanhamento") or [],
-                                "acessibilidade": dados_json.get("acessibilidade") or [],
+                                "metodologia": metodologia_cache,
+                                "acompanhamento": acompanhamento_cache,
+                                "acessibilidade": acessibilidade_cache,
                                 "ia_usada": dados_json.get("ia_usada", False),
                                 "ia_provedor": dados_json.get("ia_provedor", ""),
                                 "ia_erro": dados_json.get("ia_erro", ""),
@@ -2853,6 +2963,14 @@ def _aula_por_pdf(
                                 "avisos_validacao": dados_json.get("avisos_validacao") or [],
                                 "fingerprint_contexto": fingerprint_salvo,
                                 "versao_gerador": versao_cache,
+                                "cache_reutilizado": True,
+                                "fonte_principal": dados_json.get("fonte_principal") or fonte_cache,
+                                "arquivo_fonte": dados_json.get("arquivo_fonte") or arquivo_cache,
+                                "origem_metodologia": origem_metodologia_cache,
+                                "fonte_referencia_metodologia": fonte_referencia_cache,
+                                "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
+                                "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
+                                "versao_prompt": dados_json.get("versao_prompt") or "",
                             }
                             if "avisos_validacao" not in dados_json:
                                 aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -2864,9 +2982,9 @@ def _aula_por_pdf(
                             "material": dados_json.get("material") or Path(caminho_pdf).name,
                             "numero_aula": dados_json.get("numero_aula") or "",
                             "aprendizagem": dados_json.get("aprendizagem") or "",
-                            "metodologia": dados_json["metodologia"],
-                            "acompanhamento": dados_json.get("acompanhamento") or [],
-                            "acessibilidade": dados_json.get("acessibilidade") or [],
+                            "metodologia": metodologia_cache,
+                            "acompanhamento": acompanhamento_cache,
+                            "acessibilidade": acessibilidade_cache,
                             "ia_usada": dados_json.get("ia_usada", False),
                             "ia_provedor": dados_json.get("ia_provedor", ""),
                             "ia_erro": dados_json.get("ia_erro", ""),
@@ -2878,6 +2996,14 @@ def _aula_por_pdf(
                             "avisos_validacao": dados_json.get("avisos_validacao") or [],
                             "fingerprint_contexto": fingerprint_salvo,
                             "versao_gerador": versao_cache,
+                            "cache_reutilizado": True,
+                            "fonte_principal": dados_json.get("fonte_principal") or fonte_cache,
+                            "arquivo_fonte": dados_json.get("arquivo_fonte") or arquivo_cache,
+                            "origem_metodologia": origem_metodologia_cache,
+                            "fonte_referencia_metodologia": fonte_referencia_cache,
+                            "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
+                            "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
+                            "versao_prompt": dados_json.get("versao_prompt") or "",
                         }
                         if "avisos_validacao" not in dados_json:
                             aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -2971,6 +3097,8 @@ def _aula_por_pdf(
                 usar_ia=usar_ia,
                 ia_erro="",
                 contexto_geracao=contexto_geracao,
+                caminho_pdf=caminho_pdf,
+                bimestre=bimestre,
             )
 
             ia_erro = ""
@@ -3009,6 +3137,8 @@ def _aula_por_pdf(
                         aprendizagem_pv=aprendizagem_pv,
                         objetivos_orientacao=objetivos_orientacao,
                         aprendizagem_orientacao=aprendizagem_orientacao,
+                        caminho_pdf=caminho_pdf,
+                        bimestre=bimestre,
                     )
                 except Exception as e:
                     ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
@@ -3037,6 +3167,16 @@ def _aula_por_pdf(
     resultado_final["hash_fonte_extracao"] = hash_fonte_extracao_esperada or hash_atual
     resultado_final["fingerprint_contexto"] = fingerprint_atual
     resultado_final["versao_gerador"] = VERSAO_GERADOR_ATUAL
+    resultado_final["cache_reutilizado"] = False
+    resultado_final["fonte_principal"] = fonte_extracao
+    resultado_final["arquivo_fonte"] = arquivo_fonte_extracao
+    resultado_final["perfil_metodologico"] = perfil_metodologico
+    resultado_final["etapas_detectadas"] = [
+        str(item.get("titulo") or "").strip()
+        for item in (resultado_final.get("metodologia") or [])
+        if isinstance(item, dict) and str(item.get("titulo") or "").strip()
+    ]
+    resultado_final.setdefault("versao_prompt", "")
 
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json

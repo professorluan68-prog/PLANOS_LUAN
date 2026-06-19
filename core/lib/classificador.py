@@ -1024,9 +1024,25 @@ _MARCADORES_RECURSOS_PRIORITARIOS = {
 def _detectar_tipo_educacao_financeira_por_tema(tema_base: str) -> str | None:
     """Prioriza o titulo/tema para evitar contaminacao por texto auxiliar."""
     mapa_prioritario = [
+        (
+            "orcamento_planejamento",
+            [
+                "economia domestica",
+                "estrutura de um orcamento",
+                "organizando e acompanhando um orcamento",
+                "organizando um orcamento",
+                "analisando um orcamento",
+                "despesas de uma familia",
+                "classificando e analisando as despesas",
+                "gastos essenciais",
+                "gastos superfluos",
+                "criando uma planilha de orcamento",
+                "planilha de orcamento",
+            ],
+        ),
         ("instituicoes_financeiras", ["onde guardamos o dinheiro", "guardar dinheiro", "onde guardar o dinheiro", "guardamos o dinheiro"]),
-        ("investimento_poupanca", ["por que poupamos", "porque poupamos", "reserva de emergencia", "poupamos"]),
-        ("orcamento_planejamento", ["objetivos em familia ou em grupo", "objetivos em familia", "objetivos em grupo", "planejamento financeiro"]),
+        ("investimento_poupanca", ["por que poupamos", "porque poupamos", "reserva de emergencia", "planejando uma reserva de emergencia", "poupamos"]),
+        ("orcamento_planejamento", ["objetivos em familia ou em grupo", "objetivos em familia", "objetivos em grupo", "planejamento financeiro", "definindo metas financeiras", "metas financeiras"]),
         ("analise_percentuais_noticias", ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias"]),
         ("governo_economia", ["papel do governo na economia", "governo na economia"]),
         ("impacto_decisoes_economicas", ["impacto das decisoes economicas", "decisoes economicas em nossas vidas"]),
@@ -1059,6 +1075,10 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str =
     perfil = perfil_disciplina(disciplina, turma=turma)
 
     if perfil == "educacao_financeira":
+        tipo_por_tema = _detectar_tipo_educacao_financeira_por_tema(tema_base)
+        if tipo_por_tema:
+            return tipo_por_tema
+
         _EF_AULA_PRATICA = [
             "pesquisa de precos", "elaborar uma tabela", "simular gastos",
             "dividir os alunos em trios", "trabalhar de forma individual",
@@ -1069,9 +1089,6 @@ def detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str =
         if contem_termos(base, _EF_AULA_PRATICA):
             return "aula_pratica_continuidade"
 
-        tipo_por_tema = _detectar_tipo_educacao_financeira_por_tema(tema_base)
-        if tipo_por_tema:
-            return tipo_por_tema
         return _detectar_tipo_por_catalogo(tema_base, base, _TIPOS_EDUCACAO_FINANCEIRA, "decisao_financeira")
 
     if perfil == "matematica":

@@ -83,6 +83,21 @@ def test_obter_dados_aprofundamento_biologia():
         pass
 
 
+def test_educacao_financeira_filtra_planilha_por_bimestre():
+    """Garante que Educacao Financeira nao usa aula de outro bimestre com o mesmo numero."""
+    dados = obter_dados_aprofundamento(
+        "Educacao Financeira",
+        "1",
+        turma="7º ANO B",
+        bimestre="3º Bimestre",
+    )
+    if dados is not None:
+        assert dados["titulo"] == "Retomando os imprevistos e as crises financeiras"
+        assert "Como nos relacionamos com o dinheiro" not in dados["titulo"]
+    else:
+        pass
+
+
 def test_extrator_pdf_enriquecido():
     """Testa se a extração é enriquecida com os dados da planilha de aprofundamento."""
     texto_pdf_fake = "Texto qualquer que seria lido do PDF da aula."

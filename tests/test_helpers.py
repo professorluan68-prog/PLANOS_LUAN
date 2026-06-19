@@ -35,6 +35,7 @@ def test_arquivos_na_ordem_de_envio_preserva_sequencia_personalizada():
 
 def test_numero_aula_pdf_extrai_numero_do_nome():
     assert numero_aula_pdf(Path("AULA_017.pdf")) == 17
+    assert numero_aula_pdf(Path("1612757.pdf")) is None
     assert numero_aula_pdf(Path("material_sem_numero.pdf")) is None
 
 

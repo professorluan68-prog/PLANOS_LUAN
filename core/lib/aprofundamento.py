@@ -79,6 +79,19 @@ def comparar_aula(val_planilha, val_pdf) -> bool:
     return s_plan == s_pdf and s_plan != ""
 
 
+def _numero_bimestre(valor) -> int:
+    texto = normalizar_texto(str(valor or "")).lower()
+    match = re.search(r"\d", texto)
+    return int(match.group(0)) if match else 0
+
+
+def _bimestre_compativel(val_planilha, bimestre: str = "") -> bool:
+    numero_bimestre = _numero_bimestre(bimestre)
+    if not numero_bimestre:
+        return True
+    return _numero_bimestre(val_planilha) == numero_bimestre
+
+
 def quebrar_e_limpar_itens(texto: str) -> list[str]:
     """Quebra uma string multilinha em itens individuais de lista, removendo marcadores."""
     if not texto:
@@ -127,7 +140,7 @@ def eh_redacao_leitura_ef(disciplina: str, turma: str = "") -> bool:
     return "ano" in norm_turma or "ef" in norm_turma or any(str(i) in norm_turma for i in range(6, 10))
 
 
-def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "") -> dict | None:
+def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "", bimestre: str = "") -> dict | None:
     """
     Busca os metadados estruturados da planilha para a disciplina, aula e turma (se aplicável).
 
@@ -175,6 +188,8 @@ def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "
         for row in rows[1:]:
             if len(row) < 13:
                 continue
+            if not _bimestre_compativel(row[3], bimestre):
+                continue
             val_aula_planilha = row[4]
             if comparar_aula(val_aula_planilha, numero_aula):
                 return {
@@ -197,6 +212,8 @@ def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "
             val_ano = str(row[2])
             digits_ano = set(re.findall(r"\d", val_ano))
             if digits_turma and digits_ano and not (digits_turma & digits_ano):
+                continue
+            if not _bimestre_compativel(row[3], bimestre):
                 continue
             val_aula_planilha = row[4]
             if comparar_aula(val_aula_planilha, numero_aula):
@@ -227,6 +244,8 @@ def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "
             digits_ano = set(re.findall(r"\d", val_ano))
             if digits_turma and digits_ano and not (digits_turma & digits_ano):
                 continue
+            if not _bimestre_compativel(row[3], bimestre):
+                continue
             val_aula_planilha = row[5]
             if comparar_aula(val_aula_planilha, numero_aula):
                 return {
@@ -251,6 +270,8 @@ def obter_dados_aprofundamento(disciplina: str, numero_aula: str, turma: str = "
             val_ano = str(row[0])
             digits_ano = set(re.findall(r"\d", val_ano))
             if digits_turma and digits_ano and not (digits_turma & digits_ano):
+                continue
+            if not _bimestre_compativel(row[1], bimestre):
                 continue
             val_aula_planilha = row[4]
             if comparar_aula(val_aula_planilha, numero_aula):

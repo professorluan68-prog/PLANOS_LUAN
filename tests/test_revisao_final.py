@@ -70,6 +70,13 @@ def test_lote_cache_validation_by_hash(tmp_path):
         ],
         "acompanhamento": ["Observação", "Análise de questões", "Sondagem final"],
         "acessibilidade": ["Texto ampliado", "Uso de glossário", "Apoio individualizado"],
+        "fonte_principal": "pdf",
+        "arquivo_fonte": "AULA 1.pdf",
+        "cache_reutilizado": False,
+        "origem_metodologia": "motor_local",
+        "perfil_metodologico": "analise_modelada",
+        "versao_prompt": "educacao_financeira_1.0",
+        "etapas_detectadas": ["Para começar", "Foco no conteúdo", "Na prática"],
         "hash_pdf": hash_orig,
         "confidence_score": 100,
         "avisos_validacao": []
@@ -78,6 +85,13 @@ def test_lote_cache_validation_by_hash(tmp_path):
     # Gravar o sidecar
     caminho_json = gravar_sidecar_json(pdf_file, json_data, hash_orig)
     assert caminho_json.exists()
+    dados_salvos = json.loads(caminho_json.read_text(encoding="utf-8"))
+    assert dados_salvos["fonte_principal"] == "pdf"
+    assert dados_salvos["cache_reutilizado"] is False
+    assert dados_salvos["origem_metodologia"] == "motor_local"
+    assert dados_salvos["perfil_metodologico"] == "analise_modelada"
+    assert dados_salvos["versao_prompt"] == "educacao_financeira_1.0"
+    assert dados_salvos["etapas_detectadas"] == ["Para começar", "Foco no conteúdo", "Na prática"]
 
     # Chamar _aula_por_pdf e verificar se carrega o cache
     aula_carregada = _aula_por_pdf(
