@@ -666,6 +666,62 @@ def sanitizar_texto_metodologico(
         )
         texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
 
+    if perfil in {"lingua_portuguesa", "lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao", "geral"}:
+        texto_final = re.sub(
+            r"\bUtilizar\s+o\s+Virem\s+e\s+conversem,?\s*",
+            "Promover conversa em duplas, ",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\bUtilizar\s+o\s+Virem\s+e\s+conversem\s+para\b",
+            "Promover conversa em duplas para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\bUtilizar\s+o\s+Com\s+suas\s+palavras\s+para\b",
+            "Pedir que os estudantes expliquem com suas próprias palavras para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\bUtilizar\s+o\s+Com\s+suas\s+palavras\b",
+            "Pedir que os estudantes expliquem com suas próprias palavras",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(r"\bAtividade onde\b", "Atividade em que", texto_final, flags=re.I)
+        texto_final = re.sub(r"\batividade onde\b", "atividade em que", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bonde os alunos devem\b", "em que os estudantes devem", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bonde os alunos\b", "em que os estudantes", texto_final, flags=re.I)
+        texto_final = re.sub(
+            r"\bcom\s+a\s+t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\b",
+            "com orientação passo a passo",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(r"\bregistrar em uma informa[cç][aã]o do material\b", "registrar no caderno", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bregistrando em uma informa[cç][aã]o do material\b", "registrando no caderno", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bcriar uma informa[cç][aã]o do material\b", "organizar um quadro comparativo no caderno", texto_final, flags=re.I)
+        texto_final = re.sub(r"\binforma[cç][aã]o do material\b", "registro do material", texto_final, flags=re.I)
+        texto_final = re.sub(r"\buma registro do material\b", "um registro no caderno", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bum registro do material\b", "um registro no caderno", texto_final, flags=re.I)
+        texto_final = re.sub(r"\besquema do material de rela[cç][oõ]es\b", "mapa de relações", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bAssim,\s*promovemos\b", "Assim, promove-se", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bfigurais de linguagem\b", "figuras de linguagem", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bAplicar,\s*solicitando que\b", "Solicitar que", texto_final, flags=re.I)
+        texto_final = re.sub(
+            r"\bAssistir de forma individual a dois o material da aula e os registros no caderno:\s*",
+            "Analisar individualmente dois materiais da aula: ",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(r"\bum discuss[aã]o\b", "uma discussão", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bpercepcoes\b", "percepções", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bhipoteses\b", "hipóteses", texto_final, flags=re.I)
+        texto_final = re.sub(r"\bfixacao\b", "fixação", texto_final, flags=re.I)
+
     texto_final = re.sub(r"\s{2,}", " ", texto_final).strip(" ,;:-")
     texto_final = re.sub(r"\.\s*\.", ".", texto_final)
     texto_final = re.sub(r",\s*,+", ", ", texto_final)
@@ -708,7 +764,7 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"No momento\s+[\"']?Virem e conversem[\"']?,?\s*os alunos mobilizam conhecimentos pr[eé?]vios antes da explica[cç?][aã?]o inicial\.?",
-            "Promover conversa em duplas para que compartilhem percepcoes, levantem hipoteses e retomem conhecimentos previos.",
+            "Promover conversa em duplas para que compartilhem percepções, levantem hipóteses e retomem conhecimentos prévios.",
         ),
         (
             r"(?:Utilizar|Usar|Aplicar)\s+(?:a\s+)?t[eé?]cnica\s+[\"']?Todo mundo escreve[\"']?",
@@ -720,7 +776,7 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"No momento\s+[\"']?Todo mundo escreve[\"']?,?\s*os alunos (?:registram|organizam por escrito)[^.]+\.?",
-            "Solicitar registro individual no caderno com as ideias principais, hipoteses ou respostas construidas na atividade.",
+            "Solicitar registro individual no caderno com as ideias principais, hipóteses ou respostas construídas na atividade.",
         ),
         (
             r"(?:Utilizar|Usar|Aplicar)\s+(?:a\s+)?t[eé?]cnica\s+[\"']?Hora da leitura[\"']?",
@@ -732,7 +788,7 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"Em\s+[\"']?Hora da leitura[\"']?,?\s*o professor conduz a leitura orientada do material, com pausas para verifica[cç?][aã?]o de compreens[aã?]o\.?",
-            "Conduzir leitura orientada do material, realizando pausas para destacar informacoes importantes e verificar a compreensao da turma.",
+            "Conduzir leitura orientada do material, realizando pausas para destacar informações importantes e verificar a compreensão da turma.",
         ),
         (
             r"(?:Utilizar|Usar|Aplicar)\s+(?:a\s+)?t[eé?]cnica\s+[\"']?Um passo de cada vez[\"']?",
@@ -740,7 +796,7 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"Em\s+[\"']?Um passo de cada vez[\"']?,?\s*o professor organiza a explica[cç?][aã?]o em etapas curtas e vis[ií?]veis\.?",
-            "Organizar a explicacao em etapas curtas, retomando cada procedimento antes de avancar para o seguinte.",
+            "Organizar a explicação em etapas curtas, retomando cada procedimento antes de avançar para o seguinte.",
         ),
         (
             r"(?:Utilizar|Usar|Aplicar)\s+(?:a\s+)?t[eé?]cnica\s+[\"']?De olho no modelo[\"']?",
@@ -748,19 +804,19 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"Em\s+[\"']?De olho no modelo[\"']?,?\s*o professor explicita um exemplo resolvido antes da atividade individual\.?",
-            "Apresentar um exemplo comentado antes da atividade individual, destacando os criterios que orientam a resposta.",
+            "Apresentar um exemplo comentado antes da atividade individual, destacando os critérios que orientam a resposta.",
         ),
         (
             r"Em\s+[\"']?Pause e responda[\"']?,?\s*(?:a turma interrompe brevemente a explica[cç?][aã?]o para verificar a compreens[aã?]o do que foi apresentado|o professor verifica a compreens[aã?]o da turma antes de avan[cç?]ar para a etapa seguinte)\.?",
-            "Realizar pausas de checagem da compreensao, retomando as respostas da turma e esclarecendo duvidas antes de avancar.",
+            "Realizar pausas de checagem da compreensão, retomando as respostas da turma e esclarecendo dúvidas antes de avançar.",
         ),
         (
             r"No momento\s+[\"']?PAUSE E RESPONDA[\"']?,?\s*(?:a turma interrompe brevemente a explica[cç?][aã?]o para verificar a compreens[aã?]o do que foi apresentado)\.?",
-            "Realizar pausas de checagem da compreensao, retomando as respostas da turma e esclarecendo duvidas antes de avancar.",
+            "Realizar pausas de checagem da compreensão, retomando as respostas da turma e esclarecendo dúvidas antes de avançar.",
         ),
         (
             r"Em\s+[\"']?Com suas palavras[\"']?,?\s*os alunos retomam o que compreenderam, sintetizando os pontos principais\.?",
-            "Pedir que os estudantes expliquem, com suas proprias palavras, os pontos principais trabalhados.",
+            "Pedir que os estudantes expliquem, com suas próprias palavras, os pontos principais trabalhados.",
         ),
         (
             r"Em\s+[\"']?Com suas palavras[\"']?,?\s*os alunos explicam oralmente ou por escrito o que compreenderam\.?",
@@ -772,15 +828,15 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
         (
             r"Atividade:\s*(?:Mediar|Acompanhar|Conduzir|Orientar)\s+a atividade principal do material,\s*preservando o produto esperado:\s*([^.]+)\.",
-            r"Na atividade principal, orientar a producao de \1 com acompanhamento dos registros da turma.",
+            r"Na atividade principal, orientar a produção de \1 com acompanhamento dos registros da turma.",
         ),
         (
             r"Atividade:\s*(?:Mediar|Acompanhar|Conduzir|Orientar)\s+a atividade principal do material para que os estudantes produzam ([^,.]+),\s*acompanhando registros, duvidas e socializacao das respostas\.",
-            r"Na atividade principal, orientar a producao de \1, acompanhando registros, duvidas e socializacao das respostas.",
+            r"Na atividade principal, orientar a produção de \1, acompanhando registros, dúvidas e socialização das respostas.",
         ),
         (
             r"O desenvolvimento mant[eé]m o momento\s+[\"']?([^\"'.]+)[\"']?\s+como parte da condu[cç][aã]o da aula\.?",
-            r"Incorporar esse momento ao desenvolvimento da aula, articulando-o aos exemplos, registros e intervencoes do professor.",
+            r"Incorporar esse momento ao desenvolvimento da aula, articulando-o aos exemplos, registros e intervenções do professor.",
         ),
     ]
 
@@ -848,6 +904,12 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     texto_final = re.sub(
         r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+([A-Za-zÀ-ÿ\s]+)",
         r"Utilizar a estratégia \1",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\bcom\s+a\s+t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\b",
+        "com orientação passo a passo",
         texto_final,
         flags=re.I,
     )
@@ -927,6 +989,25 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     texto_final = re.sub(r"\bos alunos se dividem de forma individual para\b", "os estudantes realizam individualmente a atividade para", texto_final, flags=re.I)
     texto_final = re.sub(r"\bse dividem de forma individual para\b", "realizam individualmente a atividade para", texto_final, flags=re.I)
     texto_final = re.sub(r"\bum discuss[aã]o\b", "uma discussão", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bfigurais de linguagem\b", "figuras de linguagem", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAplicar,\s*solicitando que\b", "Solicitar que", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAtividade onde\b", "Atividade em que", texto_final, flags=re.I)
+    texto_final = re.sub(r"\batividade onde\b", "atividade em que", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bonde os alunos devem\b", "em que os estudantes devem", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bonde os alunos\b", "em que os estudantes", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bAssim,\s*promovemos\b", "Assim, promove-se", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsolicitando que os alunos discorram\b", "solicitando que os estudantes analisem", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bregistrando em um registro do material\b", "registrando no caderno", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bregistrando em uma registro do material\b", "registrando no caderno", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bregistrando em uma informação do material\b", "registrando no caderno", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bcriar uma informação do material\b", "organizar um quadro comparativo no caderno", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bcriam uma informação do material\b", "organizam um quadro comparativo no caderno", texto_final, flags=re.I)
+    texto_final = re.sub(
+        r"\bAssistir de forma individual a dois o material da aula e os registros no caderno:\s*",
+        "Analisar individualmente dois materiais da aula: ",
+        texto_final,
+        flags=re.I,
+    )
     texto_final = re.sub(r"\bsuasFiguras\b", "suas figuras", texto_final, flags=re.I)
     texto_final = re.sub(r"\bpor para\b", "para", texto_final, flags=re.I)
     texto_final = re.sub(r"\bpersonagen\b", "personagens", texto_final, flags=re.I)
@@ -936,6 +1017,17 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     # Correções de ortografia/concordância adicionadas
     texto_final = re.sub(r"\bavancos\b", "avanços", texto_final, flags=re.I)
     texto_final = re.sub(r"\bavancar\b", "avançar", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bpercepcoes\b", "percepções", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bhipoteses\b", "hipóteses", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bprevios\b", "prévios", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bfixacao\b", "fixação", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bduvidas\b", "dúvidas", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bsocializacao\b", "socialização", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bcompreensao\b", "compreensão", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bexplicacao\b", "explicação", texto_final, flags=re.I)
+    texto_final = re.sub(r"\binformacoes\b", "informações", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bcriterios\b", "critérios", texto_final, flags=re.I)
+    texto_final = re.sub(r"\bintervencoes\b", "intervenções", texto_final, flags=re.I)
     texto_final = re.sub(r"\brapida\b", "rápida", texto_final, flags=re.I)
     texto_final = re.sub(r"\bimpressoes\b", "impressões", texto_final, flags=re.I)
     texto_final = re.sub(r"\banotacoes\b", "anotações", texto_final, flags=re.I)

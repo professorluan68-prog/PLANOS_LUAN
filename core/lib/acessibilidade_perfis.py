@@ -160,6 +160,30 @@ def _base_indica_historia(base: str) -> bool:
     )
 
 
+def _base_indica_lingua_portuguesa(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "lingua portuguesa",
+            "literatura",
+            "literario",
+            "texto literario",
+            "trovadorismo",
+            "cantiga",
+            "camoes",
+            "lusiadas",
+            "gil vicente",
+            "auto da barca",
+            "classicismo",
+            "anuncio",
+            "publicitario",
+            "publicidade",
+            "genero textual",
+            "producao textual",
+        ]
+    )
+
+
 def gerar_acessibilidade_especifica_por_aula(
     tema: str,
     aprendizagem: str,
@@ -193,6 +217,8 @@ def gerar_acessibilidade_especifica_por_aula(
             "Destacar no quadro os conceitos, movimentos ou caracteristicas que a turma precisara comparar na tabela.",
             "Permitir consulta ao material e ao quadro durante a atividade, com apoio em dupla para leitura dos comandos e conferencia dos registros.",
         ]
+    if "tabela" in base and not recursos and _base_indica_lingua_portuguesa(base):
+        return []
     if "tabela" in base and not recursos and (_base_indica_matematica(base) or _base_indica_historia(base)):
         return []
     if "tabela" in base and not recursos:
@@ -838,7 +864,15 @@ def _acessibilidade_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolv
             "☑ Permitir planejamento em tópicos, continuação oral mediada ou escrita breve por etapas.",
         ]
 
-    if any(k in base_aula for k in ["concluindo a jornada", "construindo o meu caminho", "meu percurso sintetizado", "percurso", "autoavaliacao"]):
+    if any(k in base_aula for k in [
+        "concluindo a jornada",
+        "construindo o meu caminho",
+        "meu percurso sintetizado",
+        "sintese do percurso",
+        "autoavaliacao",
+        "rubrica",
+        "portfolio",
+    ]):
         return [
             "☑ Disponibilizar roteiro de autoavaliação com avanços, dificuldades, evidências e próximos passos.",
             "☑ Permitir registro em tópicos, frases curtas ou resposta oral mediada antes da síntese final.",

@@ -1,7 +1,10 @@
 from core.lib.acessibilidade_perfis import gerar_acessibilidade_especifica_por_aula, gerar_acessibilidade_por_perfil
 from core.lib.acompanhamento_perfis import gerar_acompanhamento_por_perfil
 from core.lib.classificador import detectar_tipo_aula
-from core.lote import _ajustar_texto_por_sequencia
+from core.lib.gerador_colunas_pedagogicas import classificar_perfil
+from core.lib.higienizador_pedagogico import higienizar_plano
+from core.lote import _ajustar_texto_por_sequencia, _aprendizagem_padrao_por_perfil
+from core.qualidade_metodologica import sanitizar_texto_metodologico
 
 
 def test_lingua_portuguesa_em_literatura_nao_usa_template_de_producao_textual():
@@ -277,6 +280,161 @@ def test_lingua_portuguesa_em_classifica_conteudos_do_3_bimestre():
 
     for titulo, texto, esperado in casos:
         assert detectar_tipo_aula(texto, titulo, "Língua Portuguesa", turma="EM") == esperado
+
+
+def test_lingua_portuguesa_em_cantigas_nao_cai_em_debate_argumentativo():
+    acompanhamento = gerar_acompanhamento_por_perfil(
+        "lingua_portuguesa_em",
+        "Versos medievais em ritmos atuais",
+        "Ler e interpretar cantigas medievais em diálogo com ritmos atuais.",
+        "Realizar leitura de fragmentos, promover uma discussão orientada e analisar o eu lírico da cantiga de amigo.",
+    )
+    texto_total = " ".join(acompanhamento).lower()
+
+    assert len(acompanhamento) == 3
+    assert "literário" in texto_total
+    assert "eu lírico" in texto_total
+    assert "contra-argumentos" not in texto_total
+    assert "debate" not in texto_total
+
+
+def test_lingua_portuguesa_em_percurso_generico_nao_cai_em_autoavaliacao():
+    desenvolvimento = (
+        "Retomar o percurso das aulas anteriores sobre literatura medieval portuguesa, "
+        "relacionando registros já produzidos à leitura de cantigas e ao contexto histórico."
+    )
+    acompanhamento = gerar_acompanhamento_por_perfil(
+        "lingua_portuguesa_em",
+        "A literatura medieval portuguesa e suas influências",
+        "Analisar textos da tradição medieval portuguesa.",
+        desenvolvimento,
+    )
+    acessibilidade = gerar_acessibilidade_por_perfil(
+        "lingua_portuguesa_em",
+        "A literatura medieval portuguesa e suas influências",
+        "Analisar textos da tradição medieval portuguesa.",
+        desenvolvimento,
+    )
+    texto_total = " ".join(acompanhamento + acessibilidade).lower()
+
+    assert "autoavaliação" not in texto_total
+    assert "próximos passos" not in texto_total
+    assert "literário" in texto_total or "literária" in texto_total
+
+
+def test_lingua_portuguesa_em_tabela_em_literatura_nao_gera_acompanhamento_generico_de_tabela():
+    acompanhamento = gerar_acompanhamento_por_perfil(
+        "lingua_portuguesa_em",
+        "Camões: vida e obra poética",
+        "Analisar poemas de Camões em seu contexto literário.",
+        "Organizar uma tabela comparando medida velha e medida nova a partir dos poemas lidos.",
+    )
+    texto_total = " ".join(acompanhamento).lower()
+
+    assert len(acompanhamento) == 3
+    assert "literário" in texto_total
+    assert "tabela" not in texto_total
+
+
+def test_gerador_colunas_prioriza_literatura_em_portugues_em():
+    casos = [
+        (
+            "A literatura medieval portuguesa e suas influências",
+            "Biografia, esquema e contexto histórico da formação da literatura portuguesa.",
+            "literatura_contexto",
+        ),
+        (
+            "Versos medievais em ritmos atuais",
+            "Produzir resumo e discutir cantigas medievais.",
+            "poema",
+        ),
+        (
+            "Gil Vicente e o Auto da Barca do Inferno",
+            "Ler fragmentos dramáticos e observar personagens e crítica social.",
+            "literatura_drama",
+        ),
+        (
+            "Camões: vida e obra poética",
+            "Relacionar vida, obra poética, Classicismo e Os Lusíadas.",
+            "poema",
+        ),
+    ]
+
+    for titulo, texto, esperado in casos:
+        perfil = classificar_perfil(
+            texto=texto,
+            titulo=titulo,
+            conteudos=[],
+            objetivos=[],
+            blocos={},
+            perfil="lingua_portuguesa_em",
+        )
+        assert perfil == esperado
+
+
+def test_sanitizacao_metodologica_remove_residuos_do_plano_1ano_em():
+    texto = (
+        "Realizar uma atividade onde os estudantes devem, com a técnica Um passo de cada vez, "
+        "registrar em uma informação do material. Assim, promovemos reflexão. "
+        "Ler um anúncio e destacar figurais de linguagem. Aplicar, solicitando que reescrevam. "
+        "Assistir de forma individual a dois o material da aula e os registros no caderno: um anúncio e uma crítica."
+    )
+
+    limpo = sanitizar_texto_metodologico(texto, perfil="lingua_portuguesa_em", tema="Anúncios publicitários")
+
+    assert "atividade onde" not in limpo
+    assert "com a técnica" not in limpo
+    assert "informação do material" not in limpo
+    assert "promovemos" not in limpo
+    assert "figurais de linguagem" not in limpo
+    assert "Aplicar, solicitando" not in limpo
+    assert "dois o material da aula" not in limpo
+    assert "figuras de linguagem" in limpo
+
+
+def test_sanitizacao_metodologica_naturaliza_tecnicas_e_registro():
+    texto = (
+        "Utilizar o Virem e conversem, apresentando imagens históricas. "
+        "Utilizar o Com suas palavras para introduzir a representação teatral. "
+        "Propor que os alunos preencham uma informação do material com eventos do século XVI."
+    )
+
+    limpo = sanitizar_texto_metodologico(texto, perfil="lingua_portuguesa_em", tema="Classicismo")
+
+    assert "Utilizar o Virem" not in limpo
+    assert "Utilizar o Com suas palavras" not in limpo
+    assert "uma registro" not in limpo
+    assert "registro do material" not in limpo
+    assert "Promover conversa em duplas" in limpo
+    assert "um registro no caderno" in limpo
+
+
+def test_higienizador_preserva_mapa_de_relacoes_em_portugues():
+    desenv, acomp, acess = higienizar_plano(
+        "Organizar mapa de relações entre contexto histórico e produção literária.",
+        [],
+        ["Permitir registro em tópicos, mapa de relações ou resposta oral mediada."],
+        perfil="lingua_portuguesa_em",
+        disciplina="Língua Portuguesa",
+        tema="A literatura medieval portuguesa e suas influências",
+        recursos_reais={"mapa": False},
+    )
+    texto_total = " ".join([str(desenv)] + acomp + acess).lower()
+
+    assert "mapa de relações" in texto_total
+    assert "esquema do material de relações" not in texto_total
+
+
+def test_aprendizagem_padrao_lingua_portuguesa_em_e_mais_especifica():
+    aprendizagem = _aprendizagem_padrao_por_perfil(
+        "A literatura medieval portuguesa e suas influências",
+        "lingua_portuguesa_em",
+    )
+
+    texto = aprendizagem.lower()
+    assert "tradição medieval portuguesa" in texto
+    assert "contexto histórico" in texto
+    assert "analisar textos e linguagens relacionados" not in texto
 
 
 def test_lingua_portuguesa_em_3_bimestre_nao_usa_acompanhamento_generico():

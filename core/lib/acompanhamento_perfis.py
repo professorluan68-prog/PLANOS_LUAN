@@ -135,6 +135,30 @@ def _base_indica_historia(base: str) -> bool:
     )
 
 
+def _base_indica_lingua_portuguesa(base: str) -> bool:
+    return any(
+        termo in base
+        for termo in [
+            "lingua portuguesa",
+            "literatura",
+            "literario",
+            "texto literario",
+            "trovadorismo",
+            "cantiga",
+            "camoes",
+            "lusiadas",
+            "gil vicente",
+            "auto da barca",
+            "classicismo",
+            "anuncio",
+            "publicitario",
+            "publicidade",
+            "genero textual",
+            "producao textual",
+        ]
+    )
+
+
 def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
     if _tem_marcador_visao(base):
@@ -167,6 +191,8 @@ def gerar_acompanhamento_especifico_por_aula(tema: str, aprendizagem: str, desen
             f"Observar se relacionam os dados da tabela aos conceitos, movimentos ou caracteristicas estudadas em {tema}.",
             "Conferir se justificam oralmente ou por escrito as conclusoes registradas a partir da leitura da tabela.",
         ]
+    if "tabela" in base and _base_indica_lingua_portuguesa(base):
+        return []
     if "tabela" in base and (_base_indica_matematica(base) or _base_indica_historia(base)):
         return []
     if "tabela" in base:
@@ -852,7 +878,15 @@ def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolv
             "☑ Acompanhar os registros de leitura, planejamento ou produção considerando síntese e impacto.",
         ]
 
-    if any(k in base_aula for k in ["concluindo a jornada", "construindo o meu caminho", "meu percurso sintetizado", "percurso", "autoavaliacao"]):
+    if any(k in base_aula for k in [
+        "concluindo a jornada",
+        "construindo o meu caminho",
+        "meu percurso sintetizado",
+        "sintese do percurso",
+        "autoavaliacao",
+        "rubrica",
+        "portfolio",
+    ]):
         return [
             "☑ Verificar se o estudante recupera evidências do percurso para reconhecer avanços e dificuldades.",
             "☑ Observar se registra metas, estratégias e próximos passos de estudo com autonomia progressiva.",

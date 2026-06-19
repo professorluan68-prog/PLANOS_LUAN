@@ -6,7 +6,7 @@ from pathlib import Path
 from core.qualidade_metodologica import extrair_conceito_central
 from core.validador_plano import validar_aula_final
 
-VERSAO_GERADOR_ATUAL = "1.2.0"
+VERSAO_GERADOR_ATUAL = "1.2.5"
 
 
 def _limpar_tema_final(tema: str) -> str:

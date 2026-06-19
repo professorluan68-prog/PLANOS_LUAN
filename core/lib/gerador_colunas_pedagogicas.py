@@ -313,6 +313,16 @@ def classificar_perfil(
     # Verificar regras em ordem de prioridade
     perfis_lp_permitidos = {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
     if perfil is None or perfil in perfis_lp_permitidos:
+        if "literatura medieval portuguesa e suas influencias" in n or "literatura medieval portuguesa e suas influências" in n:
+            return "literatura_contexto"
+        if any(t in n for t in ["gil vicente", "auto da barca"]):
+            return "literatura_drama"
+        if any(t in n for t in [
+            "literatura medieval", "trovadorismo", "cantiga", "cantigas",
+            "versos medievais", "classicismo", "camoes", "camões",
+            "lusiadas", "lusíadas",
+        ]):
+            return "poema"
         if any(t in n for t in ["ortografia", "concordancia nominal", "discurso direto", "discurso indireto", "x ou ch"]):
             return "analise_linguistica_ortografia"
         if any(t in n for t in ["resumo", "retextualizacao", "topico frasal", "paragrafacao"]) and any(
@@ -530,6 +540,10 @@ def frase_inicial(p: PistasPedagogicas) -> str:
         return "Iniciar a aula situando a narrativa distópica e levantando hipóteses sobre narrador, personagens, conflito e atmosfera de tensão presentes no conto."
     if p.perfil == "literatura_prosa":
         return "Iniciar a aula situando o texto literário no contexto da obra, do autor e do período estudado, mobilizando conhecimentos prévios sobre a prosa brasileira."
+    if p.perfil == "literatura_contexto":
+        return "Iniciar a aula observando imagens, referências históricas ou registros do material para levantar hipóteses sobre a formação da literatura portuguesa medieval."
+    if p.perfil == "literatura_drama":
+        return "Iniciar a aula situando o texto dramático no contexto da obra, do autor e do período estudado, mobilizando conhecimentos prévios sobre personagens, falas e crítica social."
     if p.perfil == "literatura_modernismo":
         return "Iniciar a aula contextualizando o movimento literário estudado, destacando rupturas estéticas, autores e relações com o momento histórico."
     if p.perfil == "poema":
@@ -586,6 +600,10 @@ def frase_foco(p: PistasPedagogicas) -> str:
         frase = "Conduzir a leitura literária do conto distópico, destacando narrador, personagens, enredo, conflito, suspense e efeitos produzidos pelos tempos e modos verbais."
     elif p.perfil == "literatura_prosa":
         frase = "Conduzir a leitura orientada do texto literário do material, destacando contexto histórico, características da prosa, narrador, personagens, ambiente e efeitos de sentido construídos pela linguagem."
+    elif p.perfil == "literatura_contexto":
+        frase = "Conduzir a leitura orientada do material, destacando Reconquista, cultura galego-portuguesa, manifestações literárias iniciais e relações entre contexto histórico e produção literária."
+    elif p.perfil == "literatura_drama":
+        frase = "Conduzir a leitura orientada de trechos dramáticos do material, destacando personagens, falas, rubricas, conflito, crítica social e efeitos de sentido construídos pela linguagem teatral."
     elif p.perfil == "literatura_modernismo":
         frase = "Conduzir a análise do movimento literário estudado, relacionando contexto histórico, propostas estéticas, autores, obras e rupturas de linguagem presentes no material."
     elif p.perfil == "poema":
@@ -642,6 +660,8 @@ def frase_foco(p: PistasPedagogicas) -> str:
         "analise_linguistica_ortografia",
         "conto_distopico",
         "literatura_prosa",
+        "literatura_contexto",
+        "literatura_drama",
         "literatura_modernismo",
         "poema",
         "cronica",
@@ -681,6 +701,10 @@ def frase_pratica(p: PistasPedagogicas) -> str:
         return "Propor atividade de análise literária para que os estudantes retomem trechos do conto, identifiquem narrador, conflito, tempos verbais e expliquem como esses recursos constroem tensão."
     if p.perfil == "literatura_prosa":
         return "Propor atividade de análise literária para que os estudantes retomem trechos do material, registrem evidências do texto e expliquem como contexto, personagens e linguagem sustentam a interpretação."
+    if p.perfil == "literatura_contexto":
+        return "Propor atividade de organização das informações para que os estudantes relacionem contexto histórico, formação do reino de Portugal e primeiras manifestações literárias em registros claros."
+    if p.perfil == "literatura_drama":
+        return "Propor atividade de análise do texto dramático para que os estudantes retomem falas e cenas, identifiquem personagens, conflito e crítica social, justificando respostas com trechos da obra."
     if p.perfil == "literatura_modernismo":
         return "Propor atividade de análise literária para que os estudantes relacionem características do movimento, autores, obras e recursos expressivos, registrando evidências do material."
     if p.perfil == "poema":
@@ -840,6 +864,18 @@ BANCO_ACOMPANHAMENTO = {
         "Observar se utilizam evidências do texto literário para sustentar interpretações orais e escritas.",
         "Conferir se os registros apresentam compreensão de narrador, ambiente, conflito e características da prosa estudada.",
         "Acompanhar se a turma diferencia informação contextual e interpretação literária."
+    ],
+    "literatura_contexto": [
+        "Verificar se os estudantes relacionam contexto histórico, cultura galego-portuguesa e formação da literatura portuguesa medieval.",
+        "Observar se utilizam informações do material para explicar influências culturais, religiosas e sociais nas primeiras manifestações literárias.",
+        "Conferir se os registros organizam relações entre período histórico, produção literária e circulação dos textos.",
+        "Acompanhar se a turma diferencia informação histórica e interpretação literária sem reduzir a aula a memorização de características."
+    ],
+    "literatura_drama": [
+        "Verificar se os estudantes identificam personagens, falas, conflito e crítica social no texto dramático estudado.",
+        "Observar se utilizam trechos da cena para justificar interpretações sobre linguagem, intenção e efeito de sentido.",
+        "Conferir se os registros relacionam contexto histórico, construção das personagens e crítica presente na obra.",
+        "Acompanhar se a turma diferencia leitura dramatizada, interpretação literária e resumo do enredo."
     ],
     "literatura_modernismo": [
         "Verificar se os estudantes reconhecem características do movimento literário, autores, obras e rupturas estéticas estudadas.",
@@ -1025,6 +1061,18 @@ BANCO_ACESSIBILIDADE = {
         "Disponibilizar roteiro com perguntas sobre narrador, personagens, espaço, conflito e evidências do texto.",
         "Permitir registro em tópicos, marcações de trechos ou resposta oral mediada conforme as necessidades da turma.",
         "Retomar coletivamente passagens centrais antes da atividade individual."
+    ],
+    "literatura_contexto": [
+        "Disponibilizar quadro com período histórico, cultura galego-portuguesa, manifestações literárias e palavras-chave do material.",
+        "Realizar leitura guiada dos trechos explicativos, retomando vocabulário histórico e relações com a literatura.",
+        "Permitir registro em tópicos, esquema de relações ou resposta oral mediada sobre contexto e produção literária.",
+        "Retomar coletivamente as relações entre história e literatura antes da atividade individual."
+    ],
+    "literatura_drama": [
+        "Realizar leitura dramatizada guiada de trechos curtos, retomando vocabulário, personagens e intenção das falas.",
+        "Disponibilizar roteiro com perguntas sobre personagem, conflito, rubrica, crítica social e evidências da cena.",
+        "Permitir participação por leitura, marcação de falas, registro em tópicos ou resposta oral mediada.",
+        "Retomar coletivamente as cenas centrais antes da análise individual."
     ],
     "literatura_modernismo": [
         "Disponibilizar linha do tempo, palavras-chave ou quadro de autores e características para apoiar a contextualização do movimento.",

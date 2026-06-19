@@ -328,17 +328,17 @@ REGRAS_RECURSOS = {
         (r"\banalizar tabelas\b", "analisar as informações do material"),
         (r"\binterpreta[cç][aã]o de tabelas\b", "interpretação das informações"),
         (r"\bpreenchimento de tabelas\b", "registro das informações"),
-        (r"\btabela real\b", "informações do material"),
-        (r"\btabelas\b", "informações do material"),
-        (r"\btabela\b", "informação do material"),
+        (r"\btabela real\b", "registros do material"),
+        (r"\btabelas\b", "registros do material"),
+        (r"\btabela\b", "registro do material"),
     ],
     "grafico": [
         (r"\banalizar tabelas e gr[aá]ficos\b", "analisar as informações do material"),
         (r"\banalizar gr[aá]ficos\b", "analisar as informações do material"),
         (r"\bgr[aá]fico real\b", "dados do material"),
         (r"\bleitura de gr[aá]fico\b", "leitura das informações"),
-        (r"\bgr[aá]ficos\b", "informações do material"),
-        (r"\bgr[aá]fico\b", "informação do material"),
+        (r"\bgr[aá]ficos\b", "dados do material"),
+        (r"\bgr[aá]fico\b", "dado do material"),
         (r"\beixo x\b", "eixo de análise"),
         (r"\beixo y\b", "eixo de análise"),
         (r"\beixos\b", "dados de análise"),
@@ -347,8 +347,8 @@ REGRAS_RECURSOS = {
         (r"\banalizar mapa\b", "analisar a imagem do material"),
         (r"\bleitura de mapa\b", "leitura das informações"),
         (r"\bmapa real\b", "imagem do material"),
-        (r"\bmapas\b(?!\s+mentais)", "informações do material"),
-        (r"\bmapa\b(?!\s+mental)", "informação do material"),
+        (r"\bmapas\b(?!\s+(?:mentais|de rela[cç][oõ]es))", "esquemas do material"),
+        (r"\bmapa\b(?!\s+(?:mental|de rela[cç][oõ]es))", "esquema do material"),
         (r"\ban[aá]lise cartogr[aá]fica\b", "análise de informações"),
     ],
     "experimento": [
@@ -705,6 +705,11 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
         (r"\buma conteudo da aula\b", "um conteúdo da aula"),
         (r"\brotacionação\b", "rotação"),
         (r"\brotacionacao\b", "rotação"),
+        (r"\binforma[cç][aã]o do material\b", "registro do material"),
+        (r"\brecurso do material de rela[cç][oõ]es\b", "mapa de relações"),
+        (r"\brecursos do material de rela[cç][oõ]es\b", "mapas de relações"),
+        (r"\besquema do material de rela[cç][oõ]es\b", "mapa de relações"),
+        (r"\besquemas do material de rela[cç][oõ]es\b", "mapas de relações"),
     ]
     for padrao, subst in ajustes_redacao:
         texto_final = re.sub(padrao, subst, texto_final, flags=re.I)
@@ -781,8 +786,10 @@ _PLACEHOLDERS_ACESSIBILIDADE = {
     r"\binforma[cç][oõ]es do material mentais\b": "mapas mentais",
     r"\brecursos? do material mental\b": "mapa mental",
     r"\binforma[cç][aã]o do material simples\b": "tabela simples",
-    r"\binforma[cç][oõ]es do material\b": "recursos do material",
-    r"\binforma[cç][aã]o do material\b": "recurso do material",
+    r"\brecursos? do material de rela[cç][oõ]es\b": "mapa de relações",
+    r"\besquemas? do material de rela[cç][oõ]es\b": "mapa de relações",
+    r"\binforma[cç][oõ]es do material\b": "informações do material",
+    r"\binforma[cç][aã]o do material\b": "registro do material",
     r"\bo material simples\b": "tabela simples",
 }
 

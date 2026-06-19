@@ -1381,6 +1381,27 @@ def _aprendizagem_padrao_por_perfil(tema: str, perfil: str, conceito: str = "") 
             "interpretacao e justificativa das estrategias utilizadas."
         )
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        base_lp = normalizar_texto_lote(" ".join([foco, conceito]))
+        if any(k in base_lp for k in ["literatura medieval", "trovadorismo", "cantiga"]):
+            return (
+                f"Analisar textos da tradição medieval portuguesa em {foco}, relacionando contexto histórico, "
+                "vozes literárias, recursos expressivos e efeitos de sentido construídos na leitura."
+            )
+        if any(k in base_lp for k in ["gil vicente", "auto da barca"]):
+            return (
+                f"Interpretar trechos dramáticos relacionados a {foco}, observando personagens, crítica social, "
+                "contexto histórico e recursos de linguagem presentes na obra."
+            )
+        if any(k in base_lp for k in ["classicismo", "camoes", "lusiadas"]):
+            return (
+                f"Analisar textos e referências do Classicismo em {foco}, relacionando forma poética, contexto "
+                "renascentista, intertextualidades e construção de sentidos."
+            )
+        if any(k in base_lp for k in ["anuncio", "publicitario", "publicidade", "midias digitais"]):
+            return (
+                f"Analisar anúncios e campanhas relacionados a {foco}, reconhecendo público-alvo, suporte, "
+                "recursos verbais e visuais, estratégias persuasivas e efeitos de sentido."
+            )
         return (
             f"Analisar textos e linguagens relacionados a {foco}, desenvolvendo leitura, interpretacao, "
             "analise da linguagem e producao de sentidos de acordo com as propostas da aula."
