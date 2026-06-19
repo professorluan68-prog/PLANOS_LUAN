@@ -189,11 +189,11 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Acompanhar os registros sobre impressões, palavras-chave e interpretações da canção.",
         ]
 
-    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
+    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
         return [
-            "Verificar se os estudantes identificam figuras de linguagem nos versos ou trechos analisados.",
-            "Observar se explicam o efeito de sentido produzido pela repetição, contraste ou sonoridade.",
-            "Acompanhar os registros individuais e as justificativas apresentadas durante a leitura do poema.",
+            "Verificar se os estudantes identificam personagens, conflito e progressão narrativa no trecho da novela.",
+            "Observar se relacionam ações das personagens ao contexto e à crítica social da obra.",
+            "Acompanhar os registros, resumos ou respostas interpretativas sobre os trechos lidos.",
         ]
 
     if any(k in base_aula for k in ["miniconto", "minicontos", "pequenas historias", "o falatorio"]):
@@ -203,11 +203,11 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Acompanhar os registros sobre vírgula, ritmo narrativo e interpretação dos minicontos.",
         ]
 
-    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
+    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
         return [
-            "Verificar se os estudantes identificam personagens, conflito e progressão narrativa no trecho da novela.",
-            "Observar se relacionam ações das personagens ao contexto e à crítica social da obra.",
-            "Acompanhar os registros, resumos ou respostas interpretativas sobre os trechos lidos.",
+            "Verificar se os estudantes identificam figuras de linguagem nos versos ou trechos analisados.",
+            "Observar se explicam o efeito de sentido produzido pela repetição, contraste ou sonoridade.",
+            "Acompanhar os registros individuais e as justificativas apresentadas durante a leitura do poema.",
         ]
 
     if any(k in base_aula for k in ["haicai", "haikai", "basho", "matsuo"]):
@@ -221,7 +221,7 @@ def _acompanhamento_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
         return [
             "Verificar se os estudantes reconhecem relações entre os textos, a canção e as referências mobilizadas.",
             "Observar se justificam a intertextualidade com trechos, imagens ou evidências do material.",
-            "Acompanhar os registros em tabela, esquema ou resposta escrita sobre intertextualidade explícita ou implícita.",
+            "Acompanhar os registros em quadro comparativo, esquema ou resposta escrita sobre intertextualidade explícita ou implícita.",
         ]
 
     if any(k in base for k in ["autoavaliacao", "avaliando com consciencia", "concluindo a jornada", "portfolio", "rubrica", "percurso de aprendizagem"]):
@@ -723,6 +723,155 @@ def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolv
     
     tema_norm = normalizar_texto(tema)
     aprend_norm = normalizar_texto(aprendizagem)
+    base = normalizar_texto(" ".join([tema, aprendizagem, desenvolvimento]))
+    base_aula = normalizar_texto(" ".join([tema, desenvolvimento]))
+
+    if any(k in base_aula for k in ["artigo de opiniao"]):
+        return [
+            "☑ Verificar se o estudante identifica tese, argumentos e posicionamento do autor no artigo de opinião.",
+            "☑ Observar se diferencia fato, opinião, exemplo e justificativa durante a análise do texto.",
+            "☑ Acompanhar os registros de planejamento, revisão ou reescrita com foco na argumentação.",
+        ]
+
+    if any(k in base_aula for k in ["dissertativo argumentativo", "texto dissertativo"]):
+        return [
+            "☑ Verificar se o estudante delimita tema, tese e argumentos coerentes com a proposta.",
+            "☑ Observar se utiliza repertório, conectivos e progressão argumentativa na construção do texto.",
+            "☑ Acompanhar o planejamento, a revisão e os ajustes da introdução, desenvolvimento ou conclusão.",
+        ]
+
+    if any(k in base_aula for k in ["resenha critica", "resenha"]):
+        return [
+            "☑ Verificar se o estudante reconhece apresentação da obra, síntese, avaliação e recomendação na resenha.",
+            "☑ Observar se fundamenta a opinião com elementos do texto, filme, livro ou produção analisada.",
+            "☑ Acompanhar os registros de planejamento, revisão e reescrita da resenha crítica.",
+        ]
+
+    if any(k in base_aula for k in ["debate regrado", "debate"]):
+        return [
+            "☑ Verificar se o estudante organiza argumentos, contra-argumentos e evidências para sustentar sua posição.",
+            "☑ Observar se respeita turnos de fala, escuta ativa e regras combinadas do debate regrado.",
+            "☑ Acompanhar os registros prévios e a avaliação da participação oral ao final da atividade.",
+        ]
+
+    if any(k in base_aula for k in ["manifesto"]):
+        return [
+            "☑ Verificar se o estudante reconhece problema coletivo, reivindicação e tom convocatório no manifesto.",
+            "☑ Observar se relaciona escolhas de linguagem à defesa de uma causa ou posicionamento social.",
+            "☑ Acompanhar os registros de planejamento, escrita e revisão das propostas de intervenção discursiva.",
+        ]
+
+    if any(k in base_aula for k in ["carta do leitor", "carta aberta"]):
+        return [
+            "☑ Verificar se o estudante identifica interlocutor, finalidade, ponto de vista e argumentos da carta.",
+            "☑ Observar se adapta linguagem, tratamento e evidências ao gênero carta do leitor ou carta aberta.",
+            "☑ Acompanhar a revisão dos registros escritos, considerando clareza, coesão e posicionamento.",
+        ]
+
+    if any(k in base_aula for k in ["divulgacao cientifica"]):
+        return [
+            "☑ Verificar se o estudante reconhece tema científico, público-alvo e estratégia de explicação no texto.",
+            "☑ Observar se diferencia informação, exemplo, definição e dado usado para divulgar conhecimento.",
+            "☑ Acompanhar os registros de leitura, síntese e retextualização com linguagem acessível.",
+        ]
+
+    if any(k in base_aula for k in ["variacao e norma", "variacao linguistica", "norma padrao"]):
+        return [
+            "☑ Verificar se o estudante diferencia variação linguística, norma-padrão e adequação ao contexto.",
+            "☑ Observar se reconhece efeitos de sentido ligados a registro, variedade, formalidade e preconceito linguístico.",
+            "☑ Acompanhar os registros comparativos e as justificativas sobre usos reais da língua.",
+        ]
+
+    if any(k in base_aula for k in ["anuncio", "publicitario", "publicidade", "midias digitais"]):
+        return [
+            "☑ Verificar se o estudante identifica público-alvo, suporte, finalidade e recursos persuasivos do Anúncio publicitário.",
+            "☑ Observar se relaciona linguagem verbal, visual e digital aos efeitos de sentido produzidos.",
+            "☑ Acompanhar os registros de análise ou produção considerando circulação, intencionalidade e ética.",
+        ]
+
+    if any(k in base_aula for k in ["noticioso", "noticia", "imparcialidade", "parcialidade", "duas versoes"]):
+        return [
+            "☑ Verificar se o estudante compara versões de um fato e identifica marcas de parcialidade ou seleção de informações.",
+            "☑ Observar se distingue fato, opinião, fonte, enfoque e efeito de sentido nos textos noticiosos.",
+            "☑ Acompanhar os registros comparativos e as justificativas baseadas em trechos do material.",
+        ]
+
+    if any(k in base_aula for k in ["diario pessoal", "diario digital", "meu diario"]):
+        return [
+            "☑ Verificar se o estudante reconhece marcas de subjetividade, temporalidade e autoria no diário.",
+            "☑ Observar se relaciona experiências, cotidiano e escolhas linguísticas ao propósito do gênero.",
+            "☑ Acompanhar os registros pessoais ou reflexivos com atenção à coerência e ao respeito à privacidade.",
+        ]
+
+    if any(k in base_aula for k in ["comentario", "conversas em rede", "rede social", "redes sociais"]):
+        return [
+            "☑ Verificar se o estudante reconhece opinião, réplica, contexto de circulação e responsabilidade no comentário.",
+            "☑ Observar se diferencia interação respeitosa, argumento e ataque pessoal em ambientes digitais.",
+            "☑ Acompanhar os registros de análise ou produção considerando clareza, coesão e ética na rede.",
+        ]
+
+    if any(k in base_aula for k in ["esquete", "texto teatral", "teatro"]):
+        return [
+            "☑ Verificar se o estudante identifica personagens, conflito, rubricas e progressão da cena teatral.",
+            "☑ Observar se relaciona fala, gesto, situação comunicativa e efeito de humor ou crítica no esquete.",
+            "☑ Acompanhar os registros, ensaios ou socializações respeitando o gênero dramático.",
+        ]
+
+    if any(k in base_aula for k in ["charge", "tira", "tiras", "polissemia", "humor"]):
+        return [
+            "☑ Verificar se o estudante interpreta humor, crítica, polissemia e inferências em charges ou tiras.",
+            "☑ Observar se relaciona linguagem verbal e não verbal aos efeitos de sentido do texto.",
+            "☑ Acompanhar as justificativas orais ou escritas com base em elementos presentes na imagem e nas falas.",
+        ]
+
+    if any(k in base_aula for k in ["fotodenuncia", "foto denuncia", "intervencao urbana"]):
+        return [
+            "☑ Verificar se o estudante reconhece denúncia social, autoria, espaço urbano e intencionalidade da imagem.",
+            "☑ Observar se relaciona elementos visuais, legenda, contexto e efeito crítico da produção.",
+            "☑ Acompanhar o planejamento, registro ou socialização da intervenção ou fotodenúncia.",
+        ]
+
+    if any(k in base_aula for k in ["cronica"]):
+        return [
+            "☑ Verificar se o estudante reconhece cotidiano, olhar subjetivo, linguagem e reflexão na crônica.",
+            "☑ Observar se interpreta humor, crítica ou comentário social a partir de marcas do texto.",
+            "☑ Acompanhar os registros de leitura ou produção com foco em ponto de vista e efeito de sentido.",
+        ]
+
+    if any(k in base_aula for k in ["playlist"]):
+        return [
+            "☑ Verificar se o estudante articula seleção musical, comentário e justificativa interpretativa.",
+            "☑ Observar se relaciona canções, temas, público e critérios de organização da playlist comentada.",
+            "☑ Acompanhar os registros de curadoria, escrita dos comentários e socialização das escolhas.",
+        ]
+
+    if any(k in base_aula for k in ["miniconto", "microconto"]):
+        return [
+            "☑ Verificar se o estudante reconhece concisão, sugestão, conflito e efeito final no miniconto ou microconto.",
+            "☑ Observar se interpreta pistas narrativas, narrador, personagens e implícitos do texto breve.",
+            "☑ Acompanhar os registros de leitura, planejamento ou produção considerando síntese e impacto.",
+        ]
+
+    if any(k in base_aula for k in ["concluindo a jornada", "construindo o meu caminho", "meu percurso sintetizado", "percurso", "autoavaliacao"]):
+        return [
+            "☑ Verificar se o estudante recupera evidências do percurso para reconhecer avanços e dificuldades.",
+            "☑ Observar se registra metas, estratégias e próximos passos de estudo com autonomia progressiva.",
+            "☑ Acompanhar a socialização das sínteses pessoais respeitando diferentes ritmos de aprendizagem.",
+        ]
+
+    if any(k in base_aula for k in [
+        "literatura medieval", "trovadorismo", "cantiga", "gil vicente", "auto da barca",
+        "classicismo", "camoes", "lusiadas", "carta de caminha", "anchieta", "catequese",
+        "barroco", "gregorio de matos", "padre antonio vieira", "romantismo", "realismo",
+        "naturalismo", "o cortico", "quarto de despejo", "parnasianismo", "francisca julia",
+        "modernista", "clarice", "guimaraes rosa", "joao cabral", "fernando pessoa", "heteronimos",
+        "cancao do exilio", "goncalves dias"
+    ]):
+        return [
+            f"☑ Verificar se o estudante relaciona o texto literário de {tema} ao contexto histórico, estético e cultural estudado.",
+            "☑ Observar se interpreta linguagem, imagens, vozes, personagens ou eu lírico com apoio em elementos do texto.",
+            "☑ Acompanhar os registros analíticos, comparações e sínteses produzidas durante a leitura literária.",
+        ]
     
     # Identificar se há termos gramaticais específicos ou de movimentos literários no tema/aprendizagem
     movimento = ""

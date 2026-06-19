@@ -213,7 +213,10 @@ def test_naturalizar_corrige_falhas_do_plano_lp_9ano():
         "As suasFiguras de linguagem serao retomadas na sequencia. "
         "Perguntar o que conhecem sobre canção, utilizando o para promover a troca de ideias. "
         "Realizar leitura orientada com a técnica Hora da leitura. "
-        "Iniciar a aula retomar a discussão. Conduzir a realização individual e realizar a atividade."
+        "Iniciar a aula retomar a discussão. Conduzir a realização individual e realizar a atividade. "
+        "Realizar uma parada estratégica de verificação (PAUSE E RESPONDA), assegurando a compreensão. "
+        "Questionar os alunos sobre novelas, utilizando a técnica Virem e conversem para que compartilhem experiências. "
+        "Ao final, aplicar a atividade Todo mundo escreve para que registrem suas interpretações."
     )
 
     corrigido = naturalizar_texto_metodologico(texto)
@@ -235,5 +238,8 @@ def test_naturalizar_corrige_falhas_do_plano_lp_9ano():
     assert "sequência" in corrigido
     assert "utilizando o para" not in corrigido
     assert "técnica Hora da leitura" not in corrigido
+    assert "técnica Virem e conversem" not in corrigido
+    assert "promovendo conversa em duplas para que compartilhem experiências" in corrigido
+    assert "Solicitar registro individual no caderno para que registrem suas interpretações" in corrigido
     assert "Iniciar a aula retomando" in corrigido
     assert "Orientar a realização individual da atividade" in corrigido

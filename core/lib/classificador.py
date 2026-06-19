@@ -474,15 +474,27 @@ def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
     categorias = [
         ("autoavaliacao", ["autoavaliacao", "concluindo a jornada", "rubrica", "portfolio", "sintese do percurso"]),
         ("texto_digital_blog", ["comentario", "texto digital", "blog", "rede social", "redes sociais"]),
-        ("pratica_oral", ["debate", "seminario", "apresentacao oral", "oralidade", "podcast", "producao oral", "producoes orais", "escuta ativa", "gravacao"]),
+        ("pratica_oral", ["debate regrado", "seminario", "apresentacao oral", "oralidade", "podcast", "producao oral", "producoes orais", "escuta ativa", "gravacao"]),
         ("producao_textual", ["producao", "parte final", "escrita", "redigir", "elaborar"]),
         ("literatura", [
             "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
             "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
-            "literario", "literaria", "estetica", "vanguardas", "romance", "conto", "poema", "poesia", "haicai", "verso"
+            "literario", "literaria", "estetica", "vanguardas", "romance", "conto", "poema", "poesia", "haicai", "verso",
+            "barroco", "gregorio de matos", "padre antonio vieira", "camoes", "lusiadas",
+            "classicismo", "gil vicente", "auto da barca", "carta de caminha", "anchieta",
+            "catequese", "parnasianismo", "francisca julia", "eca de queiros",
+            "aluisio azevedo", "joao cabral", "fernando pessoa", "heteronimos",
+            "miniconto", "microconto", "cancao do exilio", "goncalves dias"
         ]),
-        ("genero_textual", ["diario", "manifesto", "playlist", "cronica", "noticia", "reportagem", "resenha", "fanzine", "genero"]),
-        ("gramatica_integrada", ["flexao", "regencia", "concordancia", "ortografia", "oracoes", "sintaxe", "semantica"]),
+        ("genero_textual", [
+            "diario", "manifesto", "playlist", "cronica", "noticia", "noticioso",
+            "reportagem", "resenha", "fanzine", "genero", "artigo de opiniao",
+            "carta do leitor", "carta aberta", "divulgacao cientifica",
+            "dissertativo argumentativo", "texto dissertativo", "anuncio",
+            "publicitario", "publicidade", "fotodenuncia", "intervencao urbana",
+            "esquete"
+        ]),
+        ("gramatica_integrada", ["flexao", "regencia", "concordancia", "ortografia", "oracoes", "sintaxe", "semantica", "variacao e norma", "variacao linguistica"]),
     ]
 
     # Primeiro, tenta classificar com base apenas no título (prioridade máxima)

@@ -834,6 +834,18 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         flags=re.I,
     )
     texto_final = re.sub(
+        r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
+        "promovendo conversa em duplas para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\b",
+        "promovendo conversa em duplas",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
         r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+([A-Za-zÀ-ÿ\s]+)",
         r"Utilizar a estratégia \1",
         texto_final,
@@ -842,6 +854,12 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     texto_final = re.sub(
         r"\b(?:Utilizar|Usar|Aplicar)\s+a\s+atividade\s+Com\s+suas\s+palavras\s+para\b",
         "Pedir que os estudantes expliquem com suas próprias palavras para",
+        texto_final,
+        flags=re.I,
+    )
+    texto_final = re.sub(
+        r"\b(?:Aplicar|Utilizar|Usar)\s+a\s+atividade\s+Todo\s+mundo\s+escreve\s+para\b",
+        "Solicitar registro individual no caderno para",
         texto_final,
         flags=re.I,
     )

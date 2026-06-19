@@ -215,11 +215,11 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Permitir registro em tópicos, desenho, mapa mental ou resposta oral mediada sobre a canção.",
         ]
 
-    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
+    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
         return [
-            "Ler os versos em voz alta, marcando repetições, contrastes ou sons que ajudam a perceber a figura de linguagem.",
-            "Disponibilizar banco de exemplos curtos para apoiar a identificação das figuras no poema.",
-            "Permitir explicação oral mediada ou registro em tópicos sobre o efeito de sentido percebido.",
+            "Disponibilizar quadro com personagens, espaço, conflito e acontecimento principal do trecho lido.",
+            "Realizar leitura mediada da novela, retomando vocabulário e contexto antes das perguntas.",
+            "Permitir resumo em tópicos, resposta oral mediada ou esquema de relações entre personagens.",
         ]
 
     if any(k in base_aula for k in ["miniconto", "minicontos", "pequenas historias", "o falatorio"]):
@@ -229,11 +229,11 @@ def _acessibilidade_lingua_portuguesa(tema: str, aprendizagem: str, desenvolvime
             "Permitir registro em tópicos, continuação oral mediada ou mapa de ideias antes da resposta escrita.",
         ]
 
-    if any(k in base_aula for k in ["novela literaria", "novelas literarias", "o alienista", "casa verde", "simao bacamarte"]):
+    if any(k in base_aula for k in ["figura de linguagem", "figuras de linguagem", "anafora", "aliteração", "aliteracao", "assonancia", "antitese", "ironia"]) and not any(k in base_aula for k in ["publicidade", "anuncio", "anuncios", "publicitario", "tirinha", "tirinhas", "humor"]):
         return [
-            "Disponibilizar quadro com personagens, espaço, conflito e acontecimento principal do trecho lido.",
-            "Realizar leitura mediada da novela, retomando vocabulário e contexto antes das perguntas.",
-            "Permitir resumo em tópicos, resposta oral mediada ou esquema de relações entre personagens.",
+            "Ler os versos em voz alta, marcando repetições, contrastes ou sons que ajudam a perceber a figura de linguagem.",
+            "Disponibilizar banco de exemplos curtos para apoiar a identificação das figuras no poema.",
+            "Permitir explicação oral mediada ou registro em tópicos sobre o efeito de sentido percebido.",
         ]
 
     if any(k in base_aula for k in ["haicai", "haikai", "basho", "matsuo"]):
@@ -710,6 +710,155 @@ def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
 
 
 def _acessibilidade_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    base_aula = normalizar_texto(" ".join([tema, desenvolvimento]))
+
+    if any(k in base_aula for k in ["artigo de opiniao"]):
+        return [
+            "☑ Disponibilizar quadro com tese, argumento, fato, opinião e conclusão antes da atividade.",
+            "☑ Oferecer perguntas orientadoras para localizar posicionamento e evidências no artigo.",
+            "☑ Permitir planejamento em tópicos ou esquema antes da escrita e da revisão do texto.",
+        ]
+
+    if any(k in base_aula for k in ["dissertativo argumentativo", "texto dissertativo"]):
+        return [
+            "☑ Disponibilizar modelo de estrutura com tema, tese, argumento, repertório e conclusão.",
+            "☑ Oferecer banco de conectivos e perguntas-guia para organizar a progressão argumentativa.",
+            "☑ Permitir rascunho em tópicos, revisão mediada e reescrita por etapas.",
+        ]
+
+    if any(k in base_aula for k in ["resenha critica", "resenha"]):
+        return [
+            "☑ Apresentar quadro com apresentação da obra, síntese, avaliação e recomendação.",
+            "☑ Oferecer frases de apoio para expressar opinião fundamentada sem substituir a autoria do estudante.",
+            "☑ Permitir registro em tópicos ou resposta oral mediada antes da versão escrita da resenha.",
+        ]
+
+    if any(k in base_aula for k in ["debate regrado", "debate"]):
+        return [
+            "☑ Disponibilizar roteiro com tese, argumento, evidência, contra-argumento e réplica.",
+            "☑ Organizar turnos de fala visíveis e combinados de escuta para apoiar a participação.",
+            "☑ Permitir que estudantes mais inseguros participem com apoio de anotações ou porta-voz do grupo.",
+        ]
+
+    if any(k in base_aula for k in ["manifesto"]):
+        return [
+            "☑ Destacar no quadro problema, reivindicação, público-alvo e chamada à ação do manifesto.",
+            "☑ Oferecer banco de expressões de reivindicação e modalizadores para apoiar a escrita.",
+            "☑ Permitir produção em tópicos, dupla produtiva ou revisão mediada antes da socialização.",
+        ]
+
+    if any(k in base_aula for k in ["carta do leitor", "carta aberta"]):
+        return [
+            "☑ Apresentar modelo com interlocutor, saudação, ponto de vista, argumentos e fechamento.",
+            "☑ Oferecer perguntas-guia para adequar linguagem, tratamento e evidências ao destinatário.",
+            "☑ Permitir planejamento em tópicos ou resposta oral mediada antes da escrita da carta.",
+        ]
+
+    if any(k in base_aula for k in ["divulgacao cientifica"]):
+        return [
+            "☑ Destacar palavras-chave, conceitos e exemplos do texto de divulgação científica antes da atividade.",
+            "☑ Oferecer glossário simples e perguntas orientadoras sobre público-alvo e linguagem acessível.",
+            "☑ Permitir síntese em tópicos, esquema ou explicação oral mediada antes da retextualização.",
+        ]
+
+    if any(k in base_aula for k in ["variacao e norma", "variacao linguistica", "norma padrao"]):
+        return [
+            "☑ Disponibilizar quadro comparativo entre uso real da língua, norma-padrão e contexto de circulação.",
+            "☑ Oferecer exemplos curtos de diferentes registros para apoiar a análise sem julgamento linguístico.",
+            "☑ Permitir resposta em tópicos, comparação guiada ou explicação oral mediada.",
+        ]
+
+    if any(k in base_aula for k in ["anuncio", "publicitario", "publicidade", "midias digitais"]):
+        return [
+            "☑ Ampliar anúncio, imagem ou peça digital e destacar público-alvo, suporte e recursos persuasivos.",
+            "☑ Oferecer roteiro de leitura para observar linguagem verbal, visual, cores, chamadas e circulação.",
+            "☑ Permitir análise em dupla, resposta por tópicos ou marcação direta dos elementos no material.",
+        ]
+
+    if any(k in base_aula for k in ["noticioso", "noticia", "imparcialidade", "parcialidade", "duas versoes"]):
+        return [
+            "☑ Disponibilizar quadro comparativo para confrontar versões, fontes, escolhas lexicais e enfoques.",
+            "☑ Destacar perguntas como quem informa, o que enfatiza e que ponto de vista aparece no texto.",
+            "☑ Permitir marcação de trechos, resposta em tópicos ou explicação oral mediada.",
+        ]
+
+    if any(k in base_aula for k in ["diario pessoal", "diario digital", "meu diario"]):
+        return [
+            "☑ Apresentar modelo com data, autoria, marcas de subjetividade e registro do cotidiano.",
+            "☑ Oferecer perguntas discretas para orientar a escrita sem expor vivências pessoais obrigatórias.",
+            "☑ Permitir registro fictício, tópicos ou resposta oral mediada, preservando a privacidade do estudante.",
+        ]
+
+    if any(k in base_aula for k in ["comentario", "conversas em rede", "rede social", "redes sociais"]):
+        return [
+            "☑ Disponibilizar exemplos de comentários respeitosos e inadequados para comparação orientada.",
+            "☑ Destacar palavras-chave como opinião, argumento, réplica, contexto e responsabilidade digital.",
+            "☑ Permitir escrita em tópicos, revisão em dupla e mediação antes da socialização.",
+        ]
+
+    if any(k in base_aula for k in ["esquete", "texto teatral", "teatro"]):
+        return [
+            "☑ Apresentar quadro com personagens, conflito, falas, rubricas e situação da cena.",
+            "☑ Oferecer leitura dramatizada guiada para apoiar compreensão de entonação e intenção das falas.",
+            "☑ Permitir participação por leitura, registro, apoio de roteiro ou função de organização do grupo.",
+        ]
+
+    if any(k in base_aula for k in ["charge", "tira", "tiras", "polissemia", "humor"]):
+        return [
+            "☑ Ampliar a charge ou tira e orientar a leitura dos elementos verbais e não verbais.",
+            "☑ Oferecer perguntas-guia sobre humor, crítica, polissemia, inferência e contexto.",
+            "☑ Permitir resposta oral mediada, registro em tópicos ou marcação dos elementos da imagem.",
+        ]
+
+    if any(k in base_aula for k in ["fotodenuncia", "foto denuncia", "intervencao urbana"]):
+        return [
+            "☑ Oferecer roteiro de observação da imagem, espaço urbano, problema social e intenção crítica.",
+            "☑ Destacar palavras-chave como denúncia, intervenção, autoria, legenda e público-alvo.",
+            "☑ Permitir planejamento visual em esboço, tópicos ou explicação oral antes da produção final.",
+        ]
+
+    if any(k in base_aula for k in ["cronica"]):
+        return [
+            "☑ Apresentar quadro com situação cotidiana, narrador ou voz, reflexão e efeito de humor ou crítica.",
+            "☑ Realizar leitura guiada da crônica, retomando vocabulário e marcas de subjetividade.",
+            "☑ Permitir resposta em tópicos, comentário oral mediado ou planejamento breve antes da escrita.",
+        ]
+
+    if any(k in base_aula for k in ["playlist"]):
+        return [
+            "☑ Disponibilizar modelo de playlist comentada com título, critério de seleção e justificativa.",
+            "☑ Oferecer quadro para relacionar canção, tema, público e comentário interpretativo.",
+            "☑ Permitir curadoria em dupla, registro em tópicos ou socialização oral das escolhas.",
+        ]
+
+    if any(k in base_aula for k in ["miniconto", "microconto"]):
+        return [
+            "☑ Apresentar exemplos curtos para destacar concisão, conflito, sugestão e efeito final.",
+            "☑ Oferecer perguntas orientadoras sobre narrador, personagens, pistas e implícitos.",
+            "☑ Permitir planejamento em tópicos, continuação oral mediada ou escrita breve por etapas.",
+        ]
+
+    if any(k in base_aula for k in ["concluindo a jornada", "construindo o meu caminho", "meu percurso sintetizado", "percurso", "autoavaliacao"]):
+        return [
+            "☑ Disponibilizar roteiro de autoavaliação com avanços, dificuldades, evidências e próximos passos.",
+            "☑ Permitir registro em tópicos, frases curtas ou resposta oral mediada antes da síntese final.",
+            "☑ Retomar critérios da sequência para apoiar estudantes que precisam organizar o próprio percurso.",
+        ]
+
+    if any(k in base_aula for k in [
+        "literatura medieval", "trovadorismo", "cantiga", "gil vicente", "auto da barca",
+        "classicismo", "camoes", "lusiadas", "carta de caminha", "anchieta", "catequese",
+        "barroco", "gregorio de matos", "padre antonio vieira", "romantismo", "realismo",
+        "naturalismo", "o cortico", "quarto de despejo", "parnasianismo", "francisca julia",
+        "modernista", "clarice", "guimaraes rosa", "joao cabral", "fernando pessoa", "heteronimos",
+        "cancao do exilio", "goncalves dias"
+    ]):
+        return [
+            "☑ Realizar leitura guiada de trechos literários, retomando vocabulário, contexto e marcas estéticas.",
+            "☑ Disponibilizar quadro com autor, período, tema, linguagem e efeitos de sentido observados.",
+            "☑ Permitir registro em tópicos, mapa de relações ou resposta oral mediada sobre a interpretação.",
+        ]
+
     return [
         "☑ Disponibilizar o texto âncora com fonte ampliada e espaçamento maior para estudantes com dificuldade visual ou dislexia.",
         "☑ Permitir que estudantes com dificuldade de escrita respondam oralmente ou em dupla com apoio de colega.",
