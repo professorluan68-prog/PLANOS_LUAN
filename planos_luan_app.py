@@ -1909,9 +1909,11 @@ else:
                     [
                         "pdfs_aulas_files_auto",
                         normalizar_para_pasta(disciplina),
+                        normalizar_para_pasta(professor),
                         normalizar_para_pasta(turma),
                         normalizar_para_pasta(bimestre),
                         "-".join(str(numero) for numero in sequencia_pdf_esperada_ae) or "sem_ae",
+                        f"ultima_{ultima_aula}",
                         str(est_necessarios or 0),
                     ]
                 )
@@ -1923,8 +1925,10 @@ else:
                     key=chave_contexto_auto,
                     help="A ordem abaixo ja e a ordem que o sistema vai usar. No modo AE, ela segue a sequencia do guia priorizado.",
                 )
-                ordem_opcoes = {str(path): idx for idx, path in enumerate(pdf_files_disponiveis)}
-                selecionados = sorted(selecionados, key=lambda path: ordem_opcoes.get(str(path), 10**9))
+                if sequencia_pdf_esperada_ae:
+                    selecionados = ordenar_pdfs_por_sequencia(selecionados, sequencia_pdf_esperada_ae)
+                else:
+                    selecionados = ordenar_pdfs_por_numero(selecionados)
                 pdfs_selecionados_tela = list(selecionados)
                 pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
             else:

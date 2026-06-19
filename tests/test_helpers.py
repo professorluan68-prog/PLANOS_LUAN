@@ -46,6 +46,28 @@ def test_ordenar_pdfs_por_numero_usa_ordem_natural():
     assert [arquivo.name for arquivo in ordenados] == ["AULA_01.pdf", "AULA_02.pdf", "AULA_10.pdf"]
 
 
+def test_ordenar_pdfs_por_numero_usa_sufixo_real_do_primeiro_ano_em():
+    arquivos = [
+        Path("Anúncios publicitários em mídias digitais – Parte 1_07.pdf"),
+        Path("A literatura medieval portuguesa e suas influências_01.pdf"),
+        Path("Versos medievais em ritmos atuais_03.pdf"),
+        Path("As origens do Trovadorismo_02.pdf"),
+        Path("O Classicismo e Os lusíadas_05.pdf"),
+        Path("Gil Vicente e o Auto da Barca do Inferno_04.pdf"),
+    ]
+
+    ordenados = ordenar_pdfs_por_numero(arquivos)
+
+    assert [arquivo.name for arquivo in ordenados] == [
+        "A literatura medieval portuguesa e suas influências_01.pdf",
+        "As origens do Trovadorismo_02.pdf",
+        "Versos medievais em ritmos atuais_03.pdf",
+        "Gil Vicente e o Auto da Barca do Inferno_04.pdf",
+        "O Classicismo e Os lusíadas_05.pdf",
+        "Anúncios publicitários em mídias digitais – Parte 1_07.pdf",
+    ]
+
+
 def test_ordenar_pdfs_por_sequencia_prioriza_ae():
     arquivos = [Path("AULA_01.pdf"), Path("AULA_06.pdf"), Path("AULA_17.pdf"), Path("AULA_19.pdf")]
 
