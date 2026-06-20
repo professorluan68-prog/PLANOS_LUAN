@@ -1,0 +1,150 @@
+name: Aplicar correções pontuais de Educação Financeira
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.head_ref == 'fix/educacao-financeira-8ano-3bim'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Aplicar ajustes seguros
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_exact(path, old, new, expected=1):
+              text = Path(path).read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: esperado {expected} ocorrência(s), encontrei {count}.')
+              Path(path).write_text(text.replace(old, new), encoding='utf-8')
+
+          lote = Path('core/lote.py')
+          text = lote.read_text(encoding='utf-8')
+          marker = 'def _montar_resultado_aula_ia(\n'
+          helper = '''def _aplicar_referencia_pedagogica_financeira(referencia: dict) -> tuple[list, list[str], list[str]]:
+    """Mantém o conteúdo pedagógico do DOCX sem reprocessamento por fallbacks."""
+    metodologia = [dict(item) if isinstance(item, dict) else item for item in (referencia.get("metodologia") or [])]
+    acompanhamento = _itens_referencia_financeira(referencia, "acompanhamento")
+    acessibilidade = _itens_referencia_financeira(referencia, "acessibilidade")
+    return metodologia, acompanhamento, acessibilidade
+
+
+'''
+          if helper not in text:
+              if marker not in text:
+                  raise SystemExit('core/lote.py: marcador da montagem por IA não encontrado.')
+              text = text.replace(marker, helper + marker, 1)
+
+          pattern = re.compile(
+              r'''    if referencia_financeira:\n        metodologia = naturalizar_metodologia_professor\(referencia_financeira\.get\("metodologia"\) or \[\]\)\n        acompanhamento = list\(referencia_financeira\.get\("acompanhamento"\) or \[\]\)\[:3\]\n        acessibilidade = list\(referencia_financeira\.get\("acessibilidade"\) or \[\]\)\[:3\]\n\n    from core\.lib\.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais\n\n    recursos_reais = detectar_recursos_reais\(texto\)\n    metodologia, acompanhamento, acessibilidade = higienizar_plano\(\n        metodologia, acompanhamento, acessibilidade,\n        perfil, disciplina_base, tema, recursos_reais\n    \)\n    if referencia_financeira:\n        acompanhamento_ref = _itens_referencia_financeira\(referencia_financeira, "acompanhamento"\)\n        acessibilidade_ref = _itens_referencia_financeira\(referencia_financeira, "acessibilidade"\)\n        if len\(acompanhamento_ref\) == 3:\n            acompanhamento = acompanhamento_ref\n        if len\(acessibilidade_ref\) == 3:\n            acessibilidade = acessibilidade_ref\n'''
+          )
+          replacement = '''    referencia_pedagogica_aplicada = bool(referencia_financeira)
+    if referencia_pedagogica_aplicada:
+        metodologia, acompanhamento, acessibilidade = _aplicar_referencia_pedagogica_financeira(referencia_financeira)
+    else:
+        from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
+
+        recursos_reais = detectar_recursos_reais(texto)
+        metodologia, acompanhamento, acessibilidade = higienizar_plano(
+            metodologia, acompanhamento, acessibilidade,
+            perfil, disciplina_base, tema, recursos_reais
+        )
+'''
+          text, count = pattern.subn(replacement, text)
+          if count != 2:
+              raise SystemExit(f'core/lote.py: esperados 2 blocos de referência, encontrados {count}.')
+          anchor = '        "fonte_referencia_metodologia": (referencia_financeira or {}).get("fonte", ""),\n'
+          if text.count(anchor) != 2:
+              raise SystemExit('core/lote.py: âncora da fonte de referência não encontrada duas vezes.')
+          text = text.replace(anchor, anchor + '        "referencia_pedagogica_aplicada": bool(referencia_financeira),\n')
+          lote.write_text(text, encoding='utf-8')
+
+          app = Path('planos_luan_app.py')
+          text = app.read_text(encoding='utf-8')
+          import_anchor = 'from core.validador_plano import validar_aulas_geradas\n'
+          if 'from core.educacao_financeira_validacao import validar_requisitos_educacao_financeira\n' not in text:
+              if import_anchor not in text:
+                  raise SystemExit('planos_luan_app.py: import do validador não encontrado.')
+              text = text.replace(import_anchor, import_anchor + 'from core.educacao_financeira_validacao import validar_requisitos_educacao_financeira\n', 1)
+          func_anchor = 'def _gerar_docx_final(modelo_bytes: bytes, aulas, escola: str, professor: str, disciplina: str, componente_curricular: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str):\n    docx_bytes = preencher_documento(\n'
+          replacement_anchor = '''def _gerar_docx_final(modelo_bytes: bytes, aulas, escola: str, professor: str, disciplina: str, componente_curricular: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str):
+    problemas_financeira = []
+    for indice, aula in enumerate(aulas or [], start=1):
+        for problema in validar_requisitos_educacao_financeira(aula):
+            problemas_financeira.append(f"Aula {indice}: {problema}")
+    if problemas_financeira:
+        raise ValueError("Validação de Educação Financeira antes do Word:\n" + "\n".join(problemas_financeira))
+
+    docx_bytes = preencher_documento(
+'''
+          if func_anchor not in text:
+              raise SystemExit('planos_luan_app.py: função de geração do DOCX não encontrada.')
+          text = text.replace(func_anchor, replacement_anchor, 1)
+          app.write_text(text, encoding='utf-8')
+
+          preencher = Path('docx_generator/preencher.py')
+          text = preencher.read_text(encoding='utf-8')
+          old = '''def _remover_alturas_fixas(tabela) -> None:
+    for linha in tabela.rows:
+        tr_pr = linha._tr.get_or_add_trPr()
+        _remover_filhos(tr_pr, "w:trHeight")
+'''
+          new = '''def _compactar_paragrafo_tabela(paragrafo) -> None:
+    """Evita espaçamentos altos e encadeamentos que criam vazios na página."""
+    formato = paragrafo.paragraph_format
+    formato.space_before = Pt(0)
+    formato.space_after = Pt(0)
+    formato.line_spacing = 1.0
+    p_pr = paragrafo._p.get_or_add_pPr()
+    _remover_filhos(p_pr, "w:keepNext")
+    _remover_filhos(p_pr, "w:keepLines")
+    widow = _elemento_filho(p_pr, "w:widowControl")
+    widow.set(qn("w:val"), "1")
+
+
+def _remover_alturas_fixas(tabela) -> None:
+    for linha in tabela.rows:
+        tr_pr = linha._tr.get_or_add_trPr()
+        _remover_filhos(tr_pr, "w:trHeight")
+        _remover_filhos(tr_pr, "w:cantSplit")
+        for celula in _celulas_unicas(linha):
+            for paragrafo in celula.paragraphs:
+                _compactar_paragrafo_tabela(paragrafo)
+'''
+          if old not in text:
+              raise SystemExit('docx_generator/preencher.py: função de altura não encontrada.')
+          text = text.replace(old, new, 1)
+          text = text.replace('def _definir_margens_celula(celula, margem: int = 90) -> None:', 'def _definir_margens_celula(celula, margem: int = 60) -> None:', 1)
+          preencher.write_text(text, encoding='utf-8')
+
+          hig = Path('core/lib/higienizador_pedagogico.py')
+          text = hig.read_text(encoding='utf-8')
+          sentinel = '_higienizar_plano_original_educacao_financeira'
+          if sentinel not in text:
+              text += '''\n\n# Reforço específico: temas de orçamento não podem receber resíduos de empreendedorismo.\n_higienizar_plano_original_educacao_financeira = higienizar_plano\n\ndef _tema_orcamentario_educacao_financeira(tema: str) -> bool:\n    base = unicodedata.normalize("NFD", str(tema or "").lower())\n    base = "".join(ch for ch in base if unicodedata.category(ch) != "Mn")\n    return any(termo in base for termo in ("orcamento", "receita", "despesa", "economia domestica", "reserva", "planilha"))\n\ndef _limpar_residuos_empreendedorismo(texto: str) -> str:\n    regras = (\n        (r"\\bpropostas? empreendedoras?\\b", "situações de orçamento doméstico"),\n        (r"\\bempreendedorismo\\b", "organização financeira"),\n        (r"\\bproduto ou servi[cç]o\\b", "despesa ou necessidade"),\n        (r"\\bviabilidade\\b", "adequação ao orçamento"),\n        (r"\\bp[uú]blico[- ]alvo\\b", "necessidades da família"),\n        (r"\\bfeira cultural\\b", "situação de economia doméstica"),\n        (r"\\bneg[oó]cio\\b", "planejamento financeiro"),\n        (r"\\blucro\\b", "economia"),\n    )\n    resultado = str(texto or "")\n    for padrao, substituicao in regras:\n        resultado = re.sub(padrao, substituicao, resultado, flags=re.I)\n    return resultado\n\ndef higienizar_plano(metodologia, acompanhamento, acessibilidade, perfil, disciplina, tema, recursos_reais=None):\n    metodologia, acompanhamento, acessibilidade = _higienizar_plano_original_educacao_financeira(\n        metodologia, acompanhamento, acessibilidade, perfil, disciplina, tema, recursos_reais\n    )\n    perfil_norm = str(perfil or "").lower()\n    if perfil_norm != "educacao_financeira" or not _tema_orcamentario_educacao_financeira(tema):\n        return metodologia, acompanhamento, acessibilidade\n    metodologia_limpa = []\n    for etapa in metodologia or []:\n        if isinstance(etapa, dict):\n            etapa = dict(etapa)\n            etapa["texto"] = _limpar_residuos_empreendedorismo(etapa.get("texto", ""))\n        else:\n            etapa = _limpar_residuos_empreendedorismo(etapa)\n        metodologia_limpa.append(etapa)\n    return (\n        metodologia_limpa,\n        [_limpar_residuos_empreendedorismo(item) for item in (acompanhamento or [])],\n        [_limpar_residuos_empreendedorismo(item) for item in (acessibilidade or [])],\n    )\n'''
+              hig.write_text(text, encoding='utf-8')
+          PY
+      - name: Rodar testes focados
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pytest tests/test_educacao_financeira_metodologia.py tests/test_educacao_financeira_8ano_3bimestre.py tests/test_docx_final_cleanup.py -q
+      - name: Salvar ajustes na branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-educacao-financeira-fix.yml
+          git add core/lote.py core/lib/higienizador_pedagogico.py docx_generator/preencher.py planos_luan_app.py
+          git commit -m "fix: protege referencia pedagogica financeira e layout docx"
+          git push
