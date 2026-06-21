@@ -112,6 +112,17 @@ def test_referencia_projeto_vida_localiza_docx_do_ano(tmp_path):
     assert escolhido == caminho_docx
 
 
+def test_referencia_projeto_vida_localiza_docx_ensino_medio(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Projeto_de_Vida_1_Ano_Ensino_Medio.docx"
+    caminho_pdf = tmp_path / "AULA_01 - Estresse e ansiedade.pdf"
+    _criar_docx_referencia_projeto_vida(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    escolhido = localizar_docx_referencia_projeto_vida(caminho_pdf)
+
+    assert escolhido == caminho_docx
+
+
 def test_projeto_vida_resultado_local_usa_docx_sem_trocar_titulo_oficial(tmp_path):
     caminho_docx = tmp_path / "Metodologias_Projeto_de_Vida_6_Ano.docx"
     caminho_pdf = tmp_path / "AULA_01 - O que me move.pdf"
