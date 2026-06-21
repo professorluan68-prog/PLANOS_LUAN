@@ -7,7 +7,10 @@ from pathlib import Path
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
+from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
 from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
+from core.referencias_geografia import localizar_docx_referencia_geografia, referencia_geografia_por_pdf
+from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -65,11 +68,80 @@ _perfil_disciplina = perfil_disciplina
 logger = logging.getLogger(__name__)
 
 
-def _assinatura_docx_referencia_financeira(caminho_pdf: str, disciplina: str, turma: str = "") -> str:
-    if perfil_disciplina(disciplina, turma=turma) != "educacao_financeira" or not caminho_pdf:
+def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, turma: str = ""):
+    perfil = perfil_disciplina(disciplina, turma=turma)
+    if not caminho_pdf:
+        return None
+    if perfil == "educacao_financeira":
+        return localizar_docx_referencia(caminho_pdf)
+    if perfil == "biologia":
+        return localizar_docx_referencia_biologia(caminho_pdf)
+    if perfil == "geografia":
+        return localizar_docx_referencia_geografia(caminho_pdf)
+    if perfil == "projeto_de_vida":
+        return localizar_docx_referencia_projeto_vida(caminho_pdf)
+    return None
+
+
+def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, perfil: str):
+    if not caminho_pdf:
+        return None
+    if perfil == "educacao_financeira":
+        return referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "biologia":
+        return referencia_biologia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "geografia":
+        return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "projeto_de_vida":
+        return referencia_projeto_vida_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    return None
+
+
+def _origem_metodologia_por_referencia(perfil: str) -> str:
+    if perfil == "educacao_financeira":
+        return "docx_referencia_educacao_financeira"
+    if perfil == "biologia":
+        return "docx_referencia_biologia"
+    if perfil == "geografia":
+        return "docx_referencia_geografia"
+    if perfil == "projeto_de_vida":
+        return "docx_referencia_projeto_de_vida"
+    return ""
+
+
+def _material_aula_com_titulo(numero_aula: str, titulo: str) -> str:
+    titulo = str(titulo or "").strip()
+    if not titulo:
+        return ""
+    match = re.search(r"\d{1,2}", str(numero_aula or ""))
+    if match:
+        return f"AULA {int(match.group(0))} - {titulo}"
+    return titulo
+
+
+def _titulo_escopo_projeto_vida_confiavel(titulo: str) -> bool:
+    titulo = re.sub(r"\s+", " ", str(titulo or "")).strip()
+    if not titulo or len(titulo) > 140:
+        return False
+
+    base = _normalizar(titulo)
+    marcadores_texto_bimestre = (
+        "este bimestre",
+        "se organiza em torno",
+        "roadmap",
+        "entregas",
+        "produto",
+        "ao longo das aulas",
+        "competencias socioemocionais",
+    )
+    return not any(marcador in base for marcador in marcadores_texto_bimestre)
+
+
+def _assinatura_docx_referencia(caminho_pdf: str, disciplina: str, turma: str = "") -> str:
+    if not caminho_pdf:
         return ""
     try:
-        docx = localizar_docx_referencia(caminho_pdf)
+        docx = _localizar_docx_referencia_por_perfil(caminho_pdf, disciplina, turma)
         if not docx:
             return ""
         stat = docx.stat()
@@ -78,7 +150,7 @@ def _assinatura_docx_referencia_financeira(caminho_pdf: str, disciplina: str, tu
         return ""
 
 
-def _itens_referencia_financeira(referencia: dict | None, chave: str) -> list[str]:
+def _itens_referencia_docx(referencia: dict | None, chave: str) -> list[str]:
     if not referencia:
         return []
     itens = []
@@ -190,143 +262,6 @@ def _detectar_tecnicas_lemov(texto: str, tema: str = "") -> list[str]:
 
 def _detectar_tipo_aula(texto: str, tema: str, disciplina: str = "", turma: str = "") -> str:
     return _detectar_tipo_aula_classificador(texto, tema, disciplina, turma=turma)
-
-    base = normalizar_texto_lote(f"{disciplina} {tema} {texto}")
-    perfil = perfil_disciplina(disciplina, turma=turma)
-    tema_base = normalizar_texto_lote(tema)
-
-    if perfil == "educacao_financeira":
-        _EF_AULA_PRATICA = [
-            "pesquisa de precos", "elaborar uma tabela", "simular gastos",
-            "dividir os alunos em trios", "trabalhar de forma individual",
-            "material impresso como guia", "sentar em circulo para compartilhar",
-            "pesquisa de preços", "elaborar uma planilha", "simular despesas",
-            "planejamento pratico", "planejamento prático",
-        ]
-        if _contem(base, _EF_AULA_PRATICA):
-            return "aula_pratica_continuidade"
-
-        mapa_tema = [
-            ("instituicoes_financeiras", ["onde guardamos o dinheiro", "guardar dinheiro", "onde guardar o dinheiro", "guardamos o dinheiro"]),
-            ("investimento_poupanca", ["por que poupamos", "porque poupamos", "reserva de emergencia", "poupamos"]),
-            ("orcamento_planejamento", ["objetivos em familia ou em grupo", "objetivos em familia", "objetivos em grupo", "planejamento financeiro"]),
-            ("analise_percentuais_noticias", ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias"]),
-            ("governo_economia", ["papel do governo na economia", "governo na economia"]),
-            ("impacto_decisoes_economicas", ["impacto das decisoes economicas", "decisoes economicas em nossas vidas"]),
-        ]
-        for tipo, termos in mapa_tema:
-            if _contem(tema_base, termos):
-                return tipo
-        if _contem(tema_base, ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]):
-            return "credito_endividamento"
-        if _contem(tema_base, ["empreendedorismo", "empreendedor", "negocio", "empresa", "produto", "servico", "mercado", "lucro", "viabilidade"]):
-            return "empreendedorismo"
-        if _contem(tema_base, ["direito do consumidor", "direitos do consumidor", "consumidor", "reclamacao", "garantia", "nota fiscal", "cidadania financeira"]):
-            return "cidadania_financeira"
-        if _contem(tema_base, ["instituicao financeira", "instituicoes financeiras", "banco", "conta digital", "guardar dinheiro", "onde guardamos", "movimentar dinheiro"]):
-            return "instituicoes_financeiras"
-        if _contem(tema_base, ["investimento", "poupanca", "rendimento", "juros", "aplicacao", "reserva", "patrimonio", "rentabilidade", "reserva de emergencia"]):
-            return "investimento_poupanca"
-        if _contem(tema_base, ["orcamento", "planejamento", "receita", "despesa", "gasto", "renda", "controle", "organizacao financeira"]):
-            return "orcamento_planejamento"
-        if _contem(tema_base, ["percentuais na midia", "porcentagens na midia", "analisando noticias", "analise de noticias", "manchetes", "noticias", "percentual", "porcentagem"]):
-            return "analise_percentuais_noticias"
-        if _contem(tema_base, ["papel do governo na economia", "governo na economia", "estado na economia", "politicas publicas", "impostos", "arrecadacao"]):
-            return "governo_economia"
-        if _contem(tema_base, ["impacto das decisoes economicas", "decisoes economicas em nossas vidas", "impacto das escolhas economicas", "escolhas economicas"]):
-            return "impacto_decisoes_economicas"
-        if _contem(tema_base, ["consumo", "compra", "decisao", "necessidade", "desejo", "prioridade", "escolha", "custo-beneficio", "consumo consciente"]):
-            return "consumo_consciente"
-        if _contem(base, ["credito", "divida", "emprestimo", "financiamento", "parcela", "endividamento", "inadimplencia"]):
-            return "credito_endividamento"
-        if _contem(base, ["empreendedorismo", "empreendedor", "negocio", "empresa", "produto", "servico", "mercado", "lucro", "viabilidade"]):
-            return "empreendedorismo"
-        if _contem(base, ["direito do consumidor", "direitos do consumidor", "consumidor", "reclamacao", "garantia", "nota fiscal", "cidadania financeira"]):
-            return "cidadania_financeira"
-        if _contem(base, ["instituicao financeira", "instituicoes financeiras", "banco", "conta digital", "guardar dinheiro", "onde guardamos", "movimentar dinheiro"]):
-            return "instituicoes_financeiras"
-        if _contem(base, ["investimento", "poupanca", "rendimento", "juros", "aplicacao", "reserva", "patrimonio", "rentabilidade", "reserva de emergencia"]):
-            return "investimento_poupanca"
-        if _contem(base, ["orcamento", "planejamento", "receita", "despesa", "gasto", "renda", "controle", "organizacao financeira"]):
-            return "orcamento_planejamento"
-        if _contem(base, ["consumo", "compra", "decisao", "necessidade", "desejo", "prioridade", "escolha", "custo-beneficio", "consumo consciente"]):
-            return "consumo_consciente"
-        return "decisao_financeira"
-
-    if perfil == "matematica":
-        if _contem(base, ["aula khan", "pratica na khan", "atividade khan"]) and _contem(
-            base,
-            ["revisao", "conceito de funcao", "relacoes proporcionais", "grandezas diretamente proporcionais"],
-        ):
-            return "revisao_khan_funcao"
-        if _contem(
-            base,
-            [
-                "modelagem",
-                "modelar situacoes",
-                "modelar situacoes-problema",
-                "metodo de polya",
-                "polya",
-                "representar matematicamente",
-                "sentenca matematica",
-            ],
-        ):
-            return "modelagem"
-        if _contem(tema_base, ["grandeza", "razao", "proporcao"]):
-            return "grandezas_medidas"
-        if _contem(base, ["equac", "equa", "variavel", "incognita", "express", "polinom", "sistema", "inequac", "logarit", "1 grau", "2 grau", "modulo"]):
-            return "algebra"
-        if _contem(base, ["func", "f(x)", "lei de formacao", "dominio", "imagem", "grafico de funcao", "taxa de variacao"]):
-            return "funcoes"
-        if _contem(base, ["combinat", "permut", "arranjo", "fatorial", "contagem", "ordem importa", "anagrama", "comissao", "placa", "senha"]):
-            return "combinatoria"
-        if _contem(base, ["grandeza", "razao", "proporcao", "velocidade media", "mbps", "kbps"]):
-            return "grandezas_medidas"
-        if _contem(base, ["estatist", "probab", "media", "mediana", "moda", "amostra", "espaco amostral", "evento", "frequencia", "censo", "pesquisa"]):
-            return "estatistica_probabilidade"
-        if _contem(base, ["geometr", "area", "perimetro", "volume", "angulo", "triangulo", "figura", "solido", "pitagoras", "malha", "trigonom"]):
-            return "geometria"
-        if _contem(base, ["numero", "fracao", "decimal", "porcentagem", "potencia", "raiz", "divisibilidade", "operacao", "mmc", "mdc", "primo"]):
-            return "numeros_operacoes"
-        return "resolucao_problemas"
-
-    if _contem(base, ["producao textual", "produzir", "rascunho", "revisao", "reescrita", "redacao", "planejamento do texto"]):
-        return "producao"
-    if _contem(base, ["debate", "argumento", "opiniao", "tese", "ponto de vista", "carta de leitor"]):
-        return "argumentacao"
-    if _contem(base, ["fonte historica", "documento historico", "linha do tempo", "periodo historico", "cronologia"]):
-        return "fonte_historica"
-    if _contem(base, ["mapa", "paisagem", "territorio", "regiao", "grafico", "escala", "cartografia"]):
-        return "analise_geografica"
-    if _contem(base, ["experimento", "investigacao", "hipotese", "modelo", "observacao", "processo natural"]):
-        return "investigacao"
-    if _contem(base, ["calculo", "problema", "porcentagem", "juros", "orcamento", "tabela", "grafico"]):
-        return "resolucao_problemas"
-    if _contem(base, ["vocabulary", "listen", "repeat", "speaking", "reading", "writing", "dialogue"]):
-        return "lingua_estrangeira"
-    if _contem(base, ["apreciacao", "criacao", "experimentacao", "musica", "imagem", "obra", "performance"]):
-        return "arte_pratica"
-    if _contem(base, ["autoconhecimento", "convivencia", "projeto de vida", "escolha", "respeito", "planejamento pessoal"]):
-        return "reflexiva"
-    if _contem(
-        base,
-        [
-            "leitura",
-            "leia",
-            "texto",
-            "interpreta",
-            "genero textual",
-            "conto",
-            "cronica",
-            "anuncio",
-            "publicidade",
-            "publicitario",
-            "slogan",
-            "observe",
-        ],
-    ):
-        return "leitura"
-    return "geral"
 
 
 def _metodologia_fixa_pdf_especial(texto: str, disciplina: str, tema: str) -> list[dict] | None:
@@ -1449,6 +1384,32 @@ def _aprendizagem_padrao_por_perfil(tema: str, perfil: str, conceito: str = "") 
             f"Analisar criticamente aspectos relacionados a {foco}, relacionando territorio, sociedade, natureza "
             "e leitura de diferentes linguagens geograficas ao longo da aula."
         )
+    if perfil == "educacao_financeira":
+        base_ef = normalizar_texto_lote(" ".join([foco, conceito]))
+        if any(k in base_ef for k in ["credito", "endividamento", "divida", "dividas", "emprestimo", "financiamento", "juros", "parcel"]):
+            return (
+                f"Analisar situacoes relacionadas a {foco}, comparando custos, prazos, riscos e impactos no orcamento "
+                "antes de tomar decisoes financeiras mais conscientes."
+            )
+        if any(k in base_ef for k in ["poupanca", "reserva", "investimento", "rendimento", "imprevisto"]):
+            return (
+                f"Compreender como poupanca, reserva e planejamento de longo prazo se relacionam a {foco}, "
+                "analisando possibilidades de organizacao financeira e protecao diante de imprevistos."
+            )
+        if any(k in base_ef for k in ["consumo", "preco", "cesta basica", "simulador", "simuladores", "energia", "agua", "gas", "internet", "necessidade", "desejo"]):
+            return (
+                f"Analisar escolhas de consumo relacionadas a {foco}, comparando precos, necessidades, gastos fixos "
+                "e variaveis e seus efeitos no orcamento familiar."
+            )
+        if any(k in base_ef for k in ["orcamento", "planejamento", "receita", "despesa", "gasto", "saldo", "planner", "meta"]):
+            return (
+                f"Compreender como receitas, despesas, prioridades e metas interferem em {foco}, analisando dados, "
+                "comparando escolhas e registrando estrategias de planejamento financeiro."
+            )
+        return (
+            f"Compreender conceitos de educacao financeira relacionados a {foco}, articulando organizacao do orcamento, "
+            "analise de dados e tomada de decisao responsavel."
+        )
 
     return f"Compreender e analisar conceitos relacionados a {foco}, articulando leitura, discussao orientada e registro das ideias centrais trabalhadas na aula."
 
@@ -1541,6 +1502,7 @@ def _texto_habilidade_invalido_ou_truncado(texto: str) -> bool:
 
 def _sintetizar_objetivos_e_conteudos_para_aprendizagem(
     tema: str,
+    conceito: str = "",
     objetivos: list[str] | None = None,
     conteudos: list[str] | None = None,
     perfil: str = "",
@@ -1548,7 +1510,8 @@ def _sintetizar_objetivos_e_conteudos_para_aprendizagem(
     objetivos = [re.sub(r"\s+", " ", str(x or "")).strip(" .;:-") for x in (objetivos or []) if str(x or "").strip()]
     conteudos = [re.sub(r"\s+", " ", str(x or "")).strip(" .;:-") for x in (conteudos or []) if str(x or "").strip()]
 
-    foco_tema = _foco_limpo_aprendizagem(tema, " ".join(conteudos[:2]))
+    base_conceitual = conceito or " ".join(conteudos[:2])
+    foco_tema = _foco_limpo_aprendizagem(tema, base_conceitual)
 
     if perfil == "geografia":
         if objetivos:
@@ -1579,7 +1542,7 @@ def _sintetizar_objetivos_e_conteudos_para_aprendizagem(
     if conteudos:
         return f"Compreender e analisar conceitos relacionados a {foco_tema}, articulando os conteúdos trabalhados no material."
 
-    return _aprendizagem_padrao_por_perfil(tema, perfil, " ".join(conteudos[:2]))
+    return _aprendizagem_padrao_por_perfil(tema, perfil, base_conceitual)
 
 
 def _montar_aprendizagem_inteligente(
@@ -1597,6 +1560,7 @@ def _montar_aprendizagem_inteligente(
 
     fallback = _sintetizar_objetivos_e_conteudos_para_aprendizagem(
         tema=tema,
+        conceito=conceito,
         objetivos=objetivos_secao,
         conteudos=conteudos_secao,
         perfil=perfil,
@@ -2315,11 +2279,7 @@ def _montar_resultado_aula_ia(
     caminho_pdf: str = "",
     bimestre: str = "",
 ) -> dict:
-    referencia_financeira = (
-        referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
-        if perfil == "educacao_financeira" and caminho_pdf
-        else None
-    )
+    referencia_docx = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
 
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
@@ -2464,10 +2424,10 @@ def _montar_resultado_aula_ia(
             perfil,
         )
 
-    if referencia_financeira:
-        metodologia = naturalizar_metodologia_professor(referencia_financeira.get("metodologia") or [])
-        acompanhamento = list(referencia_financeira.get("acompanhamento") or [])[:3]
-        acessibilidade = list(referencia_financeira.get("acessibilidade") or [])[:3]
+    if referencia_docx:
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
+        acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
     from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
 
@@ -2476,9 +2436,9 @@ def _montar_resultado_aula_ia(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
-    if referencia_financeira:
-        acompanhamento_ref = _itens_referencia_financeira(referencia_financeira, "acompanhamento")
-        acessibilidade_ref = _itens_referencia_financeira(referencia_financeira, "acessibilidade")
+    if referencia_docx:
+        acompanhamento_ref = _itens_referencia_docx(referencia_docx, "acompanhamento")
+        acessibilidade_ref = _itens_referencia_docx(referencia_docx, "acessibilidade")
         if len(acompanhamento_ref) == 3:
             acompanhamento = acompanhamento_ref
         if len(acessibilidade_ref) == 3:
@@ -2493,8 +2453,8 @@ def _montar_resultado_aula_ia(
         "metodologia": metodologia,
         "acompanhamento": acompanhamento,
         "acessibilidade": acessibilidade,
-        "origem_metodologia": "docx_referencia_educacao_financeira" if referencia_financeira else "ia_refinada",
-        "fonte_referencia_metodologia": (referencia_financeira or {}).get("fonte", ""),
+        "origem_metodologia": _origem_metodologia_por_referencia(perfil) if referencia_docx else "ia_refinada",
+        "fonte_referencia_metodologia": (referencia_docx or {}).get("fonte", ""),
         "ia_usada": True,
         "ia_provedor": provedor_ia,
         "ia_erro": "",
@@ -2526,11 +2486,7 @@ def _montar_resultado_aula_local(
     caminho_pdf: str = "",
     bimestre: str = "",
 ) -> dict:
-    referencia_financeira = (
-        referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
-        if perfil == "educacao_financeira" and caminho_pdf
-        else None
-    )
+    referencia_docx = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
 
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
@@ -2655,10 +2611,10 @@ def _montar_resultado_aula_local(
             perfil,
         )
 
-    if referencia_financeira:
-        metodologia = naturalizar_metodologia_professor(referencia_financeira.get("metodologia") or [])
-        acompanhamento = list(referencia_financeira.get("acompanhamento") or [])[:3]
-        acessibilidade = list(referencia_financeira.get("acessibilidade") or [])[:3]
+    if referencia_docx:
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
+        acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
     from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
 
@@ -2667,9 +2623,9 @@ def _montar_resultado_aula_local(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
-    if referencia_financeira:
-        acompanhamento_ref = _itens_referencia_financeira(referencia_financeira, "acompanhamento")
-        acessibilidade_ref = _itens_referencia_financeira(referencia_financeira, "acessibilidade")
+    if referencia_docx:
+        acompanhamento_ref = _itens_referencia_docx(referencia_docx, "acompanhamento")
+        acessibilidade_ref = _itens_referencia_docx(referencia_docx, "acessibilidade")
         if len(acompanhamento_ref) == 3:
             acompanhamento = acompanhamento_ref
         if len(acessibilidade_ref) == 3:
@@ -2684,8 +2640,8 @@ def _montar_resultado_aula_local(
         "metodologia": metodologia,
         "acompanhamento": acompanhamento,
         "acessibilidade": acessibilidade,
-        "origem_metodologia": "docx_referencia_educacao_financeira" if referencia_financeira else "motor_local",
-        "fonte_referencia_metodologia": (referencia_financeira or {}).get("fonte", ""),
+        "origem_metodologia": _origem_metodologia_por_referencia(perfil) if referencia_docx else "motor_local",
+        "fonte_referencia_metodologia": (referencia_docx or {}).get("fonte", ""),
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
@@ -2789,9 +2745,16 @@ def _preparar_contexto_aula_pdf(
         contexto_metodologico = "regular"
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
     aprendizagem_pv = montar_aprendizagem_projeto_vida(escopo_pv) if escopo_pv else ""
-    if escopo_pv.get("titulo"):
-        tema = escopo_pv["titulo"]
-        material_digital = f"AULA {int(numero_aula)} - {tema}" if numero_aula.isdigit() else tema
+    if perfil == "projeto_de_vida":
+        referencia_docx_pv = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+        titulo_referencia = str((referencia_docx_pv or {}).get("titulo") or "").strip()
+        titulo_escopo = str((escopo_pv or {}).get("titulo") or "").strip()
+        if titulo_referencia:
+            tema = titulo_referencia
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
+        elif _titulo_escopo_projeto_vida_confiavel(titulo_escopo):
+            tema = titulo_escopo
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
 
     return {
         "texto": texto,
@@ -2856,8 +2819,8 @@ def _aula_por_pdf(
 
     from core.revisao_final import VERSAO_GERADOR_ATUAL
 
-    assinatura_referencia_financeira = _assinatura_docx_referencia_financeira(caminho_pdf, disciplina, turma)
-    hash_contexto_fingerprint = f"{hash_atual}|ref:{assinatura_referencia_financeira}" if assinatura_referencia_financeira else hash_atual
+    assinatura_referencia_docx = _assinatura_docx_referencia(caminho_pdf, disciplina, turma)
+    hash_contexto_fingerprint = f"{hash_atual}|ref:{assinatura_referencia_docx}" if assinatura_referencia_docx else hash_atual
 
     fingerprint_atual = montar_fingerprint_contexto(
         hash_pdf=hash_contexto_fingerprint,
@@ -2889,35 +2852,36 @@ def _aula_por_pdf(
                     fonte_cache = str(dados_json.get("fonte_extracao") or "pdf").lower()
                     arquivo_cache = str(dados_json.get("arquivo_fonte_extracao") or caminho_pdf)
                     fingerprint_salvo = dados_json.get("fingerprint_contexto")
-                    referencia_financeira_cache = None
+                    referencia_docx_cache = None
                     metodologia_cache = dados_json["metodologia"]
                     acompanhamento_cache = dados_json.get("acompanhamento") or []
                     acessibilidade_cache = dados_json.get("acessibilidade") or []
-                    if perfil_disciplina(disciplina, turma=turma) == "educacao_financeira":
-                        referencia_financeira_cache = referencia_por_pdf(
-                            caminho_pdf,
-                            dados_json.get("numero_aula") or "",
-                            tema=dados_json.get("tema") or "",
+                    perfil_cache = perfil_disciplina(disciplina, turma=turma)
+                    referencia_docx_cache = _referencia_docx_por_perfil(
+                        caminho_pdf,
+                        dados_json.get("numero_aula") or "",
+                        dados_json.get("tema") or "",
+                        perfil_cache,
+                    )
+                    if referencia_docx_cache:
+                        metodologia_cache = referencia_docx_cache.get("metodologia") or metodologia_cache
+                        acompanhamento_ref = _itens_referencia_docx(
+                            referencia_docx_cache,
+                            "acompanhamento",
                         )
-                        if referencia_financeira_cache:
-                            metodologia_cache = referencia_financeira_cache.get("metodologia") or metodologia_cache
-                            acompanhamento_ref = _itens_referencia_financeira(
-                                referencia_financeira_cache,
-                                "acompanhamento",
-                            )
-                            acessibilidade_ref = _itens_referencia_financeira(
-                                referencia_financeira_cache,
-                                "acessibilidade",
-                            )
-                            if len(acompanhamento_ref) == 3:
-                                acompanhamento_cache = acompanhamento_ref
-                            if len(acessibilidade_ref) == 3:
-                                acessibilidade_cache = acessibilidade_ref
+                        acessibilidade_ref = _itens_referencia_docx(
+                            referencia_docx_cache,
+                            "acessibilidade",
+                        )
+                        if len(acompanhamento_ref) == 3:
+                            acompanhamento_cache = acompanhamento_ref
+                        if len(acessibilidade_ref) == 3:
+                            acessibilidade_cache = acessibilidade_ref
                     origem_metodologia_cache = dados_json.get("origem_metodologia") or (
-                        "docx_referencia_educacao_financeira" if referencia_financeira_cache else ""
+                        _origem_metodologia_por_referencia(perfil_cache) if referencia_docx_cache else ""
                     )
                     fonte_referencia_cache = dados_json.get("fonte_referencia_metodologia") or (
-                        referencia_financeira_cache or {}
+                        referencia_docx_cache or {}
                     ).get("fonte", "")
 
                     if hash_salvo and hash_atual and hash_salvo != hash_atual:
@@ -2939,6 +2903,9 @@ def _aula_por_pdf(
                             "lingua_portuguesa_em",
                             "leitura_redacao",
                             "educacao_financeira",
+                            "biologia",
+                            "geografia",
+                            "projeto_de_vida",
                         }:
                             pass
                         else:

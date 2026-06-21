@@ -1,8 +1,35 @@
 # -*- coding: utf-8 -*-
+from docx import Document
+
 from core.lib.classificador import detectar_tipo_aula, perfil_disciplina
 from core.lib.metodologia import MotorMetodologico, _etapas_por_perfil
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
+from core.lote import _montar_resultado_aula_local
+from core.referencias_biologia import (
+    localizar_docx_referencia_biologia,
+    referencia_biologia_por_pdf,
+    titulos_referencia_biologia_por_docx,
+)
+
+
+def _criar_docx_referencia_biologia(caminho):
+    doc = Document()
+    doc.add_paragraph("AULA 1 - Ciclos biogeoquimicos do carbono e do oxigenio")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para comecar: Retomar situacoes do cotidiano relacionadas a combustao, respiracao e fotossintese para ativar conhecimentos previos.")
+    doc.add_paragraph("Foco no conteudo: Orientar a leitura do esquema dos ciclos e comparar a circulacao do carbono e do oxigenio nos ambientes terrestre e aquatico.")
+    doc.add_paragraph("Na pratica: Solicitar que a turma organize um quadro com processos, reservatorios e interferencias humanas identificadas no material.")
+    doc.add_paragraph("Encerramento: Socializar as conclusoes e registrar uma sintese sobre equilibrio ambiental.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("\u2611 Verificar se os estudantes identificam processos e reservatorios dos ciclos estudados.")
+    doc.add_paragraph("\u2611 Observar as relacoes estabelecidas entre fotossintese, respiracao e combustao.")
+    doc.add_paragraph("\u2611 Conferir os registros feitos sobre impactos humanos no equilibrio ambiental.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("\u2611 Disponibilizar quadro comparativo com palavras-chave dos ciclos e seus processos.")
+    doc.add_paragraph("\u2611 Oferecer roteiro de leitura guiada com perguntas curtas sobre cada esquema.")
+    doc.add_paragraph("\u2611 Permitir resposta oral mediada antes do registro escrito da sintese.")
+    doc.save(caminho)
 
 
 def test_perfil_biologia_detectado_corretamente():
@@ -104,3 +131,78 @@ def test_acessibilidade_biologia_molecular():
     # Deve conter templates de ferramentas práticas ou glossários
     assert any("glossário" in item.lower() or "glossario" in item.lower() for item in acessibilidade)
     assert any("punnett" in item.lower() or "heredograma" in item.lower() for item in acessibilidade)
+
+
+def test_referencia_biologia_le_docx_da_pasta_do_pdf(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Biologia_1_Ano_Ensino_Medio.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_biologia(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    referencia = referencia_biologia_por_pdf(caminho_pdf, "1")
+
+    assert referencia["titulo"] == "Ciclos biogeoquimicos do carbono e do oxigenio"
+    assert [etapa["titulo"] for etapa in referencia["metodologia"]] == [
+        "Para comecar",
+        "Foco no conteudo",
+        "Na pratica",
+        "Encerramento",
+    ]
+    assert len(referencia["acompanhamento"]) == 3
+    assert len(referencia["acessibilidade"]) == 3
+
+
+def test_titulos_referencia_biologia_por_docx_expoe_mapa_de_aulas(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Biologia_2_Ano_Ensino_Medio.docx"
+    _criar_docx_referencia_biologia(caminho_docx)
+
+    titulos = titulos_referencia_biologia_por_docx(caminho_docx)
+
+    assert titulos == {1: "Ciclos biogeoquimicos do carbono e do oxigenio"}
+
+
+def test_referencia_biologia_localiza_docx_da_serie(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Biologia_2_Ano_Ensino_Medio.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_biologia(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    escolhido = localizar_docx_referencia_biologia(caminho_pdf)
+
+    assert escolhido == caminho_docx
+
+
+def test_biologia_resultado_local_usa_docx_sem_trocar_titulo_oficial(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Biologia_1_Ano_Ensino_Medio.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_biologia(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    resultado = _montar_resultado_aula_local(
+        texto="Texto qualquer do PDF que nao deve prevalecer sobre o DOCX de referencia.",
+        tema="Titulo vindo da planilha",
+        material_digital="AULA 1 - Titulo vindo da planilha",
+        numero_aula="1",
+        disciplina_base="Biologia",
+        turma="1a serie A",
+        provedor_ia="",
+        perfil="biologia",
+        contexto_metodologico="",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        caminho_pdf=str(caminho_pdf),
+    )
+
+    assert resultado["tema"] == "Titulo vindo da planilha"
+    assert resultado["material"] == "AULA 1 - Titulo vindo da planilha"
+    assert resultado["origem_metodologia"] == "docx_referencia_biologia"
+    assert "combustao" in resultado["metodologia"][0]["texto"].lower()
+    assert len(resultado["acompanhamento"]) == 3
+    assert len(resultado["acessibilidade"]) == 3

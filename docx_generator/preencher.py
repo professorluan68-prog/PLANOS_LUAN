@@ -478,7 +478,7 @@ def _limitar_texto_etapa_docx(texto: str, max_frases: int = 2, max_chars: int = 
 
 def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
     itens = [item for item in list(metodologia or []) if item]
-    if len(_texto_metodologia_lista(itens)) <= 1250 and len(itens) <= 4:
+    if len(_texto_metodologia_lista(itens)) <= 1700 and len(itens) <= 5:
         return itens
 
     por_titulo = {}
@@ -492,6 +492,7 @@ def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
     ordem_preferida = [
         ("para comecar", "Para começar"),
         ("foco no conteudo", "Foco no conteúdo"),
+        ("pause e responda", "Pause e responda"),
         ("na pratica", "Na prática"),
         ("encerramento", "Encerramento"),
     ]
@@ -504,7 +505,7 @@ def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
         compactos.append(
             {
                 "titulo": item.get("titulo") or titulo_padrao,
-                "texto": _limitar_texto_etapa_docx(item.get("texto", "")),
+                "texto": _limitar_texto_etapa_docx(item.get("texto", ""), max_frases=3, max_chars=420),
             }
         )
 
@@ -512,16 +513,16 @@ def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
         return compactos
 
     resultado = []
-    for item in itens[:4]:
+    for item in itens[:5]:
         if isinstance(item, dict):
             resultado.append(
                 {
                     "titulo": item.get("titulo", ""),
-                    "texto": _limitar_texto_etapa_docx(item.get("texto", "")),
+                    "texto": _limitar_texto_etapa_docx(item.get("texto", ""), max_frases=3, max_chars=420),
                 }
             )
         else:
-            resultado.append(_limitar_texto_etapa_docx(str(item)))
+            resultado.append(_limitar_texto_etapa_docx(str(item), max_frases=3, max_chars=420))
     return resultado
 
 

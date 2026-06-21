@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from core.helpers import (
+    arquivo_parece_id_seduc,
     arquivos_na_ordem_de_envio,
+    filtrar_pdfs_para_aulas,
     listar_falhas_ia,
     montar_relatorio_geracao,
     numero_aula_pdf,
@@ -37,6 +39,19 @@ def test_numero_aula_pdf_extrai_numero_do_nome():
     assert numero_aula_pdf(Path("AULA_017.pdf")) == 17
     assert numero_aula_pdf(Path("1612757.pdf")) is None
     assert numero_aula_pdf(Path("material_sem_numero.pdf")) is None
+
+
+def test_arquivo_parece_id_seduc_detecta_nome_numerico_longo():
+    assert arquivo_parece_id_seduc(Path("1612757.pdf")) is True
+    assert arquivo_parece_id_seduc(Path("AULA 1.pdf")) is False
+
+
+def test_filtrar_pdfs_para_aulas_prioriza_arquivos_legiveis():
+    arquivos = [Path("1612757.pdf"), Path("AULA 2.pdf"), Path("AULA 1.pdf")]
+
+    filtrados = filtrar_pdfs_para_aulas(arquivos)
+
+    assert [arquivo.name for arquivo in filtrados] == ["AULA 2.pdf", "AULA 1.pdf"]
 
 
 def test_ordenar_pdfs_por_numero_usa_ordem_natural():

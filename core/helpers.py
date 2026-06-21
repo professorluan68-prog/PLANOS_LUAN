@@ -229,6 +229,12 @@ def _buscar_pasta_pdf_flexivel(
     return melhor[2] if melhor else None
 
 
+def arquivo_parece_id_seduc(arquivo) -> bool:
+    nome = getattr(arquivo, "name", None) or Path(str(arquivo)).name
+    nome_base = Path(nome).stem.strip()
+    return bool(re.fullmatch(r"\d{5,}", nome_base))
+
+
 def numero_aula_pdf(arquivo) -> int | None:
     nome = getattr(arquivo, "name", None) or Path(str(arquivo)).name
     nome_base = Path(nome).stem
@@ -250,13 +256,18 @@ def numero_aula_pdf(arquivo) -> int | None:
         return int(match.group(1))
     
     # 3. Fallback geral, evitando IDs longos da SEDUC como "1612757.pdf".
-    if re.fullmatch(r"\d{5,}", nome_base):
+    if arquivo_parece_id_seduc(nome):
         return None
     match_any = re.search(r"(?<!\d)(\d{1,3})(?!\d)", nome_base)
     if match_any:
         return int(match_any.group(1))
     return None
 
+
+def filtrar_pdfs_para_aulas(arquivos) -> list:
+    lista = list(arquivos or [])
+    legiveis = [arquivo for arquivo in lista if not arquivo_parece_id_seduc(arquivo)]
+    return legiveis or lista
 
 
 def ordenar_pdfs_por_numero(arquivos) -> list:

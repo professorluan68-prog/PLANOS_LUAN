@@ -8,6 +8,10 @@ import re
 from collections import Counter
 
 from core.educacao_financeira_validacao import validar_requisitos_educacao_financeira
+from core.listas_pedagogicas import (
+    itens_lista_pedagogica,
+    problemas_lista_exatamente_tres,
+)
 from core.qualidade_metodologica import normalizar_texto, tem_mojibake
 
 
@@ -104,24 +108,28 @@ def validar_aulas_geradas(
         acompanhamento = aula.get("acompanhamento") or []
         if not acompanhamento:
             problemas.append(f"Aula {idx}: acompanhamento da aprendizagem vazio.")
-        elif isinstance(acompanhamento, list):
-            itens_validos = [item for item in acompanhamento if str(item).strip()]
-            if len(itens_validos) < 2:
-                problemas.append(
-                    f"Aula {idx}: acompanhamento com poucos itens ({len(itens_validos)}). "
-                    "Recomendado pelo menos 3."
+        else:
+            itens_validos = itens_lista_pedagogica(acompanhamento)
+            problemas.extend(
+                problemas_lista_exatamente_tres(
+                    "acompanhamento da aprendizagem",
+                    itens_validos,
+                    prefixo=f"Aula {idx}: ",
                 )
+            )
 
         acessibilidade = aula.get("acessibilidade") or []
         if not acessibilidade:
             problemas.append(f"Aula {idx}: acessibilidade vazia.")
-        elif isinstance(acessibilidade, list):
-            itens_validos = [item for item in acessibilidade if str(item).strip()]
-            if len(itens_validos) < 2:
-                problemas.append(
-                    f"Aula {idx}: acessibilidade com poucos itens ({len(itens_validos)}). "
-                    "Recomendado pelo menos 3."
+        else:
+            itens_validos = itens_lista_pedagogica(acessibilidade)
+            problemas.extend(
+                problemas_lista_exatamente_tres(
+                    "acessibilidade",
+                    itens_validos,
+                    prefixo=f"Aula {idx}: ",
                 )
+            )
 
         for problema in validar_requisitos_educacao_financeira(aula):
             problemas.append(f"Aula {idx}: {problema}")
@@ -141,8 +149,11 @@ def validar_aula_final(aula: dict) -> list[str]:
         avisos.append("Tema muito genérico ou vazio.")
 
     metodologia = aula.get("metodologia", [])
-    if len(metodologia) != 4:
-        avisos.append(f"Metodologia com número incorreto de etapas ({len(metodologia)}). Devem ser exatamente 4.")
+    if len(metodologia) < 3 and _contar_etapas_metodologia(metodologia) < 3:
+        avisos.append(
+            f"Metodologia com poucas etapas ({len(metodologia)}). "
+            "O plano deve apresentar ao menos 3 momentos pedagógicos."
+        )
 
     conteudo_ref = tema + " " + aprendizagem
     conteudo_palavras = {
@@ -197,6 +208,19 @@ def validar_aula_final(aula: dict) -> list[str]:
                 avisos.append("Metodologia com alto índice de repetição de termos.")
 
     acessibilidade = aula.get("acessibilidade") or []
+    acompanhamento = aula.get("acompanhamento") or []
+    avisos.extend(
+        problemas_lista_exatamente_tres(
+            "Acompanhamento da aprendizagem",
+            itens_lista_pedagogica(acompanhamento),
+        )
+    )
+    avisos.extend(
+        problemas_lista_exatamente_tres(
+            "Acessibilidade",
+            itens_lista_pedagogica(acessibilidade),
+        )
+    )
     texto_acessibilidade = " ".join(str(item) for item in acessibilidade).lower()
     placeholders_acess = {
         "estrategia generica", "apoio generico", "leitura simples", "informacao do material",

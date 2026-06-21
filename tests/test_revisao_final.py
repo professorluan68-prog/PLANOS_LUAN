@@ -23,8 +23,16 @@ def test_revisar_aula_gerada_auditoria():
             {"titulo": "Na prática", "texto": "O professor propõe que os estudantes se organizem em duplas para resolver problemas práticos de grandezas proporcionais em folha de registro."},
             {"titulo": "Encerramento", "texto": "O professor orienta que os alunos façam um debate rápido compartilhando as resoluções sobre grandezas proporcionais e registrem a síntese final no caderno."}
         ],
-        "acompanhamento": ["Observação", "Análise de resoluções", "Feedback imediato"],
-        "acessibilidade": ["Disponibilizar representações visuais de grandezas proporcionais.", "Permitir o uso de calculadora para resolver problemas.", "Oferecer tempo estendido para o registro das respostas."]
+        "acompanhamento": [
+            "☑ Observar a participação dos estudantes na resolução dos problemas.",
+            "☑ Verificar os registros das estratégias usadas nas duplas.",
+            "☑ Conferir as respostas socializadas ao final da aula.",
+        ],
+        "acessibilidade": [
+            "☑ Disponibilizar representações visuais de grandezas proporcionais.",
+            "☑ Oferecer leitura guiada dos enunciados com palavras-chave destacadas.",
+            "☑ Permitir resposta oral mediada antes do registro escrito.",
+        ]
     }
     resultado = revisar_aula_gerada(aula_perfeita, "matematica")
     assert resultado["confidence_score"] == 100
@@ -46,8 +54,10 @@ def test_revisar_aula_gerada_auditoria():
     assert "Tema não identificado." in alertas
     assert "Campo de aprendizagem vazio." in alertas
     assert "Metodologia com poucas etapas." in alertas
-    assert "Acompanhamento da aprendizagem com menos de 3 itens." in alertas
-    assert "Acessibilidade com menos de 3 itens." in alertas
+    assert "Acompanhamento da aprendizagem deve ter exatamente 3 itens; foram encontrados 1." in alertas
+    assert "Acompanhamento da aprendizagem deve ter todos os itens iniciando com ☑." in alertas
+    assert "Acessibilidade deve ter exatamente 3 itens; foram encontrados 1." in alertas
+    assert "Acessibilidade deve ter todos os itens iniciando com ☑." in alertas
     assert "Placeholder residual em acessibilidade: 'informação do material simples'." in alertas
 
 def test_lote_cache_validation_by_hash(tmp_path):

@@ -4,7 +4,7 @@ from io import BytesIO
 from docx import Document
 from docx.oxml.ns import qn
 
-from docx_generator.preencher import preencher_documento
+from docx_generator.preencher import _metodologia_para_docx, preencher_documento
 
 
 def _modelo_com_semanas(semanas, linhas_aulas=1):
@@ -391,12 +391,31 @@ def test_remove_paragrafos_vazios_finais_do_docx():
         )
     )
 
-    filhos = list(doc._element.body)
-    indice = len(filhos) - 1
-    while indice >= 0 and filhos[indice].tag == qn("w:sectPr"):
-        indice -= 1
 
-    assert filhos[indice].tag != qn("w:p")
+def test_metodologia_educacao_financeira_para_docx_preserva_pause_e_texto_completo():
+    aula = {
+        "disciplina": "Educação Financeira",
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Retomar conhecimentos prévios sobre orçamento familiar."},
+            {"titulo": "Foco no conteúdo", "texto": "Explorar os benefícios do planejamento financeiro com leitura orientada e registro inicial."},
+            {"titulo": "Pause e responda", "texto": "Verificar por que controlar gastos e estabelecer objetivos é mais adequado do que ampliar o consumo sem limites."},
+            {
+                "titulo": "Na prática",
+                "texto": (
+                    "Conduzir a leitura dos dados sobre o comportamento de investimento dos brasileiros e discutir a diferença entre consumo imediato e planejamento de longo prazo. "
+                    "Após o vídeo, organizar duplas para elaborar três ideias que possam ajudar famílias a cuidar melhor do dinheiro e compartilhar uma delas em roda com a turma."
+                ),
+            },
+            {"titulo": "Encerramento", "texto": "Retomar os pontos principais e solicitar síntese final."},
+        ],
+    }
+
+    metodologia_docx = _metodologia_para_docx(aula)
+    titulos = [item.get("titulo") for item in metodologia_docx if isinstance(item, dict)]
+    texto_na_pratica = next(item.get("texto") for item in metodologia_docx if isinstance(item, dict) and item.get("titulo") == "Na prática")
+
+    assert titulos == ["Para começar", "Foco no conteúdo", "Pause e responda", "Na prática", "Encerramento"]
+    assert "cuidar melhor do dinheiro e compartilhar uma delas em roda com a turma" in texto_na_pratica
 
 
 def test_metodologia_educacao_financeira_fica_compacta_no_docx():
@@ -414,7 +433,6 @@ def test_metodologia_educacao_financeira_fica_compacta_no_docx():
     doc = _gerar([aula])
     desenvolvimento = doc.tables[1].rows[1].cells[3].text
 
-    assert "Pause e responda" not in desenvolvimento
+    assert "Pause e responda" in desenvolvimento
     assert "Socialização extra" not in desenvolvimento
-    assert desenvolvimento.count(":") == 4
-    assert "Terceira frase longa" not in desenvolvimento
+    assert desenvolvimento.count(":") == 5

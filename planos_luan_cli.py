@@ -23,6 +23,7 @@ try:
     from docx_generator.preencher_cdp import preencher_documento_cdp
     from core.disciplinas import eh_cdp, eh_cdp_fundamental, eh_cdp_multisseriada, eh_cdp_contextual
     from core.modelos_docx import caminho_template_por_contexto
+    from core.helpers import filtrar_pdfs_para_aulas, ordenar_pdfs_por_numero
     from core.calendario import (
         fim_periodo_mes_com_extensao,
         datas_por_dia_ate_limite,
@@ -391,7 +392,7 @@ def main():
                 sys.exit(6)
         elif pdf_path.is_dir():
             # Find all PDFs in dir
-            found_pdfs = sorted(list(pdf_path.glob("*.pdf")), key=lambda p: p.name)
+            found_pdfs = ordenar_pdfs_por_numero(filtrar_pdfs_para_aulas(pdf_path.glob("*.pdf")))
             if not found_pdfs:
                 logger.error(f"Nenhum arquivo PDF encontrado no diretorio: {pdf_path}")
                 sys.exit(7)

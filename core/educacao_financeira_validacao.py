@@ -8,6 +8,7 @@ from collections.abc import Iterable
 
 
 _VERBOS_OBSERVAVEIS = (
+    "acompanhar",
     "analisar",
     "calcular",
     "classificar",
@@ -25,21 +26,51 @@ _VERBOS_OBSERVAVEIS = (
 )
 
 _APOIOS_CONCRETOS = (
+    "calculadora",
     "cartao",
+    "conferencia em dupla",
+    "dupla produtiva",
+    "duplas produtivas",
     "esquema",
     "exemplo",
+    "explicacao oral",
+    "funcao variada",
+    "funcoes variadas",
     "frase curta",
+    "glossario",
+    "grupo",
+    "ler coletivamente",
     "leitura mediada",
+    "leitura coletiva",
+    "leitura guiada",
     "material impresso",
+    "modelo de planner",
     "modelo",
+    "modelo simplificado",
+    "oralmente",
+    "palavra-chave",
+    "pergunta direta",
+    "perguntas diretas",
     "pergunta orientadora",
+    "pergunta-guia",
+    "perguntas-guia",
+    "pergunta guia",
+    "perguntas guia",
     "planilha",
+    "preenchimento guiado",
     "quadro",
+    "quadro comparativo",
     "registro guiado",
+    "registro em topicos",
+    "registro por cores",
     "resposta oral",
     "roteiro",
+    "roteiro de tomada de decisao",
     "tabela",
+    "tabela-modelo",
     "tempo adicional",
+    "caso curto",
+    "casos curtos",
 )
 
 
@@ -91,7 +122,7 @@ def validar_requisitos_educacao_financeira(aula: dict) -> list[str]:
             if not _contem_termo(item, _APOIOS_CONCRETOS):
                 problemas.append(
                     f"Acessibilidade: item {indice} precisa indicar apoio concreto "
-                    "(ex.: quadro, tabela, roteiro, planilha ou resposta oral)."
+                    "(ex.: quadro, tabela, roteiro, planilha, calculadora ou resposta oral)."
                 )
 
     return problemas
