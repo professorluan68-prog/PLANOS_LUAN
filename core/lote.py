@@ -2278,6 +2278,7 @@ def _montar_resultado_aula_ia(
     aprendizagem_orientacao: str,
     caminho_pdf: str = "",
     bimestre: str = "",
+    rascunho_base: dict | None = None,
 ) -> dict:
     referencia_docx = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
 
@@ -2317,6 +2318,10 @@ def _montar_resultado_aula_ia(
         modalidade_eja_ativa=modalidade_eja_ativa,
     )
 
+    metodologia_local = rascunho_base.get("metodologia", []) if rascunho_base else []
+    metodologia_ia_crua = plano_ia.get("metodologia", []) if plano_ia else []
+    metodologia_higienizada_temp = []
+
     metodologia_ia = plano_ia.get("metodologia", [])
     if perfil == "leitura_redacao":
         metodologia_ia = _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
@@ -2338,6 +2343,7 @@ def _montar_resultado_aula_ia(
             tema=tema,
             contexto=contexto_metodologico,
         )
+        metodologia_higienizada_temp = list(metodologia_ia)
         metodologia_ia = naturalizar_metodologia_professor(metodologia_ia)
         if modalidade_eja_ativa:
             metodologia_ia = _adaptar_metodologia_eja(
@@ -2444,6 +2450,13 @@ def _montar_resultado_aula_ia(
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
 
+    diagnostico_geracao = {
+        "metodologia_local": metodologia_local,
+        "metodologia_ia_crua": metodologia_ia_crua,
+        "metodologia_higienizada": metodologia_higienizada_temp or (metodologia_ia if metodologia_ia else []),
+        "metodologia_final": metodologia,
+    }
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -2458,6 +2471,9 @@ def _montar_resultado_aula_ia(
         "ia_usada": True,
         "ia_provedor": provedor_ia,
         "ia_erro": "",
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": diagnostico_geracao,
     }
     aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
     return aula_gerada
@@ -2536,7 +2552,11 @@ def _montar_resultado_aula_local(
         modalidade_eja_ativa=modalidade_eja_ativa,
     )
 
+    metodologia_local = []
+    metodologia_higienizada_temp = []
+
     if metodologia_fixa_pdf:
+        metodologia_local = list(metodologia_fixa_pdf)
         metodologia = metodologia_fixa_pdf
         desenvolvimento = _texto_metodologia(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
@@ -2556,7 +2576,9 @@ def _montar_resultado_aula_local(
             tema,
             perfil,
         )
+        metodologia_higienizada_temp = list(metodologia)
     elif colunas_planejamento:
+        metodologia_local = list(colunas_planejamento["metodologia"])
         metodologia = colunas_planejamento["metodologia"]
         if modalidade_eja_ativa:
             tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
@@ -2569,6 +2591,7 @@ def _montar_resultado_aula_local(
             tema,
             perfil,
         )
+        metodologia_higienizada_temp = list(metodologia)
     else:
         metodologia = _montar_etapas_metodologia(
             texto,
@@ -2579,6 +2602,7 @@ def _montar_resultado_aula_local(
             total_aulas=total_aulas,
             contexto_geracao=contexto_geracao,
         )
+        metodologia_local = list(metodologia)
         tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
         if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
             metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
@@ -2589,6 +2613,7 @@ def _montar_resultado_aula_local(
             tema=tema,
             contexto=contexto_metodologico,
         )
+        metodologia_higienizada_temp = list(metodologia)
         metodologia = naturalizar_metodologia_professor(metodologia)
         metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf, _garantir_tecnicas_lemov_na_metodologia) if modalidade_eja_ativa else metodologia
 
@@ -2631,6 +2656,13 @@ def _montar_resultado_aula_local(
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
 
+    diagnostico_geracao = {
+        "metodologia_local": metodologia_local,
+        "metodologia_ia_crua": [],
+        "metodologia_higienizada": metodologia_higienizada_temp or (metodologia if metodologia else []),
+        "metodologia_final": metodologia,
+    }
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -2645,6 +2677,9 @@ def _montar_resultado_aula_local(
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": diagnostico_geracao,
     }
     aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
     return aula_gerada
@@ -2938,6 +2973,9 @@ def _aula_por_pdf(
                                 "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
                                 "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
                                 "versao_prompt": dados_json.get("versao_prompt") or "",
+                                "recursos_detectados": dados_json.get("recursos_detectados") or [],
+                                "texto_fonte": dados_json.get("texto_fonte") or "",
+                                "diagnostico_geracao": dados_json.get("diagnostico_geracao") or {},
                             }
                             if "avisos_validacao" not in dados_json:
                                 aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -2971,6 +3009,9 @@ def _aula_por_pdf(
                             "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
                             "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
                             "versao_prompt": dados_json.get("versao_prompt") or "",
+                            "recursos_detectados": dados_json.get("recursos_detectados") or [],
+                            "texto_fonte": dados_json.get("texto_fonte") or "",
+                            "diagnostico_geracao": dados_json.get("diagnostico_geracao") or {},
                         }
                         if "avisos_validacao" not in dados_json:
                             aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)

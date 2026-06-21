@@ -2503,6 +2503,42 @@ if st.session_state.get("turmas_processadas"):
     )
     turmas_revisadas = []
     rev_tok = st.session_state.get("revisao_token", 0)
+
+    # Detecção de Frases Repetidas (Item 12/13)
+    from collections import defaultdict
+    import re
+    from core.normalizacao import normalizar as normalizar_texto_aux
+
+    contagem_sentencas = defaultdict(list)
+    for t_idx_dup, td_dup in enumerate(st.session_state.get("turmas_processadas", [])):
+        for a_idx_dup, aula_dup in enumerate(td_dup.get("aulas", [])):
+            metodologia_dup = aula_dup.get("metodologia") or []
+            textos_etapas = []
+            for item in metodologia_dup:
+                if isinstance(item, dict):
+                    textos_etapas.append(item.get("texto", ""))
+                else:
+                    textos_etapas.append(str(item))
+            texto_completo = " ".join(textos_etapas)
+            # Divide por sentenças usando pontuação simples
+            sentencas = re.split(r'[.!?\n]', texto_completo)
+            vistas_nesta_aula = set()
+            for s in sentencas:
+                s_limpa = re.sub(r'\s+', ' ', s).strip()
+                palavras = s_limpa.split()
+                if len(palavras) > 8:
+                    s_norm = normalizar_texto_aux(s_limpa)
+                    if s_norm not in vistas_nesta_aula:
+                        vistas_nesta_aula.add(s_norm)
+                        contagem_sentencas[s_norm].append((t_idx_dup, a_idx_dup, s_limpa))
+
+    duplicadas_por_aula = defaultdict(list)
+    for frase_norm, ocorrencias in contagem_sentencas.items():
+        if len(ocorrencias) > 2:
+            # Esta frase está repetida em mais de 2 aulas
+            for t_i, a_i, original_txt in ocorrencias:
+                duplicadas_por_aula[(t_i, a_i)].append(original_txt)
+
     for t_idx, td in enumerate(st.session_state["turmas_processadas"]):
         total_aulas_turma = len(td.get("aulas", []))
         st.markdown(f'<div class="review-class-title">{td["turma"]}</div>', unsafe_allow_html=True)
@@ -2510,6 +2546,19 @@ if st.session_state.get("turmas_processadas"):
         aulas_edit = []
         for a_idx, aula in enumerate(td["aulas"]):
             with st.expander(f"Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
+                # Alertas de Qualidade e Redundância (Item 13)
+                score = aula.get("confidence_score")
+                if score is not None and score < 70:
+                    st.error(f"⚠️ **Baixo Score de Confiança ({score}%)**: Este plano de aula pode necessitar de ajustes manuais significativos.")
+                
+                avisos_val = aula.get("avisos_validacao") or []
+                if avisos_val:
+                    st.warning("**Alertas de Qualidade Pedagógica:**\n" + "\n".join([f"- {aviso}" for aviso in avisos_val]))
+                
+                frases_dupl = duplicadas_por_aula.get((t_idx, a_idx))
+                if frases_dupl:
+                    st.warning("**Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):**\n" + "\n".join([f"- \"{frase}\"" for frase in frases_dupl]))
+
                 col1, col2 = st.columns(2)
                 with col1:
                     t = st.text_input("Tema", value=aula.get("tema",""), key=f"tema_{rev_tok}_{t_idx}_{a_idx}")
@@ -2518,6 +2567,52 @@ if st.session_state.get("turmas_processadas"):
                     acomp = st.text_area("Acompanhamento", value="\n".join(aula.get("acompanhamento",[])), key=f"acomp_{rev_tok}_{t_idx}_{a_idx}")
                     aces = st.text_area("Acessibilidade", value="\n".join(aula.get("acessibilidade",[])), key=f"acess_{rev_tok}_{t_idx}_{a_idx}")
                 m = st.text_area("Metodologia", value=_texto_metodologia_app(aula), height=150, key=f"met_{rev_tok}_{t_idx}_{a_idx}")
+                
+                # Relatório Técnico (Item 12/14)
+                with st.expander("🛠️ Relatório Técnico da Geração", expanded=False):
+                    st.markdown(
+                        f"""
+                        | Parâmetro | Valor |
+                        |---|---|
+                        | **Provedor da IA** | {aula.get("ia_provedor") or "Sem IA"} |
+                        | **Cache Reutilizado** | {"Sim" if aula.get("cache_reutilizado") else "Não"} |
+                        | **Versão do Gerador** | {aula.get("versao_gerador") or "1.2.9"} |
+                        | **Origem da Metodologia** | {aula.get("origem_metodologia") or "Desconhecida"} |
+                        | **Score de Confiança** | {aula.get('confidence_score', 100)}% |
+                        """
+                    )
+                    
+                    diag = aula.get("diagnostico_geracao") or {}
+                    if diag:
+                        st.markdown("#### Transformação da Metodologia (Pipeline)")
+                        tabs = st.tabs(["1. Rascunho Local Heurístico", "2. Resposta IA Crua", "3. Higienização/Polimento", "4. Metodologia Final"])
+                        with tabs[0]:
+                            met_local = diag.get("metodologia_local") or []
+                            if met_local:
+                                st.write(_texto_metodologia_app({"metodologia": met_local}))
+                            else:
+                                st.info("Nenhuma etapa heurística local gerada.")
+                        with tabs[1]:
+                            met_ia = diag.get("metodologia_ia_crua") or []
+                            if isinstance(met_ia, str):
+                                st.text(met_ia)
+                            elif met_ia:
+                                st.write(_texto_metodologia_app({"metodologia": met_ia}))
+                            else:
+                                st.info("Sem resposta direta de IA (gerado localmente ou cached).")
+                        with tabs[2]:
+                            met_hig = diag.get("metodologia_higienizada") or []
+                            if met_hig:
+                                st.write(_texto_metodologia_app({"metodologia": met_hig}))
+                            else:
+                                st.info("Nenhum estágio higienizado intermediário.")
+                        with tabs[3]:
+                            met_fin = diag.get("metodologia_final") or []
+                            if met_fin:
+                                st.write(_texto_metodologia_app({"metodologia": met_fin}))
+                            else:
+                                st.info("Nenhuma metodologia final.")
+                
                 ae = aula.copy()
                 ae.update({"tema": t, "aprendizagem": a, "acompanhamento": [x for x in acomp.split("\n") if x], "acessibilidade": [x for x in aces.split("\n") if x], "metodologia": _metodologia_app_para_blocos(m)})
                 aulas_edit.append(ae)
