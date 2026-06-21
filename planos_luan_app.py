@@ -952,6 +952,237 @@ def _sincronizar_datas_horarios_mes(
             st.session_state.pop(f"{prefixo}{idx}", None)
     return itens
 
+def _mes_numero_app(mes: str) -> int:
+    meses = {
+        "JANEIRO": 1, "FEVEREIRO": 2, "MARCO": 3, "ABRIL": 4, "MAIO": 5, "JUNHO": 6,
+        "JULHO": 7, "AGOSTO": 8, "SETEMBRO": 9, "OUTUBRO": 10, "NOVEMBRO": 11, "DEZEMBRO": 12,
+    }
+    return meses.get(_normalizar_texto_simples(mes), date.today().month)
+
+def _dia_semana_numero(texto: str):
+    dias = {
+        "SEGUNDA": 0, "SEGUNDA FEIRA": 0, "TERCA": 1, "TERCA FEIRA": 1,
+        "QUARTA": 2, "QUARTA FEIRA": 2, "QUINTA": 3, "QUINTA FEIRA": 3,
+        "SEXTA": 4, "SEXTA FEIRA": 4, "SABADO": 5, "DOMINGO": 6,
+    }
+    return dias.get(_normalizar_texto_simples(texto).replace("-", " "))
+
+def _datas_do_mes_por_dia(mes: str, dia_semana: int, ano: int | None = None, extensao: int = 0) -> list[date]:
+    ano = ano or date.today().year
+    mes_num = _mes_numero_app(mes)
+    inicio = date(ano, mes_num, 1)
+    fim = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
+    return _datas_por_dia_ate_limite(inicio, fim, dia_semana)
+
+def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
+    padroes = []
+    vistos = set()
+    datas_horarios = list((config or {}).get("datas_horarios") or [])
+    dias_semana = [
+        _dia_semana_numero(parte.strip())
+        for parte in _partes_dia_config(str((config or {}).get("dia_semana") or ""))
+        if parte.strip()
+    ]
+    dias_semana = [dia for dia in dias_semana if dia is not None]
+    horarios_cadastro = _horarios_padronizados_de_texto(str((config or {}).get("horario") or ""), turma)
+
+    if horarios_cadastro and dias_semana:
+        for idx, dia in enumerate(dias_semana):
+            sugestao = horarios_cadastro[idx] if idx < len(horarios_cadastro) else horarios_cadastro[0]
+            chave = (dia, sugestao)
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            padroes.append({"dia": dia, "horario": sugestao})
+        return sorted(padroes, key=lambda item: (item["dia"], _indice_horario(item["horario"])))
+
+    if horarios_cadastro and datas_horarios:
+        dias_datas = []
+        for item in datas_horarios:
+            data_aula = item.get("data")
+            if hasattr(data_aula, "weekday") and data_aula.weekday() not in dias_datas:
+                dias_datas.append(data_aula.weekday())
+        for idx, dia in enumerate(dias_datas):
+            sugestao = horarios_cadastro[idx] if idx < len(horarios_cadastro) else horarios_cadastro[0]
+            chave = (dia, sugestao)
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            padroes.append({"dia": dia, "horario": sugestao})
+        if padroes:
+            return sorted(padroes, key=lambda item: (item["dia"], _indice_horario(item["horario"])))
+
+    for item in datas_horarios:
+        data_aula = item.get("data")
+        if not hasattr(data_aula, "weekday"):
+            continue
+        trecho_horario = " ".join(str(item.get(chave) or "").strip() for chave in ("horario", "aula")).strip()
+        sugestao = _sugerir_horario_cadastrado(trecho_horario, turma) or HORARIOS_AULA[0]
+        chave = (data_aula.weekday(), sugestao)
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        padroes.append({"dia": data_aula.weekday(), "horario": sugestao})
+
+    if padroes:
+        return sorted(padroes, key=lambda item: (item["dia"], _indice_horario(item["horario"])))
+
+    partes_horario = _partes_horario_config(str((config or {}).get("horario") or ""))
+    sugestoes_h = [_sugerir_horario_cadastrado(parte, turma) or HORARIOS_AULA[0] for parte in partes_horario]
+    if dias_semana and not sugestoes_h:
+        sugestoes_h = [HORARIOS_AULA[0]]
+
+    for idx, dia in enumerate(dias_semana):
+        sugestao = sugestoes_h[idx] if idx < len(sugestoes_h) else sugestoes_h[0]
+        padroes.append({"dia": dia, "horario": sugestao})
+    return padroes
+
+def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: int = 0) -> list[dict]:
+    if not config or not mes:
+        return []
+    if config.get("repetir_modelo_semanal"):
+        base = list(config.get("datas_horarios") or [])
+        if not base:
+            return []
+        primeira_data = next((item.get("data") for item in base if hasattr(item.get("data"), "weekday")), None)
+        if not primeira_data:
+            return []
+        inicio_semana_base = primeira_data - timedelta(days=primeira_data.weekday())
+
+        # Construir molde a partir dos dias-da-semana únicos presentes em TODOS os registros
+        # (não apenas da 1ª semana, que pode ter feriados omitindo dias)
+        molde_por_dia: dict[int, dict] = {}  # dia_semana -> item de referência
+        for item in base:
+            data_aula = item.get("data")
+            if not hasattr(data_aula, "weekday"):
+                continue
+            dia = data_aula.weekday()
+            if dia not in molde_por_dia:
+                # Guardar o deslocamento em dias desde o início da semana e o horário
+                molde_por_dia[dia] = {
+                    "offset_dias": dia,  # offset a partir de segunda (0=seg, 3=qui, etc.)
+                    "horario": item.get("horario") or "",
+                    "aula": item.get("aula") or "",
+                }
+        if not molde_por_dia:
+            return []
+        molde = sorted(molde_por_dia.values(), key=lambda m: m["offset_dias"])
+
+        ano = date.today().year
+        mes_num = _mes_numero_app(mes)
+        inicio_mes = date(ano, mes_num, 1)
+        fim_periodo = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
+
+        # Encontrar a primeira segunda-feira igual ou após o 1º dia do mês
+        inicio_bloco = inicio_mes - timedelta(days=inicio_mes.weekday())  # segunda-feira da semana do dia 1
+
+        itens = []
+        while inicio_bloco <= fim_periodo:
+            for entrada in molde:
+                nova_data = inicio_bloco + timedelta(days=entrada["offset_dias"])
+                if nova_data < date(ano, mes_num, 1) or nova_data > fim_periodo:
+                    continue
+                itens.append({
+                    "data": nova_data,
+                    "horario": entrada["horario"],
+                    "aula": entrada["aula"],
+                })
+            inicio_bloco += timedelta(days=7)
+        return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
+
+    itens = []
+    for padrao in _padroes_horario_config(config, turma):
+        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"], extensao=extensao):
+            itens.append({"data": data_aula, "horario": padrao["horario"]})
+    return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
+
+def _sincronizar_datas_horarios_mes(
+    config: dict,
+    mes: str,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    extensao: int = 0,
+    datas_sem_aula: list[date] | set[date] | None = None,
+) -> list[dict]:
+    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
+    if not itens:
+        for idx in range(40):
+            for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
+                st.session_state.pop(f"{prefixo}{idx}", None)
+        return []
+
+    def _serializar_horario(item: dict) -> str:
+        horario = item.get("horario")
+        aula = item.get("aula")
+        if isinstance(horario, (tuple, list)):
+            return ":".join(str(parte) for parte in horario)
+        return str(aula or horario or "")
+
+    agenda = "|".join(f"{item['data'].isoformat()}:{_serializar_horario(item)}" for item in itens)
+    cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
+    datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
+    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
+    if st.session_state.get("agenda_mes_assinatura") == assinatura:
+        return itens
+
+    st.session_state["agenda_mes_assinatura"] = assinatura
+    for idx, item in enumerate(itens):
+        horario = item.get("horario")
+        st.session_state[f"data_aula_{idx}"] = item["data"]
+        if isinstance(horario, tuple):
+            st.session_state[f"horario_aula_{idx}"] = horario
+            st.session_state[f"tipo_horario_aula_{idx}"] = _tipo_horario(horario)
+
+    for idx in range(len(itens), 40):
+        for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
+            st.session_state.pop(f"{prefixo}{idx}", None)
+    return itens
+
+def _sincronizar_datas_horarios_mes_turma2(
+    config: dict,
+    mes: str,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    extensao: int = 0,
+    datas_sem_aula: list[date] | set[date] | None = None,
+) -> list[dict]:
+    """Versão da sincronização de datas/horários dedicada à 2ª turma (chaves prefixadas com 'turma2_')."""
+    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
+    if not itens:
+        for idx in range(40):
+            for prefixo in ("turma2_data_aula_", "turma2_horario_aula_", "turma2_tipo_horario_aula_"):
+                st.session_state.pop(f"{prefixo}{idx}", None)
+        return []
+
+    def _serializar_horario_t2(item: dict) -> str:
+        horario = item.get("horario")
+        aula = item.get("aula")
+        if isinstance(horario, (tuple, list)):
+            return ":".join(str(parte) for parte in horario)
+        return str(aula or horario or "")
+
+    agenda = "|".join(f"{item['data'].isoformat()}:{_serializar_horario_t2(item)}" for item in itens)
+    cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
+    datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
+    assinatura = f"turma2|{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
+    if st.session_state.get("agenda_mes_assinatura_turma2") == assinatura:
+        return itens
+
+    st.session_state["agenda_mes_assinatura_turma2"] = assinatura
+    for idx, item in enumerate(itens):
+        horario = item.get("horario")
+        st.session_state[f"turma2_data_aula_{idx}"] = item["data"]
+        if isinstance(horario, tuple):
+            st.session_state[f"turma2_horario_aula_{idx}"] = horario
+            st.session_state[f"turma2_tipo_horario_aula_{idx}"] = _tipo_horario(horario)
+
+    for idx in range(len(itens), 40):
+        for prefixo in ("turma2_data_aula_", "turma2_horario_aula_", "turma2_tipo_horario_aula_"):
+            st.session_state.pop(f"{prefixo}{idx}", None)
+    return itens
+
 def _config_agenda_a_partir_do_modelo(modelo_bytes: bytes | None) -> dict:
     if not modelo_bytes:
         return {}
@@ -1174,8 +1405,8 @@ def _coletar_aulas_envio(
     for idx in range(num_rows):
         chave_data = f"{key_prefix}data_aula_{idx}"
         chave_horario = f"{key_prefix}horario_aula_{idx}"
-        data_fallback = st.session_state.get(f"data_aula_{idx}", date.today()) if key_prefix else date.today()
-        horario_fallback = st.session_state.get(f"horario_aula_{idx}", HORARIOS_AULA[0]) if key_prefix else HORARIOS_AULA[0]
+        data_fallback = st.session_state.get(f"{key_prefix}data_aula_{idx}", date.today())
+        horario_fallback = st.session_state.get(f"{key_prefix}horario_aula_{idx}", HORARIOS_AULA[0])
         if chave_data not in st.session_state: st.session_state[chave_data] = data_fallback
         if chave_horario not in st.session_state: st.session_state[chave_horario] = horario_fallback
         datas_cache.append(st.session_state[chave_data])
@@ -1224,8 +1455,8 @@ def _coletar_aulas_envio(
         chave_horario = f"{key_prefix}horario_aula_{idx}"
         chave_tipo = f"{key_prefix}tipo_horario_aula_{idx}"
         chave_dividir = f"{key_prefix}dividir_pdf_aula_{idx}"
-        data_fallback = st.session_state.get(f"data_aula_{idx}", date.today()) if key_prefix else date.today()
-        horario_fallback = st.session_state.get(f"horario_aula_{idx}", HORARIOS_AULA[0]) if key_prefix else HORARIOS_AULA[0]
+        data_fallback = st.session_state.get(chave_data, date.today())
+        horario_fallback = st.session_state.get(chave_horario, HORARIOS_AULA[0])
         if chave_data not in st.session_state: st.session_state[chave_data] = data_fallback
         if chave_horario not in st.session_state: st.session_state[chave_horario] = horario_fallback
         
@@ -1900,6 +2131,14 @@ observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
 turma_espelho = _selecionar_turma_espelho(turma, turmas_cadastradas) if gerar_turma_espelho else ""
 aulas_envio_espelho = []
+# Buscar configuração cadastrada da turma espelho para usar os horários corretos
+config_turma_espelho = None
+if gerar_turma_espelho and turma_espelho:
+    config_turma_espelho = next(
+        (d for d in dados_prof.get("disciplinas", [])
+         if d["disciplina"] == disciplina and d["turma"] == turma_espelho),
+        None,
+    )
 
 st.markdown('<div class="section-title">📚 Gestão das Aulas</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Confira os PDFs necessários, a ordem de processamento e o que ainda falta antes de gerar o plano.</div>', unsafe_allow_html=True)
@@ -2058,37 +2297,6 @@ else:
                     selecionados = ordenar_pdfs_por_numero(selecionados)
                 pdfs_selecionados_tela = list(selecionados)
                 pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
-            else:
-                st.warning(f"Nao foram encontrados PDFs automaticos para {pasta_pdfs}. Faca o envio manual.")
-                pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
-                pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
-                pdfs_selecionados_tela = list(pdfs_aulas_files or [])
-        else:
-            pdfs_aulas_files = st.file_uploader(label_uploader, type=["pdf"], accept_multiple_files=True, key="pdfs_aulas_files")
-            pdfs_aulas_files = arquivos_na_ordem_de_envio(pdfs_aulas_files)
-            pdfs_selecionados_tela = list(pdfs_aulas_files or [])
-            
-        qtd_aulas = len(pdfs_aulas_files)
-        _render_painel_pdfs(
-            modo=modo_upload_pdf,
-            necessarios=est_necessarios or linhas_modelo,
-            carregados=qtd_aulas,
-            total_aulas=linhas_modelo,
-            dividir_metodologia=dividir_metodologia,
-            encontrados=pdfs_auto_total,
-            pasta=pasta_pdfs_auto if modo_upload_automatico else "",
-            selecionados=pdfs_selecionados_tela,
-            faltantes_ae=faltantes_ae_auto,
-        )
-
-    if modo_upload_individual and usar_ae_priorizado and sequencia_ae_contexto:
-        sequencia_pdf_esperada_ae = _limitar_sequencia_ae(sequencia_ae_contexto, linhas_modelo)
-        if sequencia_pdf_esperada_ae:
-            st.info(
-                "Modo AE ativo. Sequencia esperada dos PDFs neste contexto: "
-                f"{_rotulo_sequencia_pdfs_esperada(sequencia_pdf_esperada_ae)}."
-            )
-            st.caption("Os cards abaixo seguem essa mesma ordem para facilitar o envio um por aula.")
 
     num_rows = linhas_modelo or int(qtd_aulas) * (2 if dividir_metodologia else 1)
     _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, contexto=contexto_divisao_pdf)
@@ -2135,6 +2343,12 @@ else:
     if gerar_turma_espelho:
         contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
         _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho)
+        # Sincronizar datas e horarios da turma espelho com os dados cadastrados dela
+        if config_turma_espelho and mes:
+            _sincronizar_datas_horarios_mes_turma2(
+                config_turma_espelho, mes, professor, disciplina, turma_espelho,
+                extensao=extensao_mes, datas_sem_aula=datas_sem_aula,
+            )
         aulas_envio_espelho = _coletar_aulas_envio(
             num_rows,
             pdfs_aulas_files,
