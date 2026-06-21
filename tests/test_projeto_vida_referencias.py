@@ -1,5 +1,6 @@
 from docx import Document
 
+from core import lote
 from core.lote import _montar_resultado_aula_local
 from core.referencias_projeto_vida import (
     localizar_docx_referencia_projeto_vida,
@@ -157,3 +158,45 @@ def test_projeto_vida_resultado_local_usa_docx_sem_trocar_titulo_oficial(tmp_pat
     assert "motivacoes pessoais" in resultado["metodologia"][0]["texto"].lower()
     assert len(resultado["acompanhamento"]) == 3
     assert len(resultado["acessibilidade"]) == 3
+
+
+def test_projeto_vida_prefere_titulo_do_docx_quando_escopo_vem_com_texto_do_bimestre(tmp_path, monkeypatch):
+    caminho_docx = tmp_path / "Metodologias_Projeto_de_Vida_6_Ano.docx"
+    caminho_pdf = tmp_path / "AULA_01 - O que me move.pdf"
+    _criar_docx_referencia_projeto_vida(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setattr(
+        lote,
+        "_extrair_texto_pdf",
+        lambda caminho: "Projeto de Vida\nAula 01\nO que me move?\n",
+    )
+    monkeypatch.setattr(
+        lote,
+        "buscar_item_projeto_vida",
+        lambda turma, bimestre, numero: {
+            "titulo": (
+                "Vozes em Jogo: debater, influenciar e conquistar metas. "
+                "Este bimestre se organiza em torno do Roadmap das entregas."
+            ),
+            "habilidade": "Conhecer habitos pessoais e analisar escolhas.",
+            "objeto": "habitos, metas e escolhas pessoais",
+            "objetivos": "Identificar habitos pessoais e relaciona-los a metas possiveis.",
+            "conteudo": "Projeto de vida e metas",
+        },
+    )
+
+    aula = lote._aula_por_pdf(
+        str(caminho_pdf),
+        "Projeto de Vida",
+        "6º ANO A",
+        "3º Bimestre",
+        usar_ia=False,
+        provedor_ia="",
+    )
+
+    assert aula["tema"] == "O que me move?"
+    assert aula["material"] == "AULA 1 - O que me move?"
+    assert "Este bimestre" not in aula["material"]
+    assert "Roadmap" not in aula["material"]
+    assert "metas possiveis" in aula["aprendizagem"]

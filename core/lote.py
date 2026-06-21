@@ -109,6 +109,34 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
     return ""
 
 
+def _material_aula_com_titulo(numero_aula: str, titulo: str) -> str:
+    titulo = str(titulo or "").strip()
+    if not titulo:
+        return ""
+    match = re.search(r"\d{1,2}", str(numero_aula or ""))
+    if match:
+        return f"AULA {int(match.group(0))} - {titulo}"
+    return titulo
+
+
+def _titulo_escopo_projeto_vida_confiavel(titulo: str) -> bool:
+    titulo = re.sub(r"\s+", " ", str(titulo or "")).strip()
+    if not titulo or len(titulo) > 140:
+        return False
+
+    base = _normalizar(titulo)
+    marcadores_texto_bimestre = (
+        "este bimestre",
+        "se organiza em torno",
+        "roadmap",
+        "entregas",
+        "produto",
+        "ao longo das aulas",
+        "competencias socioemocionais",
+    )
+    return not any(marcador in base for marcador in marcadores_texto_bimestre)
+
+
 def _assinatura_docx_referencia(caminho_pdf: str, disciplina: str, turma: str = "") -> str:
     if not caminho_pdf:
         return ""
@@ -2717,9 +2745,16 @@ def _preparar_contexto_aula_pdf(
         contexto_metodologico = "regular"
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
     aprendizagem_pv = montar_aprendizagem_projeto_vida(escopo_pv) if escopo_pv else ""
-    if escopo_pv.get("titulo"):
-        tema = escopo_pv["titulo"]
-        material_digital = f"AULA {int(numero_aula)} - {tema}" if numero_aula.isdigit() else tema
+    if perfil == "projeto_de_vida":
+        referencia_docx_pv = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+        titulo_referencia = str((referencia_docx_pv or {}).get("titulo") or "").strip()
+        titulo_escopo = str((escopo_pv or {}).get("titulo") or "").strip()
+        if titulo_referencia:
+            tema = titulo_referencia
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
+        elif _titulo_escopo_projeto_vida_confiavel(titulo_escopo):
+            tema = titulo_escopo
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
 
     return {
         "texto": texto,
