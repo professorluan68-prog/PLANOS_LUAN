@@ -332,4 +332,15 @@ def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: st
     match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
     bim = match_bim.group(1) + "_BIMESTRE" if match_bim else ""
 
-    return Path(base_dir) / disc_folder / nivel / bim / serie
+    caminho_padrao = Path(base_dir) / disc_folder / nivel / bim / serie
+    if caminho_padrao.exists():
+        return caminho_padrao
+
+    caminho_flexivel = _buscar_pasta_pdf_flexivel(
+        Path(base_dir) / disc_folder,
+        nivel_preferido=_nivel_preferido_para_turma(turma_norm),
+        bimestre_token=bim,
+        serie_tokens=_tokens_serie_turma(turma_norm),
+        turma_norm=turma_norm,
+    )
+    return caminho_flexivel or caminho_padrao
