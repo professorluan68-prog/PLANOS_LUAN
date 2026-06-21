@@ -10,6 +10,7 @@ from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizag
 from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
 from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.referencias_geografia import localizar_docx_referencia_geografia, referencia_geografia_por_pdf
+from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -77,6 +78,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia_biologia(caminho_pdf)
     if perfil == "geografia":
         return localizar_docx_referencia_geografia(caminho_pdf)
+    if perfil == "projeto_de_vida":
+        return localizar_docx_referencia_projeto_vida(caminho_pdf)
     return None
 
 
@@ -89,6 +92,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_biologia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "geografia":
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "projeto_de_vida":
+        return referencia_projeto_vida_por_pdf(caminho_pdf, numero_aula, tema=tema)
     return None
 
 
@@ -99,6 +104,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_biologia"
     if perfil == "geografia":
         return "docx_referencia_geografia"
+    if perfil == "projeto_de_vida":
+        return "docx_referencia_projeto_de_vida"
     return ""
 
 
@@ -2863,6 +2870,7 @@ def _aula_por_pdf(
                             "educacao_financeira",
                             "biologia",
                             "geografia",
+                            "projeto_de_vida",
                         }:
                             pass
                         else:
