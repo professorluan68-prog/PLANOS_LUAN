@@ -4,9 +4,13 @@ import re
 from pathlib import Path
 
 from core.qualidade_metodologica import extrair_conceito_central
+from core.listas_pedagogicas import (
+    itens_lista_pedagogica,
+    problemas_lista_exatamente_tres,
+)
 from core.validador_plano import validar_aula_final
 
-VERSAO_GERADOR_ATUAL = "1.2.8"
+VERSAO_GERADOR_ATUAL = "1.2.9"
 
 
 def _limpar_tema_final(tema: str) -> str:
@@ -60,25 +64,25 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
 
     # 3. Validar Acompanhamento da Aprendizagem
     acompanhamento = aula.get("acompanhamento") or []
-    if isinstance(acompanhamento, list):
-        itens_acompanhamento = [i.strip() for i in acompanhamento if str(i).strip()]
-    else:
-        itens_acompanhamento = []
-    
-    if len(itens_acompanhamento) < 3:
+    itens_acompanhamento = itens_lista_pedagogica(acompanhamento)
+    problemas_acompanhamento = problemas_lista_exatamente_tres(
+        "Acompanhamento da aprendizagem",
+        itens_acompanhamento,
+    )
+    if problemas_acompanhamento:
         deducoes += 15
-        avisos.append("Acompanhamento da aprendizagem com menos de 3 itens.")
+        avisos.extend(problemas_acompanhamento)
 
     # 4. Validar Acessibilidade e detectar placeholders
     acessibilidade = aula.get("acessibilidade") or []
-    if isinstance(acessibilidade, list):
-        itens_acessibilidade = [i.strip() for i in acessibilidade if str(i).strip()]
-    else:
-        itens_acessibilidade = []
-
-    if len(itens_acessibilidade) < 3:
+    itens_acessibilidade = itens_lista_pedagogica(acessibilidade)
+    problemas_acessibilidade = problemas_lista_exatamente_tres(
+        "Acessibilidade",
+        itens_acessibilidade,
+    )
+    if problemas_acessibilidade:
         deducoes += 15
-        avisos.append("Acessibilidade com menos de 3 itens.")
+        avisos.extend(problemas_acessibilidade)
 
     for item in itens_acessibilidade:
         # Detecta o placeholder específico "informação do material simples"

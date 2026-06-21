@@ -29,6 +29,7 @@ from ui.shared import (
     nome_arquivo_plano,
 )
 from core.helpers import LocalFileWrapper, ordenar_pdfs_por_numero
+from core.helpers import filtrar_pdfs_para_aulas
 
 
 def _limpar_nome_pasta(nome: str) -> str:
@@ -258,7 +259,9 @@ def _renderizar_geracao_lote(
                     )
                 else:
                     # Regular Mode
-                    pdf_files = ordenar_pdfs_por_numero(r["caminho_folder"].glob("*.pdf"))
+                    pdf_files = ordenar_pdfs_por_numero(
+                        filtrar_pdfs_para_aulas(r["caminho_folder"].glob("*.pdf"))
+                    )
                     local_pdfs = [LocalFileWrapper(p) for p in pdf_files]
 
                     orientacao_estudos_lote = "orienta" in str(v["disciplina"]).lower() and "estudo" in str(v["disciplina"]).lower()

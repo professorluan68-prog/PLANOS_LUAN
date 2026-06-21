@@ -1,7 +1,16 @@
 from docx import Document
 
-from core.lote import _detectar_tipo_aula, _montar_etapas_metodologia, _montar_resultado_aula_local
-from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
+from core.lote import (
+    _detectar_tipo_aula,
+    _montar_aprendizagem_inteligente,
+    _montar_etapas_metodologia,
+    _montar_resultado_aula_local,
+)
+from core.referencias_educacao_financeira import (
+    localizar_docx_referencia,
+    referencia_por_pdf,
+    titulos_referencia_por_docx,
+)
 from core.lib.classificador import perfil_disciplina
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
@@ -51,6 +60,26 @@ def test_referencia_educacao_financeira_prefere_docx_corrigido(tmp_path):
     escolhido = localizar_docx_referencia(caminho_pdf)
 
     assert escolhido == corrigido
+
+
+def test_referencia_educacao_financeira_localiza_docx_ensino_medio(tmp_path):
+    docx = tmp_path / "Metodologias_Educacao_Financeira_1_Ano_Ensino_Medio.docx"
+    caminho_pdf = tmp_path / "AULA 1.pdf"
+    _criar_docx_referencia_financeira(docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    escolhido = localizar_docx_referencia(caminho_pdf)
+
+    assert escolhido == docx
+
+
+def test_titulos_referencia_por_docx_expoe_mapa_de_aulas(tmp_path):
+    docx = tmp_path / "Metodologias_Educacao_Financeira_2_Ano_Ensino_Medio.docx"
+    _criar_docx_referencia_financeira(docx)
+
+    titulos = titulos_referencia_por_docx(docx)
+
+    assert titulos == {1: "Reserva de emergencia"}
 
 
 def test_referencia_educacao_financeira_pode_casar_por_titulo(tmp_path):
@@ -122,6 +151,39 @@ def test_educacao_financeira_resultado_local_usa_docx_sem_trocar_titulo_da_plani
     assert "imprevisto financeiro" in resultado["metodologia"][0]["texto"]
     assert len(resultado["acompanhamento"]) == 3
     assert len(resultado["acessibilidade"]) == 3
+
+
+def test_educacao_financeira_aprendizagem_fallback_fica_especifica_no_orcamento():
+    aprendizagem = _montar_aprendizagem_inteligente(
+        habilidade_pdf="",
+        tema="Orçamento doméstico - Parte 1",
+        conceito="Orçamento doméstico - Parte 1",
+        perfil="educacao_financeira",
+        objetivos_secao=[],
+        conteudos_secao=[],
+    )
+
+    texto = aprendizagem.lower()
+
+    assert "compreender e analisar conceitos relacionados a" not in texto
+    assert "receitas" in texto or "despesas" in texto or "planejamento financeiro" in texto
+    assert "orçamento doméstico" in texto or "orcamento domestico" in texto
+
+
+def test_educacao_financeira_aprendizagem_fallback_fica_especifica_no_consumo():
+    aprendizagem = _montar_aprendizagem_inteligente(
+        habilidade_pdf="",
+        tema="Orçamento doméstico - Parte 2",
+        conceito="Simuladores de gastos com energia, água, gás e internet",
+        perfil="educacao_financeira",
+        objetivos_secao=[],
+        conteudos_secao=[],
+    )
+
+    texto = aprendizagem.lower()
+
+    assert "compreender e analisar conceitos relacionados a" not in texto
+    assert "gastos fixos" in texto or "gastos variaveis" in texto or "efeitos no orçamento" in texto or "efeitos no orcamento" in texto
 
 
 def test_educacao_financeira_tolera_disciplina_com_caracter_quebrado():

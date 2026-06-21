@@ -110,6 +110,7 @@ from docx_generator.preencher import preencher_documento
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
     LocalFileWrapper,
+    filtrar_pdfs_para_aulas,
     arquivos_na_ordem_de_envio,
     horario_para_plano,
     listar_falhas_ia,
@@ -1954,7 +1955,7 @@ else:
 
             pdf_files_disponiveis = []
             if pasta_pdfs.exists():
-                pdfs_encontrados = list(pasta_pdfs.glob("*.pdf"))
+                pdfs_encontrados = filtrar_pdfs_para_aulas(pasta_pdfs.glob("*.pdf"))
                 pdfs_auto_total = len(pdfs_encontrados)
                 pdfs_com_numero = [pdf for pdf in pdfs_encontrados if numero_aula_pdf(pdf) is not None]
                 pdfs_para_ordenar = pdfs_com_numero or pdfs_encontrados

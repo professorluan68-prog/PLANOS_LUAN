@@ -1,4 +1,4 @@
-﻿"""
+"""
 Gerador de estratégias de acessibilidade por tipo de recurso.
 
 Em vez de gerar frases genéricas por disciplina, analisa o tipo de
@@ -150,9 +150,9 @@ _FALLBACK_POR_PERFIL = {
         "Permitir participação livre por fala, escrita ou desenho, respeitando ritmos.",
     ],
     "educacao_financeira": [
-        "Utilizar situações do cotidiano como compras e planejamento.",
-        "Organizar tabelas, dados e passos no quadro para tomada de decisão.",
-        "Oferecer mediação individual e correção dialogada nas dificuldades.",
+        "Utilizar exemplos concretos do cotidiano (compras, planejamento, orçamento) para tornar o conteúdo acessível.",
+        "Organizar tabelas, dados e passos no quadro para apoiar a tomada de decisão.",
+        "Oferecer roteiro com etapas estruturadas e permitir resposta oral antes do registro escrito.",
     ],
     "tecnologia_inovacao": [
         "Apresentar exemplos concretos do cotidiano tecnológico da turma.",

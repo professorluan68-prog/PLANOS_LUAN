@@ -1,4 +1,4 @@
-"""Referencias prontas de Educacao Financeira a partir de DOCX na pasta dos PDFs."""
+"""Referencias prontas de Geografia a partir de DOCX na pasta dos PDFs."""
 
 from __future__ import annotations
 
@@ -7,9 +7,6 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-
-
-_NOME_REFERENCIA_PRIORITARIA_8_ANO = "Metodologias_Educacao_Financeira_8_Ano_CORRIGIDO.docx"
 
 
 def _normalizar_espacos(texto: str) -> str:
@@ -93,7 +90,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     secao = ""
 
     for texto in paragrafos:
-        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*-\s*(.+)$", texto, flags=re.I)
+        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
             aula_atual = {
@@ -121,7 +118,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             continue
 
         if secao == "metodologia":
-            match_etapa = re.match(r"^([^:]{2,60}):\s*(.+)$", texto)
+            match_etapa = re.match(r"^([^:]{2,80}):\s*(.+)$", texto)
             if match_etapa:
                 aula_atual["metodologia"].append(
                     {
@@ -153,31 +150,28 @@ def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
     return prioridade_nome, modificado, caminho.name.lower()
 
 
-def titulos_referencia_por_docx(caminho_docx: str | Path) -> dict[int, str]:
-    referencias = _carregar_referencias_docx(str(caminho_docx))
-    return {
-        int(numero): str(referencia.get("titulo") or "").strip()
-        for numero, referencia in referencias.items()
-        if str(referencia.get("titulo") or "").strip()
-    }
-
-
-def localizar_docx_referencia(caminho_pdf: str | Path) -> Path | None:
+def localizar_docx_referencia_geografia(caminho_pdf: str | Path) -> Path | None:
     caminho = Path(caminho_pdf)
     if not caminho_pdf or not caminho.parent.exists():
         return None
 
-    referencia_prioritaria = caminho.parent / _NOME_REFERENCIA_PRIORITARIA_8_ANO
-    if referencia_prioritaria.is_file():
-        return referencia_prioritaria
-
-    candidatos = list(caminho.parent.glob("Metodologias_Educacao_Financeira*.docx"))
+    candidatos = list(caminho.parent.glob("Metodologias_Geografia*.docx"))
+    candidatos.extend(caminho.parent.glob("*Geografia*Metodologia*.docx"))
     candidatos.extend(caminho.parent.glob("*Metodologia*.docx"))
     candidatos_unicos = {candidato.resolve(): candidato for candidato in candidatos}.values()
     candidatos_validos = [candidato for candidato in candidatos_unicos if not candidato.name.startswith("~$")]
     if not candidatos_validos:
         return None
     return max(candidatos_validos, key=_score_docx_referencia)
+
+
+def titulos_referencia_geografia_por_docx(caminho_docx: str | Path) -> dict[int, str]:
+    referencias = _carregar_referencias_docx(str(caminho_docx))
+    return {
+        int(numero): str(referencia.get("titulo") or "").strip()
+        for numero, referencia in referencias.items()
+        if str(referencia.get("titulo") or "").strip()
+    }
 
 
 def _selecionar_referencia(
@@ -203,8 +197,8 @@ def _selecionar_referencia(
     return referencia_numerica or (referencias.get(melhor_numero) if melhor_pontuacao >= 0.70 else None)
 
 
-def referencia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
-    docx = localizar_docx_referencia(caminho_pdf)
+def referencia_geografia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
+    docx = localizar_docx_referencia_geografia(caminho_pdf)
     if not docx:
         return None
     numero = _normalizar_numero_aula(numero_aula)

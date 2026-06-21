@@ -136,6 +136,31 @@ def _aprendizagem_fallback_por_perfil(perfil: str, tema: str, codigo: str = "") 
             codigo,
             f"Analisar aspectos relacionados a {foco}, relacionando territorio, sociedade, natureza e leitura de diferentes linguagens geograficas ao longo da aula.",
         )
+    if perfil == "educacao_financeira":
+        if any(k in foco_norm for k in ["credito", "endividamento", "divida", "dividas", "emprestimo", "financiamento", "juros", "parcel"]):
+            return _aplicar_codigo_bncc(
+                codigo,
+                f"Analisar situacoes relacionadas a {foco}, comparando custos, prazos, riscos e impactos no orcamento antes de tomar decisoes financeiras mais conscientes.",
+            )
+        if any(k in foco_norm for k in ["poupanca", "reserva", "investimento", "rendimento", "imprevisto"]):
+            return _aplicar_codigo_bncc(
+                codigo,
+                f"Compreender como poupanca, reserva e planejamento de longo prazo se relacionam a {foco}, analisando possibilidades de organizacao financeira e protecao diante de imprevistos.",
+            )
+        if any(k in foco_norm for k in ["consumo", "preco", "cesta basica", "simulador", "simuladores", "energia", "agua", "gas", "internet", "necessidade", "desejo"]):
+            return _aplicar_codigo_bncc(
+                codigo,
+                f"Analisar escolhas de consumo relacionadas a {foco}, comparando precos, necessidades, gastos fixos e variaveis e seus efeitos no orcamento familiar.",
+            )
+        if any(k in foco_norm for k in ["orcamento", "planejamento", "receita", "despesa", "gasto", "saldo", "planner", "meta"]):
+            return _aplicar_codigo_bncc(
+                codigo,
+                f"Compreender como receitas, despesas, prioridades e metas interferem em {foco}, analisando dados, comparando escolhas e registrando estrategias de planejamento financeiro.",
+            )
+        return _aplicar_codigo_bncc(
+            codigo,
+            f"Compreender conceitos de educacao financeira relacionados a {foco}, articulando organizacao do orcamento, analise de dados e tomada de decisao responsavel.",
+        )
 
     return _aplicar_codigo_bncc(
         codigo,

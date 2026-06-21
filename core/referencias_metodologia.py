@@ -1,3 +1,4 @@
+import os
 import re
 import unicodedata
 from functools import lru_cache
@@ -8,7 +9,12 @@ REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA 
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-PASTA_ANALISES_NOVAS = Path(r"D:\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA")
+PASTA_ANALISES_NOVAS = Path(
+    os.getenv(
+        "PLANOS_ANALISES_METODOLOGICAS_DIR",
+        r"D:\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA",
+    )
+)
 PASTAS_BUSCA = [
     PASTA_ANALISES_NOVAS,
     BASE_DIR / "REFERENCIAS_METODOLOGIA",
@@ -105,30 +111,6 @@ MAPA_REFERENCIAS = {
     ),
 }
 
-
-def normalizar_disciplina(texto: str = "") -> str:
-    texto = (texto or "").strip().lower()
-    mapa = str.maketrans(
-        {
-            "á": "a",
-            "à": "a",
-            "â": "a",
-            "ã": "a",
-            "é": "e",
-            "ê": "e",
-            "í": "i",
-            "ó": "o",
-            "ô": "o",
-            "õ": "o",
-            "ú": "u",
-            "ç": "c",
-            "º": "",
-            "ª": "",
-            "°": "",
-        }
-    )
-    texto = texto.translate(mapa)
-    return re.sub(r"\s+", " ", texto)
 
 def normalizar_disciplina(texto: str = "") -> str:
     texto = str(texto or "").strip().lower()
