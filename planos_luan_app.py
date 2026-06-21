@@ -124,6 +124,7 @@ from core.helpers import (
     texto_lista as _texto_lista,
     numero_aula_pdf,
 )
+from core.turmas import turmas_espelho_mesma_serie
 from core.professores_planos import (
     atualizar_cabecalho_modelo_professor,
     carregar_professores_dos_planos,
@@ -320,6 +321,39 @@ def _selecionar_turma(label: str, key_select: str, key_texto: str, placeholder: 
         return ""
     st.session_state[key_texto] = escolha
     return escolha
+
+
+def _selecionar_turma_espelho(turma_principal: str, turmas_cadastradas: list[str]) -> str:
+    opcoes = turmas_espelho_mesma_serie(turma_principal, list(dict.fromkeys(turmas_cadastradas or [])))
+    if not turma_principal:
+        st.warning("Selecione a turma principal antes de gerar para a 2ª turma.")
+        st.session_state["turma_espelho"] = ""
+        return ""
+
+    if not opcoes:
+        st.warning("Não encontrei outra turma cadastrada da mesma série para este professor e disciplina.")
+        st.session_state["turma_espelho"] = ""
+        return ""
+
+    if len(opcoes) == 1:
+        turma_unica = opcoes[0]
+        st.session_state["turma_espelho"] = turma_unica
+        st.info(f"2ª turma selecionada automaticamente: {turma_unica}.")
+        return turma_unica
+
+    valor_atual = str(st.session_state.get("turma_espelho", "") or "").strip()
+    if valor_atual not in opcoes:
+        valor_atual = opcoes[0]
+        st.session_state["turma_espelho"] = valor_atual
+        if "turma_espelho_select" in st.session_state:
+            del st.session_state["turma_espelho_select"]
+
+    indice = opcoes.index(valor_atual)
+    escolha = st.selectbox("2ª Série/Turma", opcoes, index=indice, key="turma_espelho_select")
+    st.session_state["turma_espelho"] = escolha
+    st.caption("Opções limitadas às turmas cadastradas da mesma série.")
+    return escolha
+
 
 def _selecionar_mes() -> str:
     valor_atual = str(st.session_state.get("mes", "") or "").strip().upper()
@@ -1864,7 +1898,8 @@ def _render_previa_aulas_cdp(preview: list[dict]):
 semana = ""
 observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
-turma_espelho = _selecionar_turma("2ª Série/Turma", "turma_espelho_select", "turma_espelho") if gerar_turma_espelho else ""
+turma_espelho = _selecionar_turma_espelho(turma, turmas_cadastradas) if gerar_turma_espelho else ""
+aulas_envio_espelho = []
 
 st.markdown('<div class="section-title">📚 Gestão das Aulas</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Confira os PDFs necessários, a ordem de processamento e o que ainda falta antes de gerar o plano.</div>', unsafe_allow_html=True)
@@ -2149,6 +2184,13 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
     erro = validar_entrada(modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma, bimestre, mes, aulas_previstas_manual, pdfs_enviados_val, pdfs_necessarios)
+    if not erro:
+        erro = validar_aulas_secundarias(
+            gerar_turma_espelho,
+            turma_espelho,
+            aulas_envio_espelho if not disciplina_cdp else [],
+            bool(disciplina_config.exige_pdf and not disciplina_cdp),
+        )
     if erro:
         st.error(erro); st.session_state["geracao_em_andamento"] = False
     elif disciplina_cdp:
