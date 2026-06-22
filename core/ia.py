@@ -111,11 +111,6 @@ def _aprendizagem_fallback_por_perfil(perfil: str, tema: str, codigo: str = "") 
 
     if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
         return _aplicar_codigo_bncc(codigo, _aprendizagem_padrao_projeto_vida(foco))
-    if perfil == "matematica":
-        return _aplicar_codigo_bncc(
-            codigo,
-            f"Resolver e analisar situacoes-problema relacionadas a {foco}, mobilizando procedimentos de calculo, interpretacao e justificativa das estrategias utilizadas.",
-        )
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
         return _aplicar_codigo_bncc(
             codigo,

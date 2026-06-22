@@ -141,54 +141,6 @@ def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = N
             ("Encerramento", "encerramento")
         ]
 
-    if perfil == "matematica":
-        if tipo == "khan":
-            return [
-                ("Abertura", "abertura"),
-                ("Prática na Khan Academy", "pratica_khan"),
-                ("Fechamento", "fechamento_khan"),
-            ]
-        if tipo == "verificacao":
-            return [
-                ("Relembre", "para_comecar"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "modelagem":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "grafico":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo in {"resolucao_problemas", "tecnologia"}:
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Pause e responda", "pause"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        # conceito_novo e demais tipos do catálogo de conteúdo
-        return [
-            ("Para começar", "para_comecar"),
-            ("Foco no conteúdo", "foco"),
-            ("De olho no modelo", "de_olho_modelo"),
-            ("Pause e responda", "pause"),
-            ("Na prática", "pratica"),
-            ("Encerramento", "encerramento"),
-        ]
-
     if perfil == "lingua_portuguesa_ef":
         if tipo == "autoavaliacao":
             return [
@@ -3077,33 +3029,6 @@ def _frases_por_contexto(
                 f"Sintetizar os aprendizados financeiros relacionados a {tema}, retomando critérios de decisão, organização e responsabilidade. "
                 "Propor um fechamento com planejamento de aplicação no cotidiano, sem solicitar exposição de informações financeiras pessoais."
             )
-
-    elif perfil == "matematica":
-            # Gerador especializado de Matemática — retorna lista de etapas completas
-            etapas_mat = _metodologia_matematica(texto_base, tema, tipo, turma=turma, tecnicas=tecnicas)
-            # Converte lista de dicts em dicionário de frases para o motor geral
-            for etapa in etapas_mat:
-                chave = normalizar_texto(etapa["titulo"]).replace(" ", "_")
-                base[chave] = etapa["texto"]
-            # Alimenta as chaves canônicas usadas pelos templates de etapas
-            for etapa in etapas_mat:
-                titulo_norm = normalizar_texto(etapa["titulo"])
-                mapa_chaves = {
-                    "para comecar": "para_comecar",
-                    "relembre": "para_comecar",
-                    "abertura": "abertura",
-                    "pratica na khan academy": "pratica_khan",
-                    "fechamento": "fechamento_khan",
-                    "foco no conteudo": "foco",
-                    "de olho no modelo": "de_olho_modelo",
-                    "pause e responda": "pause",
-                    "na pratica": "pratica",
-                    "encerramento": "encerramento",
-                }
-                for titulo_key, chave_canon in mapa_chaves.items():
-                    if titulo_key in titulo_norm:
-                        base[chave_canon] = etapa["texto"]
-                        break
 
     elif perfil == "tecnologia_inovacao":
             base["para_comecar"] = (
