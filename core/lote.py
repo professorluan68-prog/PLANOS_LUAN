@@ -10,6 +10,7 @@ from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizag
 from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
 from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.referencias_geografia import localizar_docx_referencia_geografia, referencia_geografia_por_pdf
+from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_inglesa, referencia_lingua_inglesa_por_pdf
 from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
@@ -79,6 +80,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia_biologia(caminho_pdf)
     if perfil == "geografia":
         return localizar_docx_referencia_geografia(caminho_pdf)
+    if perfil == "ingles":
+        return localizar_docx_referencia_lingua_inglesa(caminho_pdf)
     if perfil == "orientacao_estudos":
         return localizar_docx_referencia_orientacao_estudos(caminho_pdf)
     if perfil == "projeto_de_vida":
@@ -95,6 +98,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_biologia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "geografia":
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "ingles":
+        return referencia_lingua_inglesa_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "orientacao_estudos":
         return referencia_orientacao_estudos_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "projeto_de_vida":
@@ -109,6 +114,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_biologia"
     if perfil == "geografia":
         return "docx_referencia_geografia"
+    if perfil == "ingles":
+        return "docx_referencia_lingua_inglesa"
     if perfil == "orientacao_estudos":
         return "docx_referencia_orientacao_estudos"
     if perfil == "projeto_de_vida":
@@ -2791,6 +2798,14 @@ def _preparar_contexto_aula_pdf(
         contexto_metodologico = "regular"
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
     aprendizagem_pv = montar_aprendizagem_projeto_vida(escopo_pv) if escopo_pv else ""
+    if perfil == "ingles":
+        referencia_docx_ingles = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+        titulo_referencia = str((referencia_docx_ingles or {}).get("titulo") or "").strip()
+        if titulo_referencia:
+            if not numero_aula and (referencia_docx_ingles or {}).get("numero"):
+                numero_aula = str(referencia_docx_ingles.get("numero"))
+            tema = titulo_referencia
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
     if perfil == "orientacao_estudos":
         referencia_docx_oe = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
         titulo_referencia = str((referencia_docx_oe or {}).get("titulo") or "").strip()
