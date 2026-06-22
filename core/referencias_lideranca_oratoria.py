@@ -1,4 +1,4 @@
-"""Referencias prontas de Biologia a partir de DOCX na pasta dos PDFs."""
+"""Referencias prontas de Lideranca e Oratoria a partir de DOCX na pasta dos PDFs."""
 
 from __future__ import annotations
 
@@ -22,9 +22,28 @@ def _normalizar_busca(texto: str) -> str:
 
 def _tokens_titulo(texto: str) -> set[str]:
     ignorar = {
-        "a", "o", "as", "os", "e", "de", "do", "da", "dos", "das",
-        "um", "uma", "para", "por", "que", "em", "no", "na", "nos", "nas",
-        "aula", "parte",
+        "a",
+        "o",
+        "as",
+        "os",
+        "e",
+        "de",
+        "do",
+        "da",
+        "dos",
+        "das",
+        "um",
+        "uma",
+        "para",
+        "por",
+        "que",
+        "em",
+        "no",
+        "na",
+        "nos",
+        "nas",
+        "aula",
+        "parte",
     }
     return {
         token
@@ -33,23 +52,12 @@ def _tokens_titulo(texto: str) -> set[str]:
     }
 
 
-def _parte_titulo(texto: str) -> str:
-    match = re.search(r"\bparte\s*(\d{1,2})\b", _normalizar_busca(texto))
-    return match.group(1) if match else ""
-
-
 def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
     tokens_tema = _tokens_titulo(tema)
     tokens_ref = _tokens_titulo(titulo_referencia)
     if not tokens_tema or not tokens_ref:
         return 0.0
-
-    pontuacao = len(tokens_tema & tokens_ref) / len(tokens_tema | tokens_ref)
-    parte_tema = _parte_titulo(tema)
-    parte_ref = _parte_titulo(titulo_referencia)
-    if parte_tema and parte_ref:
-        pontuacao += 0.25 if parte_tema == parte_ref else -0.25
-    return pontuacao
+    return len(tokens_tema & tokens_ref) / len(tokens_tema | tokens_ref)
 
 
 def _normalizar_numero_aula(valor: Any) -> int:
@@ -107,7 +115,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
         if not aula_atual:
             continue
 
-        texto_norm = texto.lower()
+        texto_norm = _normalizar_busca(texto)
         if texto_norm == "metodologia":
             secao = "metodologia"
             continue
@@ -151,13 +159,14 @@ def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
     return prioridade_nome, modificado, caminho.name.lower()
 
 
-def localizar_docx_referencia_biologia(caminho_pdf: str | Path) -> Path | None:
+def localizar_docx_referencia_lideranca_oratoria(caminho_pdf: str | Path) -> Path | None:
     caminho = Path(caminho_pdf)
     if not caminho_pdf or not caminho.parent.exists():
         return None
 
-    candidatos = list(caminho.parent.glob("Metodologias_Biologia*.docx"))
-    candidatos.extend(caminho.parent.glob("*Biologia*Metodologia*.docx"))
+    candidatos = list(caminho.parent.glob("Metodologias_Lideranca_e_Oratoria*.docx"))
+    candidatos.extend(caminho.parent.glob("*Lideranca*Oratoria*Metodologia*.docx"))
+    candidatos.extend(caminho.parent.glob("*Liderança*Oratória*Metodologia*.docx"))
     candidatos.extend(caminho.parent.glob("*Metodologia*.docx"))
     candidatos_unicos = {candidato.resolve(): candidato for candidato in candidatos}.values()
     candidatos_validos = [candidato for candidato in candidatos_unicos if not candidato.name.startswith("~$")]
@@ -166,7 +175,7 @@ def localizar_docx_referencia_biologia(caminho_pdf: str | Path) -> Path | None:
     return max(candidatos_validos, key=_score_docx_referencia)
 
 
-def titulos_referencia_biologia_por_docx(caminho_docx: str | Path) -> dict[int, str]:
+def titulos_referencia_lideranca_oratoria_por_docx(caminho_docx: str | Path) -> dict[int, str]:
     referencias = _carregar_referencias_docx(str(caminho_docx))
     return {
         int(numero): str(referencia.get("titulo") or "").strip()
@@ -198,8 +207,8 @@ def _selecionar_referencia(
     return referencia_numerica or (referencias.get(melhor_numero) if melhor_pontuacao >= 0.70 else None)
 
 
-def referencia_biologia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
-    docx = localizar_docx_referencia_biologia(caminho_pdf)
+def referencia_lideranca_oratoria_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
+    docx = localizar_docx_referencia_lideranca_oratoria(caminho_pdf)
     if not docx:
         return None
     numero = _normalizar_numero_aula(numero_aula)

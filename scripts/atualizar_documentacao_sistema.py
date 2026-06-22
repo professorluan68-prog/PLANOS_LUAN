@@ -266,6 +266,7 @@ def gerar_blocos_estrutura(info: dict) -> list[dict]:
                 "core/lib ganhou mais peso com higienizador_pedagogico.py e com reforcos por perfil em acompanhamento e acessibilidade.",
                 "helpers.py e planos_luan_app.py passaram a sustentar melhor a ordem real de envio dos PDFs e a memoria da ultima aula gerada.",
                 "classificador.py e metodologia.py receberam classificadores e geradores especializados para Ciencias, Biologia e Historia.",
+                "Instalação e mapeamento do LibreOffice (soffice) para automação e conversão local estável de .docx para .pdf.",
             ],
         ),
         bloco(
@@ -385,6 +386,7 @@ def gerar_blocos_sistema(info: dict) -> list[dict]:
                 "A base de testes cresceu e hoje cobre fluxo principal sem lote, cache JSON, revisao final, timeout de IA e blocos pedagogicos mais recentes.",
                 "Padronizacao fisica de PDFs e atualizacao automatica de caminhos no arquivo central mapa_arquivos.csv para Matematica, Ciencias, Biologia e Historia.",
                 "Adicionados classificadores e metodologias autorais complexas (como linha do tempo, analise critica de fontes e debate de narrativas) para Historia, Ciencias e Biologia.",
+                "Integração e configuração do LibreOffice no PATH para conversões headless de .docx para .pdf.",
             ],
         ),
         bloco("heading", level=1, text="4. Partes que merecem leitura especial hoje"),
@@ -425,6 +427,7 @@ def gerar_blocos_sistema(info: dict) -> list[dict]:
                 f"Hoje existem {info['qtd_bases_ae']} bases JSON de AE priorizado em assets/ae_priorizado, ainda concentradas no 2o bimestre.",
                 f"O projeto possui {info['qtd_testes']} arquivos de teste automatizado em tests/.",
                 "As versoes .txt extraidas da documentacao continuam existindo para leitura rapida fora do Word.",
+                "O LibreOffice está instalado e configurado globalmente no PATH, servindo para conversão local e rápida de DOCX em PDF.",
             ],
         ),
         bloco("heading", level=1, text="6. Como a documentacao fica atualizada agora"),

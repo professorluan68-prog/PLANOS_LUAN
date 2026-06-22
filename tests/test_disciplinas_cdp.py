@@ -4,6 +4,7 @@ from core.disciplinas import (
     DISCIPLINA_CDP_FUNDAMENTAL,
     DISCIPLINA_CDP_MEDIO,
     DISCIPLINA_CDP_MULTISSERIADA,
+    DISCIPLINA_GEOGRAFIA_CDP_MEDIO,
     TURMAS_CDP,
     eh_cdp,
     eh_cdp_contextual,
@@ -43,6 +44,8 @@ def test_cdp_contextual_continua_no_fluxo_pdf():
 def test_cdp_contextual_aceita_variacoes_simples_de_acentuacao():
     assert eh_cdp_contextual("CDP-ENSINO MEDIO")
     assert eh_cdp_contextual("  cdp-ensino medio  ")
+    assert eh_cdp_contextual("Geografia CDP Ensino Médio")
+    assert eh_cdp_contextual("Geografia CDP EM")
 
 
 def test_lista_disciplinas_tem_opcoes_principais():
@@ -55,6 +58,7 @@ def test_lista_disciplinas_tem_opcoes_principais():
     assert DISCIPLINA_CDP_MULTISSERIADA in nomes
     assert DISCIPLINA_CDP_FUNDAMENTAL in nomes
     assert DISCIPLINA_CDP_MEDIO in nomes
+    assert DISCIPLINA_GEOGRAFIA_CDP_MEDIO in nomes
     assert "Outra" in nomes
 
 

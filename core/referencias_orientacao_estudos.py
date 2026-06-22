@@ -10,7 +10,8 @@ from typing import Any
 
 
 def _normalizar_espacos(texto: str) -> str:
-    return re.sub(r"\s+", " ", str(texto or "")).strip()
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    return re.sub(r"\s+([.,;:!?])", r"\1", texto)
 
 
 def _normalizar_busca(texto: str) -> str:
@@ -24,6 +25,23 @@ def _normalizar_numero_aula(valor: Any) -> int:
         return valor
     match = re.search(r"\d{1,2}", str(valor or ""))
     return int(match.group(0)) if match else 0
+
+
+def _normalizar_habilidade(texto: str) -> str:
+    texto = _normalizar_espacos(texto)
+    texto = re.sub(r"^[\s.,;:–—-]+", "", texto).strip()
+    texto = re.sub(r"\be\.\s+(?=(?:LP|EF|EM)\d)", "e ", texto)
+    return texto
+
+
+def _separar_titulo_habilidade(texto: str) -> tuple[str, str]:
+    texto = _normalizar_espacos(texto)
+    match = re.search(r"\bHABILIDADE\s*:\s*", texto, flags=re.I)
+    if not match:
+        return texto, ""
+    titulo = _normalizar_espacos(texto[: match.start()])
+    habilidade = _normalizar_habilidade(texto[match.end() :])
+    return titulo, habilidade
 
 
 def _paragrafos_docx(caminho_docx: str) -> list[str]:
@@ -61,9 +79,11 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
         match_aula = re.match(r"^AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
+            titulo, habilidade = _separar_titulo_habilidade(match_aula.group(2))
             aula_atual = {
                 "numero": int(match_aula.group(1)),
-                "titulo": _normalizar_espacos(match_aula.group(2)),
+                "titulo": titulo,
+                "habilidade": habilidade,
                 "metodologia": [],
                 "acompanhamento": [],
                 "acessibilidade": [],
@@ -75,6 +95,10 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             continue
 
         texto_norm = _normalizar_busca(texto)
+        if texto_norm.startswith("habilidade "):
+            _, habilidade = _separar_titulo_habilidade(texto)
+            aula_atual["habilidade"] = habilidade
+            continue
         if texto_norm == "metodologia":
             secao = "metodologia"
             continue
@@ -83,6 +107,12 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             continue
         if texto_norm == "acessibilidade":
             secao = "acessibilidade"
+            continue
+
+        if not secao and aula_atual.get("habilidade"):
+            aula_atual["habilidade"] = _normalizar_habilidade(
+                f"{aula_atual['habilidade']} {texto}"
+            )
             continue
 
         if secao == "metodologia":
@@ -143,22 +173,62 @@ def titulos_referencia_orientacao_estudos_por_docx(caminho_docx: str | Path) -> 
     }
 
 
+def _arquivo_parece_referencia_nao_aula(caminho: Path) -> bool:
+    nome = _normalizar_busca(caminho.stem)
+    marcadores = (
+        "matriz de referencia",
+        "matriz referencia",
+        "referencial curricular",
+    )
+    return any(marcador in nome for marcador in marcadores)
+
+
+def _numero_por_ordem_na_pasta(caminho_pdf: Path, referencias: dict[int, dict[str, Any]]) -> int:
+    if not referencias or not caminho_pdf.exists():
+        return 0
+    try:
+        pdfs = [
+            item
+            for item in caminho_pdf.parent.glob("*.pdf")
+            if item.is_file() and not _arquivo_parece_referencia_nao_aula(item)
+        ]
+    except OSError:
+        return 0
+    pdfs = sorted(pdfs, key=lambda item: item.name.lower())
+    try:
+        posicao = pdfs.index(caminho_pdf) + 1
+    except ValueError:
+        return 0
+    return posicao if posicao in referencias else 0
+
+
 def referencia_orientacao_estudos_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
     docx = localizar_docx_referencia_orientacao_estudos(caminho_pdf)
     if not docx:
         return None
+    referencias = _carregar_referencias_docx(str(docx))
+    caminho = Path(caminho_pdf)
+    nome_busca = _normalizar_busca(caminho.stem)
+    numero_por_ordem = _numero_por_ordem_na_pasta(caminho, referencias)
+
     numero = _normalizar_numero_aula(numero_aula)
+    if numero not in referencias and numero_por_ordem:
+        numero = numero_por_ordem
+    elif numero_por_ordem and "aula" not in nome_busca:
+        numero = numero_por_ordem
     if not numero:
-        numero = _normalizar_numero_aula(Path(caminho_pdf).stem)
+        numero = _normalizar_numero_aula(caminho.stem)
+    if numero not in referencias and numero_por_ordem:
+        numero = numero_por_ordem
     if not numero:
         return None
-    referencias = _carregar_referencias_docx(str(docx))
     referencia = referencias.get(numero)
     if not referencia:
         return None
     return {
         "numero": numero,
         "titulo": referencia.get("titulo", ""),
+        "habilidade": referencia.get("habilidade", ""),
         "metodologia": list(referencia.get("metodologia") or []),
         "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
         "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],

@@ -2224,7 +2224,7 @@ else:
         # Busca automatica de PDFs locais ou envio manual, conforme modo escolhido.
         if modo_upload_automatico:
             base_pdfs_dir = r"D:\PDF novos"
-            pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre)
+            pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre, professor=professor)
             pasta_pdfs_auto = str(pasta_pdfs)
 
             pdf_files_disponiveis = []
@@ -2569,7 +2569,7 @@ if st.session_state.get("turmas_processadas"):
                 m = st.text_area("Metodologia", value=_texto_metodologia_app(aula), height=150, key=f"met_{rev_tok}_{t_idx}_{a_idx}")
                 
                 # Relatório Técnico (Item 12/14)
-                with st.expander("🛠️ Relatório Técnico da Geração", expanded=False):
+                if st.checkbox("🛠️ Exibir Relatório Técnico da Geração", value=False, key=f"tech_rep_{rev_tok}_{t_idx}_{a_idx}"):
                     st.markdown(
                         f"""
                         | Parâmetro | Valor |

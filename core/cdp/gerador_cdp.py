@@ -21,7 +21,15 @@ def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
         "cdpensinofundamental",
         "cdp-ensinomedio",
         "cdpensinomedio",
-    }
+    } or (
+        "cdp" in base
+        and (
+            "ensinomedio" in base
+            or "ensinofundamental" in base
+            or base.endswith("cdpem")
+            or base.endswith("cdpef")
+        )
+    )
 
 def _disciplina_base_cdp_contextual(texto: str, tema: str, caminho_pdf: str = "") -> str:
     base = _normalizar(f"{Path(caminho_pdf).name} {tema} {texto}")

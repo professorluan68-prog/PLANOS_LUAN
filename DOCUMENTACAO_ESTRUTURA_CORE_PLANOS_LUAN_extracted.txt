@@ -1,6 +1,6 @@
 Estrutura Atual da Pasta core do PLANOS_LUAN
 
-Documento atualizado automaticamente em 17/06/2026 às 00:42, em linguagem simples, com foco na estrutura real observada no codigo.
+Documento atualizado automaticamente em 21/06/2026 às 20:23, em linguagem simples, com foco na estrutura real observada no codigo.
 
 Objetivo: registrar como a pasta core esta organizada hoje, quais modulos ficaram mais importantes depois das evolucoes recentes e onde entram as camadas de IA, auditoria, higienizacao e CDP.
 
@@ -12,9 +12,9 @@ A camada de IA tambem mudou de papel: em vez de agir sozinha, ela pode trabalhar
 
 Snapshot atual
 
-- Arquivos Python diretos em core: 27
+- Arquivos Python diretos em core: 35
 - Modulos mapeados em core/lib: 17
-- Arquivos de teste em tests/: 59
+- Arquivos de teste em tests/: 66
 - Bases de AE priorizado em assets/ae_priorizado: 14
 - Subpacotes principais vivos hoje: core/lib, core/cdp e core/eja.
 
@@ -51,6 +51,14 @@ redacao_leitura_metodologia.py | Arquivo | Gera estruturas metodologicas autorai
 referencias_metodologia.py | Arquivo | Carrega referencias em texto usadas como memoria pedagogica do projeto. | Memoria pedagogica
 revisao_final.py | Arquivo | Aplica auditoria final, confidence_score, avisos_validacao e grava cache JSON por PDF. | Auditoria final
 validador_plano.py | Arquivo | Valida tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes da entrega. | Controle de qualidade
+educacao_financeira_validacao.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+listas_pedagogicas.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+referencias_biologia.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+referencias_educacao_financeira.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+referencias_geografia.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+referencias_projeto_vida.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+turmas.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
+variacao_metodologica.py | Arquivo | Modulo ainda nao classificado nesta documentacao automatica. | A revisar
 
 Novidades relevantes em relacao a 05/06/2026
 
@@ -60,6 +68,7 @@ Novidades relevantes em relacao a 05/06/2026
 - core/lib ganhou mais peso com higienizador_pedagogico.py e com reforcos por perfil em acompanhamento e acessibilidade.
 - helpers.py e planos_luan_app.py passaram a sustentar melhor a ordem real de envio dos PDFs e a memoria da ultima aula gerada.
 - classificador.py e metodologia.py receberam classificadores e geradores especializados para Ciencias, Biologia e Historia.
+- Instalação e mapeamento do LibreOffice (soffice) para automação e conversão local estável de .docx para .pdf.
 
 --- Table: Mapa rapido do subpacote core/lib ---
 Modulo | Papel hoje | Camada
@@ -89,4 +98,4 @@ No CDP, a leitura correta continua sendo em duas camadas: core/cdp como nucleo a
 
 Observacao importante
 
-Esta documentacao descreve o estado atual observado em 17/06/2026. Ela passou a ser regenerada por script interno para reduzir envelhecimento entre uma rodada de melhorias e outra.
+Esta documentacao descreve o estado atual observado em 21/06/2026. Ela passou a ser regenerada por script interno para reduzir envelhecimento entre uma rodada de melhorias e outra.

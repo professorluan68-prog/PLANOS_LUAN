@@ -8,6 +8,18 @@ from collections.abc import Iterable
 DISCIPLINA_PASTA_ALIASES = {
     "PORTUGUES": "LINGUA_PORTUGUESA",
     "LINGUA_PORTUGUESA": "LINGUA_PORTUGUESA",
+    "APROF_EM_BIOLOGIA": "APROFUNDAMENTO_EM_BIOLOGIA",
+    "APROFUNDAMENTO_BIOLOGIA": "APROFUNDAMENTO_EM_BIOLOGIA",
+    "APROFUNDAMENTO_EM_BIOLOGIA": "APROFUNDAMENTO_EM_BIOLOGIA",
+    "APROF_EM_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
+    "APROFUNDAMENTO_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
+    "APROFUNDAMENTO_EM_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
+    "LIDERANCA_ORATORIA": "LIDERANCA_E_ORATORIA",
+    "LIDERANCA_E_ORATORIA": "LIDERANCA_E_ORATORIA",
+    "CDPENSINO_MEDIO": "CDP_ENSINO_MEDIO",
+    "CDP_ENSINO_MEDIO": "CDP_ENSINO_MEDIO",
+    "CDPENSINO_FUNDAMENTAL": "CDP_ENSINO_FUNDAMENTAL",
+    "CDP_ENSINO_FUNDAMENTAL": "CDP_ENSINO_FUNDAMENTAL",
 }
 
 
@@ -123,6 +135,18 @@ def normalizar_para_pasta(texto: str) -> str:
 
 def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
     disciplina_norm = normalizar_para_pasta(disciplina)
+    if "CDP" in disciplina_norm and (
+        "ENSINO_MEDIO" in disciplina_norm
+        or disciplina_norm.endswith("_CDP_EM")
+        or disciplina_norm.endswith("CDP_EM")
+    ):
+        return "CDP_ENSINO_MEDIO"
+    if "CDP" in disciplina_norm and (
+        "ENSINO_FUNDAMENTAL" in disciplina_norm
+        or disciplina_norm.endswith("_CDP_EF")
+        or disciplina_norm.endswith("CDP_EF")
+    ):
+        return "CDP_ENSINO_FUNDAMENTAL"
     return DISCIPLINA_PASTA_ALIASES.get(disciplina_norm, disciplina_norm)
 
 
@@ -238,6 +262,17 @@ def arquivo_parece_id_seduc(arquivo) -> bool:
     return bool(re.fullmatch(r"\d{5,}", nome_base))
 
 
+def arquivo_parece_referencia_nao_aula(arquivo) -> bool:
+    nome = getattr(arquivo, "name", None) or Path(str(arquivo)).name
+    nome_norm = normalizar_para_pasta(Path(nome).stem)
+    marcadores = (
+        "MATRIZ_DE_REFERENCIA",
+        "MATRIZ_REFERENCIA",
+        "REFERENCIAL_CURRICULAR",
+    )
+    return any(marcador in nome_norm for marcador in marcadores)
+
+
 def numero_aula_pdf(arquivo) -> int | None:
     nome = getattr(arquivo, "name", None) or Path(str(arquivo)).name
     nome_base = Path(nome).stem
@@ -269,7 +304,12 @@ def numero_aula_pdf(arquivo) -> int | None:
 
 def filtrar_pdfs_para_aulas(arquivos) -> list:
     lista = list(arquivos or [])
-    legiveis = [arquivo for arquivo in lista if not arquivo_parece_id_seduc(arquivo)]
+    legiveis = [
+        arquivo
+        for arquivo in lista
+        if not arquivo_parece_id_seduc(arquivo)
+        and not arquivo_parece_referencia_nao_aula(arquivo)
+    ]
     return legiveis or lista
 
 
@@ -308,10 +348,46 @@ def numeros_pdfs_faltantes(arquivos, sequencia_esperada) -> list[int]:
     return [int(numero) for numero in (sequencia_esperada or []) if int(numero) not in disponiveis]
 
 
-def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: str) -> Path:
+def _usa_aprofundamento_biologia_silvana(professor: str, disciplina: str, turma_norm: str) -> bool:
+    professor_norm = normalizar_para_pasta(professor)
+    disciplina_norm = normalizar_para_pasta(disciplina)
+    return (
+        "SILVANA" in professor_norm
+        and "MARIANO" in professor_norm
+        and "BIOLOGIA" in disciplina_norm
+        and turma_norm == "2_ANO_A"
+    )
+
+
+def _pasta_aprofundamento_biologia_2ano_a(base_dir: str, bimestre_token: str) -> Path | None:
+    raiz = Path(base_dir) / "APROFUNDAMENTO_EM_BIOLOGIA" / "EM"
+    candidatos = []
+    if bimestre_token:
+        candidatos.extend(
+            [
+                raiz / bimestre_token / "2_ANO_A",
+                raiz / bimestre_token / "3_ANO",
+            ]
+        )
+    candidatos.extend([raiz / "2_ANO_A", raiz / "3_ANO"])
+    for caminho in candidatos:
+        if caminho.exists():
+            return caminho
+    return candidatos[0] if candidatos else None
+
+
+def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: str, professor: str = "") -> Path:
     r"""Monta o caminho D:\PDF novos\<DISCIPLINA>\<AF|EM>\<N>_BIMESTRE\<N>_ANO"""
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
     turma_norm = normalizar_para_pasta(turma)
+    bimestre_norm = normalizar_para_pasta(bimestre)
+    match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
+    bim = match_bim.group(1) + "_BIMESTRE" if match_bim else ""
+
+    if _usa_aprofundamento_biologia_silvana(professor, disciplina, turma_norm):
+        pasta_aprofundamento = _pasta_aprofundamento_biologia_2ano_a(base_dir, bim)
+        if pasta_aprofundamento:
+            return pasta_aprofundamento
 
     # Caso especial: se a pasta organizada diretamente por turma existir, usá-la
     caminho_direto = Path(base_dir) / disc_folder / turma_norm
@@ -330,10 +406,6 @@ def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: st
         serie = match_ano.group(1) + "_ANO"
     elif match_serie:
         serie = match_serie.group(1) + "_ANO"
-
-    bimestre_norm = normalizar_para_pasta(bimestre)
-    match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
-    bim = match_bim.group(1) + "_BIMESTRE" if match_bim else ""
 
     caminho_padrao = Path(base_dir) / disc_folder / nivel / bim / serie
     if caminho_padrao.exists():

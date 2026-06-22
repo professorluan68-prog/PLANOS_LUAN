@@ -1,4 +1,4 @@
-"""Referencias prontas de Biologia a partir de DOCX na pasta dos PDFs."""
+"""Referencias DOCX para CDP Ensino Fundamental/Medio em fluxo contextual."""
 
 from __future__ import annotations
 
@@ -20,11 +20,51 @@ def _normalizar_busca(texto: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", texto).strip()
 
 
+def _normalizar_numero_aula(valor: Any) -> str:
+    texto = str(valor or "").strip()
+    match = re.search(r"(?:^|[_\s-])AULA[_\s-]*(\d{1,2}(?:[.,]\d+)?)", texto, flags=re.I)
+    if not match:
+        match = re.search(r"(?<!\d)(\d{1,2}(?:[.,]\d+)?)(?!\d)", texto)
+    if not match:
+        return ""
+    numero = match.group(1).replace(",", ".")
+    if "." in numero:
+        inteiro, decimal = numero.split(".", 1)
+        return f"{int(inteiro)}.{decimal.rstrip('0') or '0'}"
+    return str(int(numero))
+
+
+def _numero_aula_por_nome_pdf(caminho_pdf: str | Path) -> str:
+    nome = Path(caminho_pdf).stem
+    match_aula = re.search(r"(?:^|[_\s-])AULA[_\s-]*(\d{1,2}(?:[.,]\d+)?)", nome, flags=re.I)
+    if match_aula:
+        return _normalizar_numero_aula(match_aula.group(1))
+    return _normalizar_numero_aula(nome)
+
+
 def _tokens_titulo(texto: str) -> set[str]:
     ignorar = {
-        "a", "o", "as", "os", "e", "de", "do", "da", "dos", "das",
-        "um", "uma", "para", "por", "que", "em", "no", "na", "nos", "nas",
-        "aula", "parte",
+        "a",
+        "o",
+        "as",
+        "os",
+        "e",
+        "de",
+        "do",
+        "da",
+        "dos",
+        "das",
+        "em",
+        "no",
+        "na",
+        "nos",
+        "nas",
+        "para",
+        "por",
+        "com",
+        "aula",
+        "tema",
+        "parte",
     }
     return {
         token
@@ -33,30 +73,12 @@ def _tokens_titulo(texto: str) -> set[str]:
     }
 
 
-def _parte_titulo(texto: str) -> str:
-    match = re.search(r"\bparte\s*(\d{1,2})\b", _normalizar_busca(texto))
-    return match.group(1) if match else ""
-
-
 def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
     tokens_tema = _tokens_titulo(tema)
     tokens_ref = _tokens_titulo(titulo_referencia)
     if not tokens_tema or not tokens_ref:
         return 0.0
-
-    pontuacao = len(tokens_tema & tokens_ref) / len(tokens_tema | tokens_ref)
-    parte_tema = _parte_titulo(tema)
-    parte_ref = _parte_titulo(titulo_referencia)
-    if parte_tema and parte_ref:
-        pontuacao += 0.25 if parte_tema == parte_ref else -0.25
-    return pontuacao
-
-
-def _normalizar_numero_aula(valor: Any) -> int:
-    if isinstance(valor, int):
-        return valor
-    match = re.search(r"\d{1,2}", str(valor or ""))
-    return int(match.group(0)) if match else 0
+    return len(tokens_tema & tokens_ref) / len(tokens_tema | tokens_ref)
 
 
 def _paragrafos_docx(caminho_docx: str) -> list[str]:
@@ -70,32 +92,64 @@ def _paragrafos_docx(caminho_docx: str) -> list[str]:
     except Exception:
         return []
 
-    return [_normalizar_espacos(paragrafo.text) for paragrafo in doc.paragraphs if _normalizar_espacos(paragrafo.text)]
+    paragrafos: list[str] = []
+    for paragrafo in doc.paragraphs:
+        texto = _normalizar_espacos(paragrafo.text)
+        if texto:
+            paragrafos.append(texto)
+    return paragrafos
 
 
-def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[int, dict[str, Any]]) -> None:
+def _itens_com_check(texto: str) -> list[str]:
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    if not texto:
+        return []
+    partes = [
+        parte.strip(" -;")
+        for parte in re.split(r"\s*(?:☑|•|\u2022)\s*", texto)
+        if parte.strip(" -;")
+    ]
+    if len(partes) <= 1:
+        partes = [
+            parte.strip(" -;")
+            for parte in re.split(r"\s*;\s+|\n+", texto)
+            if parte.strip(" -;")
+        ]
+    itens = []
+    for parte in partes:
+        parte = parte.lstrip("☑• ").strip()
+        if parte:
+            itens.append(_normalizar_espacos(f"☑ {parte}"))
+    return itens
+
+
+def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[str, dict[str, Any]]) -> None:
     if not aula:
         return
     numero = _normalizar_numero_aula(aula.get("numero"))
     if not numero:
         return
     if aula.get("metodologia") and len(aula.get("acompanhamento") or []) >= 3 and len(aula.get("acessibilidade") or []) >= 3:
-        aulas[numero] = aula
+        chave = numero
+        if chave in aulas:
+            repeticoes = sum(1 for chave_existente in aulas if chave_existente == numero or chave_existente.startswith(f"{numero}#"))
+            chave = f"{numero}#{repeticoes + 1}"
+        aulas[chave] = aula
 
 
-@lru_cache(maxsize=16)
-def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
+@lru_cache(maxsize=32)
+def _carregar_referencias_docx(caminho_docx: str) -> dict[str, dict[str, Any]]:
     paragrafos = _paragrafos_docx(caminho_docx)
-    aulas: dict[int, dict[str, Any]] = {}
+    aulas: dict[str, dict[str, Any]] = {}
     aula_atual: dict[str, Any] | None = None
     secao = ""
 
     for texto in paragrafos:
-        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
+        match_aula = re.match(r"^AULA\s+(\d{1,2}(?:[.,]\d+)?)\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
             aula_atual = {
-                "numero": int(match_aula.group(1)),
+                "numero": _normalizar_numero_aula(match_aula.group(1)),
                 "titulo": _normalizar_espacos(match_aula.group(2)),
                 "metodologia": [],
                 "acompanhamento": [],
@@ -107,7 +161,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
         if not aula_atual:
             continue
 
-        texto_norm = texto.lower()
+        texto_norm = _normalizar_busca(texto)
         if texto_norm == "metodologia":
             secao = "metodologia"
             continue
@@ -132,8 +186,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
                     f"{aula_atual['metodologia'][-1]['texto']} {texto}"
                 )
         elif secao in {"acompanhamento", "acessibilidade"}:
-            item = texto if texto.startswith("☑") else f"☑ {texto.lstrip('☑ ').strip()}"
-            aula_atual[secao].append(_normalizar_espacos(item))
+            aula_atual[secao].extend(_itens_com_check(texto))
 
     _finalizar_aula(aula_atual, aulas)
     return aulas
@@ -142,8 +195,10 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
 def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
     nome = _normalizar_busca(caminho.name)
     prioridade_nome = 0
+    if "metodologias" in nome:
+        prioridade_nome += 3
     if any(token in nome for token in ("corrigido", "atualizado", "novo", "2026")):
-        prioridade_nome = 1
+        prioridade_nome += 1
     try:
         modificado = caminho.stat().st_mtime
     except OSError:
@@ -151,13 +206,14 @@ def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
     return prioridade_nome, modificado, caminho.name.lower()
 
 
-def localizar_docx_referencia_biologia(caminho_pdf: str | Path) -> Path | None:
+def localizar_docx_referencia_cdp_contextual(caminho_pdf: str | Path) -> Path | None:
     caminho = Path(caminho_pdf)
     if not caminho_pdf or not caminho.parent.exists():
         return None
 
-    candidatos = list(caminho.parent.glob("Metodologias_Biologia*.docx"))
-    candidatos.extend(caminho.parent.glob("*Biologia*Metodologia*.docx"))
+    candidatos = list(caminho.parent.glob("metodologias*.docx"))
+    candidatos.extend(caminho.parent.glob("Metodologias*.docx"))
+    candidatos.extend(caminho.parent.glob("*CDP*Metodologia*.docx"))
     candidatos.extend(caminho.parent.glob("*Metodologia*.docx"))
     candidatos_unicos = {candidato.resolve(): candidato for candidato in candidatos}.values()
     candidatos_validos = [candidato for candidato in candidatos_unicos if not candidato.name.startswith("~$")]
@@ -166,25 +222,26 @@ def localizar_docx_referencia_biologia(caminho_pdf: str | Path) -> Path | None:
     return max(candidatos_validos, key=_score_docx_referencia)
 
 
-def titulos_referencia_biologia_por_docx(caminho_docx: str | Path) -> dict[int, str]:
+def titulos_referencia_cdp_contextual_por_docx(caminho_docx: str | Path) -> dict[str, str]:
     referencias = _carregar_referencias_docx(str(caminho_docx))
     return {
-        int(numero): str(referencia.get("titulo") or "").strip()
+        str(numero): str(referencia.get("titulo") or "").strip()
         for numero, referencia in referencias.items()
         if str(referencia.get("titulo") or "").strip()
     }
 
 
 def _selecionar_referencia(
-    referencias: dict[int, dict[str, Any]],
-    numero_aula: int,
+    referencias: dict[str, dict[str, Any]],
+    numero_aula: str,
     tema: str = "",
 ) -> dict[str, Any] | None:
     referencia_numerica = referencias.get(numero_aula)
     if not tema:
         return referencia_numerica
 
-    melhor_numero = 0
+    tokens_tema = _tokens_titulo(tema)
+    melhor_numero = ""
     melhor_pontuacao = 0.0
     for numero, referencia in referencias.items():
         pontuacao = _pontuar_titulo(tema, referencia.get("titulo", ""))
@@ -195,23 +252,28 @@ def _selecionar_referencia(
     pontuacao_numerica = _pontuar_titulo(tema, (referencia_numerica or {}).get("titulo", ""))
     if melhor_numero and melhor_pontuacao >= 0.50 and melhor_pontuacao > pontuacao_numerica + 0.15:
         return referencias.get(melhor_numero)
+    if referencia_numerica and tokens_tema and pontuacao_numerica < 0.25:
+        return None
     return referencia_numerica or (referencias.get(melhor_numero) if melhor_pontuacao >= 0.70 else None)
 
 
-def referencia_biologia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
-    docx = localizar_docx_referencia_biologia(caminho_pdf)
+def referencia_cdp_contextual_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
+    docx = localizar_docx_referencia_cdp_contextual(caminho_pdf)
     if not docx:
         return None
-    numero = _normalizar_numero_aula(numero_aula)
-    if not numero:
-        numero = _normalizar_numero_aula(Path(caminho_pdf).stem)
+
+    numero_nome = _numero_aula_por_nome_pdf(caminho_pdf)
+    numero = numero_nome or _normalizar_numero_aula(numero_aula)
     if not numero:
         return None
+
     referencias = _carregar_referencias_docx(str(docx))
     referencia = _selecionar_referencia(referencias, numero, tema)
     if not referencia:
         return None
+
     return {
+        "numero": referencia.get("numero") or numero,
         "titulo": referencia.get("titulo", ""),
         "metodologia": list(referencia.get("metodologia") or []),
         "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],

@@ -13,7 +13,10 @@ def _criar_docx_referencia_orientacao(caminho):
     doc = Document()
     doc.add_paragraph("METODOLOGIAS - ORIENTACAO DE ESTUDOS - 3ª SERIE DO ENSINO MEDIO")
 
-    doc.add_paragraph("AULA 1 — Informações em infográficos, gráficos, tabelas e esquemas")
+    doc.add_paragraph(
+        "AULA 1 — Informações em infográficos, gráficos, tabelas e esquemas\n\n"
+        "HABILIDADE: Eixo cognitivo. Reconhecer. LP5LERE02 – Localizar informação explícita."
+    )
     doc.add_paragraph("Metodologia")
     doc.add_paragraph("Para começar: Apresentar infográficos e discutir como dados visuais podem informar ou manipular.")
     doc.add_paragraph("Foco no conteúdo: Explicar leitura crítica de gráficos, tabelas e esquemas com atenção às fontes.")
@@ -29,6 +32,7 @@ def _criar_docx_referencia_orientacao(caminho):
     doc.add_paragraph("☑ Permitir respostas por palavras-chave, esquemas ou registro oral mediado.")
 
     doc.add_paragraph("AULA 2 — Desenhando para entender melhor")
+    doc.add_paragraph("HABILIDADE: Eixo cognitivo. Analisar. LP5LEAN06 – Inferir informações implícitas em textos.")
     doc.add_paragraph("Metodologia")
     doc.add_paragraph("Para começar: Retomar formas de organizar e apresentar conhecimentos.")
     doc.add_paragraph("Acompanhamento da aprendizagem")
@@ -65,6 +69,7 @@ def test_referencia_orientacao_estudos_le_docx_da_pasta_do_pdf(tmp_path):
     assert localizar_docx_referencia_orientacao_estudos(caminho_pdf) == caminho_docx
     assert referencia["numero"] == 1
     assert referencia["titulo"] == "Informações em infográficos, gráficos, tabelas e esquemas"
+    assert referencia["habilidade"] == "Eixo cognitivo. Reconhecer. LP5LERE02 – Localizar informação explícita."
     assert [etapa["titulo"] for etapa in referencia["metodologia"]][:3] == [
         "Para começar",
         "Foco no conteúdo",
@@ -112,10 +117,55 @@ def test_orientacao_estudos_resultado_usa_docx_e_titulo_oficial(tmp_path, monkey
 
     assert aula["tema"] == "Informações em infográficos, gráficos, tabelas e esquemas"
     assert aula["material"] == "AULA 1 - Informações em infográficos, gráficos, tabelas e esquemas"
+    assert aula["aprendizagem"] == "Eixo cognitivo. Reconhecer. LP5LERE02 – Localizar informação explícita."
     assert aula["origem_metodologia"] == "docx_referencia_orientacao_estudos"
     assert "fontes" in aula["metodologia"][1]["texto"].lower()
     assert len(aula["acompanhamento"]) == 3
     assert len(aula["acessibilidade"]) == 3
+
+
+def test_orientacao_estudos_ef_usa_ordem_da_pasta_quando_pdf_tem_intervalo(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Orientacao_de_Estudos_9_Ano_Ensino_Fundamental.docx"
+    _criar_docx_referencia_orientacao(caminho_docx)
+    matriz = tmp_path / "Matriz_de_Referencia_de_Lingua_Portuguesa.pdf"
+    pdf1 = tmp_path / "Missao_11_Um_mergulho_no_cordel-1-3.pdf"
+    pdf2 = tmp_path / "Missao_11_Um_mergulho_no_cordel-4-5.pdf"
+    for caminho in [matriz, pdf1, pdf2]:
+        caminho.write_bytes(b"%PDF-1.4\n")
+
+    referencia1 = referencia_orientacao_estudos_por_pdf(pdf1, "3")
+    referencia2 = referencia_orientacao_estudos_por_pdf(pdf2, "5")
+
+    assert referencia1["numero"] == 1
+    assert referencia1["titulo"] == "Informações em infográficos, gráficos, tabelas e esquemas"
+    assert referencia2["numero"] == 2
+    assert referencia2["titulo"] == "Desenhando para entender melhor"
+    assert "Inferir informações implícitas" in referencia2["habilidade"]
+
+
+def test_orientacao_estudos_junta_habilidade_quebrada_em_duas_linhas(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Orientacao_de_Estudos_6_Ano_Ensino_Fundamental.docx"
+    caminho_pdf = tmp_path / "Missao_07_A_trama_do_texto-4-5.pdf"
+    doc = Document()
+    doc.add_paragraph("AULA 1 — MISSAO 7 - A trama do texto - ETAPA 1")
+    doc.add_paragraph("HABILIDADE: Eixo cognitivo. Reconhecer. LP5LSRE05 – Identificar os mecanismos de referenciação lexical e")
+    doc.add_paragraph("pronominal.")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para começar: Retomar exemplos de retomadas no texto.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("☑ Verificar se localizam retomadas no texto.")
+    doc.add_paragraph("☑ Observar se explicam os referentes identificados.")
+    doc.add_paragraph("☑ Acompanhar se justificam as respostas com trechos lidos.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("☑ Oferecer leitura guiada em trechos curtos.")
+    doc.add_paragraph("☑ Disponibilizar palavras-chave no quadro.")
+    doc.add_paragraph("☑ Permitir resposta oral mediada com registro em tópicos.")
+    doc.save(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    referencia = referencia_orientacao_estudos_por_pdf(caminho_pdf, "1")
+
+    assert referencia["habilidade"].endswith("lexical e pronominal.")
 
 
 def test_resolver_pasta_pdfs_orientacao_estudos_em_sem_pasta_bimestre(tmp_path):

@@ -1,6 +1,6 @@
 Documentacao Atual do Sistema PLANOS_LUAN
 
-Documento atualizado automaticamente em 17/06/2026 às 00:42, em linguagem simples, descrevendo o comportamento real do sistema hoje.
+Documento atualizado automaticamente em 21/06/2026 às 20:23, em linguagem simples, descrevendo o comportamento real do sistema hoje.
 
 --- Table: Leitura proposta ---
 Campo | Descricao
@@ -49,6 +49,7 @@ scripts/atualizar_documentacao_sistema.py | Regeneracao automatica das documenta
 - A base de testes cresceu e hoje cobre fluxo principal sem lote, cache JSON, revisao final, timeout de IA e blocos pedagogicos mais recentes.
 - Padronizacao fisica de PDFs e atualizacao automatica de caminhos no arquivo central mapa_arquivos.csv para Matematica, Ciencias, Biologia e Historia.
 - Adicionados classificadores e metodologias autorais complexas (como linha do tempo, analise critica de fontes e debate de narrativas) para Historia, Ciencias e Biologia.
+- Integração e configuração do LibreOffice no PATH para conversões headless de .docx para .pdf.
 
 4. Partes que merecem leitura especial hoje
 
@@ -65,8 +66,9 @@ core/revisao_final.py e tests/ viraram pecas mais relevantes do que eram nos doc
 - O banco principal usado pelo app continua na raiz: planos_luan.db.
 - Cada PDF processado pode ganhar um sidecar .json com hash, tema, metodologia, confidence_score e avisos.
 - Hoje existem 14 bases JSON de AE priorizado em assets/ae_priorizado, ainda concentradas no 2o bimestre.
-- O projeto possui 59 arquivos de teste automatizado em tests/.
+- O projeto possui 66 arquivos de teste automatizado em tests/.
 - As versoes .txt extraidas da documentacao continuam existindo para leitura rapida fora do Word.
+- O LibreOffice está instalado e configurado globalmente no PATH, servindo para conversão local e rápida de DOCX em PDF.
 
 6. Como a documentacao fica atualizada agora
 

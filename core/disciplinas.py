@@ -11,6 +11,7 @@ DISCIPLINA_CDP_MULTISSERIADA = "CDP- Multisseriada"
 DISCIPLINA_CDP_CICLO_I = "CDP - Ciclo I"
 DISCIPLINA_CDP_FUNDAMENTAL = "CDP-ENSINO FUNDAMENTAL"
 DISCIPLINA_CDP_MEDIO = "CDP-ENSINO MÉDIO"
+DISCIPLINA_GEOGRAFIA_CDP_MEDIO = "Geografia CDP Ensino Médio"
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ _DISCIPLINAS = [
     "Orientação de Estudos",
     DISCIPLINA_CDP_FUNDAMENTAL,
     DISCIPLINA_CDP_MEDIO,
+    DISCIPLINA_GEOGRAFIA_CDP_MEDIO,
     DISCIPLINA_CDP_MULTISSERIADA,
     "Projeto de Vida",
     "Química",
@@ -97,7 +99,16 @@ def eh_cdp_fundamental(nome: str) -> bool:
 
 def eh_cdp_contextual(nome: str) -> bool:
     chave = _normalizar_nome_disciplina(nome)
+    chave_compacta = chave.replace(" ", "")
     return chave in {
         _normalizar_nome_disciplina(DISCIPLINA_CDP_FUNDAMENTAL),
         _normalizar_nome_disciplina(DISCIPLINA_CDP_MEDIO),
-    }
+    } or (
+        "CDP" in chave_compacta
+        and (
+            "ENSINOMEDIO" in chave_compacta
+            or "ENSINOFUNDAMENTAL" in chave_compacta
+            or chave_compacta.endswith("CDPEM")
+            or chave_compacta.endswith("CDPEF")
+        )
+    )
