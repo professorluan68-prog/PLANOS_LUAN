@@ -44,6 +44,9 @@ def listar_falhas_ia(aulas, exigir_ia: bool = True) -> list[str]:
     for idx, aula in enumerate(aulas or [], start=1):
         if aula.get("ia_usada"):
             continue
+        origem = str(aula.get("origem_metodologia") or "").strip()
+        if origem.startswith("docx_referencia_"):
+            continue
         erro = str(aula.get("ia_erro") or "").strip()
         tema = str(aula.get("tema") or f"Aula {idx}").strip()
         if erro:

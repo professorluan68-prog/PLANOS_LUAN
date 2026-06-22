@@ -118,6 +118,19 @@ def test_listar_falhas_ia_e_resumir_fallback_local():
     assert "Recursos hidricos" in resumo
 
 
+def test_listar_falhas_ia_ignora_aula_com_referencia_docx():
+    aulas = [
+        {
+            "tema": "Informações em infográficos, gráficos, tabelas e esquemas",
+            "ia_usada": False,
+            "ia_erro": "",
+            "origem_metodologia": "docx_referencia_orientacao_estudos",
+        }
+    ]
+
+    assert listar_falhas_ia(aulas) == []
+
+
 def test_relatorio_geracao_inclui_observacao_ia_quando_houver_fallback():
     relatorio = montar_relatorio_geracao(
         [
