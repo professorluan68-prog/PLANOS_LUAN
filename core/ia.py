@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import re
+import time
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -30,6 +32,8 @@ from core.qualidade_metodologica import (
     titulo_esta_truncado,
 )
 from core.referencias_metodologia import carregar_referencia_metodologica
+
+logger = logging.getLogger(__name__)
 
 
 class EtapaMetodologia(BaseModel):
@@ -615,7 +619,28 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
     return saida[:6]
 
 
+def _validar_schema_resposta(data: dict) -> None:
+    """Valida se a resposta da IA tem a estrutura esperada."""
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"Resposta da IA invalida: esperado dict, recebido {type(data).__name__}"
+        )
+    if not isinstance(data.get("metodologia"), list):
+        # Tenta converter string para lista se possível
+        met = data.get("metodologia")
+        if isinstance(met, str) and met.strip():
+            data["metodologia"] = [{"titulo": "Desenvolvimento", "texto": met}]
+        else:
+            raise ValueError(
+                f"Schema invalido: 'metodologia' deve ser lista, "
+                f"recebido: {type(met).__name__}"
+            )
+    if not data.get("tema"):
+        raise ValueError("Schema invalido: campo 'tema' ausente ou vazio.")
+
+
 def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str) -> dict:
+    _validar_schema_resposta(data)
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
     tema = extrair_conceito_central(data.get("tema", ""))
@@ -692,6 +717,51 @@ def processar_item_cdp_ia(item: dict, disciplina: str, turma: str, provedor: str
     return saida
 
 
+def _chamar_openai_com_retry(client, modelo, messages, response_format, max_tentativas=3):
+    """Chama a API da OpenAI com retry e backoff exponencial."""
+    for tentativa in range(max_tentativas):
+        try:
+            return client.chat.completions.parse(
+                model=modelo,
+                messages=messages,
+                response_format=response_format,
+                timeout=IA_TIMEOUT_SEGUNDOS,
+            )
+        except Exception as e:
+            nome_erro = type(e).__name__
+            if nome_erro in ("RateLimitError", "APIConnectionError", "APITimeoutError") or "rate" in str(e).lower() or "timeout" in str(e).lower():
+                if tentativa == max_tentativas - 1:
+                    raise
+                espera = (2 ** tentativa) + 1
+                logger.warning("OpenAI %s — tentativa %d/%d, aguardando %ds...", nome_erro, tentativa + 1, max_tentativas, espera)
+                time.sleep(espera)
+            else:
+                raise
+    raise RuntimeError("Falha apos todas as tentativas de chamada OpenAI.")
+
+
+def _chamar_gemini_com_retry(client, modelo, prompt, config, max_tentativas=3):
+    """Chama a API do Gemini com retry e backoff exponencial."""
+    for tentativa in range(max_tentativas):
+        try:
+            return client.models.generate_content(
+                model=modelo,
+                contents=prompt,
+                config=config,
+            )
+        except Exception as e:
+            nome_erro = type(e).__name__
+            if "rate" in str(e).lower() or "timeout" in str(e).lower() or "429" in str(e) or "deadline" in str(e).lower():
+                if tentativa == max_tentativas - 1:
+                    raise
+                espera = (2 ** tentativa) + 1
+                logger.warning("Gemini %s — tentativa %d/%d, aguardando %ds...", nome_erro, tentativa + 1, max_tentativas, espera)
+                time.sleep(espera)
+            else:
+                raise
+    raise RuntimeError("Falha apos todas as tentativas de chamada Gemini.")
+
+
 def processar_plano_ia(
     texto_pdf: str,
     disciplina: str,
@@ -721,14 +791,14 @@ def processar_plano_ia(
             api_key=os.getenv("OPENAI_API_KEY"),
             timeout=IA_TIMEOUT_SEGUNDOS,
         )
-        response = client.chat.completions.parse(
-            model=modelo or "gpt-4o-mini",
-            messages=[
+        response = _chamar_openai_com_retry(
+            client,
+            modelo or "gpt-4o-mini",
+            [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
-            response_format=PlanoAulaIA,
-            timeout=IA_TIMEOUT_SEGUNDOS,
+            PlanoAulaIA,
         )
         data = _extrair_json_openai(response)
         return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
@@ -744,10 +814,11 @@ def processar_plano_ia(
         )
         prompt_json = system_prompt + "\n\n" + prompt
 
-        response = client.models.generate_content(
-            model=modelo or MODELO_GEMINI_PADRAO,
-            contents=prompt_json,
-            config=types.GenerateContentConfig(
+        response = _chamar_gemini_com_retry(
+            client,
+            modelo or MODELO_GEMINI_PADRAO,
+            prompt_json,
+            types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=PlanoAulaIA,
                 http_options=types.HttpOptions(timeout=timeout_milisegundos),

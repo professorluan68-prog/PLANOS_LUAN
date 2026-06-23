@@ -54,11 +54,11 @@ from core.cdp.gerador_cdp import (
     eh_cdp_contextual_disciplina,
     formatar_material_cdp_contextual,
     metodologia_cdp_contextual,
-    _tipo_conteudo_cdp,
-    _tema_cdp_seguro,
+    tipo_conteudo_cdp,
+    tema_cdp_seguro,
     limpar_tema_cdp_contextual,
-    _limpar_texto_cdp_contextual,
-    _conceito_cdp_contextual,
+    limpar_texto_cdp_contextual,
+    conceito_cdp_contextual,
 )
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
 
@@ -70,6 +70,10 @@ _formatar_material_cdp_contextual = formatar_material_cdp_contextual
 _metodologia_cdp_contextual = metodologia_cdp_contextual
 _acompanhamento_cdp_contextual = acompanhamento_cdp_contextual
 _acessibilidade_cdp_contextual = acessibilidade_cdp_contextual
+_tipo_conteudo_cdp = tipo_conteudo_cdp
+_tema_cdp_seguro = tema_cdp_seguro
+_limpar_texto_cdp_contextual = limpar_texto_cdp_contextual
+_conceito_cdp_contextual = conceito_cdp_contextual
 _normalizar = normalizar_texto_lote
 _perfil_disciplina = perfil_disciplina
 logger = logging.getLogger(__name__)

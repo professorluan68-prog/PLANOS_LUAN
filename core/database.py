@@ -3,7 +3,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from config import DB_PATH
+from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH
 
 
 HISTORICO_PLANOS_LIMITE_PADRAO = 50
@@ -33,8 +33,10 @@ class SafeConnectionWrapper:
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 10000;")
     return SafeConnectionWrapper(conn)
 
 
@@ -101,6 +103,33 @@ def _normalizar_limite_historico(limite) -> int:
     except (TypeError, ValueError):
         valor = HISTORICO_PLANOS_LIMITE_PADRAO
     return max(1, min(valor, HISTORICO_PLANOS_LIMITE_MAXIMO))
+# ---------- Sistema de migrações versionadas ----------
+MIGRACOES = [
+    # Versão 1
+    "ALTER TABLE professor_turmas ADD COLUMN arquivo_modelo TEXT",
+    # Versão 2
+    "ALTER TABLE professor_turmas ADD COLUMN template_id TEXT",
+    # Versão 3
+    "ALTER TABLE professor_turmas ADD COLUMN componente_curricular TEXT",
+]
+
+
+def _aplicar_migracoes(cursor):
+    """Aplica migrações pendentes de schema com controle de versão."""
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS schema_version (versao INTEGER PRIMARY KEY)"
+    )
+    cursor.execute("SELECT COALESCE(MAX(versao), 0) FROM schema_version")
+    versao_atual = cursor.fetchone()[0]
+
+    for i, sql in enumerate(MIGRACOES[versao_atual:], start=versao_atual + 1):
+        try:
+            cursor.execute(sql)
+        except Exception:
+            pass  # Coluna já existe — seguro ignorar em ALTER TABLE ADD COLUMN
+        cursor.execute(
+            "INSERT OR IGNORE INTO schema_version VALUES (?)", (i,)
+        )
 
 
 def init_db():
@@ -133,14 +162,8 @@ def init_db():
             )
             """
         )
-        cursor.execute("PRAGMA table_info(professor_turmas)")
-        colunas_prof_turmas = {row[1] for row in cursor.fetchall()}
-        if "arquivo_modelo" not in colunas_prof_turmas:
-            cursor.execute("ALTER TABLE professor_turmas ADD COLUMN arquivo_modelo TEXT")
-        if "template_id" not in colunas_prof_turmas:
-            cursor.execute("ALTER TABLE professor_turmas ADD COLUMN template_id TEXT")
-        if "componente_curricular" not in colunas_prof_turmas:
-            cursor.execute("ALTER TABLE professor_turmas ADD COLUMN componente_curricular TEXT")
+        
+        _aplicar_migracoes(cursor)
 
         cursor.execute(
             """
@@ -675,7 +698,7 @@ def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str
 
     # 2. Tentar obter do arquivo JSON de mapeamento
     try:
-        json_path = Path("D:\\registro_proxima_geracao.json")
+        json_path = Path(REGISTRO_PROXIMA_GERACAO_PATH)
         if json_path.exists():
             with open(json_path, "r", encoding="utf-8") as fj:
                 dados = json.load(fj)

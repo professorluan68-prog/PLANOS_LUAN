@@ -2172,7 +2172,7 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
         "geografia_dados_espaciais": [
             "☑ Destacar no quadro os dados que precisam ser comparados antes da atividade.",
             "☑ Explicar termos como índice, porcentagem, concentração e distribuição com exemplos simples.",
-            "☑ Reduzir a quantidade de dados para alunos com maior dificuldade de leitura.",
+"☑ Reduzir a quantidade de dados para alunos com maior dificuldade de leitura.",
             "☑ Permitir consulta ao esquema da lousa durante as respostas.",
         ],
         "geografia_producao_cartografica": [
@@ -2239,6 +2239,10 @@ formatar_material_cdp_contextual = _formatar_material_cdp_contextual
 metodologia_cdp_contextual = _metodologia_cdp_contextual
 acompanhamento_cdp_contextual = _acompanhamento_cdp_contextual
 acessibilidade_cdp_contextual = _acessibilidade_cdp_contextual
+tipo_conteudo_cdp = _tipo_conteudo_cdp
+tema_cdp_seguro = _tema_cdp_seguro
+limpar_texto_cdp_contextual = _limpar_texto_cdp_contextual
+conceito_cdp_contextual = _conceito_cdp_contextual
 
 __all__ = [
     "eh_cdp_contextual_disciplina",
@@ -2248,4 +2252,8 @@ __all__ = [
     "metodologia_cdp_contextual",
     "acompanhamento_cdp_contextual",
     "acessibilidade_cdp_contextual",
+    "tipo_conteudo_cdp",
+    "tema_cdp_seguro",
+    "limpar_texto_cdp_contextual",
+    "conceito_cdp_contextual",
 ]

@@ -26,21 +26,35 @@ from core.normalizacao import normalizar as normalizar_texto
 
 
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS) -> str:
-    partes = []
+    """Extrai texto de um PDF com detecção de PDFs baseados em imagem."""
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
+            partes = []
             for pagina in pdf.pages:
-                partes.append(pagina.extract_text() or "")
-                if sum(len(parte) for parte in partes) >= limite_chars:
+                texto_pagina = pagina.extract_text() or ""
+                partes.append(texto_pagina)
+                if sum(len(p) for p in partes) >= limite_chars:
                     break
-        return "\n".join(partes)[:limite_chars]
-    except Exception:
+            texto_total = "\n".join(partes)[:limite_chars]
+
+            if len(texto_total.strip()) < 50 and len(pdf.pages) > 0:
+                raise ValueError(
+                    f"PDF '{caminho_pdf}' parece ser baseado em imagem "
+                    "ou nao contem texto extraivel. "
+                    "Verifique se o arquivo possui camada de texto."
+                )
+            return texto_total
+    except ValueError:
+        raise
+    except Exception as e:
         # Fallback útil para testes e arquivos inválidos: tenta ler como texto puro.
         try:
             with open(caminho_pdf, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read(limite_chars)
+                return f.read()[:limite_chars]
         except Exception:
-            return ""
+            raise RuntimeError(
+                f"Nao foi possivel extrair texto do PDF '{caminho_pdf}': {e}"
+            ) from e
 
 
 def _normalizar_texto(texto: str) -> str:

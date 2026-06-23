@@ -174,6 +174,16 @@ _CORRECOES_ORTOGRAFIA_QUEBRADA = {
 }
 CORRECOES_ORTOGRAFIA = dict(_CORRECOES_ORTOGRAFIA)
 CORRECOES_ORTOGRAFIA_QUEBRADA = dict(_CORRECOES_ORTOGRAFIA_QUEBRADA)
+
+# ---------- Regex pré-compilados para correção ortográfica ----------
+_REGEX_ORTOGRAFIA_COMPILADOS = [
+    (
+        re.compile(rf"\b{re.escape(sem_acento)}\b", re.IGNORECASE),
+        com_acento,
+    )
+    for sem_acento, com_acento in _CORRECOES_ORTOGRAFIA.items()
+]
+
 _FINAIS_CONECTIVOS = {
     "a",
     "as",
@@ -217,12 +227,10 @@ def corrigir_ortografia_basica(texto: str) -> str:
         texto_final = texto_final.replace(errado.capitalize(), certo[:1].upper() + certo[1:])
         texto_final = texto_final.replace(errado.upper(), certo.upper())
 
-    for sem_acento, com_acento in _CORRECOES_ORTOGRAFIA.items():
-        texto_final = re.sub(
-            rf"\b{re.escape(sem_acento)}\b",
+    for padrao, com_acento in _REGEX_ORTOGRAFIA_COMPILADOS:
+        texto_final = padrao.sub(
             lambda m, novo=com_acento: _capitalizar_como_modelo(m.group(0), novo),
             texto_final,
-            flags=re.I,
         )
 
     return texto_final
