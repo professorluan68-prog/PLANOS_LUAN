@@ -751,8 +751,12 @@ def _clonar_par_semana(pares: list[tuple]) -> tuple:
     cabecalho_ref, tabela_ref = pares[-1]
     novo_cabecalho_xml = deepcopy(cabecalho_ref._element)
     nova_tabela_xml = deepcopy(tabela_ref._element)
-    tabela_ref._element.addnext(novo_cabecalho_xml)
+    
+    p = OxmlElement("w:p")
+    tabela_ref._element.addnext(p)
+    p.addnext(novo_cabecalho_xml)
     novo_cabecalho_xml.addnext(nova_tabela_xml)
+    
     return (
         Table(novo_cabecalho_xml, cabecalho_ref._parent),
         Table(nova_tabela_xml, tabela_ref._parent),

@@ -99,6 +99,7 @@ MAPA_REFERENCIAS = {
     "english": "ANÁLISE METODOLÓGICA - INGLÊS ENSINO FUNDAMENTAL.md",
     "orientacao de estudos": "ANÁLISE METODOLÓGICA PROFUNDA - ORIENTAÇÃO DE ESTUDOS.md",
     "educacao financeira": "EDUCAÇÃO FINANCEIRA-7ANO_METODOLOGIA.docx",
+    "lideranca e oratoria_cdp": "LIDERANCA_E_ORATORIA_CDP_metodologia.docx",
     "cdp": (
         "metodologiacdp.docx",
         "HABILIDADES POR DISCIPLINA - EDUCAÇÃO DE JOVENS E ADULTOS (EJA).md",

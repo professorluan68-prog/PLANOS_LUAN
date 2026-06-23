@@ -1865,7 +1865,9 @@ with col_turma:
                 selecao_vaga_id = f"{professor}-{disciplina}-{turma}"
                 if st.session_state.get("last_aula_prof") != selecao_vaga_id:
                     st.session_state["last_aula_prof"] = selecao_vaga_id
-                    st.session_state["aulas_previstas_manual"] = str(config_selecionada.get("aulas_semana") or "")
+                    val_aulas = str(config_selecionada.get("aulas_semana") or "")
+                    st.session_state["aulas_previstas_manual"] = val_aulas
+                    st.session_state["aulas_previstas_manual_select"] = val_aulas if val_aulas else "(selecione)"
                     
                     datas_horarios = list(config_selecionada.get("datas_horarios") or [])
                     if datas_horarios:
@@ -2341,16 +2343,24 @@ else:
                 st.info(f"Aguardando o envio de {pdfs_necessarios} PDF(s) para {linhas_modelo} aula(s).")
 
     if gerar_turma_espelho:
-        contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
-        _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho)
-        # Sincronizar datas e horarios da turma espelho com os dados cadastrados dela
+        # Determine num_rows_espelho based on 2nd class config if month is selected
+        num_rows_espelho = num_rows
+        datas_horarios_mes_espelho = None
+        
         if config_turma_espelho and mes:
-            _sincronizar_datas_horarios_mes_turma2(
+            datas_horarios_mes_espelho = _sincronizar_datas_horarios_mes_turma2(
                 config_turma_espelho, mes, professor, disciplina, turma_espelho,
                 extensao=extensao_mes, datas_sem_aula=datas_sem_aula,
             )
+            linhas_modelo_espelho = len(datas_horarios_mes_espelho)
+            if linhas_modelo_espelho > 0:
+                num_rows_espelho = linhas_modelo_espelho
+
+        contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
+        _sincronizar_divisao_pdf_padrao(num_rows_espelho, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho)
+        
         aulas_envio_espelho = _coletar_aulas_envio(
-            num_rows,
+            num_rows_espelho,
             pdfs_aulas_files,
             dividir_metodologia,
             auto_repetir_semana,
@@ -2358,7 +2368,7 @@ else:
             key_prefix="turma2_",
             titulo_secao="2ª turma",
             modo_upload_individual=modo_upload_individual,
-            preservar_datas_sincronizadas=bool(datas_horarios_mes),
+            preservar_datas_sincronizadas=bool(datas_horarios_mes_espelho),
             sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
         )
 

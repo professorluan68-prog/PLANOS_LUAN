@@ -38,6 +38,7 @@ _DISCIPLINAS = [
     "Aprofundamento em Geografia",
     "História",
     "Liderança e Oratória",
+    "Liderança e Oratória_CDP",
     "Língua Inglesa",
     "Língua Portuguesa",
     "Matemática",
@@ -82,6 +83,8 @@ def obter_config(disciplina: str) -> DisciplinaConfig:
         return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP_FUNDAMENTAL, exige_pdf=False)
+    if nome.upper().endswith("_CDP"):
+        return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     return DisciplinaConfig(nome=nome)
 
 
@@ -110,5 +113,6 @@ def eh_cdp_contextual(nome: str) -> bool:
             or "ENSINOFUNDAMENTAL" in chave_compacta
             or chave_compacta.endswith("CDPEM")
             or chave_compacta.endswith("CDPEF")
+            or chave_compacta.endswith("_CDP")
         )
     )
