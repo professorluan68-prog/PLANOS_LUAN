@@ -1,0 +1,15 @@
+
+FullName                                                          LastWriteTime
+--------                                                          -------------
+C:\Users\Prof_L\.codex\worktrees\1b9b\PLANOS_LUAN                 12-6-26 20:14:49
+C:\Users\Prof_L\.gemini\antigravity\scratch\agendador_planos_luan 14-6-26 05:52:08
+C:\Users\Prof_L\.gemini\config\plugins\planos-luan-plugin         31-5-26 04:23:40
+C:\Users\Prof_L\AppData\Local\Temp\lo_profile_planos_luan_compare 13-6-26 23:06:04
+D:\BACKUPS_PLANOS_LUAN                                            19-6-26 01:34:23
+D:\Documentos\PLANOS_LUAN_AUDITORIA_CODIGO_DOCX                   6-6-26 18:38:10
+D:\Documentos\PLANOS_LUAN_AUDITORIA_CODIGO_DOCX_RENDER_QA         6-6-26 18:39:31
+D:\ESTRUTURAS_PLANOS_LUAN                                         13-6-26 21:55:03
+D:\PLANOS_LUAN                                                    19-6-26 06:18:04
+D:\PLANOS_LUAN\.git\worktrees\PLANOS_LUAN                         12-6-26 20:15:30
+D:\PLANOS_LUAN\.git\worktrees\PLANOS_LUAN_publish                 11-6-26 21:36:22
+

@@ -1,0 +1,55 @@
+{
+  "arquivo": "D:\\PLANOS_REVER\\Plano_8o_ANO_A_Educacao_Financeira.docx",
+  "existe": true,
+  "tabelas": 6,
+  "aulas_detectadas": 3,
+  "proibidos_no_documento": [
+    "acao orientada"
+  ],
+  "aulas": [
+    {
+      "table": 1,
+      "row": 1,
+      "data": "14/08\n1ª e 2ª aula\n13h – 14h40",
+      "material": "AULA 1 - Entendendo a Economia Doméstica.",
+      "aprendizagem": "Habilidade: EF08MA04: Resolver e elaborar problemas, envolvendo cálculo de porcentagens, incluindo o uso de tecnologias digitais.",
+      "desenvolvimento": "Iniciar a aula com a situação-problema: \"Por que certos gastos, como material escolar, podem desequilibrar o orçamento familiar?\" Propor uma breve ação orientada para levantar hipóteses. Solicitar um registro individual breve para que os estudantes compartilhem suas hipóteses.\nNa prática: Propor uma atividade em que os alunos organizem as informações financeiras de uma família fictícia em uma tabela, anotando receitas e despesas. Propor uma breve ação orientada para garantir que todos registram o que aprenderam.\nEncerramento: Finalizar a aula sintetizando os conceitos discutidos, especialmente sobre o planejamento financeiro, e confirmar a compreensão da turma. Indicar que os registros feitos serão revisados na próxima aula.",
+      "acompanhamento": "☑ Identificar se os estudantes identificam receitas, despesas, prioridades e metas em situações de organização financeira, em articulação com a habilidade (EF08MA04).\n☑ Checar se os estudantes elaboram ou analisam o orçamento simulado com critérios claros, relacionando escolhas, limites e saldo, especialmente na resolução das atividades propostas e nos registros individuais.\n☑ Monitorar se os registros mostram compreensão progressiva sobre planejamento, controle de gastos e tomada de decisão responsável.",
+      "acessibilidade": "☑ Organizar receitas, despesas, metas e saldo em tabela simples ou esquema no quadro, com exemplos graduados antes da atividade individual.\n☑ Oferecer roteiro com etapas do planejamento financeiro: identificar recursos, listar gastos, definir prioridades e revisar escolhas.\n☑ Apoiar individualmente estudantes com dificuldade em leitura de dados, cálculos ou organização das respostas.",
+      "checks_acomp": 3,
+      "checks_acess": 3,
+      "chars_desenvolvimento": 734,
+      "proibidos": [
+        "acao orientada"
+      ]
+    },
+    {
+      "table": 3,
+      "row": 1,
+      "data": "21/08\n1ª e 2ª aula\n13h – 14h40",
+      "material": "AULA 2 - Estrutura de um orçamento",
+      "aprendizagem": "Habilidade: EF08MA04: Resolver e elaborar problemas, envolvendo cálculo de porcentagens, incluindo o uso de tecnologias digitais.",
+      "desenvolvimento": "Para começar: Reativar os conhecimentos construídos na aula anterior sobre Estrutura de um orçamento, conectando os registros já produzidos ao novo foco do dia. Iniciar a aula conectando a \"estrutura de um orçamento\" com a vida cotidiana.\nNa prática: Conduzir a atividade principal do material para que os estudantes produzam tabela, acompanhando registros, dúvidas e socialização das respostas. Mediar a realização individual para realizar uma atividade prática onde listarão receitas e despesas de uma família fictícia e criarão.\nEncerramento: Concluir a aula revisando os principais pontos sobre a \"estrutura de um orçamento\" e sua importância, perguntando aos alunos o que aprenderam e como aplicarão esse conhecimento no dia a dia. Organizar a explicação em etapas curtas, verificando a compreensão ao longo do percurso.",
+      "acompanhamento": "☑ Observar se os estudantes identificam receitas, despesas, prioridades e metas em situações de organização financeira, em articulação com a habilidade (EF08MA04).\n☑ Verificar se os estudantes elaboram ou analisam o orçamento simulado com critérios claros, relacionando escolhas, limites e saldo, especialmente na resolução das atividades propostas e nos registros individuais.\n☑ Monitorar se os registros mostram compreensão progressiva sobre planejamento, controle de gastos e tomada de decisão responsável.",
+      "acessibilidade": "☑ Organizar receitas, despesas, metas e saldo em tabela simples ou esquema no quadro, com exemplos graduados antes da atividade individual.\n☑ Oferecer roteiro com etapas do planejamento financeiro: identificar recursos, listar gastos, definir prioridades e revisar escolhas.\n☑ Apoiar individualmente estudantes com dificuldade em leitura de dados, cálculos ou organização das respostas.",
+      "checks_acomp": 3,
+      "checks_acess": 3,
+      "chars_desenvolvimento": 825,
+      "proibidos": []
+    },
+    {
+      "table": 5,
+      "row": 1,
+      "data": "28/08\n1ª e 2ª aula\n13h – 14h40",
+      "material": "AULA 3 - Classificando e analisando as despesas de uma família - Parte 1",
+      "aprendizagem": "Habilidade: EF06MA32: Interpretar e resolver situações que envolvam dados de pesquisas sobre contextos ambientais, sustentabilidade, trânsito, consumo responsável, entre outros, apresentadas pela mídia em tabelas e em diferentes tipos de gráficos e redigir textos escritos com o objetivo de sintetizar conclusões.",
+      "desenvolvimento": "Para começar: Dar continuidade ao estudo de Classificando e analisando as despesas de uma família, recuperando o percurso das aulas anteriores e os registros produzidos pela turma. Organizar uma roda de conversa, promovendo uma conversa inicial em duplas, sobre a importância da categorização.\nNa prática: Através da atividade registro individual no caderno, os alunos elaborarão um quadro classificando gastos fictícios de uma família, justificando cada escolha e propondo estratégias para redução de gastos supérfluos. Propor uma pausa de checagem formativa (pausa de checagem) para.\nEncerramento: Finalizar a aula revisando os conceitos centrais sobre categorias de despesas, promovendo uma síntese das aprendizagens feitas e permitindo que os alunos compartilhem suas reflexões e estratégias de controle financeiro. Organizar a explicação em etapas curtas, verificando a.",
+      "acompanhamento": "☑ Verificar se os estudantes preenchem a tabela com informações corretas e completas.\n☑ Observar se relacionam os dados da tabela aos conceitos discutidos na aula.\n☑ Conferir se justificam oralmente ou por escrito as escolhas registradas na atividade.",
+      "acessibilidade": "☑ Organizar receitas, despesas, metas e saldo em tabela simples ou esquema no quadro, com exemplos graduados antes da atividade individual.\n☑ Oferecer roteiro com etapas do planejamento financeiro: identificar recursos, listar gastos, definir prioridades e revisar escolhas.\n☑ Apoiar individualmente estudantes com dificuldade em leitura de dados, cálculos ou organização das respostas.",
+      "checks_acomp": 3,
+      "checks_acess": 3,
+      "chars_desenvolvimento": 875,
+      "proibidos": []
+    }
+  ]
+}
