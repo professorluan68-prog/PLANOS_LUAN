@@ -3,6 +3,9 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 import re
 import unicodedata
+import logging
+
+logger = logging.getLogger(__name__)
 
 from docx import Document
 from docx.table import Table
@@ -1187,6 +1190,7 @@ def preencher_documento(
     observacao: str = "",
     aulas_previstas_manual: str = "",
 ):
+    logger.info("Iniciando preenchimento de documento Word para o professor %s (disciplina: %s, turma: %s, total de aulas: %d)", professor, disciplina, turma, len(aulas or []))
     documento = Document(modelo_stream)
     primeira_aula = (aulas or [{}])[0]
     substituicoes = {
@@ -1227,4 +1231,5 @@ def preencher_documento(
 
     saida = BytesIO()
     documento.save(saida)
+    logger.info("Documento Word preenchido com sucesso para %s (%s, %s)", professor, disciplina, turma)
     return _validar_docx_gerado(saida)

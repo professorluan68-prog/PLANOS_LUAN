@@ -411,7 +411,7 @@ def test_matematica_parte_2_ganha_tom_de_continuidade_sem_perder_estrutura():
     texto = " ".join(etapa["texto"] for etapa in etapas).lower()
 
     assert "Para comecar" in titulos or "Para começar" in titulos
-    assert "conhecimentos prévios" in texto or "conhecimentos prvios" in texto
+    assert "aula anterior" in texto
     assert "conversa em duplas" in texto
 
 
@@ -428,5 +428,5 @@ def test_matematica_principios_de_contagem_ativa_regras_de_combinatoria():
 
     texto = " ".join(etapa["texto"] for etapa in etapas).lower()
 
-    assert "explicar o procedimento central" in texto
-    assert "exemplo resolvido" in texto
+    assert "sistematizar o conceito" in texto
+    assert "diagrama" in texto

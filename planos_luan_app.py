@@ -31,7 +31,6 @@ from ui.shared import (
     _rotulo_data_aula_com_dia,
     _serializar_horarios_padronizados,
     _tipo_horario,
-    _slug_download,
     nome_arquivo_plano,
     _normalizar_texto_simples,
     _normalizar_label_aula,

@@ -478,24 +478,7 @@ def _limpar_linha_metodologica(linha: str) -> str:
     return limpa
 
 
-def _linha_instrucao_matematica(linha: str) -> bool:
-    normalizada = normalizar_texto_lote(linha)
-    inicios_instrucao = (
-        "resolva",
-        "calcule",
-        "determine",
-        "registre",
-        "complete",
-        "observe",
-        "assinale",
-        "responda",
-        "explique",
-        "justifique",
-        "copie",
-        "escreva",
-        "analise",
-    )
-    return normalizada.startswith(inicios_instrucao)
+from core.lib.matematica_lote import _linha_instrucao_matematica
 
 
 def _perguntas_orientadoras(tipo: str, tema: str, conceito: str) -> str:

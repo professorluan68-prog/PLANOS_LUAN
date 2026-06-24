@@ -1,9 +1,12 @@
 import json
 import os
 import sqlite3
+import logging
 from pathlib import Path
 
 from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH
+
+logger = logging.getLogger(__name__)
 
 
 HISTORICO_PLANOS_LIMITE_PADRAO = 50
@@ -566,7 +569,7 @@ def duplicar_vinculo_professor(
     return novo_id
 
 
-def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes):
+def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes, limite_retencao: int = 5):
     professor_nome = _normalizar_campo(professor_nome)
     disciplina = _normalizar_campo(disciplina)
     turma = _normalizar_campo(turma)
@@ -582,6 +585,44 @@ def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arqu
             """,
             (professor_nome, disciplina, turma, arquivo_nome, sqlite3.Binary(arquivo_docx_bytes)),
         )
+        
+        # Aplicar política de retenção
+        if limite_retencao > 0:
+            cursor.execute(
+                """
+                DELETE FROM historico_planos
+                WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                  AND id NOT IN (
+                      SELECT id FROM historico_planos
+                      WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                      ORDER BY data_geracao DESC, id DESC
+                      LIMIT ?
+                  )
+                                """,
+                (
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    limite_retencao,
+                ),
+            )
+            deletados = cursor.rowcount
+            if deletados > 0:
+                logger.info(
+                    "Politica de retencao aplicada: %d planos antigos removidos para %s - %s - %s",
+                    deletados,
+                    professor_nome,
+                    disciplina,
+                    turma,
+                )
+        
         conn.commit()
 
 
@@ -631,86 +672,5 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
 
 
 def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
-    from io import BytesIO
-    from docx import Document
-    import re
-    import json
-    
-    prof_upper = str(professor or "").strip().upper()
-    disc_upper = str(disciplina or "").strip().upper()
-    turma_upper = str(turma or "").strip().upper()
-
-    # 1. Tentar obter do historico no banco de dados
-    try:
-        docx_bytes = obter_ultimo_plano_docx(professor, disciplina, turma)
-        if docx_bytes:
-            # Se um bimestre foi informado, verificar se o plano do histórico pertence a esse mesmo bimestre
-            if bimestre:
-                try:
-                    doc_temp = Document(BytesIO(docx_bytes))
-                    outro_bimestre_detectado = False
-                    for table in doc_temp.tables:
-                        contem_palavra_bimestre = False
-                        textos_celulas = []
-                        for row in table.rows:
-                            for cell in row.cells:
-                                txt = cell.text.strip()
-                                textos_celulas.append(txt)
-                                if "BIMESTRE" in txt.upper():
-                                    contem_palavra_bimestre = True
-                        
-                        if contem_palavra_bimestre:
-                            from core.disciplinas import BIMESTRES
-                            for b in BIMESTRES:
-                                if b.lower() != bimestre.lower():
-                                    if any(b.lower() in tc.lower() for tc in textos_celulas):
-                                        outro_bimestre_detectado = True
-                                        break
-                            if outro_bimestre_detectado:
-                                break
-                    
-                    if outro_bimestre_detectado:
-                        # O último plano gerado pertence a outro bimestre, então zeramos a contagem para o bimestre atual
-                        return 0
-                except Exception:
-                    pass
-
-            doc = Document(BytesIO(docx_bytes))
-            total_linhas = 0
-            aulas_detectadas = []
-            for t in doc.tables:
-                if len(t.rows) > 0:
-                    textos_cab = [c.text.upper() for c in t.rows[0].cells]
-                    if any('AULA' in tc for tc in textos_cab) and any('APRENDIZAGEM' in tc for tc in textos_cab):
-                        for row in t.rows[1:]:
-                            total_linhas += 1
-                            if len(row.cells) >= 2:
-                                txt_col2 = row.cells[1].text
-                                match = re.search(r'(?i)Aula\s*(\d+)', txt_col2)
-                                if match:
-                                    aulas_detectadas.append(int(match.group(1)))
-            if aulas_detectadas:
-                return max(aulas_detectadas)
-            if total_linhas > 0:
-                return total_linhas
-    except Exception:
-        pass
-
-    # 2. Tentar obter do arquivo JSON de mapeamento
-    try:
-        json_path = Path(REGISTRO_PROXIMA_GERACAO_PATH)
-        if json_path.exists():
-            with open(json_path, "r", encoding="utf-8") as fj:
-                dados = json.load(fj)
-                for item in dados:
-                    if (str(item.get("professor") or "").strip().upper() == prof_upper and
-                        str(item.get("disciplina") or "").strip().upper() == disc_upper and
-                        str(item.get("turma") or "").strip().upper() == turma_upper):
-                        if bimestre and item.get("bimestre"):
-                            if str(item.get("bimestre")).strip().lower() != bimestre.strip().lower():
-                                continue
-                        return int(item.get("aula_parada") or 0)
-    except Exception:
-        pass
-
-    return 0
+    from core.gestao_aulas import obter_ultima_aula_gerada_sistema_impl
+    return obter_ultima_aula_gerada_sistema_impl(professor, disciplina, turma, bimestre)

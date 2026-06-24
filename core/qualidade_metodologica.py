@@ -322,7 +322,8 @@ def detectar_contexto_metodologico(
     turma: str = "",
 ) -> str:
     base = normalizar_texto(" ".join([texto_pdf[:2000], nome_arquivo, disciplina, turma]))
-    if any(termo in base for termo in ["cdp", "eja", "prisional", "penitenciario", "penitenciaria"]):
+    padrao = re.compile(r"\b(?:cdp|eja|prisional|penitenciario|penitenciaria)\b", re.IGNORECASE)
+    if padrao.search(base):
         return "cdp_eja"
     return "regular"
 

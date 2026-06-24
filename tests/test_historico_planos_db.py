@@ -92,3 +92,23 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
         row = cursor.fetchone()
 
     assert row == ("ANA", "Matematica", "6 ANO A", "plano.docx", 4)
+
+
+def test_salvar_historico_plano_retencao_limite(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    # Inserir 7 planos para o mesmo professor/turma/disciplina com limite de 5
+    for i in range(1, 8):
+        database.salvar_historico_plano(
+            "ANA", "Matematica", "6 ANO A", f"plano_{i}.docx", f"conteudo_{i}".encode("utf-8"), limite_retencao=5
+        )
+
+    # Listar todos os planos no banco
+    with database.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT arquivo_nome FROM historico_planos ORDER BY id")
+        arquivos = [row[0] for row in cursor.fetchall()]
+
+    # Deve conter exatamente 5 arquivos, os mais recentes (plano_3 a plano_7)
+    assert len(arquivos) == 5
+    assert arquivos == ["plano_3.docx", "plano_4.docx", "plano_5.docx", "plano_6.docx", "plano_7.docx"]

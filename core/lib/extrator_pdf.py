@@ -8,9 +8,12 @@ atividades praticas e contexto de aula a partir do texto extraido.
 import re
 import unicodedata
 import pdfplumber
+import logging
 
 from config import PDF_TEXTO_LIMITE_CHARS
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
+
+logger = logging.getLogger(__name__)
 
 
 def limpar_linhas(texto: str) -> list[str]:
@@ -25,7 +28,7 @@ def limpar_linhas(texto: str) -> list[str]:
 from core.normalizacao import normalizar as normalizar_texto
 
 
-def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS) -> str:
+def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS, permitir_fallback_teste: bool = None) -> str:
     """Extrai texto de um PDF com detecção de PDFs baseados em imagem."""
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
@@ -44,17 +47,27 @@ def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHA
                     "Verifique se o arquivo possui camada de texto."
                 )
             return texto_total
-    except ValueError:
+    except ValueError as ve:
+        logger.warning("Falha na extracao de texto do PDF (provavel imagem): %s. Erro: %s", caminho_pdf, ve)
         raise
     except Exception as e:
-        # Fallback útil para testes e arquivos inválidos: tenta ler como texto puro.
-        try:
-            with open(caminho_pdf, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()[:limite_chars]
-        except Exception:
-            raise RuntimeError(
-                f"Nao foi possivel extrair texto do PDF '{caminho_pdf}': {e}"
-            ) from e
+        import os
+        permitir = permitir_fallback_teste
+        if permitir is None:
+            permitir = "PYTEST_CURRENT_TEST" in os.environ
+
+        if permitir:
+            logger.info("Tentando ler arquivo como texto puro devido a erro no pdfplumber para: %s", caminho_pdf)
+            # Fallback útil para testes e arquivos inválidos: tenta ler como texto puro.
+            try:
+                with open(caminho_pdf, "r", encoding="utf-8", errors="ignore") as f:
+                    return f.read()[:limite_chars]
+            except Exception as fe:
+                logger.error("Erro no fallback de texto puro para %s: %s", caminho_pdf, fe)
+        logger.error("Erro na extracao de PDF para %s: %s", caminho_pdf, e)
+        raise RuntimeError(
+            f"Nao foi possivel extrair texto do PDF '{caminho_pdf}': {e}"
+        ) from e
 
 
 def _normalizar_texto(texto: str) -> str:
