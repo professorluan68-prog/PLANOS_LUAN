@@ -18,6 +18,7 @@ from core.referencias_lideranca_oratoria import (
 from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_inglesa, referencia_lingua_inglesa_por_pdf
 from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
+from core.referencias_historia import localizar_docx_referencia_historia, localizar_docx_referencia_historia_cdp, referencia_historia_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -84,7 +85,11 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
     if not caminho_pdf:
         return None
     if eh_cdp_contextual_disciplina(disciplina):
+        if "HISTORIA" in str(caminho_pdf).upper():
+            return localizar_docx_referencia_historia_cdp(caminho_pdf)
         return localizar_docx_referencia_cdp_contextual(caminho_pdf)
+    if perfil == "historia":
+        return localizar_docx_referencia_historia(caminho_pdf)
     if perfil == "educacao_financeira":
         return localizar_docx_referencia(caminho_pdf)
     if perfil == "biologia":
@@ -105,6 +110,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
 def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, perfil: str):
     if not caminho_pdf:
         return None
+    if perfil == "historia":
+        return referencia_historia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "educacao_financeira":
         return referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "biologia":
@@ -123,6 +130,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
 
 
 def _origem_metodologia_por_referencia(perfil: str) -> str:
+    if perfil == "historia":
+        return "docx_referencia_historia"
     if perfil == "educacao_financeira":
         return "docx_referencia_educacao_financeira"
     if perfil == "biologia":
@@ -3321,6 +3330,8 @@ def _aula_por_pdf(
     ]
     resultado_final.setdefault("versao_prompt", "")
 
+    _enriquecer_com_planilha(resultado_final, caminho_pdf)
+
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json
         resultado_final = revisar_aula_gerada(resultado_final, perfil)
@@ -3331,6 +3342,75 @@ def _aula_por_pdf(
 
     return resultado_final
 
+
+def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
+    import os
+    import pandas as pd
+    import re
+    from pathlib import Path
+    try:
+        if not caminho_pdf: return
+        pasta = Path(caminho_pdf).parent
+        caminho_planilha = pasta / "planilha.xlsx"
+        if not caminho_planilha.exists():
+            caminho_planilha = pasta.parent / "planilha.xlsx"
+        if not caminho_planilha.exists():
+            return
+            
+        df = pd.read_excel(caminho_planilha)
+        nome_arquivo = Path(caminho_pdf).name.upper()
+        match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
+        if not match_aula:
+            return
+            
+        numero_aula = int(match_aula.group(1))
+        
+        match_serie = re.search(r'(\d)_ANO', str(pasta.absolute()).upper())
+        serie_num = match_serie.group(1) if match_serie else None
+            
+        for index, row in df.iterrows():
+            aula_planilha = str(row.get('AULA', '')).strip()
+            # Allow "Aula 1", "01", "1", "Aulas 1 e 2", etc.
+            match_p = re.search(r'\b0?' + str(numero_aula) + r'\b', aula_planilha)
+            if not match_p:
+                continue
+            
+            # Checa serie
+            col_serie = [c for c in df.columns if 'ANO' in str(c).upper() or 'RIE' in str(c).upper()]
+            if serie_num and col_serie:
+                val_serie = str(row[col_serie[0]])
+                if serie_num not in val_serie:
+                    continue
+                    
+            # Achou a linha!
+            col_titulo = [c for c in df.columns if 'TULO' in str(c).upper() or ('AULA' in str(c).upper() and c != 'AULA')]
+            col_conteudo = [c for c in df.columns if 'CONTE' in str(c).upper() or 'OBJETO' in str(c).upper()]
+            col_hab = [c for c in df.columns if 'HABILIDADE' in str(c).upper()]
+            col_obj = [c for c in df.columns if 'OBJETIVO' in str(c).upper()]
+            
+            tema_parts = []
+            if col_titulo and pd.notna(row[col_titulo[0]]):
+                tema_parts.append(str(row[col_titulo[0]]).strip())
+            elif col_conteudo and pd.notna(row[col_conteudo[0]]):
+                tema_parts.append(str(row[col_conteudo[0]]).strip())
+                
+            if tema_parts:
+                resultado["tema"] = " - ".join(tema_parts)
+                
+            aprendizagem = ""
+            if col_hab and pd.notna(row[col_hab[0]]):
+                aprendizagem += str(row[col_hab[0]]).strip()
+            if col_obj and pd.notna(row[col_obj[0]]):
+                if aprendizagem: aprendizagem += "\n"
+                aprendizagem += "Objetivos: " + str(row[col_obj[0]]).strip()
+                
+            if aprendizagem:
+                resultado["aprendizagem"] = aprendizagem
+                
+            break
+    except Exception as e:
+        import logging
+        logging.getLogger("PLANOS_LUAN").warning(f"Erro ao enriquecer com planilha: {e}")
 
 def processar_varios_pdfs(
     caminhos_pdf,

@@ -8,9 +8,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 try:
-    from openai import OpenAI
+    from openai import APIConnectionError, APITimeoutError, OpenAI, RateLimitError
 except ImportError:
     OpenAI = None
+    APIConnectionError = None
+    APITimeoutError = None
+    RateLimitError = None
 
 try:
     from google import genai
@@ -34,6 +37,31 @@ from core.qualidade_metodologica import (
 from core.referencias_metodologia import carregar_referencia_metodologica
 
 logger = logging.getLogger(__name__)
+
+_ERROS_OPENAI_RETRIAVEIS = tuple(
+    erro
+    for erro in (RateLimitError, APIConnectionError, APITimeoutError)
+    if erro is not None
+)
+
+_TERMOS_RETRY_GENERICO = (
+    "rate limit",
+    "rate_limit",
+    "timeout",
+    "timed out",
+    "deadline",
+    "connection reset",
+    "temporarily unavailable",
+    "service unavailable",
+    "overloaded",
+    "429",
+    "503",
+)
+
+
+def _erro_parece_temporario(erro: Exception) -> bool:
+    texto = f"{type(erro).__name__}: {erro}".lower()
+    return any(termo in texto for termo in _TERMOS_RETRY_GENERICO)
 
 
 class EtapaMetodologia(BaseModel):
@@ -729,7 +757,8 @@ def _chamar_openai_com_retry(client, modelo, messages, response_format, max_tent
             )
         except Exception as e:
             nome_erro = type(e).__name__
-            if nome_erro in ("RateLimitError", "APIConnectionError", "APITimeoutError") or "rate" in str(e).lower() or "timeout" in str(e).lower():
+            erro_retriavel = isinstance(e, _ERROS_OPENAI_RETRIAVEIS) if _ERROS_OPENAI_RETRIAVEIS else False
+            if erro_retriavel or _erro_parece_temporario(e):
                 if tentativa == max_tentativas - 1:
                     raise
                 espera = (2 ** tentativa) + 1
@@ -751,7 +780,7 @@ def _chamar_gemini_com_retry(client, modelo, prompt, config, max_tentativas=3):
             )
         except Exception as e:
             nome_erro = type(e).__name__
-            if "rate" in str(e).lower() or "timeout" in str(e).lower() or "429" in str(e) or "deadline" in str(e).lower():
+            if _erro_parece_temporario(e):
                 if tentativa == max_tentativas - 1:
                     raise
                 espera = (2 ** tentativa) + 1

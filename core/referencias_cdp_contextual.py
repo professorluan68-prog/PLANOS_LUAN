@@ -207,8 +207,13 @@ def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
 
 
 def localizar_docx_referencia_cdp_contextual(caminho_pdf: str | Path) -> Path | None:
+    if not caminho_pdf:
+        return None
+    if "HISTORIA" in str(caminho_pdf).upper():
+        from core.referencias_historia import localizar_docx_referencia_historia_cdp
+        return localizar_docx_referencia_historia_cdp(caminho_pdf)
     caminho = Path(caminho_pdf)
-    if not caminho_pdf or not caminho.parent.exists():
+    if not caminho.parent.exists():
         return None
 
     candidatos = list(caminho.parent.glob("metodologias*.docx"))
@@ -258,6 +263,9 @@ def _selecionar_referencia(
 
 
 def referencia_cdp_contextual_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
+    if "HISTORIA" in str(caminho_pdf).upper():
+        from core.referencias_historia import referencia_historia_cdp_por_pdf
+        return referencia_historia_cdp_por_pdf(caminho_pdf, numero_aula, tema)
     docx = localizar_docx_referencia_cdp_contextual(caminho_pdf)
     if not docx:
         return None

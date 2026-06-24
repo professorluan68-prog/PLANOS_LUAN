@@ -2235,10 +2235,7 @@ else:
                 pdfs_auto_total = len(pdfs_encontrados)
                 pdfs_com_numero = [pdf for pdf in pdfs_encontrados if numero_aula_pdf(pdf) is not None]
                 pdfs_para_ordenar = pdfs_com_numero or pdfs_encontrados
-                if sequencia_pdf_esperada_ae:
-                    pdf_files_disponiveis = ordenar_pdfs_por_sequencia(pdfs_para_ordenar, sequencia_pdf_esperada_ae)
-                else:
-                    pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_para_ordenar)
+                pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_para_ordenar)
 
             if pdf_files_disponiveis:
                 default_selection = []
@@ -2260,21 +2257,14 @@ else:
                         st.info(f"💾 **Memória do sistema:** O último plano salvo para **{professor}** ({disciplina} - {turma}) parou na **Aula {ultima_aula}**. Os PDFs pré-selecionados começam da **Aula {ultima_aula + 1}**.")
 
                 if est_necessarios > 0:
-                    if sequencia_pdf_esperada_ae:
-                        default_selection = ordenar_pdfs_por_sequencia(
-                            pdf_files_filtrados,
-                            sequencia_pdf_esperada_ae,
-                            limite=est_necessarios,
-                        )
-                    else:
-                        default_selection = pdf_files_filtrados[:est_necessarios]
+                    default_selection = pdf_files_filtrados[:est_necessarios]
 
                 faltantes_ae_auto = numeros_pdfs_faltantes(pdf_files_disponiveis, sequencia_pdf_esperada_ae)
                 assinatura_pdfs_auto = _assinatura_pdfs_automaticos(pdf_files_disponiveis)
 
                 chave_contexto_auto = "_".join(
                     [
-                        "pdfs_aulas_files_auto",
+                        "pdfs_aulas_files_auto_v3",
                         normalizar_para_pasta(disciplina),
                         normalizar_para_pasta(professor),
                         normalizar_para_pasta(turma),
@@ -2285,6 +2275,9 @@ else:
                         f"pdfs_{assinatura_pdfs_auto}",
                     ]
                 )
+                if est_necessarios > 0:
+                    st.markdown(f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;'><h3 style='color: #ff4b4b; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #333; margin-top: 5px; font-weight: bold;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>", unsafe_allow_html=True)
+
                 selecionados = st.multiselect(
                     "PDFs automaticos na ordem de processamento",
                     options=pdf_files_disponiveis,
@@ -2293,10 +2286,7 @@ else:
                     key=chave_contexto_auto,
                     help="A ordem abaixo ja e a ordem que o sistema vai usar. No modo AE, ela segue a sequencia do guia priorizado.",
                 )
-                if sequencia_pdf_esperada_ae:
-                    selecionados = ordenar_pdfs_por_sequencia(selecionados, sequencia_pdf_esperada_ae)
-                else:
-                    selecionados = ordenar_pdfs_por_numero(selecionados)
+                selecionados = ordenar_pdfs_por_numero(selecionados)
                 pdfs_selecionados_tela = list(selecionados)
                 pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
 

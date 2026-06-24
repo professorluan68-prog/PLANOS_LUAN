@@ -283,15 +283,15 @@ def numero_aula_pdf(arquivo) -> int | None:
     nome_base = re.sub(r"(?i)\s*-\s*copy$", "", nome_base)  # remove " - copy"
     nome_base = nome_base.strip()
 
-    # 1. Tentar encontrar padrão de número no final precedido de _, -, ou espaço (ex: Nome_01, Nome-01, Nome 01)
-    match_end = re.search(r"[\s_.-]\s*(\d{1,4})$", nome_base)
-    if match_end:
-        return int(match_end.group(1))
-    
-    # 2. Fallback clássico "AULA XX"
+    # 1. Tentar encontrar padrão de número associado a "AULA" primeiro (prioridade máxima)
     match = re.search(r"\bAULA[_\s-]*(\d{1,4})\b", str(nome), flags=re.I)
     if match:
         return int(match.group(1))
+        
+    # 2. Tentar encontrar padrão de número no final precedido de _, -, ou espaço (ex: Nome_01)
+    match_end = re.search(r"[\s_.-]\s*(\d{1,4})$", nome_base)
+    if match_end:
+        return int(match_end.group(1))
     
     # 3. Fallback geral, evitando IDs longos da SEDUC como "1612757.pdf".
     if arquivo_parece_id_seduc(nome):
