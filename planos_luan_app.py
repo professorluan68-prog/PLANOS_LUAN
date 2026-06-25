@@ -2172,6 +2172,26 @@ def _render_previa_aulas_cdp(preview: list[dict]):
         st.caption(f"Mostrando os 6 primeiros blocos do modelo. Total identificado: {len(preview)}.")
 
 semana = ""
+
+# Pre-populate observation for August with specific holidays/observances
+default_agosto = "06/08 - Aniversário da cidade\n07/08 - Ponto facultativo"
+if "observacao" not in st.session_state or not st.session_state["observacao"]:
+    if mes.strip().upper() == "AGOSTO":
+        st.session_state["observacao"] = default_agosto
+
+if "last_mes_for_obs" not in st.session_state:
+    st.session_state["last_mes_for_obs"] = mes
+
+if st.session_state["last_mes_for_obs"] != mes:
+    current_obs = st.session_state.get("observacao", "")
+    if mes.strip().upper() == "AGOSTO":
+        if not current_obs or current_obs.strip() == "":
+            st.session_state["observacao"] = default_agosto
+    else:
+        if current_obs.strip() == default_agosto:
+            st.session_state["observacao"] = ""
+    st.session_state["last_mes_for_obs"] = mes
+
 observacao = st.text_area("Observação", key="observacao")
 gerar_turma_espelho = st.checkbox("Gerar para 2ª turma", value=False, key="gerar_turma_espelho")
 turma_espelho = _selecionar_turma_espelho(turma, turmas_cadastradas) if gerar_turma_espelho else ""
