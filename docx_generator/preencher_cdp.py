@@ -1,6 +1,9 @@
 from io import BytesIO
 from datetime import datetime
 from typing import Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 from docx import Document
 
@@ -251,6 +254,7 @@ def preencher_documento_cdp(
     observacao: str = "",
     aulas_previstas_manual: str = "",
 ) -> BytesIO:
+    logger.info("Iniciando preenchimento de documento Word CDP para o professor %s (turma: %s, fundamental: %s, usar_ia: %s)", professor, turma, fundamental, usar_ia)
     doc = Document(modelo_docx)
     _ajustar_rotulos_data_cdp(doc)
     componente = "CDP - CICLO I" if fundamental else "MULTISSERIADA - EJA FUNDAMENTAL - ANOS INICIAIS"
@@ -343,4 +347,5 @@ def preencher_documento_cdp(
 
     out = BytesIO()
     doc.save(out)
+    logger.info("Documento Word CDP preenchido com sucesso para %s (%s)", professor, turma)
     return _validar_docx_gerado(out)
