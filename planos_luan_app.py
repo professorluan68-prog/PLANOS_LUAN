@@ -399,10 +399,18 @@ def _selecionar_mes() -> str:
 def _selecionar_aulas_semana(label: str, key_select: str, key_texto: str) -> str:
     valor_atual = str(st.session_state.get(key_texto, "") or "").strip()
     opcoes = list(AULAS_SEMANA_OPCOES)
+
     if valor_atual and valor_atual not in opcoes:
         opcoes.append(valor_atual)
-    indice = opcoes.index(valor_atual) if valor_atual in opcoes else 0
-    escolha = st.selectbox(label, opcoes, index=indice, key=key_select)
+
+    valor_widget = str(st.session_state.get(key_select, "") or "").strip()
+    if valor_widget and valor_widget not in opcoes:
+        opcoes.append(valor_widget)
+
+    if key_select not in st.session_state:
+        st.session_state[key_select] = valor_atual if valor_atual in opcoes else "(selecione)"
+
+    escolha = st.selectbox(label, opcoes, key=key_select)
     valor = "" if escolha == "(selecione)" else escolha
     st.session_state[key_texto] = valor
     return valor
