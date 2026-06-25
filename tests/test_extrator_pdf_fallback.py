@@ -21,3 +21,4 @@ def test_extrair_texto_pdf_sem_fallback_falha_para_invalido():
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
