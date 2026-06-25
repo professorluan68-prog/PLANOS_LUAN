@@ -2,8 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $FecharBat = Join-Path $Root "FecharPLANOS_LUAN.bat"
-$AbrirBatPreferido = Join-Path $Root "ABRIR_PLANOS_LUAN_VENV.bat"
-$AbrirBatLegado = Join-Path $Root "AbrirPLANOS_LUAN.bat"
+$AbrirPs1 = Join-Path $Root "AbrirPLANOS_LUAN.ps1"
 
 Set-Location $Root
 
@@ -13,15 +12,10 @@ if (Test-Path -LiteralPath $FecharBat) {
     Start-Sleep -Seconds 2
 }
 
-if (Test-Path -LiteralPath $AbrirBatPreferido) {
-    $AbrirBat = $AbrirBatPreferido
-}
-elseif (Test-Path -LiteralPath $AbrirBatLegado) {
-    $AbrirBat = $AbrirBatLegado
-}
-else {
-    throw "Nao encontrei um arquivo de abertura do PLANOS_LUAN."
+if (-not (Test-Path -LiteralPath $AbrirPs1)) {
+    throw "Nao encontrei o script de abertura AbrirPLANOS_LUAN.ps1."
 }
 
 Write-Host "Abrindo novamente o PLANOS_LUAN..."
-& $AbrirBat
+& powershell -NoProfile -ExecutionPolicy Bypass -File $AbrirPs1
+
