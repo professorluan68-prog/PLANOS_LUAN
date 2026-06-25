@@ -72,9 +72,8 @@ def test_projeto_vida_sanitiza_tecnicas_lemov_na_metodologia():
         tema="Deu ruim, e agora?",
     )
 
-    texto_norm = texto.lower()
-    assert "virem e conversem" not in texto_norm
-    assert "todo mundo escreve" not in texto_norm
+    assert 'técnica "Virem e conversem"' in texto
+    assert "todo mundo escreve" not in texto.lower()
 
 
 def test_projeto_vida_ia_fallback_gera_aprendizagem_especifica():

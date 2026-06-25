@@ -682,7 +682,7 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
         contexto=contexto,
     )
     metodologia = _compactar_metodologia(metodologia, texto_pdf, perfil)
-    metodologia = naturalizar_metodologia_professor(metodologia)
+    metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
     if not metodologia:
         raise ValueError("A IA nao devolveu metodologia utilizavel.")
     if not relatorio.get("aceita") and relatorio.get("score", 0) < 40:

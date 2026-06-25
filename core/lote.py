@@ -2138,7 +2138,7 @@ def _tentar_gerador_colunas_pedagogicas(
             tema=tema,
             contexto=contexto_metodologico,
         )
-        metodologia = naturalizar_metodologia_professor(metodologia)
+        metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
         if modalidade_eja_ativa:
             tecnicas_pdf = _detectar_tecnicas_lemov(texto, tema)
             metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_pdf, _garantir_tecnicas_lemov_na_metodologia)
@@ -2241,7 +2241,7 @@ def _montar_resultado_cdp_contextual(
     acessibilidade_cdp = acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
 
     if referencia_docx:
-        metodologia_cdp = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        metodologia_cdp = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento_cdp = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade_cdp = list(referencia_docx.get("acessibilidade") or [])[:3]
 
@@ -2429,7 +2429,7 @@ def _montar_resultado_aula_ia(
             contexto=contexto_metodologico,
         )
         metodologia_higienizada_temp = list(metodologia_ia)
-        metodologia_ia = naturalizar_metodologia_professor(metodologia_ia)
+        metodologia_ia = naturalizar_metodologia_professor(metodologia_ia, perfil=perfil)
         if modalidade_eja_ativa:
             metodologia_ia = _adaptar_metodologia_eja(
                 metodologia_ia,
@@ -2516,7 +2516,7 @@ def _montar_resultado_aula_ia(
         )
 
     if referencia_docx:
-        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
@@ -2703,7 +2703,7 @@ def _montar_resultado_aula_local(
             contexto=contexto_metodologico,
         )
         metodologia_higienizada_temp = list(metodologia)
-        metodologia = naturalizar_metodologia_professor(metodologia)
+        metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
         metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf, _garantir_tecnicas_lemov_na_metodologia) if modalidade_eja_ativa else metodologia
 
         desenvolvimento = _texto_metodologia(metodologia)
@@ -2726,7 +2726,7 @@ def _montar_resultado_aula_local(
         )
 
     if referencia_docx:
-        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 

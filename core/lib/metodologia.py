@@ -42,11 +42,11 @@ def _normalizar_termos_internos(texto: str) -> str:
 class ValidadorQualidade:
     """Remove etapas vazias e formata corretamente os blocos de texto."""
 
-    def refinar(self, metodologia: list[dict]) -> list[dict]:
+    def refinar(self, metodologia: list[dict], perfil: str = "geral") -> list[dict]:
         validada = []
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
-                texto = naturalizar_texto_metodologico(corrigir_mojibake(etapa["texto"].strip()))
+                texto = naturalizar_texto_metodologico(corrigir_mojibake(etapa["texto"].strip()), perfil=perfil)
                 texto = _normalizar_termos_internos(texto)
                 if not texto.endswith('.'):
                     texto += '.'
@@ -1996,7 +1996,7 @@ class MotorMetodologico:
                     if texto_etapa:
                         texto_etapa = ajustar_texto_por_posicao(texto_etapa, indice_aula, total_aulas, tema)
                         metodologia.append({"titulo": etapa.get("titulo", ""), "texto": texto_etapa})
-                return self.validador.refinar(metodologia)
+                return self.validador.refinar(metodologia, perfil=perfil)
             frases = _frases_por_contexto(
                 perfil,
                 tipo,
@@ -2025,7 +2025,7 @@ class MotorMetodologico:
                     metodologia.append({"titulo": titulo, "texto": texto_etapa})
 
             # 6. Validar
-            return self.validador.refinar(metodologia)
+            return self.validador.refinar(metodologia, perfil=perfil)
 
     def extrair_dados(self, texto_pdf: str, tema: str) -> dict:
             """Expõe a extração de dados para uso por outros módulos."""

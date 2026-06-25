@@ -661,15 +661,41 @@ def sanitizar_texto_metodologico(
                 texto_final,
                 flags=re.I,
             )
+        # Limpar outras técnicas Lemov não solicitadas
         texto_final = re.sub(
-            r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?(?:Virem e conversem|Todo mundo escreve|Com suas palavras|Hora da leitura|De olho no modelo|Pause e responda|Um passo de cada vez)["\']?(?:\s+para)?',
+            r'\b(?:Aplicar|Utilizar|Usar|Incorporar)\s+(?:a\s+)?t[eé]cnica\s+["\']?(?:Todo mundo escreve|Hora da leitura|Pause e responda|Um passo de cada vez)["\']?(?:\s+para)?',
             "",
             texto_final,
             flags=re.I,
         )
         texto_final = re.sub(
-            r"\b(?:VIREM E CONVERSEM|TODO MUNDO ESCREVE|COM SUAS PALAVRAS|HORA DA LEITURA|DE OLHO NO MODELO|PAUSE E RESPONDA|UM PASSO DE CADA VEZ)\b",
+            r"\b(?:TODO MUNDO ESCREVE|HORA DA LEITURA|PAUSE E RESPONDA|UM PASSO DE CADA VEZ)\b",
             "",
+            texto_final,
+            flags=re.I,
+        )
+        # Normalizar as 3 técnicas desejadas com aspas e formato exato
+        texto_final = re.sub(
+            r'\b(?:a\s+)?(?:t[eé]cnica|estrat[eé]gia)\s+["\']?Virem\s+e\s+conversem["\']?',
+            'técnica "Virem e conversem"',
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r'\bVirem\s+e\s+conversem\b(?!")',
+            'técnica "Virem e conversem"',
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r'\b(?:a\s+)?(?:t[eé]cnica|estrat[eé]gia)?\s+["\']?De\s+olho\s+no\s+modelo["\']?',
+            '"De olho no modelo"',
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r'\b(?:a\s+)?(?:t[eé]cnica|estrat[eé]gia)?\s+["\']?com\s+suas\s+palavras["\']?',
+            'técnica "com suas palavras"',
             texto_final,
             flags=re.I,
         )
@@ -738,7 +764,7 @@ def sanitizar_texto_metodologico(
     return texto_final
 
 
-def naturalizar_texto_metodologico(texto: str) -> str:
+def naturalizar_texto_metodologico(texto: str, perfil: str = "geral") -> str:
     """Deixa a metodologia com voz de plano docente, sem rotulos tecnicos artificiais."""
     texto_final = re.sub(r"\s+", " ", str(texto or "")).strip()
     if not texto_final:
@@ -849,115 +875,123 @@ def naturalizar_texto_metodologico(texto: str) -> str:
         ),
     ]
 
+    if perfil == "projeto_de_vida":
+        substituicoes = [
+            (padrao, sub) for padrao, sub in substituicoes
+            if not any(term in padrao.lower() for term in ("virem e conversem", "de olho no modelo", "com suas palavras"))
+        ]
+
     for padrao, substituicao in substituicoes:
         if preservar_tecnicas_explicitadas and any(normalizar_texto(tecnica) in normalizar_texto(padrao) for tecnica in tecnicas_explicitadas):
             continue
         texto_final = re.sub(padrao, substituicao, texto_final, flags=re.I)
 
-    if not preservar_tecnicas_explicitadas:
-        texto_final = re.sub(r"\bt[eé?]cnica\s+[\"']([^\"']+)[\"']", r"estrategia de \1", texto_final, flags=re.I)
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
-        "Promover conversa em duplas para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+o\s+Virem\s+e\s+conversem\s+para\b",
-        "Promover conversa em duplas para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Todo\s+mundo\s+escreve\s+para\b",
-        "Solicitar registro individual no caderno para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Hora\s+da\s+leitura\s+para\b",
-        "Conduzir leitura orientada para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\s+para\b",
-        "Organizar a explicação em etapas para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Com\s+suas\s+palavras\s+para\b",
-        "Pedir síntese oral ou escrita para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+PAUSE\s+E\s+RESPONDA\s+para\b",
-        "Realizar pausa de checagem para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
-        "promovendo conversa em duplas para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\b",
-        "promovendo conversa em duplas",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+([A-Za-zÀ-ÿ\s]+)",
-        r"Utilizar a estratégia \1",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\bcom\s+a\s+t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\b",
-        "com orientação passo a passo",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Utilizar|Usar|Aplicar)\s+a\s+atividade\s+Com\s+suas\s+palavras\s+para\b",
-        "Pedir que os estudantes expliquem com suas próprias palavras para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:Aplicar|Utilizar|Usar)\s+a\s+atividade\s+Todo\s+mundo\s+escreve\s+para\b",
-        "Solicitar registro individual no caderno para",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\b(?:com|usando|utilizando|aplicando)\s+a\s+t[eé]cnica\s+Hora\s+da\s+leitura\b",
-        "por meio de leitura orientada",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\baplicando\s+a\s+Hora\s+da\s+leitura,\s*onde\b",
-        "em leitura orientada, na qual",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\butilizando\s+o\s+para\s+promover\s+a\s+troca\s+de\s+ideias\b",
-        "promovendo conversa em duplas para troca de ideias",
-        texto_final,
-        flags=re.I,
-    )
-    texto_final = re.sub(
-        r"\butilizando\s+o\s+para\b",
-        "com apoio de perguntas orientadoras para",
-        texto_final,
-        flags=re.I,
-    )
+    if perfil != "projeto_de_vida":
+        if not preservar_tecnicas_explicitadas:
+            texto_final = re.sub(r"\bt[eé?]cnica\s+[\"']([^\"']+)[\"']", r"estrategia de \1", texto_final, flags=re.I)
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
+            "Promover conversa em duplas para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+o\s+Virem\s+e\s+conversem\s+para\b",
+            "Promover conversa em duplas para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Todo\s+mundo\s+escreve\s+para\b",
+            "Solicitar registro individual no caderno para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Hora\s+da\s+leitura\s+para\b",
+            "Conduzir leitura orientada para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\s+para\b",
+            "Organizar a explicação em etapas para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+Com\s+suas\s+palavras\s+para\b",
+            "Pedir síntese oral ou escrita para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+PAUSE\s+E\s+RESPONDA\s+para\b",
+            "Realizar pausa de checagem para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\s+para\b",
+            "promovendo conversa em duplas para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:utilizando|usando|aplicando|por meio da|com)\s+(?:a\s+)?t[eé]cnica\s+Virem\s+e\s+conversem\b",
+            "promovendo conversa em duplas",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar|Iniciar a aula com|Iniciar com)\s+(?:a\s+)?t[eé]cnica\s+([A-Za-zÀ-ÿ\s]+)",
+            r"Utilizar a estratégia \1",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\bcom\s+a\s+t[eé]cnica\s+Um\s+passo\s+de\s+cada\s+vez\b",
+            "com orientação passo a passo",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Utilizar|Usar|Aplicar)\s+a\s+atividade\s+Com\s+suas\s+palavras\s+para\b",
+            "Pedir que os estudantes expliquem com suas próprias palavras para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:Aplicar|Utilizar|Usar)\s+a\s+atividade\s+Todo\s+mundo\s+escreve\s+para\b",
+            "Solicitar registro individual no caderno para",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\b(?:com|usando|utilizando|aplicando)\s+a\s+t[eé]cnica\s+Hora\s+da\s+leitura\b",
+            "por meio de leitura orientada",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\baplicando\s+a\s+Hora\s+da\s+leitura,\s*onde\b",
+            "em leitura orientada, na qual",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\butilizando\s+o\s+para\s+promover\s+a\s+troca\s+de\s+ideias\b",
+            "promovendo conversa em duplas para troca de ideias",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            r"\butilizando\s+o\s+para\b",
+            "com apoio de perguntas orientadoras para",
+            texto_final,
+            flags=re.I,
+        )
+
     texto_final = re.sub(r"\s+", " ", texto_final).strip()
     texto_final = re.sub(r"\.\s*,", ".", texto_final)
     texto_final = re.sub(r",\s*\.", ".", texto_final)
@@ -1062,15 +1096,15 @@ def naturalizar_texto_metodologico(texto: str) -> str:
     return texto_final
 
 
-def naturalizar_metodologia_professor(metodologia: list[Any]) -> list[Any]:
+def naturalizar_metodologia_professor(metodologia: list[Any], perfil: str = "geral") -> list[Any]:
     naturalizada = []
     for item in metodologia or []:
         if isinstance(item, dict):
             novo_item = dict(item)
-            novo_item["texto"] = naturalizar_texto_metodologico(novo_item.get("texto", ""))
+            novo_item["texto"] = naturalizar_texto_metodologico(novo_item.get("texto", ""), perfil=perfil)
             naturalizada.append(novo_item)
         else:
-            naturalizada.append(naturalizar_texto_metodologico(str(item)))
+            naturalizada.append(naturalizar_texto_metodologico(str(item), perfil=perfil))
     return naturalizada
 
 
