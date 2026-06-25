@@ -8,8 +8,8 @@ def test_carrega_referencia_por_disciplina():
     referencia = carregar_referencia_metodologica("Língua Portuguesa", "7º ano A")
 
     assert "REGRAS FIXAS DO SISTEMA" in referencia
-    assert "Disciplina de Língua Portuguesa" in referencia
-    assert "produção de textos" in referencia
+    assert "Língua Portuguesa" in referencia
+    assert "Hora da leitura" in referencia
     assert "Não invente técnicas" in referencia
 
 
@@ -33,9 +33,9 @@ def test_referencia_interdisciplinar_entra_como_complemento_seguro():
 def test_referencia_ciencias_prioriza_nova_analise_dos_anos_finais():
     referencia = carregar_referencia_metodologica("Ciencias", "8 ano A").lower()
 
-    assert "tipos de aula identificados" in referencia
-    assert "construção de modelo" in referencia
-    assert "virem e conversem" in referencia
+    assert "não alucinar materiais" in referencia
+    assert "modelagem científica" in referencia
+    assert "limitação de modelos" in referencia
 
 
 def test_ler_docx_com_tabelas_e_paragrafos(tmp_path):

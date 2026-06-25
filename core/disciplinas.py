@@ -11,6 +11,7 @@ DISCIPLINA_CDP_MULTISSERIADA = "CDP- Multisseriada"
 DISCIPLINA_CDP_CICLO_I = "CDP - Ciclo I"
 DISCIPLINA_CDP_FUNDAMENTAL = "CDP-ENSINO FUNDAMENTAL"
 DISCIPLINA_CDP_MEDIO = "CDP-ENSINO MÉDIO"
+DISCIPLINA_GEOGRAFIA_CDP_MEDIO = "Geografia CDP Ensino Médio"
 
 
 @dataclass(frozen=True)
@@ -37,12 +38,14 @@ _DISCIPLINAS = [
     "Aprofundamento em Geografia",
     "História",
     "Liderança e Oratória",
+    "Liderança e Oratória_CDP",
     "Língua Inglesa",
     "Língua Portuguesa",
     "Matemática",
     "Orientação de Estudos",
     DISCIPLINA_CDP_FUNDAMENTAL,
     DISCIPLINA_CDP_MEDIO,
+    DISCIPLINA_GEOGRAFIA_CDP_MEDIO,
     DISCIPLINA_CDP_MULTISSERIADA,
     "Projeto de Vida",
     "Química",
@@ -80,6 +83,8 @@ def obter_config(disciplina: str) -> DisciplinaConfig:
         return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP_FUNDAMENTAL, exige_pdf=False)
+    if nome.upper().endswith("_CDP"):
+        return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     return DisciplinaConfig(nome=nome)
 
 
@@ -97,7 +102,17 @@ def eh_cdp_fundamental(nome: str) -> bool:
 
 def eh_cdp_contextual(nome: str) -> bool:
     chave = _normalizar_nome_disciplina(nome)
+    chave_compacta = chave.replace(" ", "")
     return chave in {
         _normalizar_nome_disciplina(DISCIPLINA_CDP_FUNDAMENTAL),
         _normalizar_nome_disciplina(DISCIPLINA_CDP_MEDIO),
-    }
+    } or (
+        "CDP" in chave_compacta
+        and (
+            "ENSINOMEDIO" in chave_compacta
+            or "ENSINOFUNDAMENTAL" in chave_compacta
+            or chave_compacta.endswith("CDPEM")
+            or chave_compacta.endswith("CDPEF")
+            or chave_compacta.endswith("_CDP")
+        )
+    )

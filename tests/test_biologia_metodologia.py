@@ -161,6 +161,27 @@ def test_titulos_referencia_biologia_por_docx_expoe_mapa_de_aulas(tmp_path):
     assert titulos == {1: "Ciclos biogeoquimicos do carbono e do oxigenio"}
 
 
+def test_titulos_referencia_biologia_aceita_travessao_no_docx(tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Aprofundamento_Biologia_3_Ano_Ensino_Medio.docx"
+    doc = Document()
+    doc.add_paragraph("AULA 01 — Organização filogenética dos grandes grupos vegetais")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para começar: Apresentar o tema central da aula.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("☑ Verificar se compreendem a organização filogenética.")
+    doc.add_paragraph("☑ Observar se usam critérios de comparação.")
+    doc.add_paragraph("☑ Acompanhar os registros no caderno.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("☑ Oferecer esquema visual dos grupos vegetais.")
+    doc.add_paragraph("☑ Disponibilizar palavras-chave no quadro.")
+    doc.add_paragraph("☑ Permitir resposta oral mediada.")
+    doc.save(caminho_docx)
+
+    titulos = titulos_referencia_biologia_por_docx(caminho_docx)
+
+    assert titulos == {1: "Organização filogenética dos grandes grupos vegetais"}
+
+
 def test_referencia_biologia_localiza_docx_da_serie(tmp_path):
     caminho_docx = tmp_path / "Metodologias_Biologia_2_Ano_Ensino_Medio.docx"
     caminho_pdf = tmp_path / "AULA 1.pdf"

@@ -116,7 +116,7 @@ _FALLBACK_POR_PERFIL = {
     ],
     "fisica": [
         "Utilizar imagens, esquemas, tabelas e demonstrações práticas.",
-        "Organizar registros guiados com palavras-chave and relações de causa e consequência.",
+        "Organizar registros guiados com palavras-chave e relações de causa e consequência.",
         "Oferecer mediação individual, permitindo respostas em tópicos ou desenhos.",
     ],
     "historia": [
@@ -193,19 +193,19 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
         "Permitir diferentes formas de participação, como fala, desenho, tópicos, cálculo com apoio ou registro em dupla.",
     ],
     "analise_percentuais_noticias": [
-        "Organizar no quadro os dados principais da noticia, destacando valor de referencia, percentual e comparacao antes dos calculos.",
-        "Retomar passo a passo a leitura de tabelas, graficos e manchetes numericas, com exemplos simples antes da atividade individual.",
-        "Permitir registro por etapas, uso de esquemas e apoio individual na interpretacao dos percentuais e de seu significado.",
+        "Organizar no quadro os dados principais da notícia, destacando valor de referência, percentual e comparação antes dos cálculos.",
+        "Retomar passo a passo a leitura de tabelas, gráficos e manchetes numéricas, com exemplos simples antes da atividade individual.",
+        "Permitir registro por etapas, uso de esquemas e apoio individual na interpretação dos percentuais e de seu significado.",
     ],
     "governo_economia": [
-        "Apresentar exemplos concretos de impostos, servicos publicos e regulacao com linguagem acessivel e apoio visual no quadro.",
-        "Registrar palavras-chave e relacoes principais em esquema simples para apoiar a compreensao do papel do governo na economia.",
-        "Realizar leitura mediada dos enunciados e permitir respostas por topicos curtos ou fala orientada quando necessario.",
+        "Apresentar exemplos concretos de impostos, serviços públicos e regulação com linguagem acessível e apoio visual no quadro.",
+        "Registrar palavras-chave e relações principais em esquema simples para apoiar a compreensão do papel do governo na economia.",
+        "Realizar leitura mediada dos enunciados e permitir respostas por tópicos curtos ou fala orientada quando necessário.",
     ],
     "impacto_decisoes_economicas": [
-        "Organizar as situacoes em etapas curtas, destacando recursos disponiveis, alternativas e possiveis consequencias de cada escolha.",
-        "Utilizar exemplos proximos do cotidiano e comparacoes simples para apoiar a analise das decisoes economicas.",
-        "Oferecer apoio individual e flexibilizacao do registro para estudantes com dificuldade na interpretacao dos cenarios apresentados.",
+        "Organizar as situações em etapas curtas, destacando recursos disponíveis, alternativas e possíveis consequências de cada escolha.",
+        "Utilizar exemplos próximos do cotidiano e comparações simples para apoiar a análise das decisões econômicas.",
+        "Oferecer apoio individual e flexibilização do registro para estudantes com dificuldade na interpretação dos cenários apresentados.",
     ],
     "cidadania_financeira": [
         "Utilizar exemplos de comprovantes, garantias, direitos e cuidados de segurança com linguagem acessível.",

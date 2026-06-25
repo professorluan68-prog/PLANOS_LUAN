@@ -32,6 +32,10 @@ DB_PATH = BASE_DIR / "planos_luan.db"
 
 # Arquivos de dados especificos
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequencia 2026 (1).ods"
+REGISTRO_PROXIMA_GERACAO_PATH = os.getenv(
+    "REGISTRO_PROXIMA_GERACAO_PATH",
+    str(BASE_DIR / "registro_proxima_geracao.json"),
+)
 
 # 4. Configuracoes de Inteligencia Artificial
 MODELO_OPENAI_PADRAO = "gpt-4o-mini"

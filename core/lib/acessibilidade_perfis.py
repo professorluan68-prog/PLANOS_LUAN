@@ -944,6 +944,12 @@ def gerar_acessibilidade_por_perfil(
     aprendizagem: str,
     desenvolvimento: str,
 ) -> list[str]:
+    if perfil == "matematica":
+        return [
+            "☑ Disponibilizar resolução comentada e exemplos graduados para apoiar a compreensão dos procedimentos.",
+            "☑ Organizar a atividade em etapas curtas com retomadas coletivas e apoio visual no quadro.",
+            "☑ Oferecer mediação individual e diferentes formas de registro para facilitar cálculos e conferência das respostas.",
+        ]
     gerador = GERADORES_ACESSIBILIDADE_POR_PERFIL.get(perfil)
     if not gerador:
         return []

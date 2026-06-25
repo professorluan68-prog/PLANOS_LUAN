@@ -111,3 +111,79 @@ def test_validador_exige_exatamente_tres_itens_com_marcador():
     assert any("acompanhamento da aprendizagem deve ter exatamente 3 itens" in item for item in problemas)
     assert any("acompanhamento da aprendizagem deve ter todos os itens iniciando com ☑" in item for item in problemas)
     assert any("acessibilidade deve ter todos os itens iniciando com ☑" in item for item in problemas)
+
+
+def test_validador_coerencia_recursos():
+    from core.validador_plano import validar_aula_final
+
+    # 1. Sem correspondência de vídeo
+    aula_sem_video = {
+        "disciplina": "Ciências",
+        "tema": "Sistema Solar",
+        "aprendizagem": "Identificar os planetas do sistema solar.",
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Professor apresenta o tema."},
+            {"titulo": "Foco no conteudo", "texto": "Assista ao vídeo explicativo sobre planetas."},
+            {"titulo": "Encerramento", "texto": "Conclusão da aula."}
+        ],
+        "texto_fonte": "Texto sobre o sistema solar com informacoes teoricas apenas.",
+        "recursos_detectados": ["slide", "texto"],
+        "acompanhamento": ["☑ Item 1", "☑ Item 2", "☑ Item 3"],
+        "acessibilidade": ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"],
+    }
+    avisos = validar_aula_final(aula_sem_video)
+    assert any("nenhum" in a and "detectado" in a and "origem" in a for a in avisos)
+
+    # 2. Com correspondência de vídeo no material
+    aula_com_video = {
+        "disciplina": "Ciências",
+        "tema": "Sistema Solar",
+        "aprendizagem": "Identificar os planetas do sistema solar.",
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Professor apresenta o tema."},
+            {"titulo": "Foco no conteudo", "texto": "Assista ao vídeo explicativo sobre planetas."},
+            {"titulo": "Encerramento", "texto": "Conclusão da aula."}
+        ],
+        "texto_fonte": "Veja o video no canal youtube.",
+        "recursos_detectados": ["video", "texto"],
+        "acompanhamento": ["☑ Item 1", "☑ Item 2", "☑ Item 3"],
+        "acessibilidade": ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"],
+    }
+    avisos_ok = validar_aula_final(aula_com_video)
+    assert not any("nenhum" in a and "detectado" in a and "origem" in a for a in avisos_ok)
+
+    # 3. Sem correspondência de gráfico
+    aula_sem_grafico = {
+        "disciplina": "Ciências",
+        "tema": "Sistema Solar",
+        "aprendizagem": "Identificar os planetas.",
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Professor apresenta o tema."},
+            {"titulo": "Foco no conteudo", "texto": "Analise a tabela e o grafico de distancias."},
+            {"titulo": "Encerramento", "texto": "Conclusão da aula."}
+        ],
+        "texto_fonte": "Planetas distantes do sol.",
+        "recursos_detectados": ["texto"],
+        "acompanhamento": ["☑ Item 1", "☑ Item 2", "☑ Item 3"],
+        "acessibilidade": ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"],
+    }
+    avisos_g = validar_aula_final(aula_sem_grafico)
+    assert any("tabela" in a and "correspond" in a for a in avisos_g)
+
+    # 4. Sem correspondência de experimento
+    aula_sem_experimento = {
+        "disciplina": "Ciências",
+        "tema": "Reações Químicas",
+        "aprendizagem": "Identificar reações.",
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Professor apresenta o tema."},
+            {"titulo": "Foco no conteudo", "texto": "Faremos um experimento de misturar vinagre e bicarbonato."},
+            {"titulo": "Encerramento", "texto": "Conclusão da aula."}
+        ],
+        "texto_fonte": "Teoria das reações químicas.",
+        "recursos_detectados": ["texto"],
+        "acompanhamento": ["☑ Item 1", "☑ Item 2", "☑ Item 3"],
+        "acessibilidade": ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"],
+    }
+    avisos_exp = validar_aula_final(aula_sem_experimento)
+    assert any("experimento" in a and "procedimento" in a for a in avisos_exp)

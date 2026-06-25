@@ -30,6 +30,12 @@ def test_cdp_detecta_disciplina_pela_capa_geografia():
     assert lote._disciplina_base_cdp_contextual(texto, "", "PDF_AULAS/GEOGRAFIA/AULA62ANO.pdf") == "Geografia"
 
 
+def test_cdp_contextual_reconhece_nome_amigavel_geografia_cdp_em():
+    assert lote._eh_cdp_contextual_disciplina("Geografia CDP Ensino Médio")
+    assert lote._eh_cdp_contextual_disciplina("Geografia CDP EM")
+    assert lote._disciplina_base_cdp_por_cadastro("Geografia CDP Ensino Médio") == "Geografia"
+
+
 def test_cdp_detecta_sociologia_sem_confundir_com_portugues():
     texto = """
     2º bimestre

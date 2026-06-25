@@ -1023,6 +1023,12 @@ def gerar_acompanhamento_por_perfil(
     aprendizagem: str,
     desenvolvimento: str,
 ) -> list[str]:
+    if perfil == "matematica":
+        return [
+            f"☑ Observar se os estudantes compreendem os conceitos centrais de {tema} e mobilizam dados, registros e representações adequadas.",
+            "☑ Verificar se a turma participa das análises e justifica as respostas durante a resolução das atividades.",
+            "☑ Acompanhar se os estudantes conferem os procedimentos e explicam o raciocínio com autonomia crescente.",
+        ]
     gerador = GERADORES_ACOMPANHAMENTO_POR_PERFIL.get(perfil)
     if not gerador:
         return []

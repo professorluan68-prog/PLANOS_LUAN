@@ -3,6 +3,9 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 import re
 import unicodedata
+import logging
+
+logger = logging.getLogger(__name__)
 
 from docx import Document
 from docx.table import Table
@@ -751,8 +754,12 @@ def _clonar_par_semana(pares: list[tuple]) -> tuple:
     cabecalho_ref, tabela_ref = pares[-1]
     novo_cabecalho_xml = deepcopy(cabecalho_ref._element)
     nova_tabela_xml = deepcopy(tabela_ref._element)
-    tabela_ref._element.addnext(novo_cabecalho_xml)
+    
+    p = OxmlElement("w:p")
+    tabela_ref._element.addnext(p)
+    p.addnext(novo_cabecalho_xml)
     novo_cabecalho_xml.addnext(nova_tabela_xml)
+    
     return (
         Table(novo_cabecalho_xml, cabecalho_ref._parent),
         Table(nova_tabela_xml, tabela_ref._parent),
@@ -1183,6 +1190,7 @@ def preencher_documento(
     observacao: str = "",
     aulas_previstas_manual: str = "",
 ):
+    logger.info("Iniciando preenchimento de documento Word para o professor %s (disciplina: %s, turma: %s, total de aulas: %d)", professor, disciplina, turma, len(aulas or []))
     documento = Document(modelo_stream)
     primeira_aula = (aulas or [{}])[0]
     substituicoes = {
@@ -1223,4 +1231,5 @@ def preencher_documento(
 
     saida = BytesIO()
     documento.save(saida)
+    logger.info("Documento Word preenchido com sucesso para %s (%s, %s)", professor, disciplina, turma)
     return _validar_docx_gerado(saida)

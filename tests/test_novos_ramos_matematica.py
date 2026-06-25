@@ -1,6 +1,6 @@
 import re
 import unicodedata
-from core.lib.metodologia import _metodologia_matematica
+from core.lib.metodologia_matematica import _metodologia_matematica
 from core.lib.acessibilidade_perfis import _acessibilidade_matematica
 from core.lib.acompanhamento_perfis import _acompanhamento_matematica
 

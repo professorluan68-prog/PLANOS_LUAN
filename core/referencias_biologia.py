@@ -10,7 +10,8 @@ from typing import Any
 
 
 def _normalizar_espacos(texto: str) -> str:
-    return re.sub(r"\s+", " ", str(texto or "")).strip()
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    return re.sub(r"\s+([.,;:!?])", r"\1", texto)
 
 
 def _normalizar_busca(texto: str) -> str:
@@ -90,7 +91,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     secao = ""
 
     for texto in paragrafos:
-        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*-\s*(.+)$", texto, flags=re.I)
+        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
             aula_atual = {

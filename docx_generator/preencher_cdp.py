@@ -1,6 +1,7 @@
 from io import BytesIO
 from datetime import datetime
 from typing import Dict
+import logging
 
 from docx import Document
 
@@ -24,6 +25,8 @@ from docx_generator.preencher import (
     _preencher_celula_metodologia,
     _preencher_celula_tema_material,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _linha_de_aula_cdp(row) -> bool:
@@ -112,9 +115,13 @@ def _ajustar_rotulos_data_cdp(doc) -> None:
                 for paragrafo in celula.paragraphs:
                     texto = paragrafo.text or ""
                     if "Data e Horário" in texto:
-                        paragrafo.text = texto.replace("Data e Horário", "Data")
+                        paragrafo.text = texto.replace(
+                            "Data e Horário", "Data"
+                        )
                     elif "Data e Horario" in texto:
-                        paragrafo.text = texto.replace("Data e Horario", "Data")
+                        paragrafo.text = texto.replace(
+                            "Data e Horario", "Data"
+                        )
 
 
 def _formatar_data_aula_cdp(aula: dict) -> str:
@@ -123,7 +130,10 @@ def _formatar_data_aula_cdp(aula: dict) -> str:
         data = data_bruta.strftime("%d/%m")
     else:
         data = str(data_bruta or "").strip()
-    dia_semana = str(aula.get("dia_semana") or "").strip() or _dia_semana_cdp(data_bruta)
+    dia_semana = (
+        str(aula.get("dia_semana") or "").strip()
+        or _dia_semana_cdp(data_bruta)
+    )
     partes = [parte for parte in [data, dia_semana] if parte]
     return "\n".join(partes).strip()
 
@@ -191,7 +201,11 @@ def prever_aulas_cdp(
                 {
                     "ordem": str(len(preview) + 1),
                     "disciplina": _disciplina_exibicao(disciplina),
-                    "componente_planilha": componente_da_linha_multisseriada(material_modelo) if multisseriada else _disciplina_exibicao(disciplina),
+                    "componente_planilha": (
+                        componente_da_linha_multisseriada(material_modelo)
+                        if multisseriada
+                        else _disciplina_exibicao(disciplina)
+                    ),
                     "material_modelo": material_modelo,
                     "aula_planilha": aula_planilha,
                     "titulo": titulo,
@@ -251,9 +265,21 @@ def preencher_documento_cdp(
     observacao: str = "",
     aulas_previstas_manual: str = "",
 ) -> BytesIO:
+    logger.info(
+        "Iniciando preenchimento de documento Word CDP para o professor %s "
+        "(turma: %s, fundamental: %s, usar_ia: %s)",
+        professor,
+        turma,
+        fundamental,
+        usar_ia,
+    )
     doc = Document(modelo_docx)
     _ajustar_rotulos_data_cdp(doc)
-    componente = "CDP - CICLO I" if fundamental else "MULTISSERIADA - EJA FUNDAMENTAL - ANOS INICIAIS"
+    componente = (
+        "CDP - CICLO I"
+        if fundamental
+        else "MULTISSERIADA - EJA FUNDAMENTAL - ANOS INICIAIS"
+    )
     _preencher_cabecalhos_cdp(
         doc,
         escola,
@@ -300,35 +326,54 @@ def preencher_documento_cdp(
             if datas_horarios and indice_data_horario < len(datas_horarios):
                 _preencher_celula_data_horario(
                     row.cells[0],
-                    _formatar_data_aula_cdp(datas_horarios[indice_data_horario]),
+                    _formatar_data_aula_cdp(
+                        datas_horarios[indice_data_horario]
+                    ),
                 )
             indice_data_horario += 1
 
             aprendizagem = _habilidade(item)
-            metodologia = montar_metodologia_cdp(disciplina, item, fundamental=fundamental)
-            acompanhamento = montar_acompanhamento_cdp(disciplina, item, fundamental=fundamental)
-            acessibilidade = montar_acessibilidade_cdp(disciplina, item, fundamental=fundamental)
+            metodologia = montar_metodologia_cdp(
+                disciplina, item, fundamental=fundamental
+            )
+            acompanhamento = montar_acompanhamento_cdp(
+                disciplina, item, fundamental=fundamental
+            )
+            acessibilidade = montar_acessibilidade_cdp(
+                disciplina, item, fundamental=fundamental
+            )
 
             if usar_ia and provedor_ia:
                 try:
-                    plano_ia = processar_item_cdp_ia(item, disciplina, turma_selecao, provedor_ia, modelo_ia)
+                    plano_ia = processar_item_cdp_ia(
+                        item,
+                        disciplina,
+                        turma_selecao,
+                        provedor_ia,
+                        modelo_ia,
+                    )
                     if plano_ia.get("aprendizagem"):
                         aprendizagem = f"HABILIDADE:\n{plano_ia['aprendizagem']}"
                     if plano_ia.get("metodologia"):
                         metodologia = "\n\n".join(
-                            f"{etapa.get('titulo', '').strip()}: {etapa.get('texto', '').strip()}".strip(": ")
+                            f"{etapa.get('titulo', '').strip()}: "
+                            f"{etapa.get('texto', '').strip()}".strip(": ")
                             for etapa in plano_ia["metodologia"]
                             if etapa.get("texto")
                         ) or metodologia
                 except Exception:
                     pass
 
-            _preencher_celula_aprendizagem(row.cells[idxs["aprendizagem"]], aprendizagem)
+            _preencher_celula_aprendizagem(
+                row.cells[idxs["aprendizagem"]], aprendizagem
+            )
             _preencher_celula_metodologia(
                 row.cells[idxs["desenvolvimento"]],
                 _metodologia_dict(metodologia),
             )
-            _preencher_celula_tema_material(row.cells[idxs["material"]], _material(disciplina, item))
+            _preencher_celula_tema_material(
+                row.cells[idxs["material"]], _material(disciplina, item)
+            )
 
             if idxs["acompanhamento"] is not None:
                 _preencher_celula_lista(
@@ -343,4 +388,5 @@ def preencher_documento_cdp(
 
     out = BytesIO()
     doc.save(out)
+    logger.info("Documento Word CDP preenchido com sucesso para %s (%s)", professor, turma)
     return _validar_docx_gerado(out)

@@ -8,9 +8,17 @@ from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_d
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
 from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
+from core.referencias_cdp_contextual import localizar_docx_referencia_cdp_contextual, referencia_cdp_contextual_por_pdf
 from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.referencias_geografia import localizar_docx_referencia_geografia, referencia_geografia_por_pdf
+from core.referencias_lideranca_oratoria import (
+    localizar_docx_referencia_lideranca_oratoria,
+    referencia_lideranca_oratoria_por_pdf,
+)
+from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_inglesa, referencia_lingua_inglesa_por_pdf
+from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
+from core.referencias_historia import localizar_docx_referencia_historia, localizar_docx_referencia_historia_cdp, referencia_historia_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -47,11 +55,11 @@ from core.cdp.gerador_cdp import (
     eh_cdp_contextual_disciplina,
     formatar_material_cdp_contextual,
     metodologia_cdp_contextual,
-    _tipo_conteudo_cdp,
-    _tema_cdp_seguro,
+    tipo_conteudo_cdp,
+    tema_cdp_seguro,
     limpar_tema_cdp_contextual,
-    _limpar_texto_cdp_contextual,
-    _conceito_cdp_contextual,
+    limpar_texto_cdp_contextual,
+    conceito_cdp_contextual,
 )
 from divisor_metodologia import processar_pdf_e_dividir_metodologia
 
@@ -63,6 +71,10 @@ _formatar_material_cdp_contextual = formatar_material_cdp_contextual
 _metodologia_cdp_contextual = metodologia_cdp_contextual
 _acompanhamento_cdp_contextual = acompanhamento_cdp_contextual
 _acessibilidade_cdp_contextual = acessibilidade_cdp_contextual
+_tipo_conteudo_cdp = tipo_conteudo_cdp
+_tema_cdp_seguro = tema_cdp_seguro
+_limpar_texto_cdp_contextual = limpar_texto_cdp_contextual
+_conceito_cdp_contextual = conceito_cdp_contextual
 _normalizar = normalizar_texto_lote
 _perfil_disciplina = perfil_disciplina
 logger = logging.getLogger(__name__)
@@ -72,12 +84,24 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
     perfil = perfil_disciplina(disciplina, turma=turma)
     if not caminho_pdf:
         return None
+    if eh_cdp_contextual_disciplina(disciplina):
+        if "HISTORIA" in str(caminho_pdf).upper():
+            return localizar_docx_referencia_historia_cdp(caminho_pdf)
+        return localizar_docx_referencia_cdp_contextual(caminho_pdf)
+    if perfil == "historia":
+        return localizar_docx_referencia_historia(caminho_pdf)
     if perfil == "educacao_financeira":
         return localizar_docx_referencia(caminho_pdf)
     if perfil == "biologia":
         return localizar_docx_referencia_biologia(caminho_pdf)
     if perfil == "geografia":
         return localizar_docx_referencia_geografia(caminho_pdf)
+    if perfil == "lideranca_oratoria":
+        return localizar_docx_referencia_lideranca_oratoria(caminho_pdf)
+    if perfil == "ingles":
+        return localizar_docx_referencia_lingua_inglesa(caminho_pdf)
+    if perfil == "orientacao_estudos":
+        return localizar_docx_referencia_orientacao_estudos(caminho_pdf)
     if perfil == "projeto_de_vida":
         return localizar_docx_referencia_projeto_vida(caminho_pdf)
     return None
@@ -86,24 +110,40 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
 def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, perfil: str):
     if not caminho_pdf:
         return None
+    if perfil == "historia":
+        return referencia_historia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "educacao_financeira":
         return referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "biologia":
         return referencia_biologia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "geografia":
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "lideranca_oratoria":
+        return referencia_lideranca_oratoria_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "ingles":
+        return referencia_lingua_inglesa_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "orientacao_estudos":
+        return referencia_orientacao_estudos_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "projeto_de_vida":
         return referencia_projeto_vida_por_pdf(caminho_pdf, numero_aula, tema=tema)
     return None
 
 
 def _origem_metodologia_por_referencia(perfil: str) -> str:
+    if perfil == "historia":
+        return "docx_referencia_historia"
     if perfil == "educacao_financeira":
         return "docx_referencia_educacao_financeira"
     if perfil == "biologia":
         return "docx_referencia_biologia"
     if perfil == "geografia":
         return "docx_referencia_geografia"
+    if perfil == "lideranca_oratoria":
+        return "docx_referencia_lideranca_oratoria"
+    if perfil == "ingles":
+        return "docx_referencia_lingua_inglesa"
+    if perfil == "orientacao_estudos":
+        return "docx_referencia_orientacao_estudos"
     if perfil == "projeto_de_vida":
         return "docx_referencia_projeto_de_vida"
     return ""
@@ -162,6 +202,36 @@ def _itens_referencia_docx(referencia: dict | None, chave: str) -> list[str]:
             texto = f"☑ {texto.lstrip('☑ ').strip()}"
         itens.append(texto)
     return itens
+
+
+def _habilidade_referencia_docx(referencia: dict | None) -> str:
+    if not referencia:
+        return ""
+    return re.sub(r"\s+", " ", str(referencia.get("habilidade") or "")).strip()
+
+
+def _disciplina_base_cdp_por_cadastro(disciplina: str) -> str:
+    base = normalizar_texto_lote(disciplina)
+    if "cdp" not in base:
+        return ""
+    opcoes = [
+        ("Língua Portuguesa", ["lingua portuguesa", "portugues"]),
+        ("Matemática", ["matematica"]),
+        ("Ciências", ["ciencias"]),
+        ("História", ["historia"]),
+        ("Geografia", ["geografia"]),
+        ("Arte", ["arte"]),
+        ("Biologia", ["biologia"]),
+        ("Física", ["fisica"]),
+        ("Química", ["quimica"]),
+        ("Língua Inglesa", ["lingua inglesa", "ingles"]),
+        ("Sociologia", ["sociologia"]),
+        ("Liderança e Oratória", ["lideranca e oratoria", "lideranca", "oratoria"]),
+    ]
+    for nome, termos in opcoes:
+        if any(termo in base for termo in termos):
+            return nome
+    return ""
 
 _ORIENTACAO_ESTUDOS_TITULOS = {
     ("missao", 1): "Jogos com palavras e imagens",
@@ -408,24 +478,7 @@ def _limpar_linha_metodologica(linha: str) -> str:
     return limpa
 
 
-def _linha_instrucao_matematica(linha: str) -> bool:
-    normalizada = normalizar_texto_lote(linha)
-    inicios_instrucao = (
-        "resolva",
-        "calcule",
-        "determine",
-        "registre",
-        "complete",
-        "observe",
-        "assinale",
-        "responda",
-        "explique",
-        "justifique",
-        "copie",
-        "escreva",
-        "analise",
-    )
-    return normalizada.startswith(inicios_instrucao)
+from core.lib.matematica_lote import _linha_instrucao_matematica
 
 
 def _perguntas_orientadoras(tipo: str, tema: str, conceito: str) -> str:
@@ -963,6 +1016,10 @@ def _rotulo_aula_material(texto: str, caminho_pdf: str) -> str:
     match = re.search(r"\baula[_\s-]*(\d{1,3})\b", stem, flags=re.I)
     if match:
         return f"AULA {match.group(1)}"
+
+    match_pdf = re.search(r"^pdf[_\s-]*(\d{1,3})(?:\D|$)", stem, flags=re.I)
+    if match_pdf:
+        return f"AULA {int(match_pdf.group(1))}"
     return ""
 
 
@@ -2081,7 +2138,7 @@ def _tentar_gerador_colunas_pedagogicas(
             tema=tema,
             contexto=contexto_metodologico,
         )
-        metodologia = naturalizar_metodologia_professor(metodologia)
+        metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
         if modalidade_eja_ativa:
             tecnicas_pdf = _detectar_tecnicas_lemov(texto, tema)
             metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_pdf, _garantir_tecnicas_lemov_na_metodologia)
@@ -2148,7 +2205,17 @@ def _montar_resultado_cdp_contextual(
     perfil: str,
     tipo: str,
     extracao_pdf: dict,
+    caminho_pdf: str = "",
 ) -> dict:
+    referencia_docx = referencia_cdp_contextual_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if referencia_docx:
+        titulo_referencia = str(referencia_docx.get("titulo") or "").strip()
+        numero_referencia = str(referencia_docx.get("numero") or "").strip()
+        if titulo_referencia:
+            tema = titulo_referencia
+        if numero_referencia:
+            numero_aula = numero_referencia
+
     conceito_cdp = extracao_pdf.get("conceito_extraido", tema)
     habilidade_cdp = extracao_pdf.get("habilidade", "")
     if habilidade_cdp and len(habilidade_cdp) > 15:
@@ -2173,6 +2240,11 @@ def _montar_resultado_cdp_contextual(
     acompanhamento_cdp = acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
     acessibilidade_cdp = acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
 
+    if referencia_docx:
+        metodologia_cdp = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
+        acompanhamento_cdp = list(referencia_docx.get("acompanhamento") or [])[:3]
+        acessibilidade_cdp = list(referencia_docx.get("acessibilidade") or [])[:3]
+
     from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
 
     recursos_reais = detectar_recursos_reais(texto)
@@ -2185,6 +2257,13 @@ def _montar_resultado_cdp_contextual(
         tema,
         recursos_reais,
     )
+    if referencia_docx:
+        acompanhamento_ref = _itens_referencia_docx(referencia_docx, "acompanhamento")
+        acessibilidade_ref = _itens_referencia_docx(referencia_docx, "acessibilidade")
+        if len(acompanhamento_ref) == 3:
+            acompanhamento_cdp = acompanhamento_ref
+        if len(acessibilidade_ref) == 3:
+            acessibilidade_cdp = acessibilidade_ref
 
     from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
     return {
@@ -2196,6 +2275,8 @@ def _montar_resultado_cdp_contextual(
         "metodologia": metodologia_cdp,
         "acompanhamento": acompanhamento_cdp,
         "acessibilidade": acessibilidade_cdp,
+        "origem_metodologia": "docx_referencia_cdp_contextual" if referencia_docx else "motor_local_cdp_contextual",
+        "fonte_referencia_metodologia": (referencia_docx or {}).get("fonte", ""),
         "ia_usada": False,
         "ia_provedor": "",
         "ia_erro": "",
@@ -2278,8 +2359,10 @@ def _montar_resultado_aula_ia(
     aprendizagem_orientacao: str,
     caminho_pdf: str = "",
     bimestre: str = "",
+    rascunho_base: dict | None = None,
 ) -> dict:
     referencia_docx = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+    habilidade_referencia = _habilidade_referencia_docx(referencia_docx)
 
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
@@ -2291,6 +2374,9 @@ def _montar_resultado_aula_ia(
 
     if aprendizagem_pv:
         aprendizagem = aprendizagem_pv
+    elif perfil == "orientacao_estudos" and habilidade_referencia:
+        aprendizagem = habilidade_referencia
+        habilidade_pdf = habilidade_referencia
     elif perfil == "orientacao_estudos" and aprendizagem_orientacao:
         aprendizagem = aprendizagem_orientacao
         habilidade_pdf = aprendizagem_orientacao
@@ -2317,6 +2403,10 @@ def _montar_resultado_aula_ia(
         modalidade_eja_ativa=modalidade_eja_ativa,
     )
 
+    metodologia_local = rascunho_base.get("metodologia", []) if rascunho_base else []
+    metodologia_ia_crua = plano_ia.get("metodologia", []) if plano_ia else []
+    metodologia_higienizada_temp = []
+
     metodologia_ia = plano_ia.get("metodologia", [])
     if perfil == "leitura_redacao":
         metodologia_ia = _metodologia_leitura_redacao_modelo(texto, tema, turma=turma)
@@ -2338,7 +2428,8 @@ def _montar_resultado_aula_ia(
             tema=tema,
             contexto=contexto_metodologico,
         )
-        metodologia_ia = naturalizar_metodologia_professor(metodologia_ia)
+        metodologia_higienizada_temp = list(metodologia_ia)
+        metodologia_ia = naturalizar_metodologia_professor(metodologia_ia, perfil=perfil)
         if modalidade_eja_ativa:
             metodologia_ia = _adaptar_metodologia_eja(
                 metodologia_ia,
@@ -2425,7 +2516,7 @@ def _montar_resultado_aula_ia(
         )
 
     if referencia_docx:
-        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
@@ -2444,6 +2535,13 @@ def _montar_resultado_aula_ia(
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
 
+    diagnostico_geracao = {
+        "metodologia_local": metodologia_local,
+        "metodologia_ia_crua": metodologia_ia_crua,
+        "metodologia_higienizada": metodologia_higienizada_temp or (metodologia_ia if metodologia_ia else []),
+        "metodologia_final": metodologia,
+    }
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -2458,6 +2556,9 @@ def _montar_resultado_aula_ia(
         "ia_usada": True,
         "ia_provedor": provedor_ia,
         "ia_erro": "",
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": diagnostico_geracao,
     }
     aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
     return aula_gerada
@@ -2487,6 +2588,7 @@ def _montar_resultado_aula_local(
     bimestre: str = "",
 ) -> dict:
     referencia_docx = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+    habilidade_referencia = _habilidade_referencia_docx(referencia_docx)
 
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
@@ -2501,6 +2603,9 @@ def _montar_resultado_aula_local(
     if aprendizagem_pv:
         aprendizagem = aprendizagem_pv
         habilidade = aprendizagem_pv
+    elif perfil == "orientacao_estudos" and habilidade_referencia:
+        aprendizagem = habilidade_referencia
+        habilidade = habilidade_referencia
     elif perfil == "orientacao_estudos" and aprendizagem_orientacao:
         aprendizagem = aprendizagem_orientacao
         habilidade = aprendizagem_orientacao
@@ -2536,7 +2641,11 @@ def _montar_resultado_aula_local(
         modalidade_eja_ativa=modalidade_eja_ativa,
     )
 
+    metodologia_local = []
+    metodologia_higienizada_temp = []
+
     if metodologia_fixa_pdf:
+        metodologia_local = list(metodologia_fixa_pdf)
         metodologia = metodologia_fixa_pdf
         desenvolvimento = _texto_metodologia(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
@@ -2556,7 +2665,9 @@ def _montar_resultado_aula_local(
             tema,
             perfil,
         )
+        metodologia_higienizada_temp = list(metodologia)
     elif colunas_planejamento:
+        metodologia_local = list(colunas_planejamento["metodologia"])
         metodologia = colunas_planejamento["metodologia"]
         if modalidade_eja_ativa:
             tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
@@ -2569,6 +2680,7 @@ def _montar_resultado_aula_local(
             tema,
             perfil,
         )
+        metodologia_higienizada_temp = list(metodologia)
     else:
         metodologia = _montar_etapas_metodologia(
             texto,
@@ -2579,6 +2691,7 @@ def _montar_resultado_aula_local(
             total_aulas=total_aulas,
             contexto_geracao=contexto_geracao,
         )
+        metodologia_local = list(metodologia)
         tecnicas_lemov_pdf = _detectar_tecnicas_lemov(texto, tema)
         if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
             metodologia = _garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_lemov_pdf)
@@ -2589,7 +2702,8 @@ def _montar_resultado_aula_local(
             tema=tema,
             contexto=contexto_metodologico,
         )
-        metodologia = naturalizar_metodologia_professor(metodologia)
+        metodologia_higienizada_temp = list(metodologia)
+        metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
         metodologia = _adaptar_metodologia_eja(metodologia, perfil, tema, texto, tecnicas_lemov_pdf, _garantir_tecnicas_lemov_na_metodologia) if modalidade_eja_ativa else metodologia
 
         desenvolvimento = _texto_metodologia(metodologia)
@@ -2612,7 +2726,7 @@ def _montar_resultado_aula_local(
         )
 
     if referencia_docx:
-        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [])
+        metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
@@ -2631,6 +2745,13 @@ def _montar_resultado_aula_local(
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
 
+    diagnostico_geracao = {
+        "metodologia_local": metodologia_local,
+        "metodologia_ia_crua": [],
+        "metodologia_higienizada": metodologia_higienizada_temp or (metodologia if metodologia else []),
+        "metodologia_final": metodologia,
+    }
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -2645,6 +2766,9 @@ def _montar_resultado_aula_local(
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
         "ia_erro": ia_erro,
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": diagnostico_geracao,
     }
     aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
     return aula_gerada
@@ -2700,7 +2824,8 @@ def _preparar_contexto_aula_pdf(
         logger.info("[EXTRACAO] Fonte usada: PDF")
 
     cdp_contextual = eh_cdp_contextual_disciplina(disciplina)
-    disciplina_base = disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina
+    disciplina_base_cadastro = _disciplina_base_cdp_por_cadastro(disciplina)
+    disciplina_base = disciplina_base_cadastro or (disciplina_base_cdp_contextual(texto, tema, caminho_pdf) if cdp_contextual else disciplina)
     perfil = perfil_disciplina(disciplina_base, turma=turma)
 
     from core.lib.aprofundamento import obter_dados_aprofundamento
@@ -2745,6 +2870,26 @@ def _preparar_contexto_aula_pdf(
         contexto_metodologico = "regular"
     escopo_pv = buscar_item_projeto_vida(turma, bimestre, numero_aula) if perfil == "projeto_de_vida" else {}
     aprendizagem_pv = montar_aprendizagem_projeto_vida(escopo_pv) if escopo_pv else ""
+    if perfil == "ingles":
+        referencia_docx_ingles = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+        titulo_referencia = str((referencia_docx_ingles or {}).get("titulo") or "").strip()
+        if titulo_referencia:
+            if not numero_aula and (referencia_docx_ingles or {}).get("numero"):
+                numero_aula = str(referencia_docx_ingles.get("numero"))
+            tema = titulo_referencia
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
+    if perfil == "orientacao_estudos":
+        referencia_docx_oe = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
+        titulo_referencia = str((referencia_docx_oe or {}).get("titulo") or "").strip()
+        habilidade_referencia = _habilidade_referencia_docx(referencia_docx_oe)
+        if titulo_referencia:
+            if not numero_aula and (referencia_docx_oe or {}).get("numero"):
+                numero_aula = str(referencia_docx_oe.get("numero"))
+            tema = titulo_referencia
+            material_digital = _material_aula_com_titulo(numero_aula, tema)
+        if habilidade_referencia:
+            objetivos_orientacao = []
+            aprendizagem_orientacao = habilidade_referencia
     if perfil == "projeto_de_vida":
         referencia_docx_pv = _referencia_docx_por_perfil(caminho_pdf, numero_aula, tema, perfil)
         titulo_referencia = str((referencia_docx_pv or {}).get("titulo") or "").strip()
@@ -2856,6 +3001,10 @@ def _aula_por_pdf(
                     metodologia_cache = dados_json["metodologia"]
                     acompanhamento_cache = dados_json.get("acompanhamento") or []
                     acessibilidade_cache = dados_json.get("acessibilidade") or []
+                    aprendizagem_cache = dados_json.get("aprendizagem") or ""
+                    tema_cache = dados_json.get("tema") or ""
+                    material_cache = dados_json.get("material") or Path(caminho_pdf).name
+                    numero_cache = dados_json.get("numero_aula") or ""
                     perfil_cache = perfil_disciplina(disciplina, turma=turma)
                     referencia_docx_cache = _referencia_docx_por_perfil(
                         caminho_pdf,
@@ -2864,6 +3013,16 @@ def _aula_por_pdf(
                         perfil_cache,
                     )
                     if referencia_docx_cache:
+                        numero_ref_cache = referencia_docx_cache.get("numero")
+                        titulo_ref_cache = str(referencia_docx_cache.get("titulo") or "").strip()
+                        habilidade_ref_cache = _habilidade_referencia_docx(referencia_docx_cache)
+                        if numero_ref_cache:
+                            numero_cache = str(numero_ref_cache)
+                        if titulo_ref_cache:
+                            tema_cache = titulo_ref_cache
+                            material_cache = _material_aula_com_titulo(numero_cache, tema_cache)
+                        if habilidade_ref_cache:
+                            aprendizagem_cache = habilidade_ref_cache
                         metodologia_cache = referencia_docx_cache.get("metodologia") or metodologia_cache
                         acompanhamento_ref = _itens_referencia_docx(
                             referencia_docx_cache,
@@ -2877,8 +3036,10 @@ def _aula_por_pdf(
                             acompanhamento_cache = acompanhamento_ref
                         if len(acessibilidade_ref) == 3:
                             acessibilidade_cache = acessibilidade_ref
-                    origem_metodologia_cache = dados_json.get("origem_metodologia") or (
-                        _origem_metodologia_por_referencia(perfil_cache) if referencia_docx_cache else ""
+                    origem_metodologia_cache = (
+                        _origem_metodologia_por_referencia(perfil_cache)
+                        if referencia_docx_cache
+                        else dados_json.get("origem_metodologia") or ""
                     )
                     fonte_referencia_cache = dados_json.get("fonte_referencia_metodologia") or (
                         referencia_docx_cache or {}
@@ -2912,10 +3073,10 @@ def _aula_por_pdf(
                             # Para outras disciplinas, não invalidamos o cache apenas pelo fingerprint
                             aula_gerada = {
                                 "disciplina": dados_json.get("disciplina") or disciplina,
-                                "tema": dados_json.get("tema") or "",
-                                "material": dados_json.get("material") or Path(caminho_pdf).name,
-                                "numero_aula": dados_json.get("numero_aula") or "",
-                                "aprendizagem": dados_json.get("aprendizagem") or "",
+                                "tema": tema_cache,
+                                "material": material_cache,
+                                "numero_aula": numero_cache,
+                                "aprendizagem": aprendizagem_cache,
                                 "metodologia": metodologia_cache,
                                 "acompanhamento": acompanhamento_cache,
                                 "acessibilidade": acessibilidade_cache,
@@ -2938,6 +3099,9 @@ def _aula_por_pdf(
                                 "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
                                 "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
                                 "versao_prompt": dados_json.get("versao_prompt") or "",
+                                "recursos_detectados": dados_json.get("recursos_detectados") or [],
+                                "texto_fonte": dados_json.get("texto_fonte") or "",
+                                "diagnostico_geracao": dados_json.get("diagnostico_geracao") or {},
                             }
                             if "avisos_validacao" not in dados_json:
                                 aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -2945,10 +3109,10 @@ def _aula_por_pdf(
                     else:
                         aula_gerada = {
                             "disciplina": dados_json.get("disciplina") or disciplina,
-                            "tema": dados_json.get("tema") or "",
-                            "material": dados_json.get("material") or Path(caminho_pdf).name,
-                            "numero_aula": dados_json.get("numero_aula") or "",
-                            "aprendizagem": dados_json.get("aprendizagem") or "",
+                            "tema": tema_cache,
+                            "material": material_cache,
+                            "numero_aula": numero_cache,
+                            "aprendizagem": aprendizagem_cache,
                             "metodologia": metodologia_cache,
                             "acompanhamento": acompanhamento_cache,
                             "acessibilidade": acessibilidade_cache,
@@ -2971,6 +3135,9 @@ def _aula_por_pdf(
                             "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
                             "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
                             "versao_prompt": dados_json.get("versao_prompt") or "",
+                            "recursos_detectados": dados_json.get("recursos_detectados") or [],
+                            "texto_fonte": dados_json.get("texto_fonte") or "",
+                            "diagnostico_geracao": dados_json.get("diagnostico_geracao") or {},
                         }
                         if "avisos_validacao" not in dados_json:
                             aula_gerada["avisos_validacao"] = validar_aula_final(aula_gerada)
@@ -3032,6 +3199,7 @@ def _aula_por_pdf(
             perfil=perfil,
             tipo=tipo,
             extracao_pdf=extracao_pdf,
+            caminho_pdf=caminho_pdf,
         )
     else:
         metodologia_anterior = dados_json_antigos.get("metodologia") if dados_json_antigos else None
@@ -3145,6 +3313,8 @@ def _aula_por_pdf(
     ]
     resultado_final.setdefault("versao_prompt", "")
 
+    _enriquecer_com_planilha(resultado_final, caminho_pdf)
+
     try:
         from core.revisao_final import revisar_aula_gerada, gravar_sidecar_json
         resultado_final = revisar_aula_gerada(resultado_final, perfil)
@@ -3155,6 +3325,75 @@ def _aula_por_pdf(
 
     return resultado_final
 
+
+def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
+    import os
+    import pandas as pd
+    import re
+    from pathlib import Path
+    try:
+        if not caminho_pdf: return
+        pasta = Path(caminho_pdf).parent
+        caminho_planilha = pasta / "planilha.xlsx"
+        if not caminho_planilha.exists():
+            caminho_planilha = pasta.parent / "planilha.xlsx"
+        if not caminho_planilha.exists():
+            return
+            
+        df = pd.read_excel(caminho_planilha)
+        nome_arquivo = Path(caminho_pdf).name.upper()
+        match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
+        if not match_aula:
+            return
+            
+        numero_aula = int(match_aula.group(1))
+        
+        match_serie = re.search(r'(\d)_ANO', str(pasta.absolute()).upper())
+        serie_num = match_serie.group(1) if match_serie else None
+            
+        for index, row in df.iterrows():
+            aula_planilha = str(row.get('AULA', '')).strip()
+            # Allow "Aula 1", "01", "1", "Aulas 1 e 2", etc.
+            match_p = re.search(r'\b0?' + str(numero_aula) + r'\b', aula_planilha)
+            if not match_p:
+                continue
+            
+            # Checa serie
+            col_serie = [c for c in df.columns if 'ANO' in str(c).upper() or 'RIE' in str(c).upper()]
+            if serie_num and col_serie:
+                val_serie = str(row[col_serie[0]])
+                if serie_num not in val_serie:
+                    continue
+                    
+            # Achou a linha!
+            col_titulo = [c for c in df.columns if 'TULO' in str(c).upper() or ('AULA' in str(c).upper() and c != 'AULA')]
+            col_conteudo = [c for c in df.columns if 'CONTE' in str(c).upper() or 'OBJETO' in str(c).upper()]
+            col_hab = [c for c in df.columns if 'HABILIDADE' in str(c).upper()]
+            col_obj = [c for c in df.columns if 'OBJETIVO' in str(c).upper()]
+            
+            tema_parts = []
+            if col_titulo and pd.notna(row[col_titulo[0]]):
+                tema_parts.append(str(row[col_titulo[0]]).strip())
+            elif col_conteudo and pd.notna(row[col_conteudo[0]]):
+                tema_parts.append(str(row[col_conteudo[0]]).strip())
+                
+            if tema_parts:
+                resultado["tema"] = " - ".join(tema_parts)
+                
+            aprendizagem = ""
+            if col_hab and pd.notna(row[col_hab[0]]):
+                aprendizagem += str(row[col_hab[0]]).strip()
+            if col_obj and pd.notna(row[col_obj[0]]):
+                if aprendizagem: aprendizagem += "\n"
+                aprendizagem += "Objetivos: " + str(row[col_obj[0]]).strip()
+                
+            if aprendizagem:
+                resultado["aprendizagem"] = aprendizagem
+                
+            break
+    except Exception as e:
+        import logging
+        logging.getLogger("PLANOS_LUAN").warning(f"Erro ao enriquecer com planilha: {e}")
 
 def processar_varios_pdfs(
     caminhos_pdf,

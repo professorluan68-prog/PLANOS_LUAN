@@ -207,6 +207,39 @@ def validar_aula_final(aula: dict) -> list[str]:
             if len(palavras_totais) > 20 and (repetidas / len(palavras_totais)) > 0.4:
                 avisos.append("Metodologia com alto índice de repetição de termos.")
 
+    # Validador Semântico de Coerência de Recursos (Item 4)
+    texto_metodologia_completa = " ".join(etapas_textos)
+    texto_metodologia_norm = normalizar_texto(texto_metodologia_completa)
+    texto_fonte_norm = normalizar_texto(aula.get("texto_fonte") or "")
+    recursos_norm = [normalizar_texto(str(r)) for r in (aula.get("recursos_detectados") or [])]
+
+    # Coerência de Vídeo
+    termos_video_metodologia = ["video", "assista", "assistir", "audiovisual", "filme", "documentario", "youtube"]
+    propoe_video = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_metodologia_norm) for t in termos_video_metodologia)
+    if propoe_video:
+        termos_video_fonte = ["video", "youtube", "link", "links", "assista", "assistir", "filme", "documentario", "qrcode", "qr code", "http"]
+        tem_video_fonte = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_fonte_norm) for t in termos_video_fonte) or any("video" in r or "link" in r or "youtube" in r or "http" in r for r in recursos_norm)
+        if not tem_video_fonte:
+            avisos.append("Metodologia propõe o uso de vídeo, mas nenhum vídeo foi detectado no material de origem.")
+
+    # Coerência de Gráfico/Tabela
+    termos_grafico_metodologia = ["grafico", "tabela", "infografico", "tabelas", "graficos"]
+    propoe_grafico = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_metodologia_norm) for t in termos_grafico_metodologia)
+    if propoe_grafico:
+        termos_grafico_fonte = ["grafico", "tabela", "infografico", "porcentagem", "dados", "%", "figura", "imagem", "tabelas", "graficos", "eixo", "coluna", "linha"]
+        tem_grafico_fonte = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_fonte_norm) for t in termos_grafico_fonte) or any("grafico" in r or "tabela" in r or "infografico" in r or "dado" in r or "%" in r for r in recursos_norm)
+        if not tem_grafico_fonte:
+            avisos.append("Metodologia propõe análise de gráfico/tabela sem correspondência no material de origem.")
+
+    # Coerência de Experimento
+    termos_experimento_metodologia = ["experimento", "aula pratica", "laboratorio", "pratica experimental", "experiencia", "procedimento pratico"]
+    propoe_experimento = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_metodologia_norm) for t in termos_experimento_metodologia)
+    if propoe_experimento:
+        termos_experimento_fonte = ["experimento", "pratica", "laboratorio", "materiais", "procedimento", "passo a passo", "mistura", "experiencia", "observar", "reacao", "hipotese", "cientifico"]
+        tem_experimento_fonte = any(re.search(rf"(?<!\w){re.escape(t)}(?!\w)", texto_fonte_norm) for t in termos_experimento_fonte) or any("experimento" in r or "pratica" in r or "laboratorio" in r or "mistura" in r or "materiais" in r for r in recursos_norm)
+        if not tem_experimento_fonte:
+            avisos.append("Metodologia menciona realização de experimento sem correspondência ou procedimento prático no material de origem.")
+
     acessibilidade = aula.get("acessibilidade") or []
     acompanhamento = aula.get("acompanhamento") or []
     avisos.extend(

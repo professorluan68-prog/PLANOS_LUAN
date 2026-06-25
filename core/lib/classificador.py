@@ -8,7 +8,7 @@ metodologia, acompanhamento, acessibilidade e extracao usem a mesma base.
 from __future__ import annotations
 
 import re
-from core.normalizacao import normalizar as normalizar_texto
+from core.normalizacao import normalizar as normalizar_texto, normalizar_preservar_pontuacao
 
 
 def normalizar_compacto(texto: str) -> str:
@@ -32,6 +32,59 @@ def contem_termo_exato(base: str, termos: list[str] | tuple[str, ...]) -> bool:
         if re.search(rf"(?<!\w){re.escape(termo_normalizado)}(?!\w)", base_normalizada):
             return True
     return False
+
+
+def _classificar_por_pontos(
+    titulo: str,
+    texto: str,
+    categorias: list[tuple[str, list[str]]],
+    default: str = "geral",
+    minimo_pontos: int = 2
+) -> str:
+    """
+    Classifica o tipo de aula usando pesos para evitar falsos positivos
+    de termos isolados.
+    Pesos:
+    - Palavra-chave no título: +3 pontos.
+    - Seção delimitada (ex: 'producao de texto:') no texto: +4 pontos.
+    - Palavra-chave isolada no texto: +1 ponto.
+    """
+    titulo_norm = normalizar_texto(titulo)
+    texto_norm = normalizar_texto(texto)
+    texto_norm_preservada = normalizar_preservar_pontuacao(texto)
+    
+    pontuacoes = {cat: 0 for cat, _ in categorias}
+    
+    for cat, keywords in categorias:
+        for k in keywords:
+            k_norm = normalizar_texto(k)
+            if not k_norm:
+                continue
+            k_escaped = re.escape(k_norm)
+            # 1. Título (peso +3, palavra inteira)
+            if re.search(rf"(?<!\w){k_escaped}(?!\w)", titulo_norm):
+                pontuacoes[cat] += 3
+            # 2. Seção/Rótulo delimitado (peso +4)
+            if re.search(rf"(?<!\w){k_escaped}\s*[-:–—]", texto_norm_preservada):
+                pontuacoes[cat] += 4
+            # 3. Corpo (peso +1, palavra inteira)
+            elif re.search(rf"(?<!\w){k_escaped}(?!\w)", texto_norm):
+                pontuacoes[cat] += 1
+                
+    if not pontuacoes:
+        return default
+        
+    # Encontra o maior score
+    max_cat = default
+    max_score = 0
+    for cat, score in pontuacoes.items():
+        if score > max_score:
+            max_score = score
+            max_cat = cat
+            
+    if max_score >= minimo_pontos:
+        return max_cat
+    return default
 
 
 def _turma_indica_ensino_medio(turma: str) -> bool:
@@ -403,74 +456,33 @@ def _tipo_aula_lingua_portuguesa(titulo: str, texto: str) -> str:
 
 
 def _tipo_aula_lingua_portuguesa_ef(titulo: str, texto: str) -> str:
-    """Classifica tipos metodologicos de Portugues EF com maior granularidade."""
+    """Classifica tipos metodológicos de Português EF com maior granularidade usando pesos."""
+    categorias = [
+        ("pesquisa", _LP_PESQUISA),
+        ("texto_digital_blog", _LP_TEXTO_DIGITAL_BLOG),
+        ("argumentacao_debate", _LP_ARGUMENTACAO_DEBATE),
+        ("analise_linguistica_ortografia", _LP_ANALISE_LINGUISTICA_ORTOGRAFIA),
+        ("resumo_retextualizacao", _LP_RESUMO_RETEXTUALIZACAO),
+        ("variacao_linguistica", _LP_VARIACAO_LINGUISTICA),
+        ("leitura_jornalistica", _LP_LEITURA_JORNALISTICA),
+        ("leitura_multimodal", _LP_LEITURA_MULTIMODAL),
+        ("producao_textual", _LP_PRODUCAO_TEXTUAL),
+        ("gramatica_contextualizada", _LP_GRAMATICA_CONTEXTUALIZADA),
+    ]
+
     titulo_norm = normalizar_texto(titulo)
-    base_norm = normalizar_texto(f"{titulo} {texto}")
     eh_continuidade = any(p in titulo_norm for p in ["parte 2", "parte 3", "parte 4"])
 
     if eh_continuidade:
-        if contem_termos(base_norm, _LP_TEXTO_DIGITAL_BLOG):
-            return "texto_digital_blog"
-        if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA):
-            return "analise_linguistica_ortografia"
-        if contem_termos(base_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
-            return "gramatica_contextualizada"
+        res = _classificar_por_pontos(titulo, texto, categorias, default="", minimo_pontos=1)
+        if res in {"texto_digital_blog", "analise_linguistica_ortografia", "gramatica_contextualizada"}:
+            return res
 
-    if contem_termos(base_norm, _LP_PESQUISA):
-        return "pesquisa"
-
-    if contem_termos(base_norm, _LP_TEXTO_DIGITAL_BLOG):
-        return "texto_digital_blog"
-
-    if contem_termos(base_norm, _LP_ARGUMENTACAO_DEBATE) and any(
-        marcador in base_norm
-        for marcador in [
-            "debate", "contra argumento", "contra-argumento",
-            "refutar", "ponto de vista", "uso de celular", "celular",
-        ]
-    ):
-        return "argumentacao_debate"
-
-    if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA) and any(
-        marcador in base_norm
-        for marcador in ["ortografia", "concordancia nominal", "discurso direto", "discurso indireto", "x ou ch"]
-    ):
-        return "analise_linguistica_ortografia"
-
-    if contem_termos(base_norm, _LP_RESUMO_RETEXTUALIZACAO):
-        return "resumo_retextualizacao"
-
-    if contem_termos(base_norm, _LP_VARIACAO_LINGUISTICA):
-        return "variacao_linguistica"
-
-    if contem_termos(base_norm, _LP_LEITURA_JORNALISTICA) and contem_termos(
-        base_norm,
-        ["fato", "opiniao", "parcialidade", "veiculo", "intencionalidade", "manchete", "fonte", "citacao"],
-    ):
-        return "leitura_jornalistica"
-
-    if contem_termos(base_norm, _LP_LEITURA_MULTIMODAL):
-        return "leitura_multimodal"
-
-    if contem_termos(base_norm, _LP_ANALISE_LINGUISTICA_ORTOGRAFIA):
-        return "analise_linguistica_ortografia"
-
-    if contem_termos(base_norm, _LP_PRODUCAO_TEXTUAL):
-        return "producao_textual"
-
-    if contem_termos(base_norm, _LP_GRAMATICA_CONTEXTUALIZADA):
-        return "gramatica_contextualizada"
-
-    return "leitura_literaria"
+    return _classificar_por_pontos(titulo, texto, categorias, default="leitura_literaria", minimo_pontos=2)
 
 
 def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
-    """Classifica o tipo de aula de Língua Portuguesa Ensino Médio com base no título e texto."""
-    titulo_norm = normalizar_texto(titulo)
-    texto_norm = normalizar_texto(texto)
-    base_norm = f"{titulo_norm} {texto_norm}"
-
-    # Define as categorias e seus respectivos conjuntos de palavras-chave
+    """Classifica o tipo de aula de Língua Portuguesa Ensino Médio com base no título e texto usando pesos."""
     categorias = [
         ("autoavaliacao", ["autoavaliacao", "concluindo a jornada", "rubrica", "portfolio", "sintese do percurso"]),
         ("texto_digital_blog", ["comentario", "texto digital", "blog", "rede social", "redes sociais"]),
@@ -497,18 +509,7 @@ def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
         ("gramatica_integrada", ["flexao", "regencia", "concordancia", "ortografia", "oracoes", "sintaxe", "semantica", "variacao e norma", "variacao linguistica"]),
     ]
 
-    # Primeiro, tenta classificar com base apenas no título (prioridade máxima)
-    for cat, keywords in categorias:
-        if any(k in titulo_norm for k in keywords):
-            return cat
-
-    # Como fallback, tenta classificar com base no texto completo (base_norm)
-    for cat, keywords in categorias:
-        if any(k in base_norm for k in keywords):
-            return cat
-
-    # Default
-    return "genero_textual"
+    return _classificar_por_pontos(titulo, texto, categorias, default="genero_textual", minimo_pontos=2)
 
 
 _CIENCIAS_PRODUCAO_PROJETO = [
