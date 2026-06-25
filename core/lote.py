@@ -8,6 +8,7 @@ from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_d
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
 from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
+from core.referencias_ciencias import localizar_docx_referencia_ciencias, referencia_ciencias_por_pdf
 from core.referencias_cdp_contextual import localizar_docx_referencia_cdp_contextual, referencia_cdp_contextual_por_pdf
 from core.referencias_educacao_financeira import localizar_docx_referencia, referencia_por_pdf
 from core.referencias_geografia import localizar_docx_referencia_geografia, referencia_geografia_por_pdf
@@ -94,6 +95,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia(caminho_pdf)
     if perfil == "biologia":
         return localizar_docx_referencia_biologia(caminho_pdf)
+    if perfil == "ciencias_ef":
+        return localizar_docx_referencia_ciencias(caminho_pdf)
     if perfil == "geografia":
         return localizar_docx_referencia_geografia(caminho_pdf)
     if perfil == "lideranca_oratoria":
@@ -116,6 +119,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "biologia":
         return referencia_biologia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "ciencias_ef":
+        return referencia_ciencias_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "geografia":
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "lideranca_oratoria":
@@ -136,6 +141,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_educacao_financeira"
     if perfil == "biologia":
         return "docx_referencia_biologia"
+    if perfil == "ciencias_ef":
+        return "docx_referencia_ciencias"
     if perfil == "geografia":
         return "docx_referencia_geografia"
     if perfil == "lideranca_oratoria":
@@ -3067,6 +3074,7 @@ def _aula_por_pdf(
                             "biologia",
                             "geografia",
                             "projeto_de_vida",
+                            "ciencias_ef",
                         }:
                             pass
                         else:
