@@ -13,6 +13,40 @@ import hashlib
 from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
+import time
+import threading
+import signal
+
+# Monitorador para fechar o servidor automaticamente quando o navegador for fechado
+def _monitorar_sessoes_ativas():
+    time.sleep(10)  # Período de tolerância inicial
+    has_connected = False
+    consecutive_zero_sessions = 0
+    while True:
+        try:
+            from streamlit.runtime import get_instance
+            runtime = get_instance()
+            if runtime:
+                active_sessions = runtime._session_mgr.list_active_sessions()
+                count = len(active_sessions)
+                if count > 0:
+                    has_connected = True
+                    consecutive_zero_sessions = 0
+                else:
+                    if has_connected:
+                        consecutive_zero_sessions += 1
+            else:
+                consecutive_zero_sessions = 0
+        except Exception:
+            consecutive_zero_sessions = 0
+        
+        if has_connected and consecutive_zero_sessions >= 5:
+            # Encerra o processo do Streamlit
+            os._exit(0)
+        time.sleep(1)
+
+_monitor_thread = threading.Thread(target=_monitorar_sessoes_ativas, daemon=True)
+_monitor_thread.start()
 from ui_components import render_sidebar
 from core.constantes import (
     HORARIOS_AULA,
