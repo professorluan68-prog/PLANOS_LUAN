@@ -1900,8 +1900,10 @@ with col_turma:
                     st.session_state["last_aula_prof"] = selecao_vaga_id
                     val_aulas = str(config_selecionada.get("aulas_semana") or "")
                     st.session_state["aulas_previstas_manual"] = val_aulas
-                    st.session_state["aulas_previstas_manual_select"] = val_aulas if val_aulas else "(selecione)"
-                    
+
+                    if "aulas_previstas_manual_select" in st.session_state:
+                        del st.session_state["aulas_previstas_manual_select"]
+                        
                     datas_horarios = list(config_selecionada.get("datas_horarios") or [])
                     if datas_horarios:
                         for i, item in enumerate(datas_horarios):
