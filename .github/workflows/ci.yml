@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -27,6 +29,6 @@ jobs:
           black --check core/cache_manager.py core/ia_client.py core/engine.py tests/unit/
           flake8 core/cache_manager.py core/ia_client.py core/engine.py tests/unit/
       - name: Run unit tests
-        run: pytest tests/unit -q
+        run: python -m pytest tests/unit -q
       - name: Smoke test (small)
         run: bash scripts/run_smoke.sh
