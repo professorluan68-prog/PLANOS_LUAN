@@ -113,6 +113,56 @@ def test_validador_exige_exatamente_tres_itens_com_marcador():
     assert any("acessibilidade deve ter todos os itens iniciando com ☑" in item for item in problemas)
 
 
+def test_validador_reconhece_verbos_pedagogicos_flexionados():
+    from core.validador_plano import validar_aula_final
+
+    aula = {
+        "disciplina": "História",
+        "tema": "A monarquia romana",
+        "aprendizagem": "Caracterizar a monarquia romana e suas instituições políticas iniciais.",
+        "metodologia": [
+            {
+                "titulo": "Para começar",
+                "texto": (
+                    "Inicie a aula apresentando a expressão patrício e peça que os estudantes conversem em duplas, "
+                    "registrando no caderno uma hipótese sobre a monarquia romana."
+                ),
+            },
+            {
+                "titulo": "Foco no conteúdo",
+                "texto": (
+                    "Conduza a explicação sobre reis, patrícios e instituições romanas, questione a turma durante "
+                    "a leitura da imagem e solicite anotações dos conceitos centrais."
+                ),
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": (
+                    "Oriente os estudantes a socializarem respostas e registre no quadro uma síntese sobre a organização "
+                    "política da Roma Antiga."
+                ),
+            },
+        ],
+        "texto_fonte": "Aula sobre monarquia romana, patrícios, reis e instituições políticas.",
+        "recursos_detectados": ["imagem", "texto"],
+        "acompanhamento": [
+            "☑ Verificar se os estudantes relacionam monarquia romana, patrícios e reis.",
+            "☑ Observar se justificam respostas com base na imagem e no texto.",
+            "☑ Conferir se o registro apresenta vocabulário histórico adequado.",
+        ],
+        "acessibilidade": [
+            "☑ Realizar leitura guiada do material sobre monarquia romana com palavras-chave.",
+            "☑ Disponibilizar quadro comparativo sobre reis, patrícios e instituições.",
+            "☑ Permitir resposta oral mediada ou registro em tópicos curtos.",
+        ],
+    }
+
+    avisos = validar_aula_final(aula)
+    assert not any("ação do professor" in aviso for aviso in avisos)
+    assert not any("ação dos alunos" in aviso for aviso in avisos)
+    assert not any("interação ou de registro" in aviso for aviso in avisos)
+
+
 def test_validador_coerencia_recursos():
     from core.validador_plano import validar_aula_final
 

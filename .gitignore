@@ -8,9 +8,12 @@ google-cloud-sdk/
 *.db
 *.log
 scratch/
+.cache/
+.cache_test/
 outputs/
 Planos feitos/
 scratch_doc_output.txt
+planos_luan_app_backup.py
 install_mode
 chaves.txt
 cloud_env.bat

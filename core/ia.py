@@ -323,6 +323,18 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 - Nunca entregar apenas resumo; integrar leitura e escrita com linguagem clara, didatica e aplicavel em sala.
 """
 
+    bloco_historia = ""
+    if perfil == "historia":
+        bloco_historia = """
+
+MODELO ESPECIFICO DE HISTORIA:
+- Organize a metodologia em pelo menos 4 etapas quando o material tiver conteudo suficiente.
+- Priorize contextualizacao historica, leitura de imagem/fonte/mapa quando aparecer, relacao entre sujeitos historicos, tempo, espaco, causa, consequencia, mudanca e permanencia.
+- Em 6o ano, use linguagem clara e concreta, com perguntas orientadoras, registro no caderno e socializacao breve.
+- Para Grecia e Roma Antiga, cite os conceitos reais do material, como polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis ou instituicoes quando aparecerem no PDF.
+- Evite repetir literalmente as mesmas frases de retomada entre aulas do lote.
+"""
+
     regra_tecnicas = ""
     if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
         regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas naturais, acolhedoras e coerentes com Projeto de Vida."
@@ -356,6 +368,7 @@ CONTEXTO: {contexto}
 NIVEL: {nivel}
 {bloco_eja}
 {bloco_leitura_redacao}
+{bloco_historia}
 
 {orientacao}
 

@@ -167,16 +167,21 @@ def validar_aula_final(aula: dict) -> list[str]:
     }
 
     verbos_professor = {
-        "professor", "docente", "mediador", "apresentar", "conduzir", "propor", "solicitar",
-        "orientar", "explicar", "retomar", "exibe", "pergunta", "mostra", "lidera", "mediar",
+        "professor", "docente", "mediador", "apresent", "condu", "propor", "propo",
+        "solicit", "orient", "explic", "retom", "exib", "pergunt", "question",
+        "mostr", "lider", "medi", "inici", "peca", "peça", "organiz", "aplic",
+        "utiliz", "registr", "acompanh", "disponibiliz", "promov", "contextualiz",
     }
     termos_estudantes = {
-        "aluno", "estudante", "turma", "dupla", "grupo", "eles", "compartilhar", "escrever",
-        "responder", "resolver", "realizar", "discutir", "escrevem", "respondem", "resolvem", "participa",
+        "aluno", "estudante", "turma", "dupla", "grupo", "eles", "compartilh", "escrev",
+        "respond", "resolv", "realiz", "discut", "particip", "leem", "leiam", "leitura",
+        "observ", "compar", "identifi", "analis", "produz", "organiz", "registr", "socializ",
+        "expliqu", "elabor", "relacion",
     }
     termos_interacao_registro = {
         "caderno", "registro", "respost", "escrev", "dupla", "grupo", "roda", "discussao",
-        "debate", "socializ", "cadernos", "anot", "compartilh",
+        "debate", "socializ", "cadernos", "anot", "compartilh", "pergunta", "question",
+        "hipotese", "leitura guiada", "leitura orientada", "pausa", "oral", "topicos",
     }
 
     etapas_textos = []
