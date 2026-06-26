@@ -43,7 +43,7 @@ def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
         disciplina="Matemática",
         turma="6º ANO A",
         bimestre="2º Bimestre",
-        usar_ia=False,
+        usar_ia=True,
         provedor_ia=""
     )
 

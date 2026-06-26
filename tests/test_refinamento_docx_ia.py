@@ -97,3 +97,61 @@ def test_montar_resultado_aula_ia_preserva_refinamento_ia(monkeypatch):
     # Assert that acessibilidade has IA items
     assert any("tempo adicional" in item for item in resultado["acessibilidade"])
     assert not any("DOCX Antigo" in item for item in resultado["acessibilidade"])
+
+
+def test_cache_lote_preserva_refinamento_ia_com_docx_presente(tmp_path, monkeypatch):
+    import json
+    from core.revisao_final import VERSAO_GERADOR_ATUAL
+    import core.lote as lote
+
+    pdf_file = tmp_path / "AULA_TESTE.pdf"
+    pdf_file.write_bytes(b"%PDF-1.4 dummy contents")
+
+    json_file = tmp_path / "AULA_TESTE.json"
+    json_data = {
+        "disciplina": "Arte",
+        "tema": "Tema Refinado IA",
+        "material": "AULA_TESTE.pdf",
+        "numero_aula": "1",
+        "aprendizagem": "Habilidade Refinada IA",
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Discussao refinada pela IA."}
+        ],
+        "acompanhamento": ["Item refinado pela IA 1", "Item refinado pela IA 2", "Item refinado pela IA 3"],
+        "acessibilidade": ["Acesso refinado pela IA 1", "Acesso refinado pela IA 2", "Acesso refinado pela IA 3"],
+        "ia_usada": True,
+        "ia_provedor": "Gemini",
+        "ia_erro": "",
+        "versao_gerador": VERSAO_GERADOR_ATUAL,
+    }
+
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, ensure_ascii=False, indent=2)
+
+    # Reference DOCX present in same path (but it is raw/unrefined)
+    referencia_docx = {
+        "titulo": "Tema DOCX Cru",
+        "metodologia": [{"titulo": "Etapa 1", "texto": "Texto DOCX antigo."}],
+        "acompanhamento": ["Item DOCX Antigo 1", "Item DOCX Antigo 2", "Item DOCX Antigo 3"],
+        "acessibilidade": ["Acesso DOCX Antigo 1", "Acesso DOCX Antigo 2", "Acesso DOCX Antigo 3"],
+        "fonte": "referencia.docx"
+    }
+
+    monkeypatch.setattr(lote, "_referencia_docx_por_perfil", lambda *args, **kwargs: referencia_docx)
+
+    resultado = lote._aula_por_pdf(
+        caminho_pdf=str(pdf_file),
+        disciplina="Arte",
+        turma="6º ANO A",
+        bimestre="2º Bimestre",
+        usar_ia=True,
+        provedor_ia="gemini",
+        professor="Luan"
+    )
+
+    # Verify that it returns the refined data loaded from JSON and NOT the raw reference from DOCX!
+    assert resultado["tema"] == "Tema Refinado IA"
+    assert resultado["metodologia"][0]["texto"] == "Discussao refinada pela IA."
+    assert "Item refinado pela IA 1" in resultado["acompanhamento"]
+    assert "Acesso refinado pela IA 1" in resultado["acessibilidade"]
+

@@ -3049,7 +3049,7 @@ def _aula_por_pdf(
                         dados_json.get("tema") or "",
                         perfil_cache,
                     )
-                    if referencia_docx_cache:
+                    if referencia_docx_cache and not dados_json.get("ia_usada", False):
                         numero_ref_cache = referencia_docx_cache.get("numero")
                         titulo_ref_cache = str(referencia_docx_cache.get("titulo") or "").strip()
                         habilidade_ref_cache = _habilidade_referencia_docx(referencia_docx_cache)
@@ -3093,6 +3093,8 @@ def _aula_por_pdf(
                     elif not caminho_pptx_correspondente and fonte_cache == "pptx":
                         pass
                     elif versao_cache != VERSAO_GERADOR_ATUAL:
+                        pass
+                    elif usar_ia != dados_json.get("ia_usada", False):
                         pass
                     elif fingerprint_salvo != fingerprint_atual:
                         perfil_disc = perfil_disciplina(disciplina, turma=turma)
