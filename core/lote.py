@@ -874,7 +874,12 @@ def _ajustar_metodologia_por_sequencia(
                 tema=tema,
             )
         ajustada.append(novo_item)
-    return ajustada
+    return _reduzir_frases_repetitivas_metodologia(
+        ajustada,
+        tema=tema,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+    )
 
 
 def _montar_etapas_metodologia(
@@ -1640,8 +1645,60 @@ def _montar_aprendizagem_inteligente(
     return _sanitizar_aprendizagem(fallback, tema, conceito, perfil=perfil)
 
 
+def _termos_relevantes_tema(tema: str) -> list[str]:
+    stopwords = {
+        "aula", "tema", "para", "como", "com", "uma", "mais", "sobre", "conteudo",
+        "estudantes", "alunos", "professor", "historia", "habilidade", "identificar",
+        "explicar", "caracterizar", "analisar", "processo", "formacao",
+    }
+    termos = []
+    for palavra in normalizar_texto_lote(tema).split():
+        if len(palavra) > 3 and palavra not in stopwords and palavra not in termos:
+            termos.append(palavra)
+    return termos
+
+
+def _contextualizar_item_historia(item: str, tema: str, tipo: str) -> str:
+    texto = re.sub(r'^(?:[☑☒☐]|☑|[\u2611\u2612\u2610]|\s|[-*+•]|\[[ xX]\])+\s*', '', str(item or "").strip())
+    if not texto:
+        return ""
+    texto_norm = normalizar_texto_lote(texto)
+    tema_limpo = str(tema or "o tema histórico").strip()
+    termos_tema = _termos_relevantes_tema(tema_limpo)
+    if termos_tema and any(termo in texto_norm for termo in termos_tema):
+        return texto
+
+    if tipo == "acessibilidade":
+        if any(t in texto_norm for t in ["material", "impresso", "leitura"]):
+            return f"{texto.rstrip('.')} sobre {tema_limpo}, com palavras-chave históricas em destaque."
+        if any(t in texto_norm for t in ["visual", "imagem", "mapa"]):
+            return f"Utilizar imagem, mapa, linha do tempo ou quadro comparativo sobre {tema_limpo} para apoiar a compreensão."
+        if any(t in texto_norm for t in ["tempo", "apoio", "individual"]):
+            return f"{texto.rstrip('.')} durante o registro em tópicos sobre {tema_limpo}."
+        return f"{texto.rstrip('.')} com retomada de conceitos históricos ligados a {tema_limpo}."
+
+    if any(t in texto_norm for t in ["particip", "engaj"]):
+        return f"{texto.rstrip('.')} nas discussões sobre {tema_limpo}."
+    if any(t in texto_norm for t in ["anot", "caderno", "registro", "escrev"]):
+        return f"{texto.rstrip('.')} sobre {tema_limpo}."
+    if any(t in texto_norm for t in ["respost", "avali", "confer"]):
+        return f"{texto.rstrip('.')} relacionando {tema_limpo} aos conceitos históricos trabalhados."
+    return f"{texto.rstrip('.')} sobre {tema_limpo}."
+
+
+def _contextualizar_itens_historia(itens: list[str], tema: str, tipo: str) -> list[str]:
+    contextualizados = [_contextualizar_item_historia(item, tema, tipo) for item in itens or []]
+    return [item for item in contextualizados if item]
+
+
 def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
     base = normalizar_texto_lote(tema)
+    if perfil == "historia":
+        return [
+            f"☑ Verificar se os estudantes relacionam {tema} aos sujeitos, conflitos, instituições ou transformações históricas discutidas na aula.",
+            "☑ Observar se utilizam evidências do material, como imagem, mapa, trecho ou registro, para justificar respostas históricas.",
+            "☑ Conferir se o registro no caderno apresenta síntese com vocabulário histórico e relação entre causa, consequência ou permanência.",
+        ]
     if any(termo in base for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]):
         return [
             "☑ Verificar se os estudantes identificam agente causador, ciclo de vida, formas de transmissão e principais sintomas da parasitose estudada.",
@@ -1687,6 +1744,12 @@ def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
 
 def _fallback_acessibilidade_tema(tema: str, perfil: str) -> list[str]:
     base = normalizar_texto_lote(tema)
+    if perfil == "historia":
+        return [
+            f"☑ Realizar leitura guiada do material sobre {tema}, destacando palavras-chave no quadro antes do registro.",
+            "☑ Disponibilizar quadro comparativo, linha do tempo ou mapa de relações para apoiar a compreensão do processo histórico.",
+            "☑ Permitir resposta oral mediada ou registro em tópicos e frases curtas, retomando conceitos históricos essenciais da aula.",
+        ]
     if any(termo in base for termo in ["esquistossomose", "platelminto", "nematodeo", "lombriga", "amarelao", "parasita"]):
         return [
             "☑ Utilizar esquema ampliado do ciclo de vida do parasita, destacando agente causador, hospedeiro, transmissão e prevenção.",
@@ -1753,6 +1816,15 @@ def _normalizar_itens_contextuais(
         fallback = _fallback_acessibilidade_tema(tema, perfil)
         if fallback:
             acess = fallback
+
+    if perfil == "historia":
+        termos_tema = _termos_relevantes_tema(tema)
+        texto_acomp_hist = normalizar_texto_lote(" ".join(acomp))
+        texto_acess_hist = normalizar_texto_lote(" ".join(acess))
+        if termos_tema and not any(termo in texto_acomp_hist for termo in termos_tema):
+            acomp = _contextualizar_itens_historia(acomp, tema, "acompanhamento") or _fallback_acompanhamento_tema(tema, perfil)
+        if termos_tema and not any(termo in texto_acess_hist for termo in termos_tema):
+            acess = _contextualizar_itens_historia(acess, tema, "acessibilidade") or _fallback_acessibilidade_tema(tema, perfil)
             
     if tema_parasitologia:
         texto_acomp = normalizar_texto_lote(" ".join(acomp))
@@ -1796,6 +1868,154 @@ def _normalizar_itens_contextuais(
     return acomp, acess
 
 
+def _foco_historia_para_metodologia(tema: str, texto: str = "") -> dict[str, str]:
+    base = normalizar_texto_lote(f"{tema} {texto}")
+    if any(t in base for t in ["guerras medicas", "guerra medica", "persas", "persa", "hoplita", "hoplitas"]):
+        return {
+            "foco": "Guerras Médicas entre persas e gregos",
+            "detalhe_1": "as causas do conflito",
+            "detalhe_2": "a atuação dos hoplitas e das pólis gregas",
+            "pergunta": "por que o conflito entre persas e gregos marcou a organização das pólis",
+        }
+    if any(t in base for t in ["alexandr", "helenic", "helenica", "macedonia", "macedonia"]):
+        return {
+            "foco": "Império Alexandrino e difusão da cultura helênica",
+            "detalhe_1": "a expansão macedônica",
+            "detalhe_2": "a circulação de elementos culturais helênicos",
+            "pergunta": "como a expansão de Alexandre favoreceu trocas culturais",
+        }
+    if any(t in base for t in ["monarquia romana", "patric", "plebe", "reis", "instituic", "roma antiga"]):
+        return {
+            "foco": "monarquia romana",
+            "detalhe_1": "a atuação de patrícios, reis e demais grupos sociais",
+            "detalhe_2": "as instituições políticas iniciais de Roma",
+            "pergunta": "como a monarquia organizava poder e sociedade em Roma",
+        }
+    if any(t in base for t in ["polis", "polís", "atenas", "esparta", "cidade estado", "cidades estado"]):
+        return {
+            "foco": "pólis gregas e cidades-estado",
+            "detalhe_1": "as características de Atenas e Esparta",
+            "detalhe_2": "as formas de participação política e organização social",
+            "pergunta": "como as pólis gregas organizavam a vida política e social",
+        }
+    foco = str(tema or "o tema histórico da aula").strip()
+    return {
+        "foco": foco,
+        "detalhe_1": "os sujeitos históricos envolvidos",
+        "detalhe_2": "as mudanças, permanências e relações de poder",
+        "pergunta": f"como {foco} se relaciona ao contexto histórico estudado",
+    }
+
+
+def _etapa_historia_canonica(titulo: str) -> str:
+    base = normalizar_texto_lote(titulo)
+    if any(t in base for t in ["para comecar", "relembre", "abertura", "inicio"]):
+        return "Para começar"
+    if any(t in base for t in ["foco", "conteudo", "contextualizacao", "explicacao"]):
+        return "Foco no conteúdo"
+    if any(t in base for t in ["pause", "responda", "checagem"]):
+        return "Pause e responda"
+    if any(t in base for t in ["pratica", "atividade", "de olho no modelo", "modelo", "analise"]):
+        return "Na prática"
+    if any(t in base for t in ["encerramento", "fechamento", "sintese", "conclusao"]):
+        return "Encerramento"
+    return ""
+
+
+def _etapas_historia_fallback(tema: str, texto: str, indice_aula: int, total_aulas: int) -> dict[str, str]:
+    foco = _foco_historia_para_metodologia(tema, texto)
+    return {
+        "Para começar": (
+            f"Inicie a aula retomando {foco['foco']} com uma pergunta disparadora sobre {foco['pergunta']}. "
+            "Peça que os estudantes conversem em duplas e registrem no caderno uma hipótese inicial."
+        ),
+        "Foco no conteúdo": (
+            f"Conduza a explicação sobre {foco['foco']}, relacionando {foco['detalhe_1']} e {foco['detalhe_2']}. "
+            "Questione a turma durante a leitura de imagens, mapas ou trechos do material para que anotem conceitos-chave."
+        ),
+        "Pause e responda": (
+            f"Faça uma pausa de checagem e solicite que as duplas respondam no caderno uma pergunta orientadora sobre {foco['detalhe_1']}. "
+            "Socialize duas ou três respostas para ajustar dúvidas antes de seguir."
+        ),
+        "Na prática": (
+            f"Oriente os estudantes a analisar a fonte, imagem, mapa ou atividade do material, comparando {foco['detalhe_1']} e {foco['detalhe_2']}. "
+            "Acompanhe os grupos na seleção de evidências históricas e no registro das conclusões."
+        ),
+        "Encerramento": (
+            f"Conduza a síntese final com a turma, retomando {foco['foco']} e pedindo que os estudantes escrevam uma conclusão curta. "
+            "Finalize destacando uma relação de causa, consequência ou permanência observada na aula."
+        ),
+    }
+
+
+def _completar_metodologia_historia(
+    metodologia,
+    texto: str,
+    tema: str,
+    indice_aula: int = 0,
+    total_aulas: int = 1,
+):
+    etapas = []
+    presentes = set()
+    for item in metodologia or []:
+        if not isinstance(item, dict):
+            continue
+        texto_item = re.sub(r"\s+", " ", str(item.get("texto") or "")).strip()
+        if not texto_item:
+            continue
+        etapa = dict(item)
+        canonica = _etapa_historia_canonica(etapa.get("titulo", ""))
+        if canonica:
+            presentes.add(canonica)
+        etapas.append(etapa)
+
+    if not etapas:
+        presentes = set()
+
+    fallbacks = _etapas_historia_fallback(tema, texto, indice_aula, total_aulas)
+    ordem = ["Para começar", "Foco no conteúdo", "Pause e responda", "Na prática", "Encerramento"]
+    alvo_minimo = 4 if tema else 3
+    for titulo in ordem:
+        if len(etapas) >= alvo_minimo and len(presentes) >= alvo_minimo:
+            break
+        if titulo in presentes:
+            continue
+        etapas.append({"titulo": titulo, "texto": fallbacks[titulo]})
+        presentes.add(titulo)
+
+    return _reduzir_frases_repetitivas_metodologia(
+        etapas,
+        tema=tema,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+    )
+
+
+def _aprimorar_historia_pos_processamento(
+    metodologia,
+    acompanhamento,
+    acessibilidade,
+    texto: str,
+    tema: str,
+    indice_aula: int = 0,
+    total_aulas: int = 1,
+):
+    metodologia = _completar_metodologia_historia(
+        metodologia,
+        texto=texto,
+        tema=tema,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+    )
+    acompanhamento, acessibilidade = _normalizar_itens_contextuais(
+        acompanhamento,
+        acessibilidade,
+        tema,
+        "historia",
+    )
+    return metodologia, acompanhamento, acessibilidade
+
+
 def _remover_turma_metodologia(texto: str) -> str:
     return _PADRAO_TURMA_METODOLOGIA.sub(lambda m: m.group(1), str(texto or ""))
 
@@ -1810,6 +2030,72 @@ def _indice_variacao(partes: list[str], total: int) -> int:
 
 def _escolher_variacao(opcoes: list[str], partes: list[str]) -> str:
     return opcoes[_indice_variacao(partes, len(opcoes))]
+
+
+_FRASES_REPETITIVAS_METODOLOGIA = [
+    (
+        r"Retomar registros anteriores quando necess[aá]rio, ajudando a turma a perceber a continuidade do estudo\.?",
+        [
+            "Revisitar anotações já produzidas e relacioná-las ao foco do dia, ajudando a turma a perceber a continuidade do estudo.",
+            "Comparar os registros da aula anterior com o novo conteúdo, destacando avanços e dúvidas que ainda precisam de retomada.",
+            "Usar as anotações anteriores como ponto de partida para que a turma acompanhe a continuidade da sequência.",
+            "Retomar evidências registradas anteriormente e conectá-las às novas questões propostas na aula.",
+        ],
+    ),
+    (
+        r"Conduzir leitura orientada do material, com pausas para destacar informa[cç][oõ]es importantes\.?",
+        [
+            "Realizar leitura guiada do material, pausando para localizar conceitos, evidências e dúvidas da turma.",
+            "Mediar a leitura do trecho selecionado, destacando palavras-chave e relações históricas importantes.",
+            "Orientar a leitura com pausas breves para que os estudantes anotem informações centrais no caderno.",
+            "Organizar leitura comentada do material, alternando explicação, perguntas e registros rápidos.",
+        ],
+    ),
+    (
+        r"Solicitar que os estudantes comparem as respostas de hoje com as estrategias usadas anteriormente, identificando avancos, ajustes e duvidas persistentes\.?",
+        [
+            "Pedir que os estudantes confrontem as respostas atuais com registros anteriores, identificando avanços, ajustes e dúvidas persistentes.",
+            "Orientar a turma a comparar as respostas do dia com estratégias já usadas, registrando o que mudou na compreensão.",
+            "Propor que as duplas revisem respostas anteriores e indiquem no caderno avanços, correções e pontos que ainda exigem retomada.",
+            "Acompanhar a comparação entre registros da sequência, ajudando os estudantes a reconhecer progressos e dúvidas.",
+        ],
+    ),
+    (
+        r"Registrar uma sintese parcial e uma pergunta para orientar a proxima aula da sequencia\.?",
+        [
+            "Organizar uma síntese breve e uma pergunta orientadora para abrir a próxima aula da sequência.",
+            "Fechar com registro curto das ideias centrais e uma questão que ajude a continuidade do estudo.",
+            "Sistematizar uma ideia-chave no caderno e deixar uma pergunta para retomada no próximo encontro.",
+            "Concluir com síntese parcial, destacando uma dúvida ou relação histórica para a próxima aula.",
+        ],
+    ),
+]
+
+
+def _reduzir_frases_repetitivas_metodologia(
+    metodologia,
+    tema: str,
+    indice_aula: int = 0,
+    total_aulas: int = 1,
+):
+    ajustada = []
+    for idx, item in enumerate(metodologia or []):
+        if not isinstance(item, dict):
+            ajustada.append(item)
+            continue
+        texto = str(item.get("texto", "") or "")
+        titulo = str(item.get("titulo", "") or "")
+        for padrao, opcoes in _FRASES_REPETITIVAS_METODOLOGIA:
+            if re.search(padrao, texto, flags=re.I):
+                escolha = _escolher_variacao(
+                    opcoes,
+                    [tema, titulo, str(indice_aula), str(total_aulas), str(idx), padrao],
+                )
+                texto = re.sub(padrao, escolha, texto, count=1, flags=re.I)
+        novo_item = dict(item)
+        novo_item["texto"] = texto
+        ajustada.append(novo_item)
+    return ajustada
 
 
 _VARIACOES_INICIO_METODOLOGIA = [
@@ -2572,6 +2858,17 @@ def _montar_resultado_aula_ia(
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
 
+    if perfil == "historia":
+        metodologia, acompanhamento, acessibilidade = _aprimorar_historia_pos_processamento(
+            metodologia,
+            acompanhamento,
+            acessibilidade,
+            texto=texto,
+            tema=tema,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+        )
+
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,
         "metodologia_ia_crua": metodologia_ia_crua,
@@ -2781,6 +3078,17 @@ def _montar_resultado_aula_local(
             acompanhamento = acompanhamento_ref
         if len(acessibilidade_ref) == 3:
             acessibilidade = acessibilidade_ref
+
+    if perfil == "historia":
+        metodologia, acompanhamento, acessibilidade = _aprimorar_historia_pos_processamento(
+            metodologia,
+            acompanhamento,
+            acessibilidade,
+            texto=texto,
+            tema=tema,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+        )
 
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,

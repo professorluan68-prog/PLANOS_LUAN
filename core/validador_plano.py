@@ -167,16 +167,21 @@ def validar_aula_final(aula: dict) -> list[str]:
     }
 
     verbos_professor = {
-        "professor", "docente", "mediador", "apresentar", "conduzir", "propor", "solicitar",
-        "orientar", "explicar", "retomar", "exibe", "pergunta", "mostra", "lidera", "mediar",
+        "professor", "docente", "mediador", "apresent", "condu", "propor", "propo",
+        "solicit", "orient", "explic", "retom", "exib", "pergunt", "question",
+        "mostr", "lider", "medi", "inici", "peca", "peça", "organiz", "aplic",
+        "utiliz", "registr", "acompanh", "disponibiliz", "promov", "contextualiz",
     }
     termos_estudantes = {
-        "aluno", "estudante", "turma", "dupla", "grupo", "eles", "compartilhar", "escrever",
-        "responder", "resolver", "realizar", "discutir", "escrevem", "respondem", "resolvem", "participa",
+        "aluno", "estudante", "turma", "dupla", "grupo", "eles", "compartilh", "escrev",
+        "respond", "resolv", "realiz", "discut", "particip", "leem", "leiam", "leitura",
+        "observ", "compar", "identifi", "analis", "produz", "organiz", "registr", "socializ",
+        "expliqu", "elabor", "relacion",
     }
     termos_interacao_registro = {
         "caderno", "registro", "respost", "escrev", "dupla", "grupo", "roda", "discussao",
-        "debate", "socializ", "cadernos", "anot", "compartilh",
+        "debate", "socializ", "cadernos", "anot", "compartilh", "pergunta", "question",
+        "hipotese", "leitura guiada", "leitura orientada", "pausa", "oral", "topicos",
     }
 
     etapas_textos = []
@@ -185,6 +190,7 @@ def validar_aula_final(aula: dict) -> list[str]:
             continue
         titulo = item.get("titulo", "")
         texto = item.get("texto", "")
+        titulo_norm = normalizar_texto(titulo).lower()
         texto_norm = normalizar_texto(texto).lower()
         etapas_textos.append(texto)
 
@@ -192,7 +198,11 @@ def validar_aula_final(aula: dict) -> list[str]:
             avisos.append(f"Etapa '{titulo}': não descreve claramente a ação do professor.")
         if not any(termo in texto_norm for termo in termos_estudantes):
             avisos.append(f"Etapa '{titulo}': não descreve claramente a ação dos alunos.")
-        if not any(termo in texto_norm for termo in termos_interacao_registro):
+        etapa_foco_conteudo = "foco" in titulo_norm and "conteudo" in titulo_norm
+        if (
+            not etapa_foco_conteudo
+            and not any(termo in texto_norm for termo in termos_interacao_registro)
+        ):
             avisos.append(f"Etapa '{titulo}': não prevê momentos de interação ou de registro (ex: caderno, duplas).")
         if conteudo_palavras and not any(termo in texto_norm for termo in conteudo_palavras):
             avisos.append(f"Etapa '{titulo}': não menciona termos específicos do conteúdo da aula.")

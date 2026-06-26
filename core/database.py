@@ -3,6 +3,7 @@ import os
 import sqlite3
 import logging
 from pathlib import Path
+from contextlib import contextmanager
 
 from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH
 
@@ -35,13 +36,36 @@ class SafeConnectionWrapper:
             self.conn.close()
 
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
+def get_connection(db_path=None):
+    """
+    Retorna uma nova conexão SQLite configurada para concorrência (WAL).
+    Cada worker/thread deve abrir sua própria conexão via esta função.
+    """
+    db_path = DB_PATH if db_path is None else db_path
+    conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
+    # Pragmas aplicadas por conexão para garantir comportamento consistente
     conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA busy_timeout = 10000;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA busy_timeout=10000;")
     return SafeConnectionWrapper(conn)
 
+
+@contextmanager
+def connection_scope(db_path=None):
+    """
+    Context manager para uso de conexão com commit/rollback automático.
+    Uso recomendado: with connection_scope() as conn: ...
+    """
+    conn = get_connection(db_path)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def _normalizar_campo(valor):
     return str(valor or "").strip()

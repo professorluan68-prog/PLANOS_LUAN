@@ -1,0 +1,18 @@
+Objetivo: validar os templates de prompt e estimar tokens/custo por geração para o fluxo de geração de planos.
+
+Entrada:
+- Exemplo de prompt template (fornecer o template real do repositório ou usar o template de exemplo abaixo).
+- Parâmetros típicos: tamanho médio do resumo extraído (em tokens), número de objetivos, número de atividades.
+
+Tarefas:
+1) Analisar o template e sugerir compressões (reduzir contexto redundante, usar placeholders, resumir seções).
+2) Estimar tokens de entrada e saída para 3 cenários:
+   - pequeno: resumo 200 tokens, saída 400 tokens
+   - médio: resumo 800 tokens, saída 1200 tokens
+   - grande: resumo 2000 tokens, saída 2500 tokens
+3) Sugerir versão de prompt bump (ex.: v1 -> v1.1) e quais mudanças invalidariam cache.
+4) Sugerir instruções para fallback heurístico quando a IA estiver indisponível.
+5) Produzir um relatório com recomendações para reduzir tokens em 30% sem perda significativa de qualidade.
+
+Formato de resposta:
+- JSON com campos: prompt_recommendations[], token_estimates{small,medium,large}, prompt_version_bump (string), fallback_instructions (string), cost_estimate_usd (per 1000 calls, assume model cost param fornecido).
