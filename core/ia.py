@@ -73,6 +73,8 @@ class PlanoAulaIA(BaseModel):
     tema: str = Field(description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.")
     aprendizagem: str = Field(description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.")
     metodologia: list[EtapaMetodologia] = Field(description="Etapas de desenvolvimento da aula.")
+    acompanhamento: list[str] = Field(description="Lista com exatamente 3 itens curtos de acompanhamento da aprendizagem, focados na aula.")
+    acessibilidade: list[str] = Field(description="Lista com exatamente 3 itens curtos de acessibilidade/adaptacoes para necessidades especiais, focados na aula.")
 
 
 _FRASES_PROIBIDAS = (
@@ -219,6 +221,8 @@ def _serializar_rascunho_base(rascunho_base: dict | None) -> str:
     tema = str(rascunho_base.get("tema") or "").strip()
     aprendizagem = str(rascunho_base.get("aprendizagem") or "").strip()
     metodologia = rascunho_base.get("metodologia") or []
+    acompanhamento = rascunho_base.get("acompanhamento") or []
+    acessibilidade = rascunho_base.get("acessibilidade") or []
 
     if tema:
         linhas.append(f"Tema base: {tema}")
@@ -238,7 +242,17 @@ def _serializar_rascunho_base(rascunho_base: dict | None) -> str:
         linhas.append("Metodologia base:")
         linhas.extend(blocos_metodologia[:6])
 
-    return "\n".join(linhas).strip()[:2500]
+    if acompanhamento:
+        linhas.append("Acompanhamento da aprendizagem base:")
+        for item in acompanhamento:
+            linhas.append(f"- {item}")
+
+    if acessibilidade:
+        linhas.append("Acessibilidade base:")
+        for item in acessibilidade:
+            linhas.append(f"- {item}")
+
+    return "\n".join(linhas).strip()[:3500]
 
 
 def _extrair_json_openai(response) -> dict:
@@ -270,14 +284,15 @@ def _montar_prompt(
     if rascunho_serializado:
         bloco_rascunho = f"""
 
-RASCUNHO LOCAL DO SISTEMA:
+RASCUNHO LOCAL DO SISTEMA (CONTEUDO JA EXISTENTE NO DOCX OU HEURISTICAS):
 {rascunho_serializado}
 
 USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
-- Preserve o foco conceitual e a sequencia pedagogica do rascunho quando estiverem coerentes com o PDF.
-- Melhore a especificidade, a naturalidade e a clareza do texto, sem inventar conteudos fora do material.
-- Corrija trechos genericos do rascunho apenas quando o PDF trouxer pistas concretas para isso.
-- Se o rascunho ja estiver adequado, faca apenas um ajuste fino de linguagem.
+- O rascunho local traz a metodologia, o acompanhamento da aprendizagem e a acessibilidade ja cadastrados ou sugeridos.
+- Refine e integre esses 3 componentes com base no conteudo do PDF para garantir que sejam 100% coerentes com o material digital.
+- Melhore a especificidade, a naturalidade e a clareza de todos os textos, sem inventar conteudos fora do material.
+- Evite placeholders genericos. Se o acompanhamento ou acessibilidade do rascunho forem genericos (ex: "realizar perguntas", "leitura compartilhada"), mude-os para citar elementos e termos especificos do conteudo da aula extraido do PDF.
+- Retorne a metodologia, acompanhamento e acessibilidade refinados nos respectivos campos do JSON.
 """
     bloco_eja = ""
     if modalidade_eja:
@@ -693,10 +708,25 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
         codigo = _extrair_codigo_bncc(aprendizagem)
         aprendizagem = _aprendizagem_fallback_por_perfil(perfil, tema, codigo)
 
+    acompanhamento = data.get("acompanhamento") or []
+    acessibilidade = data.get("acessibilidade") or []
+
+    if isinstance(acompanhamento, list):
+        acompanhamento = [str(item).strip() for item in acompanhamento if str(item).strip()]
+    else:
+        acompanhamento = []
+
+    if isinstance(acessibilidade, list):
+        acessibilidade = [str(item).strip() for item in acessibilidade if str(item).strip()]
+    else:
+        acessibilidade = []
+
     return {
         "tema": tema,
         "aprendizagem": aprendizagem,
         "metodologia": metodologia,
+        "acompanhamento": acompanhamento,
+        "acessibilidade": acessibilidade,
     }
 
 

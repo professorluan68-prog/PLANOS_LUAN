@@ -1811,16 +1811,61 @@ st.markdown(
     </div>
     """, unsafe_allow_html=True,
 )
+render_sidebar()
 
 col_limpar, _ = st.columns([1, 5])
 with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=limpar_dados_tela)
 
 st.markdown('<div class="section-card"></div><div class="section-title">Área de trabalho</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Escolha o modo de uso do sistema antes de preencher os dados do plano.</div>', unsafe_allow_html=True)
+
+from streamlit_option_menu import option_menu
+
 modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
-modo_tela = st.radio("Área do PLANOS_LUAN", modos_disponiveis, horizontal=True, key="modo_tela", label_visibility="collapsed")
+
+# Sincroniza o modo_tela default a partir do session_state se existir
+default_modo = st.session_state.get("modo_tela", "Planos gerais")
+if default_modo not in modos_disponiveis:
+    default_modo = "Planos gerais"
+idx_default = modos_disponiveis.index(default_modo)
+
+modo_tela = option_menu(
+    menu_title=None,
+    options=modos_disponiveis,
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "pencil-square", "person-badge", "tools"],
+    menu_icon="cast",
+    default_index=idx_default,
+    orientation="horizontal",
+    styles={
+        "container": {
+            "padding": "3px 10px !important",
+            "background-color": "#ffffff",
+            "border-radius": "8px",
+            "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.05)",
+            "border": "1px solid #e1ebf2"
+        },
+        "icon": {"color": "#1F6F9F", "font-size": "15px"},
+        "nav-link": {
+            "font-size": "13px",
+            "text-align": "center",
+            "margin": "0px 3px",
+            "font-weight": "600",
+            "color": "#163044",
+            "--hover-color": "#f0f8ff",
+            "border-radius": "6px",
+            "transition": "all 0.15s ease-in-out"
+        },
+        "nav-link-selected": {
+            "background-color": "#1F6F9F",
+            "color": "#ffffff",
+            "font-weight": "700"
+        },
+    }
+)
+st.session_state["modo_tela"] = modo_tela
+
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
 modo_cadastro_professor = modo_tela == "Cadastro"
@@ -1851,7 +1896,19 @@ st.markdown('<div class="section-subtitle">Preencha professor, disciplina, turma
 col_prof, col_disciplina = st.columns([1, 1])
 with col_prof:
     professor_selecionado = st.selectbox("Professor", _NOMES_PROFESSORES, key="professor_select")
-    professor = st.text_input("Nome do professor", key="professor") if professor_selecionado == "Outro (digitar)" else (professor_selecionado if professor_selecionado != "(selecione o professor)" else "")
+    if professor_selecionado == "Outro (digitar)":
+        professor = st.text_input("Nome do professor", key="professor").strip()
+        if professor:
+            from rapidfuzz import process, fuzz
+            nomes_existentes = [p for p in PROFESSORES.keys() if p]
+            if nomes_existentes:
+                match = process.extractOne(professor, nomes_existentes, scorer=fuzz.WRatio)
+                if match:
+                    sugerido, score, _ = match
+                    if 72 <= score < 100:
+                        st.info(f"💡 **Dica de Digitação:** O nome digitado é semelhante ao professor cadastrado **'{sugerido}'** ({int(score)}% de similaridade). Se for ele, selecione-o no campo de seleção acima para evitar duplicidade.")
+    else:
+        professor = professor_selecionado if professor_selecionado != "(selecione o professor)" else ""
 
 with col_disciplina:
     dados_prof = PROFESSORES_DB.get(professor, {})
@@ -1865,7 +1922,15 @@ with col_disciplina:
     else:
         disciplina = "" if modo_cdp_dedicado else st.selectbox("Disciplina", disciplinas_gerais, key="disciplina_opcao")
 
-if disciplina == "Outra": disciplina = st.text_input("Informe a disciplina", key="disciplina_outra")
+if disciplina == "Outra":
+    disciplina = st.text_input("Informe a disciplina", key="disciplina_outra").strip()
+    if disciplina:
+        from rapidfuzz import process, fuzz
+        match = process.extractOne(disciplina, disciplinas_gerais, scorer=fuzz.WRatio)
+        if match:
+            sugerido, score, _ = match
+            if 70 <= score < 100:
+                st.info(f"💡 **Dica de Digitação:** A disciplina digitada é semelhante a **'{sugerido}'** ({int(score)}% de similaridade). Se for ela, você pode usar o nome oficial para garantir que o sistema aplique as regras pedagógicas corretas.")
 if modo_cdp_dedicado: disciplina = st.selectbox("Tipo de plano CDP", ["CDP- Multisseriada", "CDP - Ciclo I"], key="disciplina_cdp_opcao")
 
 disciplina_config = obter_config(disciplina)
@@ -2680,6 +2745,66 @@ if st.session_state.get("turmas_processadas"):
                 ae.update({"tema": t, "aprendizagem": a, "acompanhamento": [x for x in acomp.split("\n") if x], "acessibilidade": [x for x in aces.split("\n") if x], "metodologia": _metodologia_app_para_blocos(m)})
                 aulas_edit.append(ae)
         turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
+
+    # Botão para salvar alterações de volta nos arquivos de referência DOCX
+    referencias_para_atualizar = {}
+    for tr in turmas_revisadas:
+        for aula in tr["aulas"]:
+            ref_path = aula.get("fonte_referencia_metodologia")
+            if ref_path and os.path.exists(ref_path):
+                referencias_para_atualizar.setdefault(ref_path, []).append(aula)
+                
+    if referencias_para_atualizar:
+        st.markdown('<div class="section-card"></div><div class="section-title">💾 Atualizar Arquivos de Referência</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Grave os ajustes e correções feitos nesta tela diretamente no arquivo DOCX de referência original.</div>', unsafe_allow_html=True)
+        
+        for ref_path, aulas_ref in referencias_para_atualizar.items():
+            nome_ref_simpl = os.path.basename(ref_path)
+            # Remove duplicatas de aulas_ref
+            aulas_ref_unicas = {}
+            for a in aulas_ref:
+                num = a.get("numero_aula") or a.get("numero") or 0
+                aulas_ref_unicas[num] = a
+                
+            btn_key = f"save_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
+            if st.button(f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela", key=btn_key, type="secondary"):
+                try:
+                    from docx import Document
+                    doc = Document()
+                    aulas_ordenadas = sorted(aulas_ref_unicas.values(), key=lambda x: int(x.get("numero_aula") or x.get("numero") or 0))
+                    for aula in aulas_ordenadas:
+                        num = aula.get("numero_aula") or aula.get("numero") or 0
+                        tit = aula.get("tema") or ""
+                        # Aula Heading
+                        doc.add_paragraph(f"AULA {num} - {tit}")
+                        doc.add_paragraph()
+                        # Metodologia
+                        doc.add_paragraph("METODOLOGIA")
+                        for etapa in (aula.get("metodologia") or []):
+                            if isinstance(etapa, dict):
+                                doc.add_paragraph(f"{etapa.get('titulo', '')}: {etapa.get('texto', '')}")
+                            else:
+                                doc.add_paragraph(str(etapa))
+                        doc.add_paragraph()
+                        # Acompanhamento
+                        doc.add_paragraph("ACOMPANHAMENTO DA APRENDIZAGEM")
+                        for item in (aula.get("acompanhamento") or []):
+                            item_limpo = str(item).replace("☑", "").strip()
+                            if item_limpo:
+                                doc.add_paragraph(f"☑ {item_limpo}")
+                        doc.add_paragraph()
+                        # Acessibilidade
+                        doc.add_paragraph("ACESSIBILIDADE")
+                        for item in (aula.get("acessibilidade") or []):
+                            item_limpo = str(item).replace("☑", "").strip()
+                            if item_limpo:
+                                doc.add_paragraph(f"☑ {item_limpo}")
+                        doc.add_paragraph()
+                    
+                    doc.save(ref_path)
+                    st.success(f"✓ O arquivo '{nome_ref_simpl}' foi atualizado e agora contém as versões corrigidas dos planos!")
+                except Exception as err:
+                    st.error(f"Erro ao salvar arquivo de referência: {err}")
         
     st.markdown(
         """

@@ -20,6 +20,7 @@ from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_ing
 from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
 from core.referencias_historia import localizar_docx_referencia_historia, localizar_docx_referencia_historia_cdp, referencia_historia_por_pdf
+from core.referencias_arte import localizar_docx_referencia_arte, referencia_arte_por_pdf
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -107,7 +108,10 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia_orientacao_estudos(caminho_pdf)
     if perfil == "projeto_de_vida":
         return localizar_docx_referencia_projeto_vida(caminho_pdf)
+    if perfil == "arte":
+        return localizar_docx_referencia_arte(caminho_pdf)
     return None
+
 
 
 def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, perfil: str):
@@ -131,6 +135,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_orientacao_estudos_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "projeto_de_vida":
         return referencia_projeto_vida_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "arte":
+        return referencia_arte_por_pdf(caminho_pdf, numero_aula, tema=tema)
     return None
 
 
@@ -153,6 +159,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_orientacao_estudos"
     if perfil == "projeto_de_vida":
         return "docx_referencia_projeto_de_vida"
+    if perfil == "arte":
+        return "docx_referencia_arte"
     return ""
 
 
@@ -2471,16 +2479,27 @@ def _montar_resultado_aula_ia(
         metodologia = metodologia_ia
         desenvolvimento = _texto_metodologia(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
-        acompanhamento = gerar_acompanhamento_aprimorado(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            habilidade=habilidade_pdf, etapas_metodologia=etapas_titulos,
-        )
-        acessibilidade = gerar_acessibilidade_aprimorada(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            recursos_detectados=extracao.get("recursos_detectados"),
-        )
+        acompanhamento_ia = plano_ia.get("acompanhamento") or []
+        acessibilidade_ia = plano_ia.get("acessibilidade") or []
+
+        if len(acompanhamento_ia) >= 2:
+            acompanhamento = acompanhamento_ia
+        else:
+            acompanhamento = gerar_acompanhamento_aprimorado(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                habilidade=habilidade_pdf, etapas_metodologia=etapas_titulos,
+            )
+
+        if len(acessibilidade_ia) >= 2:
+            acessibilidade = acessibilidade_ia
+        else:
+            acessibilidade = gerar_acessibilidade_aprimorada(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                recursos_detectados=extracao.get("recursos_detectados"),
+            )
+
         acompanhamento, acessibilidade = _normalizar_itens_contextuais(
             acompanhamento,
             acessibilidade,
@@ -2504,17 +2523,28 @@ def _montar_resultado_aula_ia(
         metodologia = metodologia_ia
         desenvolvimento = _texto_metodologia(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
-        acompanhamento = gerar_acompanhamento_aprimorado(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            habilidade=habilidade_pdf,
-            etapas_metodologia=etapas_titulos,
-        )
-        acessibilidade = gerar_acessibilidade_aprimorada(
-            tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
-            disciplina=disciplina_base, perfil=perfil, tipo=tipo,
-            recursos_detectados=extracao.get("recursos_detectados"),
-        )
+        acompanhamento_ia = plano_ia.get("acompanhamento") or []
+        acessibilidade_ia = plano_ia.get("acessibilidade") or []
+
+        if len(acompanhamento_ia) >= 2:
+            acompanhamento = acompanhamento_ia
+        else:
+            acompanhamento = gerar_acompanhamento_aprimorado(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                habilidade=habilidade_pdf,
+                etapas_metodologia=etapas_titulos,
+            )
+
+        if len(acessibilidade_ia) >= 2:
+            acessibilidade = acessibilidade_ia
+        else:
+            acessibilidade = gerar_acessibilidade_aprimorada(
+                tema=tema, aprendizagem=aprendizagem, desenvolvimento=desenvolvimento,
+                disciplina=disciplina_base, perfil=perfil, tipo=tipo,
+                recursos_detectados=extracao.get("recursos_detectados"),
+            )
+
         acompanhamento, acessibilidade = _normalizar_itens_contextuais(
             acompanhamento,
             acessibilidade,
@@ -2522,7 +2552,7 @@ def _montar_resultado_aula_ia(
             perfil,
         )
 
-    if referencia_docx:
+    if referencia_docx and (not plano_ia or not plano_ia.get("metodologia")):
         metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
@@ -2534,7 +2564,7 @@ def _montar_resultado_aula_ia(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
-    if referencia_docx:
+    if referencia_docx and (not plano_ia or not plano_ia.get("metodologia")):
         acompanhamento_ref = _itens_referencia_docx(referencia_docx, "acompanhamento")
         acessibilidade_ref = _itens_referencia_docx(referencia_docx, "acessibilidade")
         if len(acompanhamento_ref) == 3:

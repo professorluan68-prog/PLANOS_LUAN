@@ -27,6 +27,7 @@ class DisciplinaConfig:
 
 _DISCIPLINAS = [
     "Arte",
+    "Arte e Mídias Digitais",
     "Biologia",
     "Aprofundamento em Biologia",
     "Ciências",
