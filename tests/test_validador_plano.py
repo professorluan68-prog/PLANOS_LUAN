@@ -131,8 +131,8 @@ def test_validador_reconhece_verbos_pedagogicos_flexionados():
             {
                 "titulo": "Foco no conteúdo",
                 "texto": (
-                    "Conduza a explicação sobre reis, patrícios e instituições romanas, questione a turma durante "
-                    "a leitura da imagem e solicite anotações dos conceitos centrais."
+                    "Conduza a explicação sobre reis, patrícios e instituições romanas e questione a turma durante "
+                    "a leitura da imagem para destacar os conceitos centrais."
                 ),
             },
             {

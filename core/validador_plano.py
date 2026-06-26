@@ -190,6 +190,7 @@ def validar_aula_final(aula: dict) -> list[str]:
             continue
         titulo = item.get("titulo", "")
         texto = item.get("texto", "")
+        titulo_norm = normalizar_texto(titulo).lower()
         texto_norm = normalizar_texto(texto).lower()
         etapas_textos.append(texto)
 
@@ -197,7 +198,11 @@ def validar_aula_final(aula: dict) -> list[str]:
             avisos.append(f"Etapa '{titulo}': não descreve claramente a ação do professor.")
         if not any(termo in texto_norm for termo in termos_estudantes):
             avisos.append(f"Etapa '{titulo}': não descreve claramente a ação dos alunos.")
-        if not any(termo in texto_norm for termo in termos_interacao_registro):
+        etapa_foco_conteudo = "foco" in titulo_norm and "conteudo" in titulo_norm
+        if (
+            not etapa_foco_conteudo
+            and not any(termo in texto_norm for termo in termos_interacao_registro)
+        ):
             avisos.append(f"Etapa '{titulo}': não prevê momentos de interação ou de registro (ex: caderno, duplas).")
         if conteudo_palavras and not any(termo in texto_norm for termo in conteudo_palavras):
             avisos.append(f"Etapa '{titulo}': não menciona termos específicos do conteúdo da aula.")
