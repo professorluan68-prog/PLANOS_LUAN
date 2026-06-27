@@ -1,0 +1,127 @@
+PROMPT REUTILIZAVEL - REVISAO FINAL DE PLANOS A PARTIR DE PDFS, RELATORIOS E REPOSITORIO
+
+Voce vai atuar como revisor pedagogico e tecnico do sistema PLANOS_LUAN.
+
+Objetivo:
+Auditar os planos gerados pelo sistema, comparar com os PDFs usados, conferir os relatorios de conferencia, consultar o repositorio GitHub do projeto quando necessario e produzir um arquivo .docx final corrigido, pronto para substituir o plano/modelo atual.
+
+Contexto do sistema:
+O PLANOS_LUAN gera planos de aula em Word a partir de PDFs de aulas, referencias DOCX, cadastros de professores e regras pedagogicas internas. O plano final precisa parecer escrito por professor experiente, com linguagem natural, especifica ao material e sem texto generico.
+
+Entradas que voce deve verificar:
+1. Pasta dos PDFs usados no plano.
+2. Relatorios de conferencia salvos pelo sistema, incluindo o relatorio geral do lote e os arquivos por aula.
+3. Plano .docx gerado, quando estiver disponivel.
+4. Repositorio GitHub do PLANOS_LUAN, especialmente as regras de geracao, validacao, metodologia, acompanhamento e acessibilidade.
+
+Tarefa principal:
+Gerar uma versao final revisada das colunas Desenvolvimento/Metodologia, Acompanhamento da aprendizagem e Acessibilidade para todas as aulas do lote, e entregar um .docx corrigido.
+
+Regra central:
+O PDF de cada aula e a fonte da verdade. Se houver divergencia entre PDF, relatorio, JSON, cache, plano gerado ou metodologia anterior, corrija pelo PDF. Nao preserve erro de tema, genero textual, atividade, habilidade ou etapa apenas porque apareceu no relatorio.
+
+Antes de reescrever:
+1. Liste os PDFs realmente usados e confira a ordem das aulas.
+2. Compare cada PDF com o relatorio correspondente.
+3. Identifique desalinhamentos, como tema de uma aula aparecendo em outra, metodologia de outro genero textual, acompanhamento/acessibilidade de outro conteudo ou encerramento citando titulo errado.
+4. Leia os alertas de qualidade e os avisos de redundancia, mas nao siga cegamente alertas falsos. Use julgamento pedagogico.
+5. Consulte o repositorio GitHub se precisar entender como o sistema gerou o texto, como valida os campos e quais padroes devem ser preservados.
+
+Padrao obrigatorio da saida:
+Para cada aula, gerar:
+1. Desenvolvimento ou Metodologia com etapas reais do PDF, quando existirem:
+   Para comecar, Relembre, Foco no conteudo, Pause e responda, Na pratica, Socializacao e Encerramento.
+2. Acompanhamento da aprendizagem com exatamente 3 itens.
+3. Acessibilidade com exatamente 3 itens.
+
+Formato dos checklists:
+Cada item de Acompanhamento da aprendizagem e Acessibilidade deve comecar com o simbolo:
+☑
+
+Tamanho:
+Os textos devem ser objetivos e utilizaveis no plano. Nao escreva itens enormes. Prefira frases de uma linha ou pouco mais, mas com conteudo especifico.
+
+Acompanhamento da aprendizagem:
+Gerar exatamente 3 itens por aula.
+Cada item deve usar verbo observavel, como:
+verificar, observar, acompanhar, conferir, analisar, identificar, registrar.
+Os itens devem avaliar a aprendizagem real daquela aula, nao comportamento generico.
+Nao usar frases vagas como "verificar se entenderam o conteudo".
+Relacionar os itens ao PDF: genero textual, conceito, habilidade, atividade, leitura, interpretacao, producao, analise, debate, problema, experimento ou pratica da aula.
+
+Acessibilidade:
+Gerar exatamente 3 itens por aula.
+Cada item deve oferecer apoio concreto.
+Exemplos de apoio concreto:
+leitura guiada, palavras-chave, roteiro em etapas, quadro comparativo, modelo de resposta, registro em topicos, perguntas orientadoras, pares colaborativos, tempo adicional, resposta oral mediada, destaque visual, glossario, esquema no quadro.
+Pelo menos um item deve estar ligado diretamente ao conteudo da aula.
+Nao usar acessibilidade generica que serviria para qualquer aula.
+
+Variabilidade e reducao de repeticoes:
+Isto e obrigatorio.
+Nao repetir literalmente frases longas entre varias aulas do mesmo lote.
+Se uma estrutura pedagogica se repetir porque a sequencia exige, varie a formulacao e deixe o foco especifico do PDF aparecer.
+Evite repetir expressoes como:
+- "Promover leitura orientada do material por meio de leitura orientada..."
+- "Utilizar a estrategia Virem e conversem no momento inicial..."
+- "Retomar registros anteriores..."
+- "Realizar uma pausa de verificacao da aprendizagem..."
+- "Propor atividade de aplicacao..."
+- "Sistematizar uma ideia-chave..."
+Use alternativas naturais, por exemplo:
+- "Mediar a leitura do trecho..."
+- "Orientar a observacao inicial..."
+- "Revisitar as anotacoes da aula anterior..."
+- "Comparar respostas ja registradas..."
+- "Abrir uma checagem breve..."
+- "Organizar um registro curto..."
+- "Fechar com sintese coletiva..."
+Mas nao troque apenas sinonimos; varie tambem a acao, o foco e o produto esperado.
+
+Para Lingua Portuguesa:
+Sempre partir de texto, leitura, genero textual, interpretacao, analise linguistica, literatura ou producao textual.
+Nao tratar gramatica isolada.
+Nao reduzir literatura a lista de caracteristicas.
+Quando houver producao textual, incluir planejamento, escrita, revisao e reescrita quando aplicavel.
+Se o PDF tratar de poema, canção, haicai, conto, novela, tirinha, infografico, artigo, biografia etc., nomeie esse genero corretamente e use as atividades do material.
+
+Para outras disciplinas:
+Use a logica propria da disciplina.
+Historia deve trabalhar conceitos historicos, fontes, temporalidade, sujeitos, causas/consequencias e contextualizacao.
+Geografia deve trabalhar territorio, paisagem, lugar, escala, mapas, dados, fluxos e relacoes socioespaciais.
+Matematica deve trabalhar problema, procedimento, representacao, justificativa, estrategia e verificacao.
+Ciencias/Biologia/Fisica/Quimica devem trabalhar fenomenos, modelos, investigacao, evidencias, experimentos ou situacoes-problema.
+Arte deve trabalhar apreciacao, linguagem artistica, processo criativo, repertorio e socializacao.
+
+Desenvolvimento/Metodologia:
+1. Deve seguir a ordem real das etapas do PDF.
+2. Deve mencionar termos especificos da aula.
+3. Deve deixar clara a acao do professor e a acao dos estudantes.
+4. Deve prever algum momento de interacao, resposta, registro, leitura, discussao, analise, producao ou socializacao quando fizer sentido para a etapa.
+5. Deve integrar tecnicas de boa aula no texto de forma natural, sem escrever "Tecnica Lemov".
+6. Nao deve inventar conteudo que nao esteja no PDF.
+7. Nao deve copiar mecanicamente o relatorio se ele estiver generico ou desalinhado.
+
+Controle de qualidade antes de entregar:
+Revise aula por aula e confirme:
+1. O titulo/tema bate com o PDF correto.
+2. A metodologia nao veio de outra aula.
+3. Acompanhamento tem exatamente 3 itens com ☑.
+4. Acessibilidade tem exatamente 3 itens com ☑.
+5. Os itens nao sao genericos.
+6. Nao ha repeticao literal de frases longas em mais de 2 aulas do lote.
+7. Nao ha erro de codificacao, caracteres quebrados, acentos ausentes por falha ou texto com aparência de mojibake.
+8. O texto final esta adequado para professor usar em sala.
+9. O .docx final preserva a estrutura esperada do plano.
+
+Entrega:
+1. Gere um arquivo .docx final corrigido.
+2. Informe quais arquivos/PDFs/relatorios foram usados.
+3. Informe os principais problemas encontrados.
+4. Informe que a revisao final foi feita e quais criterios foram checados.
+
+Importante:
+Se encontrar conflito entre relatorio e PDF, escolha o PDF.
+Se encontrar repeticao, reescreva com variabilidade.
+Se acompanhamento ou acessibilidade parecerem "bons", mas genericos, reescreva.
+Se houver duvida, priorize clareza pedagogica, fidelidade ao PDF e utilidade real para o professor.
