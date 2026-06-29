@@ -1,4 +1,5 @@
 from core import ae_priorizado
+import pandas as pd
 
 
 def test_contexto_ae_priorizado_so_ativa_para_portugues_em_segundo_bimestre(monkeypatch):
@@ -242,3 +243,82 @@ def test_base_real_ae_priorizado_consolidou_duplicatas_matematica():
     assert avisos == []
     assert ajustadas[0]["ae_priorizado_aplicado"] is True
     assert " | " in ajustadas[0]["aprendizagem"]
+
+
+def test_contexto_ae_priorizado_tambem_pode_vir_de_planilha_local(tmp_path):
+    caminho_planilha = tmp_path / "GUIA_9_ANO_3_BIMESTRE.xlsx"
+    pd.DataFrame(
+        [
+            {
+                "AULA": 1,
+                "TÍTULO": "Aula 1",
+                "Habilidades": "EF89LP32",
+                "Aprendizagem Essencial": "AE3 - Texto do AE 1",
+            },
+            {
+                "AULA": 2,
+                "TÍTULO": "Aula 2",
+                "Habilidades": "EF89LP37",
+                "Aprendizagem Essencial": "AE4 - Texto do AE 2",
+            },
+        ]
+    ).to_excel(caminho_planilha, index=False)
+
+    assert (
+        ae_priorizado.contexto_ae_priorizado_disponivel(
+            "Língua Portuguesa",
+            "9º ANO A",
+            "3º Bimestre",
+            caminho_planilha=str(caminho_planilha),
+        )
+        is True
+    )
+    assert ae_priorizado.sequencia_aulas_ae_priorizado(
+        "Língua Portuguesa",
+        "9º ANO A",
+        "3º Bimestre",
+        caminho_planilha=str(caminho_planilha),
+    ) == [1, 2]
+
+
+def test_aplica_ae_priorizado_a_partir_da_planilha_local(tmp_path):
+    caminho_planilha = tmp_path / "GUIA_9_ANO_3_BIMESTRE.xlsx"
+    pd.DataFrame(
+        [
+            {
+                "AULA": 1,
+                "TÍTULO": "Aula 1",
+                "Habilidades": "EF89LP32",
+                "Aprendizagem Essencial": "AE3 - Texto do AE 1",
+            },
+            {
+                "AULA": 2,
+                "TÍTULO": "Aula 2",
+                "Habilidades": "EF89LP37",
+                "Aprendizagem Essencial": "AE4 - Texto do AE 2",
+            },
+        ]
+    ).to_excel(caminho_planilha, index=False)
+
+    aulas = [
+        {
+            "tema": "Tema teste",
+            "material": "AULA 2 - Tema teste",
+            "numero_aula": "2",
+            "aprendizagem": "Habilidade: EF89LP37 texto original",
+        }
+    ]
+
+    ajustadas, avisos = ae_priorizado.aplicar_ae_priorizado_nas_aulas(
+        aulas,
+        disciplina="Língua Portuguesa",
+        turma="9º ANO A",
+        bimestre="3º Bimestre",
+        caminho_planilha=str(caminho_planilha),
+    )
+
+    assert avisos == []
+    assert ajustadas[0]["aprendizagem"] == "AE4 - Texto do AE 2"
+    assert ajustadas[0]["aprendizagem_original"] == "Habilidade: EF89LP37 texto original"
+    assert ajustadas[0]["ae_priorizado_aplicado"] is True
+    assert ajustadas[0]["ae_priorizado_codigo"] == "AE4"

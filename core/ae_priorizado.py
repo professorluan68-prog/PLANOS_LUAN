@@ -85,7 +85,140 @@ def disciplina_ae_priorizado_disponivel(disciplina: str = "") -> bool:
 # Compatibilidade com nome antigo durante a transição.
 disciplina_ae_priorizado_teste = disciplina_ae_priorizado_disponivel
 
-def contexto_ae_priorizado_disponivel(disciplina: str = "", turma: str = "", bimestre: str = "") -> bool:
+def _normalizar_cabecalho_coluna(valor: str = "") -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return texto.strip().lower()
+
+
+def _extrair_codigo_ae(texto_ae: str = "") -> str:
+    match = re.search(r"\b(AE\d+)\b", str(texto_ae or ""), flags=re.IGNORECASE)
+    return match.group(1).upper() if match else ""
+
+
+def _extrair_numero_aula_planilha(valor) -> int:
+    match = re.search(r"\b(\d{1,3})\b", str(valor or ""))
+    return int(match.group(1)) if match else 0
+
+
+def _selecionar_coluna_planilha(colunas, *termos: str) -> str:
+    termos_norm = [_normalizar_cabecalho_coluna(termo) for termo in termos if str(termo or "").strip()]
+    for coluna in colunas:
+        coluna_norm = _normalizar_cabecalho_coluna(coluna)
+        if all(termo in coluna_norm for termo in termos_norm):
+            return str(coluna)
+    return ""
+
+
+@lru_cache(maxsize=32)
+def carregar_base_ae_planilha(caminho_planilha: str = "") -> dict:
+    path = Path(str(caminho_planilha or "").strip())
+    if not caminho_planilha or not path.exists() or path.suffix.lower() not in {".xlsx", ".xls"}:
+        return {"arquivo_fonte": "", "mapa_por_aula": []}
+
+    try:
+        import pandas as pd
+
+        df = pd.read_excel(path)
+    except Exception:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    if df.empty:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    col_aula = _selecionar_coluna_planilha(df.columns, "aula")
+    col_ae = (
+        _selecionar_coluna_planilha(df.columns, "aprendizagem", "essencial")
+        or _selecionar_coluna_planilha(df.columns, "ae")
+    )
+    col_habilidade = _selecionar_coluna_planilha(df.columns, "habilidade")
+    col_titulo = _selecionar_coluna_planilha(df.columns, "titulo") or _selecionar_coluna_planilha(
+        df.columns, "título"
+    )
+
+    if not col_aula or not col_ae:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    mapa_por_aula: list[dict] = []
+    vistos: set[int] = set()
+    for _, row in df.iterrows():
+        numero_aula = _extrair_numero_aula_planilha(row.get(col_aula))
+        texto_ae = str(row.get(col_ae) or "").strip()
+        if not numero_aula or not texto_ae or texto_ae.lower() == "nan" or numero_aula in vistos:
+            continue
+        vistos.add(numero_aula)
+        mapa_por_aula.append(
+            {
+                "aula_numero": numero_aula,
+                "usar_ae": texto_ae,
+                "ae_codigos": _extrair_codigo_ae(texto_ae),
+                "habilidade_textos": str(row.get(col_habilidade) or "").strip() if col_habilidade else "",
+                "titulo": str(row.get(col_titulo) or "").strip() if col_titulo else "",
+            }
+        )
+
+    return {"arquivo_fonte": str(path), "mapa_por_aula": mapa_por_aula}
+
+
+@lru_cache(maxsize=32)
+def carregar_base_habilidades_planilha(caminho_planilha: str = "") -> dict:
+    path = Path(str(caminho_planilha or "").strip())
+    if not caminho_planilha or not path.exists() or path.suffix.lower() not in {".xlsx", ".xls"}:
+        return {"arquivo_fonte": "", "mapa_por_aula": []}
+
+    try:
+        import pandas as pd
+
+        df = pd.read_excel(path)
+    except Exception:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    if df.empty:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    col_aula = _selecionar_coluna_planilha(df.columns, "aula")
+    col_habilidade = _selecionar_coluna_planilha(df.columns, "habilidade")
+    col_ae = (
+        _selecionar_coluna_planilha(df.columns, "aprendizagem", "essencial")
+        or _selecionar_coluna_planilha(df.columns, "ae")
+    )
+    col_titulo = _selecionar_coluna_planilha(df.columns, "titulo") or _selecionar_coluna_planilha(
+        df.columns, "título"
+    )
+
+    if not col_aula or not col_habilidade:
+        return {"arquivo_fonte": str(path), "mapa_por_aula": []}
+
+    mapa_por_aula: list[dict] = []
+    vistos: set[int] = set()
+    for _, row in df.iterrows():
+        numero_aula = _extrair_numero_aula_planilha(row.get(col_aula))
+        habilidade = str(row.get(col_habilidade) or "").strip()
+        texto_ae = str(row.get(col_ae) or "").strip() if col_ae else ""
+        if not numero_aula or not habilidade or habilidade.lower() == "nan" or numero_aula in vistos:
+            continue
+        vistos.add(numero_aula)
+        mapa_por_aula.append(
+            {
+                "aula_numero": numero_aula,
+                "habilidade_textos": habilidade,
+                "usar_ae": texto_ae if texto_ae.lower() != "nan" else "",
+                "ae_codigos": _extrair_codigo_ae(texto_ae),
+                "titulo": str(row.get(col_titulo) or "").strip() if col_titulo else "",
+            }
+        )
+
+    return {"arquivo_fonte": str(path), "mapa_por_aula": mapa_por_aula}
+
+
+def contexto_ae_priorizado_disponivel(
+    disciplina: str = "",
+    turma: str = "",
+    bimestre: str = "",
+    caminho_planilha: str = "",
+) -> bool:
+    if caminho_planilha:
+        return bool(carregar_base_ae_planilha(caminho_planilha).get("mapa_por_aula"))
     prefixo = _prefixo_chave_contexto(disciplina, turma, bimestre)
     if not prefixo:
         return False
@@ -183,7 +316,25 @@ def sequencia_aulas_ae_priorizado(
     turma: str = "",
     bimestre: str = "",
     limite: int | None = None,
+    caminho_planilha: str = "",
 ) -> list[int]:
+    if caminho_planilha:
+        itens_planilha = carregar_base_ae_planilha(caminho_planilha).get("mapa_por_aula", [])
+        numeros_planilha: list[int] = []
+        vistos_planilha: set[int] = set()
+        for item in itens_planilha:
+            try:
+                numero = int(item.get("aula_numero") or 0)
+            except (TypeError, ValueError):
+                numero = 0
+            if not numero or numero in vistos_planilha:
+                continue
+            vistos_planilha.add(numero)
+            numeros_planilha.append(numero)
+            if limite is not None and limite > 0 and len(numeros_planilha) >= int(limite):
+                break
+        return numeros_planilha
+
     if not contexto_ae_priorizado_disponivel(disciplina, turma, bimestre):
         return []
 
@@ -221,7 +372,67 @@ def aplicar_ae_priorizado_nas_aulas(
     disciplina: str,
     turma: str,
     bimestre: str,
+    caminho_planilha: str = "",
 ) -> tuple[list[dict], list[str]]:
+    if caminho_planilha:
+        base_planilha = carregar_base_ae_planilha(caminho_planilha).get("mapa_por_aula", [])
+        if not base_planilha:
+            return list(aulas or []), []
+
+        indice_planilha = {
+            int(item.get("aula_numero") or 0): dict(item)
+            for item in base_planilha
+            if int(item.get("aula_numero") or 0)
+        }
+        ordem_planilha = {
+            int(item.get("aula_numero") or 0): posicao
+            for posicao, item in enumerate(base_planilha)
+            if int(item.get("aula_numero") or 0)
+        }
+
+        ajustadas_planilha: list[dict] = []
+        faltantes_planilha: list[int] = []
+        for ordem_entrada, aula in enumerate(list(aulas or [])):
+            aula_ajustada = dict(aula)
+            numero_aula = _numero_aula_item(aula_ajustada)
+            item = indice_planilha.get(numero_aula)
+            aula_ajustada["_ae_ordem_entrada"] = ordem_entrada
+            aula_ajustada["_ae_ordem_guia"] = ordem_planilha.get(numero_aula, 10_000 + ordem_entrada)
+
+            if item and item.get("usar_ae"):
+                aprendizagem_original = str(aula_ajustada.get("aprendizagem") or "").strip()
+                aula_ajustada["aprendizagem_original"] = aprendizagem_original
+                aula_ajustada["aprendizagem"] = str(item.get("usar_ae") or "").strip()
+                aula_ajustada["ae_priorizado_aplicado"] = True
+                aula_ajustada["ae_priorizado_codigo"] = str(item.get("ae_codigos") or "").strip()
+            else:
+                aula_ajustada["ae_priorizado_aplicado"] = False
+                if numero_aula:
+                    faltantes_planilha.append(numero_aula)
+
+            ajustadas_planilha.append(aula_ajustada)
+
+        ajustadas_planilha.sort(
+            key=lambda aula: (
+                int(aula.get("_ae_ordem_guia", 10_000)),
+                int(aula.get("_ae_ordem_entrada", 0)),
+            )
+        )
+        for aula in ajustadas_planilha:
+            aula.pop("_ae_ordem_guia", None)
+            aula.pop("_ae_ordem_entrada", None)
+
+        avisos_planilha: list[str] = []
+        if faltantes_planilha:
+            faltantes_unicos = sorted(set(faltantes_planilha))
+            lista = ", ".join(str(valor) for valor in faltantes_unicos)
+            avisos_planilha.append(
+                "Modo AE ativo, mas a planilha do guia priorizado nao trouxe correspondencia para a(s) aula(s) "
+                f"{lista}. Nessas aulas, o sistema manteve a habilidade normal."
+            )
+
+        return ajustadas_planilha, avisos_planilha
+
     if not contexto_ae_priorizado_disponivel(disciplina, turma, bimestre):
         return list(aulas or []), []
 

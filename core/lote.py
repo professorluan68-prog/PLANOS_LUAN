@@ -4,6 +4,7 @@ import hashlib
 import logging
 from pathlib import Path
 
+from core.ae_priorizado import carregar_base_habilidades_planilha
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
@@ -18,6 +19,7 @@ from core.referencias_lideranca_oratoria import (
 )
 from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_inglesa, referencia_lingua_inglesa_por_pdf
 from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
+from core.referencias_portugues import localizar_docx_referencia_portugues, referencia_portugues_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
 from core.referencias_historia import localizar_docx_referencia_historia, localizar_docx_referencia_historia_cdp, referencia_historia_por_pdf
 from core.referencias_arte import localizar_docx_referencia_arte, referencia_arte_por_pdf
@@ -102,6 +104,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia_geografia(caminho_pdf)
     if perfil == "lideranca_oratoria":
         return localizar_docx_referencia_lideranca_oratoria(caminho_pdf)
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return localizar_docx_referencia_portugues(caminho_pdf)
     if perfil == "ingles":
         return localizar_docx_referencia_lingua_inglesa(caminho_pdf)
     if perfil == "orientacao_estudos":
@@ -129,6 +133,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "lideranca_oratoria":
         return referencia_lideranca_oratoria_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return referencia_portugues_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "ingles":
         return referencia_lingua_inglesa_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "orientacao_estudos":
@@ -153,6 +159,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_geografia"
     if perfil == "lideranca_oratoria":
         return "docx_referencia_lideranca_oratoria"
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        return "docx_referencia_portugues"
     if perfil == "ingles":
         return "docx_referencia_lingua_inglesa"
     if perfil == "orientacao_estudos":
@@ -162,6 +170,20 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
     if perfil == "arte":
         return "docx_referencia_arte"
     return ""
+
+
+def _perfil_portugues_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
+    return perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
+
+
+def _referencia_docx_sobrescreve_metadados(perfil: str) -> bool:
+    return not _perfil_portugues_docx_somente_colunas_pedagogicas(perfil)
+
+
+def _deve_aplicar_referencia_docx_no_resultado_ia(perfil: str, plano_ia: dict | None) -> bool:
+    if _perfil_portugues_docx_somente_colunas_pedagogicas(perfil):
+        return True
+    return not plano_ia or not plano_ia.get("metodologia")
 
 
 def _material_aula_com_titulo(numero_aula: str, titulo: str) -> str:
@@ -223,6 +245,61 @@ def _habilidade_referencia_docx(referencia: dict | None) -> str:
     if not referencia:
         return ""
     return re.sub(r"\s+", " ", str(referencia.get("habilidade") or "")).strip()
+
+
+def _localizar_planilha_habilidade_local(caminho_pdf: str) -> Path | None:
+    caminho = Path(str(caminho_pdf or "").strip())
+    pasta = caminho.parent if caminho.parent.exists() else None
+    if not pasta:
+        return None
+
+    padroes = ["planilha.xlsx", "GUIA*.xlsx", "*GUIA*.xlsx", "*.xlsx"]
+    vistos: set[Path] = set()
+    for padrao in padroes:
+        for candidato in pasta.glob(padrao):
+            try:
+                resolvido = candidato.resolve()
+            except OSError:
+                continue
+            if candidato.name.startswith("~$") or resolvido in vistos:
+                continue
+            vistos.add(resolvido)
+            return candidato
+    return None
+
+
+def _habilidade_planilha_local(caminho_pdf: str, numero_aula: str) -> str:
+    planilha = _localizar_planilha_habilidade_local(caminho_pdf)
+    if not planilha:
+        return ""
+
+    match = re.search(r"\d{1,3}", str(numero_aula or ""))
+    if not match:
+        return ""
+    numero = int(match.group(0))
+
+    try:
+        itens = carregar_base_habilidades_planilha(str(planilha)).get("mapa_por_aula", [])
+    except Exception:
+        return ""
+
+    for item in itens:
+        if int(item.get("aula_numero") or 0) != numero:
+            continue
+        return re.sub(r"\s+", " ", str(item.get("habilidade_textos") or "")).strip()
+    return ""
+
+
+def _resolver_habilidade_portugues(habilidade_pdf: str, caminho_pdf: str, numero_aula: str) -> str:
+    habilidade_pdf = re.sub(r"\s+", " ", str(habilidade_pdf or "")).strip()
+    if not _texto_habilidade_invalido_ou_truncado(habilidade_pdf):
+        return habilidade_pdf
+
+    habilidade_planilha = _habilidade_planilha_local(caminho_pdf, numero_aula)
+    if habilidade_planilha and not _texto_habilidade_invalido_ou_truncado(habilidade_planilha):
+        return habilidade_planilha
+
+    return habilidade_pdf
 
 
 def _disciplina_base_cdp_por_cadastro(disciplina: str) -> str:
@@ -2668,6 +2745,8 @@ def _montar_resultado_aula_ia(
     extracao = _extrator_lib.extrair(texto, tema, disciplina=disciplina_base, numero_aula=numero_aula, turma=turma, bimestre=bimestre)
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     habilidade_pdf = extracao.get("habilidade", "")
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        habilidade_pdf = _resolver_habilidade_portugues(habilidade_pdf, caminho_pdf, numero_aula)
     objetivos_secao = extracao.get("objetivos_secao") or []
     conteudos_secao = extracao.get("conteudos_secao") or []
     if objetivos_orientacao:
@@ -2838,7 +2917,7 @@ def _montar_resultado_aula_ia(
             perfil,
         )
 
-    if referencia_docx and (not plano_ia or not plano_ia.get("metodologia")):
+    if referencia_docx and _deve_aplicar_referencia_docx_no_resultado_ia(perfil, plano_ia):
         metodologia = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
         acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
         acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
@@ -2850,7 +2929,7 @@ def _montar_resultado_aula_ia(
         metodologia, acompanhamento, acessibilidade,
         perfil, disciplina_base, tema, recursos_reais
     )
-    if referencia_docx and (not plano_ia or not plano_ia.get("metodologia")):
+    if referencia_docx and _deve_aplicar_referencia_docx_no_resultado_ia(perfil, plano_ia):
         acompanhamento_ref = _itens_referencia_docx(referencia_docx, "acompanhamento")
         acessibilidade_ref = _itens_referencia_docx(referencia_docx, "acessibilidade")
         if len(acompanhamento_ref) == 3:
@@ -2928,6 +3007,8 @@ def _montar_resultado_aula_local(
     tipo = _detectar_tipo_aula(extracao.get("texto_prioritario") or texto, tema, disciplina_base, turma=turma)
     conceito = extracao.get("conceito_extraido", tema)
     habilidade = extracao.get("habilidade", "")
+    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        habilidade = _resolver_habilidade_portugues(habilidade, caminho_pdf, numero_aula)
     recursos = extracao.get("recursos_detectados", [])
     objetivos_secao = extracao.get("objetivos_secao") or []
     conteudos_secao = extracao.get("conteudos_secao") or []
@@ -3357,7 +3438,7 @@ def _aula_por_pdf(
                         dados_json.get("tema") or "",
                         perfil_cache,
                     )
-                    if referencia_docx_cache and not dados_json.get("ia_usada", False):
+                    if referencia_docx_cache and _referencia_docx_sobrescreve_metadados(perfil_cache) and not dados_json.get("ia_usada", False):
                         numero_ref_cache = referencia_docx_cache.get("numero")
                         titulo_ref_cache = str(referencia_docx_cache.get("titulo") or "").strip()
                         habilidade_ref_cache = _habilidade_referencia_docx(referencia_docx_cache)
@@ -3403,6 +3484,8 @@ def _aula_por_pdf(
                     elif versao_cache != VERSAO_GERADOR_ATUAL:
                         pass
                     elif usar_ia != dados_json.get("ia_usada", False):
+                        pass
+                    elif _perfil_portugues_docx_somente_colunas_pedagogicas(perfil_cache) and referencia_docx_cache:
                         pass
                     elif fingerprint_salvo != fingerprint_atual:
                         perfil_disc = perfil_disciplina(disciplina, turma=turma)
@@ -3682,10 +3765,26 @@ def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
     try:
         if not caminho_pdf: return
         pasta = Path(caminho_pdf).parent
-        caminho_planilha = pasta / "planilha.xlsx"
-        if not caminho_planilha.exists():
-            caminho_planilha = pasta.parent / "planilha.xlsx"
-        if not caminho_planilha.exists():
+        candidatos_planilha = [
+            pasta / "GUIA.xlsx",
+            pasta / "planilha.xlsx",
+        ]
+        candidatos_planilha.extend(sorted(pasta.glob("GUIA*.xlsx")))
+        candidatos_planilha.extend(sorted(pasta.glob("*.xlsx")))
+        if pasta.parent.exists():
+            candidatos_planilha.append(pasta.parent / "planilha.xlsx")
+            candidatos_planilha.extend(sorted(pasta.parent.glob("GUIA*.xlsx")))
+            candidatos_planilha.extend(sorted(pasta.parent.glob("*.xlsx")))
+
+        caminho_planilha = None
+        for candidato in candidatos_planilha:
+            if not candidato.exists():
+                continue
+            if candidato.name.startswith("~$"):
+                continue
+            caminho_planilha = candidato
+            break
+        if not caminho_planilha:
             return
             
         df = pd.read_excel(caminho_planilha)
@@ -3725,7 +3824,7 @@ def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
             elif col_conteudo and pd.notna(row[col_conteudo[0]]):
                 tema_parts.append(str(row[col_conteudo[0]]).strip())
                 
-            if tema_parts:
+            if tema_parts and not str(resultado.get("fonte_referencia_metodologia") or "").strip():
                 resultado["tema"] = " - ".join(tema_parts)
                 
             aprendizagem = ""
@@ -3735,7 +3834,16 @@ def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
                 if aprendizagem: aprendizagem += "\n"
                 aprendizagem += "Objetivos: " + str(row[col_obj[0]]).strip()
                 
-            if aprendizagem:
+            aprendizagem_atual = str(resultado.get("aprendizagem") or "").strip()
+            pode_atualizar_aprendizagem = (
+                not aprendizagem_atual
+                or _texto_habilidade_invalido_ou_truncado(aprendizagem_atual)
+            )
+            if (
+                aprendizagem
+                and not str(resultado.get("fonte_referencia_metodologia") or "").strip()
+                and pode_atualizar_aprendizagem
+            ):
                 resultado["aprendizagem"] = aprendizagem
                 
             break
