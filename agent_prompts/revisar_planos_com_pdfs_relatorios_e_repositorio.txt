@@ -20,6 +20,14 @@ Gerar uma versao final revisada das colunas Desenvolvimento/Metodologia, Acompan
 Regra central:
 O PDF de cada aula e a fonte da verdade. Se houver divergencia entre PDF, relatorio, JSON, cache, plano gerado ou metodologia anterior, corrija pelo PDF. Nao preserve erro de tema, genero textual, atividade, habilidade ou etapa apenas porque apareceu no relatorio.
 
+Regra antideslocamento:
+Nao confie apenas no tema do JSON, no nome salvo pelo sistema, no relatorio de conferencia ou no plano gerado. Antes de escrever qualquer aula, abra cada PDF usado e leia o titulo interno da primeira pagina, o numero da aula, a parte da sequencia e os objetivos. Monte uma tabela de correspondencia com:
+1. Numero da aula no plano.
+2. Nome do arquivo PDF.
+3. Titulo interno real lido no PDF.
+4. Tema/metodologia que sera gerado.
+Se o relatorio disser que a aula e "Haicai", mas o PDF aberto disser "Tramas das novelas literarias", o relatorio esta errado e deve ser corrigido pelo PDF. Se o relatorio disser "Tramas das novelas literarias", mas o PDF disser "Um mundo visual", o PDF vence. E proibido gerar conteudo de aula anterior ou futura por causa de cache, JSON antigo ou deslocamento da sequencia.
+
 Antes de reescrever:
 1. Liste os PDFs realmente usados e confira a ordem das aulas.
 2. Compare cada PDF com o relatorio correspondente.
