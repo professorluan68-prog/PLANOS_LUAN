@@ -47,6 +47,14 @@ def _monitorar_sessoes_ativas():
 
 _monitor_thread = threading.Thread(target=_monitorar_sessoes_ativas, daemon=True)
 _monitor_thread.start()
+# ── Modernização da tela inicial ──────────────────────────────────────────────
+from tela_inicial_moderna import (
+    HERO_CSS,
+    HERO_HTML,
+    STATS_HTML,
+    SECTION_HEADER_HTML,
+    OPTION_MENU_STYLES,
+)
 from ui_components import render_sidebar
 from core.constantes import (
     HORARIOS_AULA,
@@ -182,8 +190,9 @@ APP_ICON_PNG = BASE_DIR / "assets" / "planos_luan_icon.png"
 
 st.set_page_config(
     page_title="PLANOS_LUAN",
-    page_icon=str(APP_ICON_PNG) if APP_ICON_PNG.exists() else None,
+    page_icon="🎓",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 CAMPOS_TELA = {
@@ -1943,89 +1952,16 @@ def _montar_zip_planos(planos: list[dict], disciplina: str) -> bytes:
     saida.seek(0)
     return saida.read()
 
-st.markdown(
-    """
-    <meta name="google" content="notranslate">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        :root { --app-bg: #E5F4FB; --ink: #163044; --brand: #1F6F9F; --brand-dark: #164D73; --font-main: 'Inter', sans-serif; }
-        .stApp { background: linear-gradient(180deg, #EAF7FC 0%, #DDF0F9 48%, #D2EAF6 100%); color: var(--ink); font-family: var(--font-main); }
-        .app-hero { background: linear-gradient(135deg, #F8FCFE 0%, #E7F5FB 52%, #C9E8F7 100%); padding: 28px; border-radius: 8px; margin-bottom: 24px; }
-        .app-title { font-size: 2.4rem; font-weight: 800; margin: 0; }
-        .app-subtitle { font-size: 1.05rem; color: #557386; }
-        /* Travar a cor dos componentes nativos do Streamlit em azul. */
-        .stButton > button[kind="primary"],
-        .stDownloadButton > button[kind="primary"],
-        button[kind="primary"] {
-            background-color: #2563EB !important;
-            border-color: #2563EB !important;
-            color: #FFFFFF !important;
-        }
-        .stButton > button[kind="primary"]:hover,
-        .stDownloadButton > button[kind="primary"]:hover,
-        button[kind="primary"]:hover {
-            background-color: #1D4ED8 !important;
-            border-color: #1D4ED8 !important;
-            color: #FFFFFF !important;
-        }
-        [data-testid="stRadio"] input:checked + div,
-        [data-testid="stCheckbox"] input:checked + div {
-            border-color: #2563EB !important;
-            background-color: #2563EB !important;
-        }
-        [data-testid="stRadio"] [aria-checked="true"],
-        [data-testid="stCheckbox"] [aria-checked="true"] {
-            border-color: #2563EB !important;
-            color: #2563EB !important;
-        }
-        [data-testid="stMultiSelect"] [data-baseweb="tag"] {
-            background-color: #2563EB !important;
-            border-color: #2563EB !important;
-            color: #FFFFFF !important;
-        }
-        [data-testid="stMultiSelect"] [data-baseweb="tag"] span,
-        [data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
-            color: #FFFFFF !important;
-            fill: #FFFFFF !important;
-        }
-        [data-baseweb="select"] div:focus,
-        [data-baseweb="select"] div:focus-within,
-        [data-testid="stTextInput"] input:focus,
-        [data-testid="stNumberInput"] input:focus,
-        [data-testid="stTextArea"] textarea:focus {
-            border-color: #2563EB !important;
-            box-shadow: 0 0 0 1px #2563EB !important;
-        }
-        [data-testid="stProgress"] > div > div > div {
-            background-color: #2563EB !important;
-        }
-    </style>
-    """, unsafe_allow_html=True,
-)
+st.markdown(HERO_CSS, unsafe_allow_html=True)
 
-hero_img = _asset_data_uri("hero-planejamento.svg")
-st.markdown(
-    f"""
-    <div class="app-hero">
-        <div class="app-hero__eyebrow">PLANOS_LUAN</div>
-        <div class="app-title">Plano de Aula Inteligente</div>
-        <div class="app-subtitle">Organize cabeçalho, horários, PDFs, revisão e geração final em um fluxo mais claro, com aparência de sistema e menos trabalho manual.</div>
-        <div class="hero-pills">
-            <span class="hero-pill">📘 Cabeçalho e turma</span>
-            <span class="hero-pill">📎 PDFs das aulas</span>
-            <span class="hero-pill">✏️ Revisão antes do DOCX</span>
-            <span class="hero-pill">📄 Saída pronta para entrega</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True,
-)
+st.markdown(HERO_HTML, unsafe_allow_html=True)
+st.markdown(STATS_HTML, unsafe_allow_html=True)
 render_sidebar()
 
 col_limpar, _ = st.columns([1, 5])
 with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=limpar_dados_tela)
 
-st.markdown('<div class="section-card"></div><div class="section-title">Área de trabalho</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Escolha o modo de uso do sistema antes de preencher os dados do plano.</div>', unsafe_allow_html=True)
+st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
@@ -2046,31 +1982,7 @@ modo_tela = option_menu(
     menu_icon="cast",
     default_index=idx_default,
     orientation="horizontal",
-    styles={
-        "container": {
-            "padding": "3px 10px !important",
-            "background-color": "#ffffff",
-            "border-radius": "8px",
-            "box-shadow": "0 2px 4px rgba(0, 0, 0, 0.05)",
-            "border": "1px solid #e1ebf2"
-        },
-        "icon": {"color": "#1F6F9F", "font-size": "15px"},
-        "nav-link": {
-            "font-size": "13px",
-            "text-align": "center",
-            "margin": "0px 3px",
-            "font-weight": "600",
-            "color": "#163044",
-            "--hover-color": "#f0f8ff",
-            "border-radius": "6px",
-            "transition": "all 0.15s ease-in-out"
-        },
-        "nav-link-selected": {
-            "background-color": "#1F6F9F",
-            "color": "#ffffff",
-            "font-weight": "700"
-        },
-    }
+    styles=OPTION_MENU_STYLES,
 )
 st.session_state["modo_tela"] = modo_tela
 
