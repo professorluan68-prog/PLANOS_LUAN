@@ -1,5 +1,5 @@
 from core.lote import _eh_producao_final_redacao, _metodologia_em_blocos_por_texto
-from divisor_metodologia import processar_pdf_e_dividir_metodologia
+from core.divisor_metodologia import processar_pdf_e_dividir_metodologia
 
 
 def test_pratica_de_linguagem_leitura_nao_ativa_fluxo_de_producao_final():

@@ -69,7 +69,7 @@ from core.cdp.gerador_cdp import (
     limpar_texto_cdp_contextual,
     conceito_cdp_contextual,
 )
-from divisor_metodologia import processar_pdf_e_dividir_metodologia
+from core.divisor_metodologia import processar_pdf_e_dividir_metodologia
 
 # Compatibilidade para testes e legado
 _eh_cdp_contextual_disciplina = eh_cdp_contextual_disciplina

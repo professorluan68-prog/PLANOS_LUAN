@@ -11,6 +11,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 AE_PRIORIZADO_DIR = BASE_DIR / "assets" / "ae_priorizado"
 AE_PRIORIZADO_JSON_PATH = AE_PRIORIZADO_DIR / "portugues_em_2b.json"
 
+
+def invalidar_cache_ae() -> None:
+    """Limpa todos os caches LRU do módulo ae_priorizado.
+    
+    Chamar esta função quando o usuário trocar de planilha ou bimestre na
+    interface, garantindo que dados antigos não persistam entre operações.
+    """
+    carregar_base_ae_planilha.cache_clear()
+    carregar_base_habilidades_planilha.cache_clear()
+    carregar_base_ae_priorizado.cache_clear()
+    _indice_por_chave.cache_clear()
+    _ordem_por_chave.cache_clear()
+
+
 DISCIPLINA_ALIASES = {
     "arte": "arte",
     "artes": "arte",

@@ -48,14 +48,14 @@ def _monitorar_sessoes_ativas():
 _monitor_thread = threading.Thread(target=_monitorar_sessoes_ativas, daemon=True)
 _monitor_thread.start()
 # ── Modernização da tela inicial ──────────────────────────────────────────────
-from tela_inicial_moderna import (
+from ui.tela_inicial_moderna import (
     HERO_CSS,
     HERO_HTML,
     STATS_HTML,
     SECTION_HEADER_HTML,
     OPTION_MENU_STYLES,
 )
-from ui_components import render_sidebar
+from ui.ui_components import render_sidebar
 from core.constantes import (
     HORARIOS_AULA,
     HORARIOS_SIMPLES,
@@ -122,6 +122,7 @@ from core.database import (
     obter_professores_db,
     salvar_historico_plano,
     migrar_json_para_sqlite,
+    verificar_plano_gerado_por_outro_professor,
 )
 from core.disciplinas import (
     BIMESTRES,
@@ -290,7 +291,12 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
 
-def _salvar_planos_gerados_se_configurado(planos_gerados, professor: str, disciplina: str) -> bool:
+def _salvar_planos_gerados_se_configurado(
+    planos_gerados,
+    professor: str,
+    disciplina: str,
+    bimestre: str,
+) -> bool:
     if not st.session_state.get("salvar_historico_geracao", False):
         return False
 
@@ -301,6 +307,7 @@ def _salvar_planos_gerados_se_configurado(planos_gerados, professor: str, discip
             plano["turma"],
             nome_arquivo_plano(plano["turma"], disciplina),
             plano["docx_bytes"].getvalue(),
+            bimestre=bimestre,
         )
     return True
 
@@ -2114,6 +2121,34 @@ resumo_grade_cadastrada = _resumo_grade_cadastrada(config_turma_selecionada)
 if resumo_grade_cadastrada:
     st.info(f"Horário cadastrado: {resumo_grade_cadastrada}", icon="🕒")
 
+# ── Alerta: plano já gerado para outro professor ──────────────────────
+if professor and disciplina and turma:
+    outros = verificar_plano_gerado_por_outro_professor(
+        professor,
+        disciplina,
+        turma,
+        bimestre=bimestre,
+    )
+    if outros:
+        nomes_outros = list(dict.fromkeys(r["professor_nome"] for r in outros))
+        nomes_formatados = ", ".join(f"**{nome}**" for nome in nomes_outros[:3])
+        data_recente = outros[0]["data_geracao"]
+        try:
+            if " " in str(data_recente):
+                data_so = str(data_recente).split(" ")[0]
+                partes = data_so.split("-")
+                data_amigavel = f"{partes[2]}/{partes[1]}/{partes[0]}"
+            else:
+                data_amigavel = str(data_recente)
+        except Exception:
+            data_amigavel = str(data_recente)
+            
+        st.warning(
+            f"⚠️ **ATENÇÃO:** O plano de **{disciplina} — {turma}** já foi gerado anteriormente neste **{bimestre}** para {nomes_formatados} (última geração em {data_amigavel}). Certifique-se de que é isso mesmo que deseja antes de prosseguir.",
+            icon="⚠️"
+        )
+
+
 extensao_mes_rotulo = st.selectbox("Extensão após o mês", EXTENSAO_MES_OPCOES, index=0, key="extensao_mes")
 extensao_mes = EXTENSAO_MES_VALORES.get(extensao_mes_rotulo, 0)
 
@@ -2717,7 +2752,12 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
             for t in [turma] + ([turma_espelho] if gerar_turma_espelho else []):
                 planos_gerados.append(_gerar_docx_cdp_final(modelo_bytes, escola, professor, disciplina, t, mes, bimestre, semana, observacao, aulas_previstas_manual, cdp_aula_inicial, turma_cdp, modo_ia, modelo_openai, modelo_gemini, datas_horarios_mes))
             st.session_state["planos_gerados"] = planos_gerados
-            salvou_historico = _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina)
+            salvou_historico = _salvar_planos_gerados_se_configurado(
+                planos_gerados,
+                professor,
+                disciplina,
+                bimestre,
+            )
             _registrar_mensagem_memoria_plano(salvou_historico)
             status.update(label="✅ Concluído", state="complete", expanded=False)
         st.session_state["geracao_em_andamento"] = False; st.rerun()
@@ -3025,7 +3065,12 @@ if st.session_state.get("turmas_processadas"):
         for tr in turmas_revisadas:
             planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
         st.session_state["planos_gerados"] = planos_gerados
-        salvou_historico = _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina)
+        salvou_historico = _salvar_planos_gerados_se_configurado(
+            planos_gerados,
+            professor,
+            disciplina,
+            bimestre,
+        )
         _registrar_mensagem_memoria_plano(salvou_historico)
         st.success("Planos gerados!")
 

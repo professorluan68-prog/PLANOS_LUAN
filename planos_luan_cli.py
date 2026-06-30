@@ -362,7 +362,8 @@ def main():
                 args.disciplina, 
                 args.turma, 
                 out_filename, 
-                docx_bytes.getvalue()
+                docx_bytes.getvalue(),
+                bimestre=args.bimestre,
             )
             
             logger.info(f"Plano CDP gerado com sucesso em: {out_filepath}")
@@ -493,7 +494,8 @@ def main():
                 args.disciplina, 
                 args.turma, 
                 out_filename, 
-                docx_bytes.getvalue()
+                docx_bytes.getvalue(),
+                bimestre=args.bimestre,
             )
             
             logger.info(f"Plano de aula gerado com sucesso em: {out_filepath}")

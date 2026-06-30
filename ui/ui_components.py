@@ -1,7 +1,5 @@
 import streamlit as st
 
-import streamlit as st
-
 # Importamos as funções do banco de dados que a sidebar precisa usar
 # (Se o caminho para o teu database.py for diferente, avisa-me para ajustarmos)
 from core.database import listar_historico_planos, obter_arquivo_historico

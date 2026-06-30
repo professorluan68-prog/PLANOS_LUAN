@@ -327,7 +327,14 @@ def _renderizar_geracao_lote(
                 filepath = Path(out_dir) / filename
                 filepath.write_bytes(docx_data)
                 
-                salvar_historico_plano(v["professor"], v["disciplina"], v["turma"], filename, docx_data)
+                salvar_historico_plano(
+                    v["professor"],
+                    v["disciplina"],
+                    v["turma"],
+                    filename,
+                    docx_data,
+                    bimestre=bimestre,
+                )
                 
                 sucessos += 1
                 logs.append(f"✅ **{v['professor']} - {v['disciplina']} ({v['turma']})**: Gerado com sucesso -> `{filename}`")
