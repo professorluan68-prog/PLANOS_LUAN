@@ -107,6 +107,12 @@ def _criar_indices_banco(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE INDEX IF NOT EXISTS idx_historico_planos_contexto_bimestre_data
+        ON historico_planos (professor_nome, disciplina, turma, bimestre, data_geracao DESC, id DESC)
+        """
+    )
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_professor_turmas_prof_id
         ON professor_turmas (professor_id)
         """
@@ -138,6 +144,8 @@ MIGRACOES = [
     "ALTER TABLE professor_turmas ADD COLUMN template_id TEXT",
     # Versão 3
     "ALTER TABLE professor_turmas ADD COLUMN componente_curricular TEXT",
+    # Versão 4
+    "ALTER TABLE historico_planos ADD COLUMN bimestre TEXT",
 ]
 
 
@@ -199,6 +207,7 @@ def init_db():
                 professor_nome TEXT,
                 disciplina TEXT,
                 turma TEXT,
+                bimestre TEXT,
                 data_geracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 arquivo_nome TEXT,
                 arquivo_docx BLOB
@@ -593,10 +602,19 @@ def duplicar_vinculo_professor(
     return novo_id
 
 
-def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arquivo_docx_bytes, limite_retencao: int = 5):
+def salvar_historico_plano(
+    professor_nome,
+    disciplina,
+    turma,
+    arquivo_nome,
+    arquivo_docx_bytes,
+    limite_retencao: int = 5,
+    bimestre: str = "",
+):
     professor_nome = _normalizar_campo(professor_nome)
     disciplina = _normalizar_campo(disciplina)
     turma = _normalizar_campo(turma)
+    bimestre = _normalizar_campo(bimestre)
     arquivo_nome = _normalizar_campo(arquivo_nome)
     arquivo_docx_bytes = bytes(arquivo_docx_bytes or b"")
 
@@ -604,10 +622,17 @@ def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arqu
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO historico_planos (professor_nome, disciplina, turma, arquivo_nome, arquivo_docx)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO historico_planos (professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_docx)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (professor_nome, disciplina, turma, arquivo_nome, sqlite3.Binary(arquivo_docx_bytes)),
+            (
+                professor_nome,
+                disciplina,
+                turma,
+                bimestre,
+                arquivo_nome,
+                sqlite3.Binary(arquivo_docx_bytes),
+            ),
         )
         
         # Aplicar política de retenção
@@ -618,11 +643,13 @@ def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arqu
                 WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
                   AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
                   AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
                   AND id NOT IN (
                       SELECT id FROM historico_planos
                       WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
                         AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
                         AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
                       ORDER BY data_geracao DESC, id DESC
                       LIMIT ?
                   )
@@ -631,20 +658,23 @@ def salvar_historico_plano(professor_nome, disciplina, turma, arquivo_nome, arqu
                     professor_nome,
                     disciplina,
                     turma,
+                    bimestre,
                     professor_nome,
                     disciplina,
                     turma,
+                    bimestre,
                     limite_retencao,
                 ),
             )
             deletados = cursor.rowcount
             if deletados > 0:
                 logger.info(
-                    "Politica de retencao aplicada: %d planos antigos removidos para %s - %s - %s",
+                    "Politica de retencao aplicada: %d planos antigos removidos para %s - %s - %s - %s",
                     deletados,
                     professor_nome,
                     disciplina,
                     turma,
+                    bimestre,
                 )
         
         conn.commit()
@@ -698,3 +728,60 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
 def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     from core.gestao_aulas import obter_ultima_aula_gerada_sistema_impl
     return obter_ultima_aula_gerada_sistema_impl(professor, disciplina, turma, bimestre)
+
+
+def verificar_plano_gerado_por_outro_professor(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    bimestre: str = "",
+) -> list[dict]:
+    """
+    Retorna lista de registros do historico onde a mesma disciplina e turma
+    foram geradas para um professor diferente do atual.
+    """
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    bimestre = _normalizar_campo(bimestre)
+
+    if not professor_nome or not disciplina or not turma:
+        return []
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        if bimestre:
+            cursor.execute(
+                """
+                SELECT DISTINCT professor_nome, data_geracao, arquivo_nome, bimestre
+                FROM historico_planos
+                WHERE UPPER(TRIM(professor_nome)) <> UPPER(TRIM(?))
+                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                ORDER BY data_geracao DESC
+                """,
+                (professor_nome, disciplina, turma, bimestre),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT DISTINCT professor_nome, data_geracao, arquivo_nome, bimestre
+                FROM historico_planos
+                WHERE UPPER(TRIM(professor_nome)) <> UPPER(TRIM(?))
+                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                ORDER BY data_geracao DESC
+                """,
+                (professor_nome, disciplina, turma),
+            )
+        return [
+            {
+                "professor_nome": row[0],
+                "data_geracao": row[1],
+                "arquivo_nome": row[2],
+                "bimestre": row[3],
+            }
+            for row in cursor.fetchall()
+        ]
+

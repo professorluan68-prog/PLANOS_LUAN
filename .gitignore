@@ -1,9 +1,11 @@
 .venv/
 .venv_PLANOS_LUAN/
+venv/
+node_modules/
 __pycache__/
 *.pyc
 .vscode/
-node_modules/
+.idea/
 google-cloud-sdk/
 *.db
 *.log
