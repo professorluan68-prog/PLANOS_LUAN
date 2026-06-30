@@ -18,6 +18,10 @@ from core.referencias_lideranca_oratoria import (
     referencia_lideranca_oratoria_por_pdf,
 )
 from core.referencias_lingua_inglesa import localizar_docx_referencia_lingua_inglesa, referencia_lingua_inglesa_por_pdf
+from core.referencias_matematica import (
+    localizar_docx_referencia_matematica,
+    referencia_matematica_por_pdf,
+)
 from core.referencias_orientacao_estudos import localizar_docx_referencia_orientacao_estudos, referencia_orientacao_estudos_por_pdf
 from core.referencias_portugues import localizar_docx_referencia_portugues, referencia_portugues_por_pdf
 from core.referencias_projeto_vida import localizar_docx_referencia_projeto_vida, referencia_projeto_vida_por_pdf
@@ -102,6 +106,8 @@ def _localizar_docx_referencia_por_perfil(caminho_pdf: str, disciplina: str, tur
         return localizar_docx_referencia_ciencias(caminho_pdf)
     if perfil == "geografia":
         return localizar_docx_referencia_geografia(caminho_pdf)
+    if perfil == "matematica":
+        return localizar_docx_referencia_matematica(caminho_pdf)
     if perfil == "lideranca_oratoria":
         return localizar_docx_referencia_lideranca_oratoria(caminho_pdf)
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
@@ -131,6 +137,8 @@ def _referencia_docx_por_perfil(caminho_pdf: str, numero_aula: str, tema: str, p
         return referencia_ciencias_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "geografia":
         return referencia_geografia_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if perfil == "matematica":
+        return referencia_matematica_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil == "lideranca_oratoria":
         return referencia_lideranca_oratoria_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
@@ -157,6 +165,8 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
         return "docx_referencia_ciencias"
     if perfil == "geografia":
         return "docx_referencia_geografia"
+    if perfil == "matematica":
+        return "docx_referencia_matematica"
     if perfil == "lideranca_oratoria":
         return "docx_referencia_lideranca_oratoria"
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
@@ -172,16 +182,21 @@ def _origem_metodologia_por_referencia(perfil: str) -> str:
     return ""
 
 
-def _perfil_portugues_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
-    return perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
+def _perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
+    return perfil in {
+        "lingua_portuguesa_ef",
+        "lingua_portuguesa_em",
+        "leitura_redacao",
+        "matematica",
+    }
 
 
 def _referencia_docx_sobrescreve_metadados(perfil: str) -> bool:
-    return not _perfil_portugues_docx_somente_colunas_pedagogicas(perfil)
+    return not _perfil_docx_somente_colunas_pedagogicas(perfil)
 
 
 def _deve_aplicar_referencia_docx_no_resultado_ia(perfil: str, plano_ia: dict | None) -> bool:
-    if _perfil_portugues_docx_somente_colunas_pedagogicas(perfil):
+    if _perfil_docx_somente_colunas_pedagogicas(perfil):
         return True
     return not plano_ia or not plano_ia.get("metodologia")
 
@@ -3485,7 +3500,7 @@ def _aula_por_pdf(
                         pass
                     elif usar_ia != dados_json.get("ia_usada", False):
                         pass
-                    elif _perfil_portugues_docx_somente_colunas_pedagogicas(perfil_cache) and referencia_docx_cache:
+                    elif _perfil_docx_somente_colunas_pedagogicas(perfil_cache) and referencia_docx_cache:
                         pass
                     elif fingerprint_salvo != fingerprint_atual:
                         perfil_disc = perfil_disciplina(disciplina, turma=turma)
