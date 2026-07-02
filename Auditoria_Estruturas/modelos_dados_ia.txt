@@ -1,0 +1,16 @@
+=== MODELOS DE DADOS DA IA (Pydantic / Padrões de Retorno) ===
+
+
+class EtapaMetodologia(BaseModel):
+    titulo: str = Field(description="Título curto da etapa (ex: 'Contextualização', 'Foco no conteúdo')")
+    texto: str = Field(description="Descrição detalhada e orientada ao professor do que fazer")
+
+class PlanoAulaIA(BaseModel):
+    tema: str
+    aprendizagem: str
+    metodologia: List[EtapaMetodologia]
+    acompanhamento: List[str]
+    acessibilidade: List[str]
+    recursos_detectados: List[str] = Field(default_factory=list)
+
+Análise de Perigos na IA: A dependência exclusiva de output estruturado do Gemini sem fallback robusto pode causar falhas em PDFs ruidosos. Há risco de 'hallucination' nos campos de acompanhamento se não amarrados diretamente ao texto do PDF. Já mitigado pelo nosso novo validador de 80% de aderência lexical.

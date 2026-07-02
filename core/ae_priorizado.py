@@ -157,16 +157,38 @@ def carregar_base_ae_planilha(caminho_planilha: str = "") -> dict:
     vistos: set[int] = set()
     for _, row in df.iterrows():
         numero_aula = _extrair_numero_aula_planilha(row.get(col_aula))
-        texto_ae = str(row.get(col_ae) or "").strip()
-        if not numero_aula or not texto_ae or texto_ae.lower() == "nan" or numero_aula in vistos:
+        if not numero_aula or numero_aula in vistos:
             continue
+            
+        texto_ae = str(row.get(col_ae) or "").strip()
+        if not texto_ae or texto_ae.lower() == "nan" or re.match(r"^-?\s*$", texto_ae):
+            # Tenta varredura robusta nas outras colunas
+            for col in df.columns:
+                val = str(row[col]).strip()
+                if val.lower() != "nan" and re.search(r"\bAE\d+\b", val, re.IGNORECASE):
+                    texto_ae = val
+                    break
+
+        # Se mesmo assim não achar AE, ignora
+        if not texto_ae or texto_ae.lower() == "nan":
+            continue
+
+        habilidade = str(row.get(col_habilidade) or "").strip() if col_habilidade else ""
+        if not habilidade or habilidade.lower() == "nan":
+            # Varredura robusta por habilidade nas outras colunas
+            for col in df.columns:
+                val = str(row[col]).strip()
+                if val.lower() != "nan" and re.search(r"\b[A-Z]{2,4}\d+[A-Z\d]+\b", val):
+                    habilidade = val
+                    break
+
         vistos.add(numero_aula)
         mapa_por_aula.append(
             {
                 "aula_numero": numero_aula,
                 "usar_ae": texto_ae,
                 "ae_codigos": _extrair_codigo_ae(texto_ae),
-                "habilidade_textos": str(row.get(col_habilidade) or "").strip() if col_habilidade else "",
+                "habilidade_textos": habilidade,
                 "titulo": str(row.get(col_titulo) or "").strip() if col_titulo else "",
             }
         )
@@ -207,10 +229,30 @@ def carregar_base_habilidades_planilha(caminho_planilha: str = "") -> dict:
     vistos: set[int] = set()
     for _, row in df.iterrows():
         numero_aula = _extrair_numero_aula_planilha(row.get(col_aula))
-        habilidade = str(row.get(col_habilidade) or "").strip()
-        texto_ae = str(row.get(col_ae) or "").strip() if col_ae else ""
-        if not numero_aula or not habilidade or habilidade.lower() == "nan" or numero_aula in vistos:
+        if not numero_aula or numero_aula in vistos:
             continue
+            
+        habilidade = str(row.get(col_habilidade) or "").strip()
+        if not habilidade or habilidade.lower() == "nan" or re.match(r"^-?\s*$", habilidade):
+            # Tenta varredura robusta nas outras colunas
+            for col in df.columns:
+                val = str(row[col]).strip()
+                if val.lower() != "nan" and re.search(r"\b[A-Z]{2,4}\d+[A-Z\d]+\b", val):
+                    habilidade = val
+                    break
+
+        if not habilidade or habilidade.lower() == "nan":
+            continue
+
+        texto_ae = str(row.get(col_ae) or "").strip() if col_ae else ""
+        if not texto_ae or texto_ae.lower() == "nan":
+            # Tenta varredura robusta nas outras colunas
+            for col in df.columns:
+                val = str(row[col]).strip()
+                if val.lower() != "nan" and re.search(r"\bAE\d+\b", val, re.IGNORECASE):
+                    texto_ae = val
+                    break
+
         vistos.add(numero_aula)
         mapa_por_aula.append(
             {

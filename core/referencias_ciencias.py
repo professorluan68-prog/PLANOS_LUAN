@@ -92,6 +92,7 @@ def _finalizar_aula(
     aulas: dict[int, dict[str, Any]],
     disciplina: str = "Ciências",
     turma: str = "",
+    ignorar_legado_check: bool = False,
 ) -> None:
     if not aula:
         return
@@ -99,7 +100,7 @@ def _finalizar_aula(
     numero = _normalizar_numero_aula(aula.get("numero"))
     if not numero:
         return
-    if _referencia_ciencias_esta_no_padrao_legado(aula):
+    if not ignorar_legado_check and _referencia_ciencias_esta_no_padrao_legado(aula):
         return
     if aula.get("metodologia") and len(aula.get("acompanhamento") or []) >= 3 and len(aula.get("acessibilidade") or []) >= 3:
         aulas[numero] = aula
@@ -113,10 +114,14 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     secao = ""
     turma = inferir_turma_de_caminho(caminho_docx)
 
+    # Verifica se o arquivo é considerado um arquivo novo/atualizado pelo nome
+    nome_lower = Path(caminho_docx).name.lower()
+    ignorar_legado_check = any(token in nome_lower for token in ("corrigido", "atualizado", "novo", "2026"))
+
     for texto in paragrafos:
         match_aula = re.match(r"^(?:📘\s*)?AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
-            _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma)
+            _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma, ignorar_legado_check=ignorar_legado_check)
             aula_atual = {
                 "numero": int(match_aula.group(1)),
                 "titulo": _normalizar_espacos(match_aula.group(2)),
@@ -158,7 +163,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             item = texto if texto.startswith("☑") else f"☑ {texto.lstrip('☑ ').strip()}"
             aula_atual[secao].append(_normalizar_espacos(item))
 
-    _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma)
+    _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma, ignorar_legado_check=ignorar_legado_check)
     return aulas
 
 

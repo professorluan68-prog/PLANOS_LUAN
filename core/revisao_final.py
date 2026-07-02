@@ -2,13 +2,14 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from config import BASE_DIR
 
 from core.qualidade_metodologica import extrair_conceito_central
 from core.listas_pedagogicas import (
     itens_lista_pedagogica,
     problemas_lista_exatamente_tres,
 )
-from core.validador_plano import validar_aula_final
+from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
 VERSAO_GERADOR_ATUAL = "1.2.9"
 
@@ -97,17 +98,44 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
         deducoes += 10
         avisos.append(aviso)
 
-    # 6. Atualizar dicionário
-    aula["confidence_score"] = max(0, 100 - deducoes)
+    # 6. Calcular aderência lexical ao PDF (Alerte e puna se < 80%)
+    aderencia, avisos_aderencia = calcular_aderencia_pdf(aula)
+    if avisos_aderencia:
+        # Se for muito baixa, puxamos a nota final pra baixo com força
+        # penalizando 10 pontos fixos + a diferença percentual abaixo de 80
+        penalidade = 10 + (80 - aderencia)
+        deducoes += penalidade
+        avisos.extend(avisos_aderencia)
+
+    # 7. Atualizar dicionário
+    aula["confidence_score"] = int(max(0, 100 - deducoes))
+    
+    # Travar máximo em 75% caso tenha falhado fortemente na aderência
+    if aderencia < 80:
+        aula["confidence_score"] = min(aula["confidence_score"], 75)
+        
     aula["avisos_validacao"] = sorted(list(set(avisos)))
     aula["versao_gerador"] = VERSAO_GERADOR_ATUAL
     aula["perfil"] = perfil
     return aula
 
+def _normalizar_caminho_relativo(caminho) -> str:
+    """Normaliza um caminho absoluto para que seja relativo ao BASE_DIR se possível."""
+    if not caminho:
+        return ""
+    try:
+        caminho_abs = Path(caminho).resolve()
+        base_abs = Path(BASE_DIR).resolve()
+        return str(caminho_abs.relative_to(base_abs))
+    except (ValueError, TypeError, AttributeError):
+        return str(caminho)
+
+
 def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> Path | None:
     """Grava o arquivo JSON do plano de aula ao lado do PDF correspondente contendo metadados de auditoria."""
     if not caminho_pdf:
         return None
+
     try:
         caminho_json = Path(caminho_pdf).with_suffix(".json")
         dados_salvar = {
@@ -123,13 +151,13 @@ def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> P
             "ia_provedor": aula.get("ia_provedor") or "",
             "ia_erro": aula.get("ia_erro") or "",
             "fonte_extracao": aula.get("fonte_extracao") or "pdf",
-            "arquivo_fonte_extracao": aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
+            "arquivo_fonte_extracao": _normalizar_caminho_relativo(aula.get("arquivo_fonte_extracao") or caminho_pdf),
             "hash_fonte_extracao": aula.get("hash_fonte_extracao") or hash_pdf,
             "fonte_principal": aula.get("fonte_principal") or aula.get("fonte_extracao") or "pdf",
-            "arquivo_fonte": aula.get("arquivo_fonte") or aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
+            "arquivo_fonte": _normalizar_caminho_relativo(aula.get("arquivo_fonte") or aula.get("arquivo_fonte_extracao") or caminho_pdf),
             "cache_reutilizado": bool(aula.get("cache_reutilizado", False)),
             "origem_metodologia": aula.get("origem_metodologia") or "",
-            "fonte_referencia_metodologia": aula.get("fonte_referencia_metodologia") or "",
+            "fonte_referencia_metodologia": _normalizar_caminho_relativo(aula.get("fonte_referencia_metodologia") or ""),
             "perfil_metodologico": aula.get("perfil_metodologico") or "",
             "versao_prompt": aula.get("versao_prompt") or "",
             "etapas_detectadas": aula.get("etapas_detectadas") or [],

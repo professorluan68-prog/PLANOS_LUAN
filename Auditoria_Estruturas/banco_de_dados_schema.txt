@@ -1,0 +1,57 @@
+=== SCHEMA DO BANCO DE DADOS (planos_luan.db) ===
+
+Tabela: professores
+DDL:
+CREATE TABLE professores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT UNIQUE NOT NULL
+            )
+----------------------------------------
+
+Tabela: sqlite_sequence
+DDL:
+CREATE TABLE sqlite_sequence(name,seq)
+----------------------------------------
+
+Tabela: professor_turmas
+DDL:
+CREATE TABLE professor_turmas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professor_id INTEGER,
+                disciplina TEXT,
+                turma TEXT,
+                dia_semana TEXT,
+                horario TEXT,
+                aulas_semana TEXT, arquivo_modelo TEXT, componente_curricular TEXT, template_id TEXT,
+                FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
+            )
+----------------------------------------
+
+Tabela: historico_planos
+DDL:
+CREATE TABLE historico_planos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professor_nome TEXT,
+                disciplina TEXT,
+                turma TEXT,
+                data_geracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                arquivo_nome TEXT,
+                arquivo_docx BLOB
+            , bimestre TEXT)
+----------------------------------------
+
+Tabela: configuracoes
+DDL:
+CREATE TABLE configuracoes (
+                chave TEXT PRIMARY KEY,
+                valor TEXT
+            )
+----------------------------------------
+
+Tabela: schema_version
+DDL:
+CREATE TABLE schema_version (versao INTEGER PRIMARY KEY)
+----------------------------------------
+
+
+Análise de Perigos no DB: A tabela historico_planos salva os arquivos BLOB do DOCX inteiro. Isso pode fazer o banco de dados inchar massivamente com o tempo e degradar a performance do SQLite. Solução sugerida: guardar apenas o caminho do arquivo no sistema de arquivos.

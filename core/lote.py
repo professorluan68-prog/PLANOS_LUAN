@@ -192,6 +192,12 @@ def _perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
     }
 
 
+def _perfil_prioriza_docx_sobre_cache_json(perfil: str) -> bool:
+    return perfil in {
+        "ciencias_ef",
+    }
+
+
 def _referencia_docx_sobrescreve_metadados(perfil: str) -> bool:
     return not _perfil_docx_somente_colunas_pedagogicas(perfil)
 
@@ -3383,6 +3389,11 @@ def _aula_por_pdf(
     from core.revisao_final import VERSAO_GERADOR_ATUAL
 
     assinatura_referencia_docx = _assinatura_docx_referencia(caminho_pdf, disciplina, turma)
+    perfil_disciplina_cache = perfil_disciplina(disciplina, turma=turma)
+    priorizar_docx_sobre_cache_json = bool(
+        assinatura_referencia_docx
+        and _perfil_prioriza_docx_sobre_cache_json(perfil_disciplina_cache)
+    )
     hash_contexto_fingerprint = f"{hash_atual}|ref:{assinatura_referencia_docx}" if assinatura_referencia_docx else hash_atual
 
     fingerprint_atual = montar_fingerprint_contexto(
@@ -3399,7 +3410,7 @@ def _aula_por_pdf(
     dados_json_antigos = None
 
     # Verificar cache JSON pré-gerado
-    if caminho_pdf:
+    if caminho_pdf and not priorizar_docx_sobre_cache_json:
         try:
             import json
             from pathlib import Path
@@ -3423,7 +3434,7 @@ def _aula_por_pdf(
                     tema_cache = dados_json.get("tema") or ""
                     material_cache = dados_json.get("material") or Path(caminho_pdf).name
                     numero_cache = dados_json.get("numero_aula") or ""
-                    perfil_cache = perfil_disciplina(disciplina, turma=turma)
+                    perfil_cache = perfil_disciplina_cache
                     referencia_docx_cache = _referencia_docx_por_perfil(
                         caminho_pdf,
                         dados_json.get("numero_aula") or "",

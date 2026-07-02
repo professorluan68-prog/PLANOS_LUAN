@@ -29,6 +29,8 @@ PLANOS_FINALIZADOS_DIR = Path(
     os.getenv("PLANOS_FINALIZADOS_DIR", _padrao_finalizados)
 )
 DB_PATH = BASE_DIR / "planos_luan.db"
+HISTORICO_DOCX_DIR = BASE_DIR / "historico_docx"
+
 
 # Arquivos de dados especificos
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequencia 2026 (1).ods"
@@ -51,4 +53,5 @@ def inicializar_pastas():
     os.makedirs(PLANOS_FINALIZADOS_DIR, exist_ok=True)
     os.makedirs(TEMPLATES_DOCX_DIR, exist_ok=True)
     os.makedirs(PASTA_BACKUP, exist_ok=True)
+    os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
 

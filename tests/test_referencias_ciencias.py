@@ -1,9 +1,13 @@
+import json
+
 from docx import Document
+from core import lote
 from core.referencias_ciencias import (
     localizar_docx_referencia_ciencias,
     referencia_ciencias_por_pdf,
     titulos_referencia_ciencias_por_docx,
 )
+from core.revisao_final import VERSAO_GERADOR_ATUAL
 
 
 def _criar_docx_referencia_ciencias(caminho, incluir_aula_3: bool = True):
@@ -141,3 +145,99 @@ def test_referencia_ciencias_ignora_docx_legado(tmp_path):
     referencia = referencia_ciencias_por_pdf(caminho_pdf, "1", tema="A célula")
 
     assert referencia is None
+
+
+def test_ciencias_prioriza_docx_em_vez_do_cache_json(monkeypatch, tmp_path):
+    caminho_docx = tmp_path / "Metodologias_Ciencias_6_Ano_atualizado.docx"
+    caminho_pdf = tmp_path / "AULA_01 - A célula como unidade básica da vida teoria celular.pdf"
+    _criar_docx_referencia_ciencias(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4 dummy contents")
+
+    caminho_json = caminho_pdf.with_suffix(".json")
+    caminho_json.write_text(
+        json.dumps(
+            {
+                "disciplina": "Ciências",
+                "tema": "Tema antigo em cache",
+                "material": "AULA 1 - Tema antigo em cache",
+                "numero_aula": "1",
+                "aprendizagem": "Aprendizagem antiga do cache.",
+                "metodologia": [{"titulo": "Para começar", "texto": "Texto antigo em cache."}],
+                "acompanhamento": ["Item antigo 1", "Item antigo 2", "Item antigo 3"],
+                "acessibilidade": ["Acesso antigo 1", "Acesso antigo 2", "Acesso antigo 3"],
+                "ia_usada": False,
+                "ia_provedor": "",
+                "ia_erro": "",
+                "versao_gerador": VERSAO_GERADOR_ATUAL,
+                "fingerprint_contexto": "fingerprint-antigo",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        lote,
+        "_preparar_contexto_aula_pdf",
+        lambda **kwargs: {
+            "texto": "Texto da aula de Ciências.",
+            "tema": "A célula como unidade básica da vida teoria celular",
+            "material_digital": "AULA 1 - A célula como unidade básica da vida teoria celular",
+            "numero_aula": "1",
+            "cdp_contextual": False,
+            "disciplina_base": "Ciências",
+            "perfil": "ciencias_ef",
+            "objetivos_orientacao": [],
+            "aprendizagem_orientacao": "",
+            "extracao_pdf": {},
+            "tipo": "regular",
+            "metodologia_fixa_pdf": [],
+            "modalidade_eja_ativa": False,
+            "contexto_metodologico": "regular",
+            "escopo_pv": {},
+            "aprendizagem_pv": "",
+            "fonte_extracao": "pdf",
+            "arquivo_fonte_extracao": str(caminho_pdf),
+        },
+    )
+
+    def _montar_resultado_local_fake(**kwargs):
+        referencia = referencia_ciencias_por_pdf(
+            kwargs["caminho_pdf"],
+            kwargs["numero_aula"],
+            tema=kwargs["tema"],
+        )
+        assert referencia is not None
+        return {
+            "disciplina": "Ciências",
+            "tema": referencia["titulo"],
+            "material": f"AULA 1 - {referencia['titulo']}",
+            "numero_aula": "1",
+            "aprendizagem": "Habilidade de Ciências.",
+            "metodologia": referencia["metodologia"],
+            "acompanhamento": referencia["acompanhamento"],
+            "acessibilidade": referencia["acessibilidade"],
+            "ia_usada": False,
+            "ia_provedor": "",
+            "ia_erro": "",
+            "origem_metodologia": "docx_referencia_ciencias",
+            "fonte_referencia_metodologia": referencia["fonte"],
+            "avisos_validacao": [],
+        }
+
+    monkeypatch.setattr(lote, "_montar_resultado_aula_local", _montar_resultado_local_fake)
+
+    resultado = lote._aula_por_pdf(
+        caminho_pdf=str(caminho_pdf),
+        disciplina="Ciências",
+        turma="6º ANO",
+        bimestre="3º Bimestre",
+        usar_ia=False,
+        provedor_ia="",
+        professor="Luan",
+    )
+
+    assert resultado["tema"] == "A célula"
+    assert resultado["metodologia"][0]["titulo"] == "Para começar"
+    assert resultado["cache_reutilizado"] is False

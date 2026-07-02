@@ -30,3 +30,7 @@ scratch_planilha2.py
 tmp/*
 !tmp/*.py
 EXCLUIR/
+config.toml
+lo_profile_*/
+_tmp_render/
+historico_docx/

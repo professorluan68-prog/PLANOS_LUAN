@@ -292,6 +292,20 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
+def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str) -> list[str]:
+    caminhos_salvos = []
+    try:
+        PLANOS_FINALIZADOS_DIR.mkdir(parents=True, exist_ok=True)
+        for plano in planos_gerados or []:
+            nome_arq = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False))
+            caminho_completo = PLANOS_FINALIZADOS_DIR / nome_arq
+            with open(caminho_completo, "wb") as f:
+                f.write(plano["docx_bytes"].getvalue())
+            caminhos_salvos.append(str(caminho_completo))
+    except Exception as e:
+        st.warning(f"Não foi possível salvar os arquivos localmente em {PLANOS_FINALIZADOS_DIR}: {e}")
+    return caminhos_salvos
+
 
 def _salvar_planos_gerados_se_configurado(
     planos_gerados,
@@ -3146,11 +3160,21 @@ if st.session_state.get("turmas_processadas"):
         st.markdown(f'<div class="review-class-meta">{total_aulas_turma} aula(s) prontas para conferência nesta turma.</div>', unsafe_allow_html=True)
         aulas_edit = []
         for a_idx, aula in enumerate(td["aulas"]):
-            with st.expander(f"Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
+            score = aula.get("confidence_score", 100)
+            if score >= 80:
+                status_emoji = "🟢"
+            elif score >= 60:
+                status_emoji = "🟡"
+            else:
+                status_emoji = "🔴"
+            with st.expander(f"{status_emoji} Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
                 # Alertas de Qualidade e Redundância (Item 13)
-                score = aula.get("confidence_score")
-                if score is not None and score < 70:
-                    st.error(f"⚠️ **Baixo Score de Confiança ({score}%)**: Este plano de aula pode necessitar de ajustes manuais significativos.")
+                if score < 60:
+                    st.error(f"🔴 **Qualidade Crítica ({score}%)**: Este plano possui baixíssima aderência ao PDF ou problemas pedagógicos graves.")
+                elif score < 80:
+                    st.warning(f"🟡 **Qualidade Aceitável ({score}%)**: O plano possui ressalvas ou desvios menores em relação ao PDF.")
+                else:
+                    st.success(f"🟢 **Alta Qualidade ({score}%)**: Plano totalmente aderente e validado.")
                 
                 avisos_val = aula.get("avisos_validacao") or []
                 if avisos_val:
@@ -3309,6 +3333,10 @@ if st.session_state.get("turmas_processadas"):
         for tr in turmas_revisadas:
             planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
         st.session_state["planos_gerados"] = planos_gerados
+        
+        # Salva fisicamente na pasta local de finalizados
+        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+        
         salvou_historico = _salvar_planos_gerados_se_configurado(
             planos_gerados,
             professor,
@@ -3318,8 +3346,48 @@ if st.session_state.get("turmas_processadas"):
         _registrar_mensagem_memoria_plano(salvou_historico)
         st.success("Planos gerados!")
 
+    # Checa se houve alterações na tela após a geração do DOCX
+    alteracoes_detectadas = False
+    if st.session_state.get("planos_gerados"):
+        for tr in turmas_revisadas:
+            plano_gerado = next((p for p in st.session_state["planos_gerados"] if p["turma"] == tr["turma"]), None)
+            if plano_gerado:
+                if len(plano_gerado.get("aulas", [])) != len(tr["aulas"]):
+                    alteracoes_detectadas = True
+                    break
+                for a1, a2 in zip(plano_gerado.get("aulas", []), tr["aulas"]):
+                    if (
+                        a1.get("tema") != a2.get("tema")
+                        or a1.get("aprendizagem") != a2.get("aprendizagem")
+                        or a1.get("acompanhamento") != a2.get("acompanhamento")
+                        or a1.get("acessibilidade") != a2.get("acessibilidade")
+                        or a1.get("metodologia") != a2.get("metodologia")
+                    ):
+                        alteracoes_detectadas = True
+                        break
+            else:
+                alteracoes_detectadas = True
+                break
+
 if st.session_state.get("planos_gerados"):
+    if alteracoes_detectadas:
+        st.warning("⚠️ **Alterações detectadas nos campos da tela!** Os arquivos de download abaixo ainda contêm a versão anterior. Clique no botão abaixo para atualizar os arquivos finais com as suas correções.")
+        if st.button("🔄 ATUALIZAR ARQUIVOS DOCX COM AS CORREÇÕES DA TELA", type="primary"):
+            planos_gerados = []
+            for tr in turmas_revisadas:
+                planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
+            st.session_state["planos_gerados"] = planos_gerados
+            
+            # Salva localmente e no histórico
+            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+            if st.session_state.get("salvar_historico_geracao", False):
+                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina, bimestre)
+            st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
+            st.rerun()
+
     planos_gerados = st.session_state["planos_gerados"]
+    st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{PLANOS_FINALIZADOS_DIR}`")
+    
     mensagem_historico = str(st.session_state.pop("mensagem_historico_planos", "") or "").strip()
     mensagem_historico_tipo = str(st.session_state.pop("mensagem_historico_planos_tipo", "") or "").strip()
     if mensagem_historico:

@@ -1,8 +1,11 @@
+import os
+from pathlib import Path
 from core import database
 
 
 def _preparar_banco(monkeypatch, tmp_path):
     monkeypatch.setattr(database, "DB_PATH", tmp_path / "planos_teste.db")
+    monkeypatch.setattr(database, "HISTORICO_DOCX_DIR", tmp_path / "historico_docx")
     database.init_db()
 
 
@@ -14,26 +17,26 @@ def test_init_db_cria_indices_e_remove_historico_incompleto(monkeypatch, tmp_pat
         cursor.execute(
             """
             INSERT INTO historico_planos
-            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx)
+            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "valido.docx", b"ok"),
+            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "valido.docx", "valido.docx"),
         )
         cursor.execute(
             """
             INSERT INTO historico_planos
-            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx)
+            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:01", "", b"ok"),
+            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:01", "", "sem_nome.docx"),
         )
         cursor.execute(
             """
             INSERT INTO historico_planos
-            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx)
+            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:02", "sem_blob.docx", b""),
+            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:02", "sem_path.docx", ""),
         )
         conn.commit()
 
@@ -59,18 +62,18 @@ def test_listar_historico_planos_tem_ordem_estavel_por_id(monkeypatch, tmp_path)
         cursor.execute(
             """
             INSERT INTO historico_planos
-            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx)
+            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "primeiro.docx", b"1"),
+            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "primeiro.docx", "primeiro.docx"),
         )
         cursor.execute(
             """
             INSERT INTO historico_planos
-            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx)
+            (professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "segundo.docx", b"2"),
+            ("ANA", "Matematica", "6 ANO A", "2026-06-05 10:00:00", "segundo.docx", "segundo.docx"),
         )
         conn.commit()
 
@@ -94,11 +97,14 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
     with database.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT professor_nome, disciplina, turma, bimestre, arquivo_nome, LENGTH(arquivo_docx) FROM historico_planos"
+            "SELECT professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_path FROM historico_planos"
         )
         row = cursor.fetchone()
 
-    assert row == ("ANA", "Matematica", "6 ANO A", "3º BIMESTRE", "plano.docx", 4)
+    assert row[0:5] == ("ANA", "Matematica", "6 ANO A", "3º BIMESTRE", "plano.docx")
+    assert row[5] != ""
+    assert (tmp_path / "historico_docx" / row[5]).exists()
+    assert (tmp_path / "historico_docx" / row[5]).read_bytes() == b"docx"
 
 
 def test_salvar_historico_plano_retencao_limite(monkeypatch, tmp_path):
@@ -119,12 +125,26 @@ def test_salvar_historico_plano_retencao_limite(monkeypatch, tmp_path):
     # Listar todos os planos no banco
     with database.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT arquivo_nome FROM historico_planos ORDER BY id")
-        arquivos = [row[0] for row in cursor.fetchall()]
+        cursor.execute("SELECT arquivo_nome, arquivo_path FROM historico_planos ORDER BY id")
+        rows = cursor.fetchall()
+
+    arquivos = [row[0] for row in rows]
+    caminhos = [row[1] for row in rows]
 
     # Deve conter exatamente 5 arquivos, os mais recentes (plano_3 a plano_7)
     assert len(arquivos) == 5
     assert arquivos == ["plano_3.docx", "plano_4.docx", "plano_5.docx", "plano_6.docx", "plano_7.docx"]
+    
+    # Verifica que os arquivos físicos dos deletados (plano_1 e plano_2) foram removidos
+    # e os dos remanescentes existem
+    for i in range(1, 3):
+        # Como o nome final contém o timestamp, procuramos na pasta
+        exists = any(f"plano_{i}.docx" in f.name for f in (tmp_path / "historico_docx").glob("*"))
+        assert not exists, f"Arquivo plano_{i}.docx nao deveria existir fisicamente"
+        
+    for i in range(3, 8):
+        exists = any(f"plano_{i}.docx" in f.name for f in (tmp_path / "historico_docx").glob("*"))
+        assert exists, f"Arquivo plano_{i}.docx deveria existir fisicamente"
 
 
 def test_salvar_historico_plano_retencao_respeita_bimestre(monkeypatch, tmp_path):
@@ -190,7 +210,7 @@ def test_verificar_plano_gerado_por_outro_professor_filtra_bimestre(monkeypatch,
         "BIA",
         "Historia",
         "8 ANO A",
-        bimestre="3º BIMESTRE",
+        "3º BIMESTRE",
     )
 
     assert len(outros) == 1
