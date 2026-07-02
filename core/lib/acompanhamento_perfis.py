@@ -588,6 +588,12 @@ def _acompanhamento_ciencias(tema: str, aprendizagem: str, desenvolvimento: str)
             "☑ Observar se utilizam registros anteriores, esquemas ou respostas ja produzidas para revisar explicacoes e corrigir duvidas.",
             "☑ Acompanhar os registros, identificando quais relacoes cientificas ja foram consolidadas e quais ainda precisam de reforco conceitual.",
         ]
+    if tipo == "conceito_novo":
+        return [
+            f"☑ Verificar se os estudantes identificam as ideias centrais de {tema} e relacionam a explicacao da aula as imagens, exemplos ou perguntas iniciais do material.",
+            "☑ Observar se utilizam vocabulario cientifico ao nomear estruturas, caracteristicas, principios ou etapas discutidos ao longo da aula.",
+            "☑ Acompanhar os registros, conferindo se explicam o conceito estudado com base nas evidencias observadas e nas comparacoes propostas.",
+        ]
     return [
         "☑ Verificar se os estudantes compreendem o conceito cientifico central e conseguem relaciona-lo a exemplos do cotidiano.",
         "☑ Observar a participacao no Pause e responda, considerando justificativas e correcao dialogada.",

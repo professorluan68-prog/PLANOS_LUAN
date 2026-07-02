@@ -221,6 +221,21 @@ def test_reutiliza_blocos_vazios_quando_datas_vem_como_texto():
         "22/06 a 26/06",
         "29/06 a 03/07",
     ]
+
+
+def test_docx_preserva_tecnica_em_maiúsculas_e_entre_aspas():
+    aula = _aula("05/06", "Aula com tecnica")
+    aula["metodologia"] = [
+        {
+            "titulo": "Na pratica",
+            "texto": "Atividade 1: Aplicando TODO MUNDO ESCREVE, orientar o registro individual das respostas no caderno.",
+        }
+    ]
+
+    doc = _gerar([aula])
+    texto = "\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+
+    assert "“TODO MUNDO ESCREVE”" in texto
     assert all(len(doc.tables[i].rows) == 2 for i in range(1, len(doc.tables), 2))
 
 

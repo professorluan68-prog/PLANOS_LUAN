@@ -599,6 +599,12 @@ def _acessibilidade_ciencias(tema: str, aprendizagem: str, desenvolvimento: str)
             "☑ Disponibilizar quadro de palavras-chave e relacoes centrais do fenomeno para consulta durante a retomada.",
             "☑ Organizar pares de apoio para comparar respostas, revisar justificativas e retificar duvidas antes da correcao coletiva.",
         ]
+    if tipo == "conceito_novo":
+        return [
+            f"☑ Realizar observacao guiada de imagens, esquemas ou exemplos ligados a {tema}, nomeando oralmente os elementos principais antes do registro individual.",
+            "☑ Registrar no quadro palavras-chave, perguntas orientadoras e relacoes centrais para apoiar a leitura e a organizacao das respostas.",
+            "☑ Permitir resposta em topicos, legenda, desenho identificado ou explicacao oral mediada antes da escrita completa.",
+        ]
     return [
         "☑ Utilizar imagens, esquemas, tabelas e exemplos do cotidiano para tornar o conceito cientifico mais concreto.",
         "☑ Organizar o registro em etapas curtas: hipotese inicial, conceito estudado, evidencia observada e sintese final.",

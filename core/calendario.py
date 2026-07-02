@@ -92,6 +92,19 @@ def ultimo_dia_do_mes(ano: int, mes: int) -> date:
     return date(ano, mes + 1, 1) - timedelta(days=1)
 
 
+def inicio_periodo_mes_com_antecipacao(ano: int, mes: int, antecipacao: int = 0) -> date:
+    """
+    antecipacao:
+    0 = iniciar no primeiro dia do mes
+    1 = incluir a semana letiva que antecede o inicio do mes, abrindo o
+        periodo na segunda-feira da semana em que cai o dia 1
+    """
+    primeiro = date(ano, mes, 1)
+    if antecipacao <= 0:
+        return primeiro
+    return primeiro - timedelta(days=primeiro.weekday() + (7 * (antecipacao - 1)))
+
+
 def fim_periodo_mes_com_extensao(ano: int, mes: int, extensao: int = 0) -> date:
     """
     extensao:

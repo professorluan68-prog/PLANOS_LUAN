@@ -23,12 +23,12 @@ from core.qualidade_metodologica import (
 
 
 DESTAQUES_TEXTO = {
-    "VIREM E CONVERSEM": "Virem e conversem",
-    "TODO MUNDO ESCREVE": "Todo mundo escreve",
-    "COM SUAS PALAVRAS": "Com suas palavras",
-    "HORA DA LEITURA": "Hora da leitura",
-    "DE OLHO NO MODELO": "De olho no modelo",
-    "UM PASSO DE CADA VEZ": "Um passo de cada vez",
+    "VIREM E CONVERSEM": "VIREM E CONVERSEM",
+    "TODO MUNDO ESCREVE": "TODO MUNDO ESCREVE",
+    "COM SUAS PALAVRAS": "COM SUAS PALAVRAS",
+    "HORA DA LEITURA": "HORA DA LEITURA",
+    "DE OLHO NO MODELO": "DE OLHO NO MODELO",
+    "UM PASSO DE CADA VEZ": "UM PASSO DE CADA VEZ",
     "LISTEN AND REPEAT": "Listen and repeat",
     "WRITE AND SHARE": "Write and share",
     "SAY IT IN ENGLISH": "Say it in English",
@@ -312,6 +312,19 @@ def _polir_texto_docx(texto: str) -> str:
         re.sub(r"[ \t\r\f\v]+", " ", linha).strip()
         for linha in texto_final.splitlines()
     ).strip()
+    for tecnica in DESTAQUES_TEXTO.keys():
+        texto_final = re.sub(
+            rf"\(\s*{re.escape(tecnica)}\s*\)",
+            f"“{tecnica}”",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            rf"(?<![\"“])\b{re.escape(tecnica)}\b(?![\"”])",
+            f"“{tecnica}”",
+            texto_final,
+            flags=re.I,
+        )
     texto_final = re.sub(r"\bde o conceito\b", "do conceito", texto_final, flags=re.I)
     texto_final = re.sub(r"\b1o\b", "1º", texto_final, flags=re.I)
     texto_final = re.sub(r"\b1\s*o\s+grau\b", "1º grau", texto_final, flags=re.I)

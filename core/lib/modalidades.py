@@ -1,5 +1,39 @@
+import re
+
 from core.eja.adaptador_eja import adaptar_metodologia_eja
 from core.lib.classificador import normalizar_texto
+
+
+_TECNICAS_PADRONIZADAS = [
+    "VIREM E CONVERSEM",
+    "TODO MUNDO ESCREVE",
+    "COM SUAS PALAVRAS",
+    "HORA DA LEITURA",
+    "DE OLHO NO MODELO",
+    "PAUSE E RESPONDA",
+    "UM PASSO DE CADA VEZ",
+    "LISTEN AND REPEAT",
+    "WRITE AND SHARE",
+    "SAY IT IN ENGLISH",
+]
+
+
+def _padronizar_citacoes_tecnicas(texto: str) -> str:
+    texto_final = str(texto or "")
+    for tecnica in _TECNICAS_PADRONIZADAS:
+        texto_final = re.sub(
+            rf"\(\s*{re.escape(tecnica)}\s*\)",
+            f"“{tecnica}”",
+            texto_final,
+            flags=re.I,
+        )
+        texto_final = re.sub(
+            rf"(?<![\"“])\b{re.escape(tecnica)}\b(?![\"”])",
+            f"“{tecnica}”",
+            texto_final,
+            flags=re.I,
+        )
+    return texto_final
 
 
 def _acrescimo_generico_para_tecnica(tecnica: str, titulo: str) -> str:
@@ -118,7 +152,12 @@ def garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str])
             faltantes.append(tecnica)
 
     if not faltantes:
-        return metodologia
+        return [
+            {**item, "texto": _padronizar_citacoes_tecnicas(str(item.get("texto", "")).strip())}
+            if isinstance(item, dict)
+            else _padronizar_citacoes_tecnicas(str(item))
+            for item in metodologia
+        ]
 
     for item in metodologia:
         if not isinstance(item, dict):
@@ -179,6 +218,8 @@ def garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str])
             if normalizar_texto(acrescimo) not in normalizar_texto(texto):
                 novo_item["texto"] = f"{texto}{acrescimo}".strip()
 
+        if isinstance(novo_item, dict):
+            novo_item["texto"] = _padronizar_citacoes_tecnicas(str(novo_item.get("texto", "")).strip())
         metodologia_ajustada.append(novo_item)
 
     if faltantes:
@@ -212,7 +253,16 @@ def garantir_tecnicas_lemov_na_metodologia(metodologia, tecnicas_pdf: list[str])
                     acrescimo = _acrescimo_generico_para_tecnica(tecnica, titulo)
                 if normalizar_texto(acrescimo) not in normalizar_texto(texto):
                     item["texto"] = f"{texto}{acrescimo}".strip()
+                item["texto"] = _padronizar_citacoes_tecnicas(str(item.get("texto", "")).strip())
                 if not faltantes:
                     break
 
-    return metodologia_ajustada
+    resultado = []
+    for item in metodologia_ajustada:
+        if isinstance(item, dict):
+            novo_item = dict(item)
+            novo_item["texto"] = _padronizar_citacoes_tecnicas(str(novo_item.get("texto", "")).strip())
+            resultado.append(novo_item)
+        else:
+            resultado.append(_padronizar_citacoes_tecnicas(str(item)))
+    return resultado

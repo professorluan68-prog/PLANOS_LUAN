@@ -244,6 +244,79 @@ def test_motor_ciencias_conceito_novo_nao_usa_fallback_generico_de_comparacao():
     assert "distinguir termos proximos" not in texto
 
 
+def test_motor_ciencias_aula_inicial_expande_foco_e_numera_atividade():
+    etapas = MotorMetodologico().gerar(
+        texto_pdf=(
+            "Introducao a celula; Teoria celular; Seres unicelulares e pluricelulares.\n"
+            "Para comecar\n"
+            "VIREM E CONVERSEM 5 minutos\n"
+            "Analise a imagem inicial da aula.\n"
+            "Foco no conteudo\n"
+            "A teoria celular\n"
+            "Explicacao sobre Robert Hooke e a descoberta das celulas.\n"
+            "Foco no conteudo\n"
+            "Os pilares da teoria celular\n"
+            "Apresentacao dos tres pilares.\n"
+            "Na pratica\n"
+            "TODO MUNDO ESCREVE\n"
+            "Compare as imagens e registre o que os seres vivos tem em comum.\n"
+        ),
+        disciplina="Ciencias",
+        turma="6 ano A",
+        tema="A célula como unidade básica da vida",
+    )
+
+    por_titulo = {etapa["titulo"]: etapa["texto"] for etapa in etapas}
+    texto_foco = por_titulo["Foco no conteudo"].lower()
+    texto_pratica = por_titulo["Na pratica"]
+
+    assert "“VIREM E CONVERSEM”" in por_titulo["Para comecar"]
+    assert "pilares da teoria celular" in texto_foco
+    assert "unicelulares" in texto_foco
+    assert texto_pratica.startswith("Atividade 1:")
+    assert "“TODO MUNDO ESCREVE”" in texto_pratica
+
+
+def test_motor_ciencias_prioriza_texto_extraido_antes_da_cauda_legada_do_pdf():
+    class ExtratorStub:
+        def extrair(self, texto_pdf, tema):
+            return {
+                "conceito_extraido": "a teoria celular e a célula como unidade básica da vida",
+                "atividade_extraida": "comparar seres unicelulares e pluricelulares com base nas imagens da aula",
+                "recursos_detectados": ["imagem"],
+                "etapas_detectadas": ["Para começar", "Foco no conteúdo", "Na prática"],
+                "habilidade": "",
+                "texto_prioritario": (
+                    "Para começar. Observe a imagem inicial da aula e levante hipoteses sobre a menor unidade dos seres vivos. "
+                    "Foco no conteudo com explicacao da teoria celular e comparacao entre seres unicelulares e pluricelulares. "
+                    "Na pratica, registre as caracteristicas observadas."
+                ),
+            }
+
+    motor = MotorMetodologico()
+    motor.extrator = ExtratorStub()
+
+    etapas = motor.gerar(
+        texto_pdf=(
+            "Para começar. Observe a imagem inicial da aula e levante hipoteses sobre a menor unidade dos seres vivos. "
+            "Foco no conteudo com explicacao da teoria celular. "
+            "Referencias. Revisao tecnica do material. Consolidar as aprendizagens no caderno de exercicios."
+        ),
+        disciplina="Ciencias",
+        turma="6 ano A",
+        tema="A célula como unidade básica da vida",
+    )
+
+    titulos = [etapa["titulo"] for etapa in etapas]
+    texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+
+    assert "Relembre" not in titulos
+    assert "Para comecar" in titulos
+    assert "Foco no conteudo" in titulos
+    assert "teoria celular" in texto
+    assert "conceitos ja estudados" not in texto
+
+
 def test_motor_ciencias_ignora_fragmentos_brutos_do_pdf_em_conceito_e_atividade():
     etapas = MotorMetodologico().gerar(
         texto_pdf=(

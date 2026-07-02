@@ -2,10 +2,102 @@ from core.lib.classificador import normalizar_texto, contem_termos
 import re
 from core.qualidade_metodologica import corrigir_mojibake, extrair_conceito_central, limitar_texto_natural
 
+
+def _tecnica_em_aspas(tecnica: str) -> str:
+    return f'“{str(tecnica or "").strip().upper()}”'
+
+
+def _listar_topicos_curta(topicos: list[str]) -> str:
+    itens = [str(item or "").strip() for item in topicos if str(item or "").strip()]
+    if not itens:
+        return ""
+    if len(itens) == 1:
+        return itens[0]
+    if len(itens) == 2:
+        return f"{itens[0]} e {itens[1]}"
+    return f"{', '.join(itens[:-1])} e {itens[-1]}"
+
+
+def _topico_foco_ciencias_valido(texto: str) -> str:
+    candidato = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip(" .;:-"))
+    base = normalizar_texto(candidato)
+    if not candidato or len(candidato) < 4 or len(candidato) > 90:
+        return ""
+    if any(
+        marcador in base
+        for marcador in [
+            "produzido pela",
+            "disponivel em",
+            "ensino fundamental",
+            "anos finais",
+            "aula ",
+            "bimestre",
+            "minutos",
+            "para comecar",
+            "foco no conteudo",
+            "pause e responda",
+            "na pratica",
+            "encerramento",
+            "referencias",
+        ]
+    ):
+        return ""
+    if re.match(r"^\d+\s*o?\s*pilar da teoria celular\b", base):
+        return ""
+    if re.search(r"https?://|\d+\s*minutos?", candidato, flags=re.I):
+        return ""
+    return candidato
+
+
+def _topicos_complementares_foco_ciencias(texto_base: str, tema: str, conceito: str) -> list[str]:
+    linhas = [linha.strip() for linha in corrigir_mojibake(str(texto_base or "")).splitlines() if linha.strip()]
+    topicos: list[str] = []
+    vistos: set[str] = set()
+    conceito_norm = normalizar_texto(" ".join([tema, conceito]))
+
+    def adicionar(candidato: str) -> None:
+        topico = _topico_foco_ciencias_valido(candidato)
+        if not topico:
+            return
+        topico_norm = normalizar_texto(topico)
+        if topico_norm and (topico_norm in conceito_norm or conceito_norm in topico_norm):
+            return
+        for existente in list(topicos):
+            existente_norm = normalizar_texto(existente)
+            if topico_norm == existente_norm:
+                return
+            if topico_norm in existente_norm:
+                return
+            if existente_norm in topico_norm:
+                topicos.remove(existente)
+                vistos.discard(existente_norm)
+        vistos.add(topico_norm)
+        topicos.append(topico)
+
+    for indice, linha in enumerate(linhas):
+        linha_norm = normalizar_texto(linha)
+        if linha_norm == "foco no conteudo":
+            for proxima in linhas[indice + 1: indice + 4]:
+                if normalizar_texto(proxima) != "foco no conteudo":
+                    adicionar(proxima)
+                    break
+        if "seres unicelulares e pluricelulares" in linha_norm:
+            adicionar("seres unicelulares e pluricelulares")
+        elif "seres unicelulares e" in linha_norm and indice + 1 < len(linhas):
+            proxima_norm = normalizar_texto(linhas[indice + 1])
+            if "pluricelulares" in proxima_norm:
+                adicionar("seres unicelulares e pluricelulares")
+        elif "seres unicelulares" in linha_norm:
+            adicionar("seres unicelulares")
+
+    return topicos[:3]
+
+
 def _atividade_ciencias_segura(atividade_extraida: str, tema: str) -> str:
     tema_base = _tema_base_ciencias(tema)
     fallback = f'atividades propostas no material, articuladas ao tema "{tema_base}"'
     atividade_limpa = corrigir_mojibake(str(atividade_extraida or "")).strip()
+    atividade_limpa = re.sub(r"^\d+\s*minutos?\s*", "", atividade_limpa, flags=re.I)
     atividade_limpa = re.sub(
         r"^(?:atividade\s*\d+|correcao|hora da leitura|na pratica|situacao-problema)\s*[:\-]?\s*",
         "",
@@ -106,7 +198,10 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
     if any(k in base for k in ["inpe", "ibge", "detran", "fapesp", "jornal da usp", "g1", "cnn", "onu", "anvisa", "fiocruz"]):
         contexto = "o dado ou a fonte real apresentada no material"
         fonte_dados = "a fonte real e os dados apresentados no material"
-    elif any(k in base for k in ["sao paulo", "cantareira", "aricanduva", "praca da se", "goiania", "brasil"]):
+    elif (
+        any(k in base for k in ["sao paulo", "cantareira", "aricanduva", "praca da se", "goiania", "brasil"])
+        and any(k in base for k in ["municipio", "cidade", "estado", "bacia", "rio", "territorio", "clima", "tempo", "ambiente"])
+    ):
         contexto = "o exemplo local ou brasileiro apresentado no material"
     if any(k in base for k in ["modelo tridimensional", "modelo celular", "maquete", "representacao tridimensional"]):
         recurso_visual = "o modelo cientifico ou a representacao construida no material"
@@ -114,6 +209,50 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
         recurso_visual = "a imagem, o esquema, o mapa ou o modelo apresentado no material"
     if any(k in base for k in ["anemometro", "barometro", "pluviometro", "termometro", "umidade relativa", "estacao meteorologica"]):
         fonte_dados = "os instrumentos e as medidas apresentados no material"
+
+    if tipo == "conceito_novo":
+        disparador_inicial = "a pergunta inicial, a imagem ou o exemplo apresentado no material"
+        tecnicas_abertura = []
+        if "virem e conversem" in base:
+            tecnicas_abertura.append(_tecnica_em_aspas("VIREM E CONVERSEM"))
+        if any(k in base for k in ["analise a imagem", "observe a imagem", "imagem", "esquema", "microscopio"]):
+            disparador_inicial = "a imagem inicial e os esquemas apresentados no material"
+        prefixo_para_comecar = ""
+        if tecnicas_abertura:
+            prefixo_para_comecar = f"Aplicar o {tecnicas_abertura[0]}: "
+        topicos_complementares = _topicos_complementares_foco_ciencias(texto_base, tema_base, conceito_seguro)
+        complemento_foco = ""
+        if topicos_complementares:
+            complemento_foco = (
+                f" Explicar também, de forma breve, os conteúdos que aparecem na sequência do material, como "
+                f"{_listar_topicos_curta(topicos_complementares).lower()}."
+            )
+        prefixo_pratica = "Atividade 1: "
+        if "todo mundo escreve" in base:
+            prefixo_pratica += f'Aplicando {_tecnica_em_aspas("TODO MUNDO ESCREVE")}, '
+        return {
+            "para_comecar": (
+                f"{prefixo_para_comecar}apresentar {disparador_inicial} para mobilizar conhecimentos previos e levantar hipoteses sobre {tema}, "
+                "sem antecipar a resposta antes da observacao e da conversa inicial da turma."
+            ),
+            "foco": (
+                f"Explicar {conceito_seguro}, destacando definicoes, principios basicos, vocabulario cientifico e exemplos "
+                "observados no material para que a turma compreenda como o conceito aparece nos seres vivos, estruturas ou processos estudados."
+                f"{complemento_foco}"
+            ),
+            "pause": (
+                "Realizar uma pausa de verificacao com pergunta objetiva ou associacao entre conceito e exemplo, corrigindo "
+                "coletivamente duvidas antes da atividade principal."
+            ),
+            "pratica": (
+                f"{prefixo_pratica}orientar a comparacao, classificacao ou registro solicitado no material, pedindo que os estudantes utilizem "
+                f"imagens, esquemas e evidencias observadas para explicar {tema} com clareza, a partir da proposta do material: {atividade}."
+            ),
+            "encerramento": (
+                f"Encerrar retomando as ideias construidas ao longo da aula e solicitar uma sintese curta sobre o que permite "
+                f"reconhecer, explicar ou diferenciar em {tema}."
+            ),
+        }
 
     if tipo == "analise_dados":
         return {

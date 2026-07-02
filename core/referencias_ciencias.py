@@ -8,6 +8,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from core.padrao_mestre_metodologia import (
+    extrair_paragrafos_docx,
+    inferir_turma_de_caminho,
+    normalizar_referencia_pedagogica,
+)
+
 
 def _normalizar_espacos(texto: str) -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
@@ -60,24 +66,40 @@ def _normalizar_numero_aula(valor: Any) -> int:
 
 
 def _paragrafos_docx(caminho_docx: str) -> list[str]:
-    try:
-        from docx import Document
-    except Exception:
-        return []
-
-    try:
-        doc = Document(caminho_docx)
-    except Exception:
-        return []
-
-    return [_normalizar_espacos(paragrafo.text) for paragrafo in doc.paragraphs if _normalizar_espacos(paragrafo.text)]
+    return [_normalizar_espacos(paragrafo) for paragrafo in extrair_paragrafos_docx(caminho_docx) if _normalizar_espacos(paragrafo)]
 
 
-def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[int, dict[str, Any]]) -> None:
+def _referencia_ciencias_esta_no_padrao_legado(referencia: dict[str, Any]) -> bool:
+    metodologia = " ".join(item.get("texto", "") for item in referencia.get("metodologia") or [])
+    acompanhamento = " ".join(referencia.get("acompanhamento") or [])
+    acessibilidade = " ".join(referencia.get("acessibilidade") or [])
+    texto = _normalizar_busca(" ".join([metodologia, acompanhamento, acessibilidade]))
+
+    sinais = 0
+    if "conceito cientifico central" in texto and "sintese propria" in texto:
+        sinais += 1
+    if "utilizar imagens esquemas tabelas" in texto and "permitir diferentes formas de resposta" in texto:
+        sinais += 1
+    if "realizar um breve quiz" in texto or "realizar a atividade de verificar a compreensao" in texto:
+        sinais += 1
+    if "aplicar o virem e conversem" in texto and "realizar a atividade" in texto:
+        sinais += 1
+    return sinais >= 2
+
+
+def _finalizar_aula(
+    aula: dict[str, Any] | None,
+    aulas: dict[int, dict[str, Any]],
+    disciplina: str = "Ciências",
+    turma: str = "",
+) -> None:
     if not aula:
         return
+    aula = normalizar_referencia_pedagogica(aula, disciplina=disciplina, turma=turma)
     numero = _normalizar_numero_aula(aula.get("numero"))
     if not numero:
+        return
+    if _referencia_ciencias_esta_no_padrao_legado(aula):
         return
     if aula.get("metodologia") and len(aula.get("acompanhamento") or []) >= 3 and len(aula.get("acessibilidade") or []) >= 3:
         aulas[numero] = aula
@@ -89,11 +111,12 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     aulas: dict[int, dict[str, Any]] = {}
     aula_atual: dict[str, Any] | None = None
     secao = ""
+    turma = inferir_turma_de_caminho(caminho_docx)
 
     for texto in paragrafos:
         match_aula = re.match(r"^(?:📘\s*)?AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
         if match_aula:
-            _finalizar_aula(aula_atual, aulas)
+            _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma)
             aula_atual = {
                 "numero": int(match_aula.group(1)),
                 "titulo": _normalizar_espacos(match_aula.group(2)),
@@ -135,7 +158,7 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             item = texto if texto.startswith("☑") else f"☑ {texto.lstrip('☑ ').strip()}"
             aula_atual[secao].append(_normalizar_espacos(item))
 
-    _finalizar_aula(aula_atual, aulas)
+    _finalizar_aula(aula_atual, aulas, disciplina="Ciências", turma=turma)
     return aulas
 
 

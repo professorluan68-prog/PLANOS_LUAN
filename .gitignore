@@ -22,6 +22,7 @@ cloud_env.bat
 uninstaller.exe
 supercloud-16x16.ico
 _qa_docx_plano_9ano/
+_tmp_render/
 planilha_*_ANO.txt
 planilhas_saida.txt
 scratch_planilha.py

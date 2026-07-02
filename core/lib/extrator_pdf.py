@@ -196,6 +196,12 @@ _SECOES_PARADA = {
     "producao textual",
     "revisao e fechamento",
 }
+_MARCADORES_FIM_BLOCO = {
+    "referencias",
+    "para professores",
+    "aprofundamento",
+    "identidade visual",
+}
 
 _FINAIS_TRUNCADOS_HABILIDADE = {
     "a", "as", "o", "os", "de", "da", "do", "das", "dos", "e", "em", "com", "para", "por", "que",
@@ -209,7 +215,15 @@ def _normalizar_rotulo_secao(texto: str) -> str:
 def _linha_secao(linha: str, nome_secao: str) -> bool:
     base = _normalizar_texto(linha).strip(" :-")
     alvo = _normalizar_texto(nome_secao).strip(" :-")
-    return base == alvo
+    if base == alvo:
+        return True
+    return bool(
+        re.match(
+            rf"^{re.escape(alvo)}(?:\s*[:\-])?(?:\s+\d+\s*minutos?)?$",
+            base,
+            flags=re.I,
+        )
+    )
 
 
 def _extrair_bloco_apos_secao(linhas: list[str], nome_secao: str, limite_linhas: int = 14) -> list[str]:
@@ -320,7 +334,13 @@ def extrair_secao(linhas: list[str], inicio: str, paradas: set[str] | None = Non
             coletando = True
             continue
 
-        if coletando and normalizada in paradas:
+        if coletando and any(_linha_secao(linha, parada) for parada in paradas):
+            break
+
+        if coletando and any(
+            normalizada == marcador or normalizada.startswith(f"{marcador} ")
+            for marcador in _MARCADORES_FIM_BLOCO
+        ):
             break
 
         if coletando and not _trecho_descartavel(linha):
@@ -618,7 +638,8 @@ class ExtratorPDF:
         }
         encontradas = []
         for linha in linhas:
-            normalizada = _normalizar_rotulo_secao(linha)
-            if normalizada in etapas_conhecidas:
-                encontradas.append(normalizada)
+            for etapa in etapas_conhecidas:
+                if _linha_secao(linha, etapa):
+                    encontradas.append(etapa)
+                    break
         return encontradas

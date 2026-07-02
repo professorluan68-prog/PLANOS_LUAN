@@ -71,6 +71,7 @@ AULAS_SEMANA_OPCOES = ["(selecione)"] + [str(i) for i in range(1, 26)]
 
 EXTENSAO_MES_OPCOES = [
     "Somente o mês",
+    "Adicionar uma semana do mês anterior",
     "Completar a última semana",
     "Completar a última semana + 1 semana",
     "Completar a última semana + 2 semanas",
@@ -78,7 +79,16 @@ EXTENSAO_MES_OPCOES = [
 
 EXTENSAO_MES_VALORES = {
     "Somente o mês": 0,
+    "Adicionar uma semana do mês anterior": 0,
     "Completar a última semana": 1,
     "Completar a última semana + 1 semana": 2,
     "Completar a última semana + 2 semanas": 3,
+}
+
+EXTENSAO_MES_ANTECIPACOES = {
+    "Somente o mês": 0,
+    "Adicionar uma semana do mês anterior": 1,
+    "Completar a última semana": 0,
+    "Completar a última semana + 1 semana": 0,
+    "Completar a última semana + 2 semanas": 0,
 }

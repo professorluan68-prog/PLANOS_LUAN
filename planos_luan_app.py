@@ -64,6 +64,7 @@ from core.constantes import (
     MESES,
     DIAS_SEMANA_CADASTRO,
     AULAS_SEMANA_OPCOES,
+    EXTENSAO_MES_ANTECIPACOES,
     EXTENSAO_MES_OPCOES,
     EXTENSAO_MES_VALORES,
 )
@@ -142,6 +143,7 @@ from core.calendario import (
     datas_sem_aula_padrao as _datas_sem_aula_padrao,
     datas_por_dia_ate_limite as _datas_por_dia_ate_limite,
     fim_periodo_mes_com_extensao as _fim_periodo_mes_com_extensao,
+    inicio_periodo_mes_com_antecipacao as _inicio_periodo_mes_com_antecipacao,
     filtrar_datas_sem_aula as _filtrar_datas_sem_aula,
     rotulo_data_sem_aula as _rotulo_data_sem_aula,
 )
@@ -316,12 +318,12 @@ def _registrar_mensagem_memoria_plano(salvou_historico: bool) -> None:
     if salvou_historico:
         st.session_state["mensagem_historico_planos_tipo"] = "success"
         st.session_state["mensagem_historico_planos"] = (
-            "Plano salvo no histórico. A memória do sistema foi atualizada e o próximo plano pode continuar da próxima aula."
+            "Plano salvo no histórico. Os próximos planos continuarão começando pela Aula 1."
         )
     else:
         st.session_state["mensagem_historico_planos_tipo"] = "info"
         st.session_state["mensagem_historico_planos"] = (
-            "Plano gerado sem salvar no histórico. A memória da última aula foi mantida como está."
+            "Plano gerado sem salvar no histórico."
         )
 
 
@@ -1017,6 +1019,201 @@ def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto:
                 label_visibility="collapsed",
             )
         horario = _montar_horario_flexivel(turno, aulas)
+def _prefixo_turno(contexto: str) -> str:
+    texto = _normalizar_texto_simples(contexto)
+    if "NOITE" in texto or "NOTURNO" in texto:
+        return "19"
+    if "TARDE" in texto:
+        return "13"
+    return "07"
+
+def _partes_horario_config(texto: str) -> list[str]:
+    texto = str(texto or "").strip()
+    if not texto:
+        return []
+    partes = [parte.strip() for parte in re.split(r"[;\n]+", texto) if parte.strip()]
+    if len(partes) == 1:
+        partes = [parte.strip() for parte in re.split(r",\s*(?=\d{1,2}h)", texto, flags=re.I) if parte.strip()]
+    return partes
+
+
+def _resumo_grade_cadastrada(config: dict | None) -> str:
+    if not config:
+        return ""
+    dias = _partes_dia_config(str((config or {}).get("dia_semana") or ""))
+    horarios = _partes_horario_config(str((config or {}).get("horario") or ""))
+    aulas_semana = str((config or {}).get("aulas_semana") or "").strip()
+
+    grade = []
+    total = max(len(dias), len(horarios))
+    for idx in range(total):
+        dia = dias[idx] if idx < len(dias) else ""
+        horario = horarios[idx] if idx < len(horarios) else ""
+        if dia and horario:
+            grade.append(f"{dia}: {horario}")
+        elif dia:
+            grade.append(dia)
+        elif horario:
+            grade.append(horario)
+
+    prefixo = f"{aulas_semana} aula(s) na semana" if aulas_semana else "Grade cadastrada"
+    if grade:
+        return f"{prefixo} • " + " • ".join(grade)
+    return prefixo if aulas_semana else ""
+
+def _partes_dia_config(texto: str) -> list[str]:
+    original = str(texto or "").strip()
+    if not original:
+        return []
+
+    normalizado = _normalizar_texto_simples(original).replace("-", " ")
+    padrao = re.compile(
+        r"\b(SEGUNDA(?: FEIRA)?|TERCA(?: FEIRA)?|QUARTA(?: FEIRA)?|QUINTA(?: FEIRA)?|"
+        r"SEXTA(?: FEIRA)?|SABADO|DOMINGO)\b"
+    )
+    dias = []
+    vistos = set()
+    for encontrado in padrao.finditer(normalizado):
+        dia_num = _dia_semana_numero(encontrado.group(1))
+        if dia_num is not None and dia_num not in vistos:
+            vistos.add(dia_num)
+            dias.append(DIAS_SEMANA_CADASTRO[dia_num])
+    if dias:
+        return dias
+
+    return [parte.strip() for parte in re.split(r"[;,\n]+|\s+-\s+", original) if parte.strip()]
+
+def _numeros_aulas_de_texto(texto: str) -> list[int]:
+    base = re.sub(r"\b\d{1,2}h\d*\b", " ", str(texto or "").lower())
+    numeros = []
+    for numero in range(1, 7):
+        if re.search(rf"\b{numero}\s*(?:ª|º|a|o)?\b", base):
+            numeros.append(numero)
+    return numeros
+
+def _turno_por_horario_inicio(horario: str, contexto: str = "") -> str:
+    horario_norm = _normalizar_horario_cadastro(horario)
+    if horario_norm.startswith(("13", "14", "15", "16", "17")):
+        return "Tarde"
+    if horario_norm.startswith(("19", "20", "21", "22")):
+        return "Noite"
+    prefixo = _prefixo_turno(contexto)
+    if prefixo == "13":
+        return "Tarde"
+    if prefixo == "19":
+        return "Noite"
+    return "Manhã"
+
+def _formatar_label_aulas(numeros: list[int]) -> str:
+    partes = [f"{numero}ª" for numero in sorted(set(numeros))]
+    if not partes:
+        return ""
+    if len(partes) == 1:
+        return f"{partes[0]} aula"
+    if len(partes) == 2:
+        return f"{partes[0]} e {partes[1]} aula"
+    return f"{', '.join(partes[:-1])} e {partes[-1]} aula"
+
+def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
+    slots = TURNOS_HORARIOS.get(turno) or TURNOS_HORARIOS["Manhã"]
+    max_aulas = len(slots) - 1
+    numeros = []
+    for aula in aulas or []:
+        match = re.search(r"\d+", str(aula))
+        if match:
+            numero = int(match.group(0))
+            if 1 <= numero <= max_aulas:
+                numeros.append(numero)
+    numeros = sorted(set(numeros))
+    if not numeros:
+        return None
+
+    primeira = numeros[0]
+    ultima = numeros[-1]
+    consecutivas = numeros == list(range(primeira, ultima + 1))
+    inicio = slots[primeira - 1]
+    fim = slots[ultima if consecutivas else ultima - 1]
+    label = _formatar_label_aulas(numeros)
+    return (inicio, label) if len(numeros) == 1 else (f"{inicio} - {fim}", label)
+
+def _turno_e_aulas_de_horario(horario, contexto: str = "") -> tuple[str, list[str]]:
+    if not horario:
+        return ("Manhã", [])
+    texto = _rotulo_horario(horario)
+    horarios_texto = _horarios_extraidos_texto(texto)
+    turno = _turno_por_horario_inicio(horarios_texto[0], contexto) if horarios_texto else _turno_por_horario_inicio("", contexto)
+    numeros = _numeros_aulas_de_texto(texto)
+    return turno, [f"{numero}ª" for numero in numeros]
+
+def _horario_flexivel_por_texto(trecho: str, contexto: str = ""):
+    numeros = _numeros_aulas_de_texto(trecho)
+    if not numeros:
+        return None
+    horarios_texto = _horarios_extraidos_texto(trecho)
+    turno = _turno_por_horario_inicio(horarios_texto[0], contexto) if horarios_texto else _turno_por_horario_inicio("", contexto)
+    return _montar_horario_flexivel(turno, numeros)
+
+def _indice_horario(horario) -> int:
+    if horario in HORARIOS_AULA:
+        return HORARIOS_AULA.index(horario)
+    horarios_texto = _horarios_extraidos_texto(_rotulo_horario(horario))
+    if not horarios_texto:
+        return len(HORARIOS_AULA) + 99
+    inicio = horarios_texto[0].lower()
+    todos = [hora for slots in TURNOS_HORARIOS.values() for hora in slots[:-1]]
+    for idx, hora in enumerate(todos):
+        if hora.lower() == inicio:
+            return idx
+    return len(HORARIOS_AULA) + 50
+
+def _defaults_grade_horarios(dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> dict[str, dict[str, object]]:
+    defaults: dict[str, dict[str, object]] = {}
+    dias = _partes_dia_config(dia_texto)
+    horarios = _horarios_padronizados_de_texto(horario_texto, contexto)
+    for idx, dia in enumerate(dias):
+        dia_num = _dia_semana_numero(dia)
+        if dia_num is None or dia_num >= len(DIAS_SEMANA_CADASTRO):
+            continue
+        horario = horarios[idx] if idx < len(horarios) else (horarios[0] if horarios else None)
+        turno, aulas = _turno_e_aulas_de_horario(horario, contexto)
+        defaults[DIAS_SEMANA_CADASTRO[dia_num]] = {"turno": turno, "aulas": aulas}
+    return defaults
+
+def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> tuple[str, str, int]:
+    st.markdown("**Grade semanal de horários**")
+    st.caption("Selecione o turno e as aulas de cada dia. Deixe vazio o dia em que não há aula.")
+    defaults = _defaults_grade_horarios(dia_texto, horario_texto, contexto)
+    selecionados = []
+    turnos = list(TURNOS_HORARIOS.keys())
+
+    for indice, dia in enumerate(DIAS_SEMANA_CADASTRO):
+        default_dia = defaults.get(dia, {})
+        turno_default = str(default_dia.get("turno") or "Manhã")
+        aulas_opcoes_default = [f"{numero}ª" for numero in range(1, len(TURNOS_HORARIOS.get(turno_default, TURNOS_HORARIOS["Manhã"])))]
+        aulas_default = [aula for aula in default_dia.get("aulas", []) if aula in aulas_opcoes_default]
+
+        col_dia, col_turno, col_aulas, col_previa = st.columns([1.1, 1.1, 2.2, 2.1])
+        with col_dia:
+            st.markdown(f"**{dia}**")
+        with col_turno:
+            turno = st.selectbox(
+                "Turno",
+                turnos,
+                index=turnos.index(turno_default) if turno_default in turnos else 0,
+                key=f"{prefixo}_turno_{indice}",
+                label_visibility="collapsed",
+            )
+        aulas_opcoes = [f"{numero}ª" for numero in range(1, len(TURNOS_HORARIOS[turno]))]
+        aulas_default = [aula for aula in aulas_default if aula in aulas_opcoes]
+        with col_aulas:
+            aulas = st.multiselect(
+                "Aulas",
+                aulas_opcoes,
+                default=aulas_default,
+                key=f"{prefixo}_aulas_{indice}",
+                label_visibility="collapsed",
+            )
+        horario = _montar_horario_flexivel(turno, aulas)
         with col_previa:
             st.caption(_rotulo_horario(horario) if horario else "Sem aula neste dia")
         if horario:
@@ -1044,10 +1241,16 @@ def _dia_semana_numero(texto: str):
     }
     return dias.get(_normalizar_texto_simples(texto).replace("-", " "))
 
-def _datas_do_mes_por_dia(mes: str, dia_semana: int, ano: int | None = None, extensao: int = 0) -> list[date]:
+def _datas_do_mes_por_dia(
+    mes: str,
+    dia_semana: int,
+    ano: int | None = None,
+    extensao: int = 0,
+    antecipacao: int = 0,
+) -> list[date]:
     ano = ano or date.today().year
     mes_num = _mes_numero_app(mes)
-    inicio = date(ano, mes_num, 1)
+    inicio = _inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
     fim = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
     return _datas_por_dia_ate_limite(inicio, fim, dia_semana)
 
@@ -1114,7 +1317,13 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
         padroes.append({"dia": dia, "horario": sugestao})
     return padroes
 
-def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: int = 0) -> list[dict]:
+def _datas_horarios_do_mes(
+    config: dict,
+    mes: str,
+    turma: str = "",
+    extensao: int = 0,
+    antecipacao: int = 0,
+) -> list[dict]:
     if not config or not mes:
         return []
     if config.get("repetir_modelo_semanal"):
@@ -1147,17 +1356,17 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: in
 
         ano = date.today().year
         mes_num = _mes_numero_app(mes)
-        inicio_mes = date(ano, mes_num, 1)
+        inicio_periodo = _inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
         fim_periodo = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
 
-        # Encontrar a primeira segunda-feira igual ou após o 1º dia do mês
-        inicio_bloco = inicio_mes - timedelta(days=inicio_mes.weekday())  # segunda-feira da semana do dia 1
+        # Encontrar a segunda-feira da semana em que o período começa
+        inicio_bloco = inicio_periodo - timedelta(days=inicio_periodo.weekday())
 
         itens = []
         while inicio_bloco <= fim_periodo:
             for entrada in molde:
                 nova_data = inicio_bloco + timedelta(days=entrada["offset_dias"])
-                if nova_data < date(ano, mes_num, 1) or nova_data > fim_periodo:
+                if nova_data < inicio_periodo or nova_data > fim_periodo:
                     continue
                 itens.append({
                     "data": nova_data,
@@ -1169,7 +1378,12 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: in
 
     itens = []
     for padrao in _padroes_horario_config(config, turma):
-        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"], extensao=extensao):
+        for data_aula in _datas_do_mes_por_dia(
+            mes,
+            padrao["dia"],
+            extensao=extensao,
+            antecipacao=antecipacao,
+        ):
             itens.append({"data": data_aula, "horario": padrao["horario"]})
     return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
 
@@ -1180,9 +1394,13 @@ def _sincronizar_datas_horarios_mes(
     disciplina: str,
     turma: str,
     extensao: int = 0,
+    antecipacao: int = 0,
     datas_sem_aula: list[date] | set[date] | None = None,
 ) -> list[dict]:
-    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
+    itens = _filtrar_datas_sem_aula(
+        _datas_horarios_do_mes(config, mes, turma, extensao=extensao, antecipacao=antecipacao),
+        datas_sem_aula,
+    )
     if not itens:
         for idx in range(40):
             for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
@@ -1199,7 +1417,7 @@ def _sincronizar_datas_horarios_mes(
     agenda = "|".join(f"{item['data'].isoformat()}:{_serializar_horario(item)}" for item in itens)
     cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
     datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
-    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
+    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{extensao}|{antecipacao}|{cadastro}|{agenda}|{datas_bloqueadas}"
     if st.session_state.get("agenda_mes_assinatura") == assinatura:
         return itens
 
@@ -1216,27 +1434,6 @@ def _sincronizar_datas_horarios_mes(
             st.session_state.pop(f"{prefixo}{idx}", None)
     return itens
 
-def _mes_numero_app(mes: str) -> int:
-    meses = {
-        "JANEIRO": 1, "FEVEREIRO": 2, "MARCO": 3, "ABRIL": 4, "MAIO": 5, "JUNHO": 6,
-        "JULHO": 7, "AGOSTO": 8, "SETEMBRO": 9, "OUTUBRO": 10, "NOVEMBRO": 11, "DEZEMBRO": 12,
-    }
-    return meses.get(_normalizar_texto_simples(mes), date.today().month)
-
-def _dia_semana_numero(texto: str):
-    dias = {
-        "SEGUNDA": 0, "SEGUNDA FEIRA": 0, "TERCA": 1, "TERCA FEIRA": 1,
-        "QUARTA": 2, "QUARTA FEIRA": 2, "QUINTA": 3, "QUINTA FEIRA": 3,
-        "SEXTA": 4, "SEXTA FEIRA": 4, "SABADO": 5, "DOMINGO": 6,
-    }
-    return dias.get(_normalizar_texto_simples(texto).replace("-", " "))
-
-def _datas_do_mes_por_dia(mes: str, dia_semana: int, ano: int | None = None, extensao: int = 0) -> list[date]:
-    ano = ano or date.today().year
-    mes_num = _mes_numero_app(mes)
-    inicio = date(ano, mes_num, 1)
-    fim = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
-    return _datas_por_dia_ate_limite(inicio, fim, dia_semana)
 
 def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
     padroes = []
@@ -1301,107 +1498,6 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
         padroes.append({"dia": dia, "horario": sugestao})
     return padroes
 
-def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: int = 0) -> list[dict]:
-    if not config or not mes:
-        return []
-    if config.get("repetir_modelo_semanal"):
-        base = list(config.get("datas_horarios") or [])
-        if not base:
-            return []
-        primeira_data = next((item.get("data") for item in base if hasattr(item.get("data"), "weekday")), None)
-        if not primeira_data:
-            return []
-        inicio_semana_base = primeira_data - timedelta(days=primeira_data.weekday())
-
-        # Construir molde a partir dos dias-da-semana únicos presentes em TODOS os registros
-        # (não apenas da 1ª semana, que pode ter feriados omitindo dias)
-        molde_por_dia: dict[int, dict] = {}  # dia_semana -> item de referência
-        for item in base:
-            data_aula = item.get("data")
-            if not hasattr(data_aula, "weekday"):
-                continue
-            dia = data_aula.weekday()
-            if dia not in molde_por_dia:
-                # Guardar o deslocamento em dias desde o início da semana e o horário
-                molde_por_dia[dia] = {
-                    "offset_dias": dia,  # offset a partir de segunda (0=seg, 3=qui, etc.)
-                    "horario": item.get("horario") or "",
-                    "aula": item.get("aula") or "",
-                }
-        if not molde_por_dia:
-            return []
-        molde = sorted(molde_por_dia.values(), key=lambda m: m["offset_dias"])
-
-        ano = date.today().year
-        mes_num = _mes_numero_app(mes)
-        inicio_mes = date(ano, mes_num, 1)
-        fim_periodo = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
-
-        # Encontrar a primeira segunda-feira igual ou após o 1º dia do mês
-        inicio_bloco = inicio_mes - timedelta(days=inicio_mes.weekday())  # segunda-feira da semana do dia 1
-
-        itens = []
-        while inicio_bloco <= fim_periodo:
-            for entrada in molde:
-                nova_data = inicio_bloco + timedelta(days=entrada["offset_dias"])
-                if nova_data < date(ano, mes_num, 1) or nova_data > fim_periodo:
-                    continue
-                itens.append({
-                    "data": nova_data,
-                    "horario": entrada["horario"],
-                    "aula": entrada["aula"],
-                })
-            inicio_bloco += timedelta(days=7)
-        return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
-
-    itens = []
-    for padrao in _padroes_horario_config(config, turma):
-        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"], extensao=extensao):
-            itens.append({"data": data_aula, "horario": padrao["horario"]})
-    return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
-
-def _sincronizar_datas_horarios_mes(
-    config: dict,
-    mes: str,
-    professor: str,
-    disciplina: str,
-    turma: str,
-    extensao: int = 0,
-    datas_sem_aula: list[date] | set[date] | None = None,
-) -> list[dict]:
-    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
-    if not itens:
-        for idx in range(40):
-            for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
-                st.session_state.pop(f"{prefixo}{idx}", None)
-        return []
-
-    def _serializar_horario(item: dict) -> str:
-        horario = item.get("horario")
-        aula = item.get("aula")
-        if isinstance(horario, (tuple, list)):
-            return ":".join(str(parte) for parte in horario)
-        return str(aula or horario or "")
-
-    agenda = "|".join(f"{item['data'].isoformat()}:{_serializar_horario(item)}" for item in itens)
-    cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
-    datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
-    assinatura = f"{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
-    if st.session_state.get("agenda_mes_assinatura") == assinatura:
-        return itens
-
-    st.session_state["agenda_mes_assinatura"] = assinatura
-    for idx, item in enumerate(itens):
-        horario = item.get("horario")
-        st.session_state[f"data_aula_{idx}"] = item["data"]
-        if isinstance(horario, tuple):
-            st.session_state[f"horario_aula_{idx}"] = horario
-            st.session_state[f"tipo_horario_aula_{idx}"] = _tipo_horario(horario)
-
-    for idx in range(len(itens), 40):
-        for prefixo in ("data_aula_", "horario_aula_", "tipo_horario_aula_"):
-            st.session_state.pop(f"{prefixo}{idx}", None)
-    return itens
 
 def _sincronizar_datas_horarios_mes_turma2(
     config: dict,
@@ -1410,10 +1506,14 @@ def _sincronizar_datas_horarios_mes_turma2(
     disciplina: str,
     turma: str,
     extensao: int = 0,
+    antecipacao: int = 0,
     datas_sem_aula: list[date] | set[date] | None = None,
 ) -> list[dict]:
     """Versão da sincronização de datas/horários dedicada à 2ª turma (chaves prefixadas com 'turma2_')."""
-    itens = _filtrar_datas_sem_aula(_datas_horarios_do_mes(config, mes, turma, extensao=extensao), datas_sem_aula)
+    itens = _filtrar_datas_sem_aula(
+        _datas_horarios_do_mes(config, mes, turma, extensao=extensao, antecipacao=antecipacao),
+        datas_sem_aula,
+    )
     if not itens:
         for idx in range(40):
             for prefixo in ("turma2_data_aula_", "turma2_horario_aula_", "turma2_tipo_horario_aula_"):
@@ -1430,7 +1530,7 @@ def _sincronizar_datas_horarios_mes_turma2(
     agenda = "|".join(f"{item['data'].isoformat()}:{_serializar_horario_t2(item)}" for item in itens)
     cadastro = f"{config.get('dia_semana', '')}|{config.get('horario', '')}|{config.get('aulas_semana', '')}"
     datas_bloqueadas = ",".join(sorted(dt.isoformat() for dt in set(datas_sem_aula or [])))
-    assinatura = f"turma2|{professor}|{disciplina}|{turma}|{mes}|{extensao}|{cadastro}|{agenda}|{datas_bloqueadas}"
+    assinatura = f"turma2|{professor}|{disciplina}|{turma}|{mes}|{extensao}|{antecipacao}|{cadastro}|{agenda}|{datas_bloqueadas}"
     if st.session_state.get("agenda_mes_assinatura_turma2") == assinatura:
         return itens
 
@@ -1533,10 +1633,19 @@ def _tamanho_bloco_primeira_semana(datas: list[date]) -> int:
     bloco = len(dias_unicos)
     return max(1, bloco)
 
+def _eh_data_antecipacao(data_aula: date, mes: str, antecipacao_mes: int) -> bool:
+    if not mes or antecipacao_mes <= 0:
+        return False
+    ano = date.today().year
+    mes_num = _mes_numero_app(mes)
+    inicio_mes_oficial = date(ano, mes_num, 1)
+    return data_aula < inicio_mes_oficial
+
 def validar_entrada(
     modelo_bytes, disciplina: str, disciplina_config, aulas_envio,
     professor: str, turma: str, bimestre: str, mes: str,
     aulas_previstas_manual: str, pdfs_enviados: int = 0, pdfs_necessarios: int = 0,
+    deixar_antecipacao_vazia: bool = False, antecipacao_mes: int = 0,
 ) -> str:
     disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
     orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
@@ -1554,11 +1663,13 @@ def validar_entrada(
         return "Preencha os campos obrigatórios antes de gerar o plano: " + ", ".join(campos_obrigatorios) + "."
     if disciplina_config.exige_pdf and not aulas_envio:
         return "Envie os PDFs das aulas para gerar o plano."
+    
+    aulas_obrigatorias = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_antecipacao_vazia else aulas_envio
     pdf_unico_orientacao = bool(orientacao_estudos and pdfs_enviados == 1 and pdfs_necessarios >= 1)
     if disciplina_config.exige_pdf and pdfs_necessarios and pdfs_enviados != pdfs_necessarios and not pdf_unico_orientacao:
         return f"Quantidade de PDFs incorreta: foram adicionados {pdfs_enviados}, mas o plano possui {pdfs_necessarios} linha(s)."
-    if disciplina_config.exige_pdf and any(not aula["pdf"] for aula in aulas_envio):
-        return "Preencha data, horário e PDF em todas as aulas cadastradas."
+    if disciplina_config.exige_pdf and any(not aula["pdf"] for aula in aulas_obrigatorias):
+        return "Preencha data, horário e PDF em todas as aulas cadastradas do mês oficial."
     return ""
 
 def validar_aulas_secundarias(gerar_turma_espelho: bool, turma_espelho: str, aulas_envio_espelho, exige_pdf: bool) -> str:
@@ -1661,6 +1772,9 @@ def _coletar_aulas_envio(
     modo_upload_individual: bool = False,
     preservar_datas_sincronizadas: bool = False,
     sequencia_pdf_esperada: list[int] | None = None,
+    deixar_antecipacao_vazia: bool = False,
+    mes: str = "",
+    antecipacao_mes: int = 0,
 ):
     aulas_envio = []
     datas_cache = []
@@ -1790,8 +1904,11 @@ def _coletar_aulas_envio(
 
         # Upload individual por aula
         pdf_individual = None
+        eh_antecipacao_vazia = deixar_antecipacao_vazia and _eh_data_antecipacao(data_aula, mes, antecipacao_mes)
         if modo_upload_individual:
-            if continuidade_anterior:
+            if eh_antecipacao_vazia:
+                st.caption("ℹ️ Aula na semana extra (bloco configurado para vir vazio).")
+            elif continuidade_anterior:
                 st.caption("📎 PDF compartilhado com a aula anterior.")
             else:
                 chave_pdf_ind = f"{key_prefix}pdf_individual_aula_{idx}"
@@ -1807,12 +1924,22 @@ def _coletar_aulas_envio(
     if modo_upload_individual:
         # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
         for i in range(1, len(aulas_envio)):
+            if deixar_antecipacao_vazia and _eh_data_antecipacao(aulas_envio[i]["data"], mes, antecipacao_mes):
+                continue
             if aulas_envio[i - 1].get("dividir_pdf") and aulas_envio[i].get("pdf") is None:
                 aulas_envio[i]["pdf"] = aulas_envio[i - 1]["pdf"]
                 aulas_envio[i]["grupo_pdf"] = aulas_envio[i - 1].get("grupo_pdf")
                 aulas_envio[i]["dividir_pdf"] = False
     else:
-        aulas_envio, _ = _aplicar_pdfs_a_grupos(aulas_envio, pdfs_aulas_files, replicar_pdf_unico=replicar_pdf_unico)
+        if deixar_antecipacao_vazia and antecipacao_mes > 0:
+            aulas_antecipacao = [a for a in aulas_envio if _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
+            aulas_oficiais = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
+            _aplicar_pdfs_a_grupos(aulas_oficiais, pdfs_aulas_files, replicar_pdf_unico=replicar_pdf_unico)
+            for a in aulas_antecipacao:
+                a["pdf"] = None
+                a["dividir_pdf"] = False
+        else:
+            aulas_envio, _ = _aplicar_pdfs_a_grupos(aulas_envio, pdfs_aulas_files, replicar_pdf_unico=replicar_pdf_unico)
     return aulas_envio
 
 def _texto_metodologia_app(aula: dict) -> str:
@@ -1860,67 +1987,107 @@ def _metodologia_app_para_blocos(texto: str):
         blocos.append(atual)
     return blocos or [str(texto or "").strip()]
 
-def _extrair_aulas_dos_pdfs(aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str, modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool, modalidade_eja: bool = False, usar_ae_priorizado: bool = False, progress_callback=None, professor: str = ""):
+def _extrair_aulas_dos_pdfs(
+    aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str,
+    modelo_openai: str, modelo_gemini: str, dividir_metodologia: bool,
+    modalidade_eja: bool = False, usar_ae_priorizado: bool = False,
+    progress_callback=None, professor: str = "",
+    deixar_antecipacao_vazia: bool = False, mes: str = "", antecipacao_mes: int = 0,
+):
     temp_paths = []
     caminhos_para_apagar = []
     try:
         dados_aulas = []
         avisos_ia = []
-        grupos = _grupos_pdf_por_aula(aulas_envio) if dividir_metodologia else [{"indices": [idx], "dividir": False} for idx in range(len(aulas_envio))]
+        
+        eh_ant_vazia = deixar_antecipacao_vazia and antecipacao_mes > 0
+        if eh_ant_vazia:
+            aulas_antecipacao = [a for a in aulas_envio if _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
+            aulas_processamento = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
+        else:
+            aulas_antecipacao = []
+            aulas_processamento = aulas_envio
+
+        grupos = _grupos_pdf_por_aula(aulas_processamento) if dividir_metodologia else [{"indices": [idx], "dividir": False} for idx in range(len(aulas_processamento))]
         dividir_por_pdf = []
         for grupo in grupos:
-            aula_envio = aulas_envio[grupo["indices"][0]]
+            aula_envio = aulas_processamento[grupo["indices"][0]]
             caminho_pdf, apagar_ao_final = _preparar_pdf_para_processamento(aula_envio["pdf"])
             temp_paths.append(caminho_pdf)
             if apagar_ao_final:
                 caminhos_para_apagar.append(caminho_pdf)
             dividir_por_pdf.append(bool(grupo["dividir"]))
-        for aula_envio in aulas_envio:
+            
+        for aula_envio in aulas_processamento:
             dados_aulas.append({"data": aula_envio["data"].strftime("%d/%m"), "horario": horario_para_plano(aula_envio["horario"])})
 
-        aulas = processar_varios_pdfs(
-            temp_paths, disciplina=disciplina, turma=turma_atual, bimestre=bimestre, usar_ia=modo_ia != "Sem IA",
-            provedor_ia=modo_ia.lower(), modelo_ia=(modelo_openai if modo_ia == "OpenAI" else modelo_gemini) if modo_ia != "Sem IA" else "",
-            dividir_metodologia=dividir_metodologia, dividir_por_pdf=dividir_por_pdf, modalidade_eja=modalidade_eja,
-            progress_callback=progress_callback, professor=professor,
-        )
-        if not aulas: raise RuntimeError("Nenhuma aula foi extraída.")
-        if modo_ia != "Sem IA":
-            falhas_ia = _falhas_ia(aulas, exigir_ia=not eh_cdp_contextual(disciplina))
-            if falhas_ia and len(falhas_ia) == len(aulas or []):
-                raise RuntimeError("Falha de IA detectada em todas as aulas:\n" + "\n".join(falhas_ia))
-            aviso_ia = resumir_falhas_ia(falhas_ia)
-            if aviso_ia:
-                avisos_ia.append(aviso_ia)
-        
+        aulas = []
         avisos_ae = []
-        if usar_ae_priorizado:
-            aulas, avisos_ae = aplicar_ae_priorizado_nas_aulas(
-                aulas,
-                disciplina=disciplina,
-                turma=turma_atual,
-                bimestre=bimestre,
-                caminho_planilha=str(st.session_state.get("caminho_ae_priorizado") or "").strip(),
+        avisos_repeticao = []
+        if aulas_processamento:
+            aulas = processar_varios_pdfs(
+                temp_paths, disciplina=disciplina, turma=turma_atual, bimestre=bimestre, usar_ia=modo_ia != "Sem IA",
+                provedor_ia=modo_ia.lower(), modelo_ia=(modelo_openai if modo_ia == "OpenAI" else modelo_gemini) if modo_ia != "Sem IA" else "",
+                dividir_metodologia=dividir_metodologia, dividir_por_pdf=dividir_por_pdf, modalidade_eja=modalidade_eja,
+                progress_callback=progress_callback, professor=professor,
             )
+            if not aulas: raise RuntimeError("Nenhuma aula foi extraída dos PDFs oficiais.")
+            
+            if modo_ia != "Sem IA":
+                falhas_ia = _falhas_ia(aulas, exigir_ia=not eh_cdp_contextual(disciplina))
+                if falhas_ia and len(falhas_ia) == len(aulas or []):
+                    raise RuntimeError("Falha de IA detectada em todas as aulas oficiais:\n" + "\n".join(falhas_ia))
+                aviso_ia = resumir_falhas_ia(falhas_ia)
+                if aviso_ia:
+                    avisos_ia.append(aviso_ia)
+            
+            if usar_ae_priorizado:
+                aulas, avisos_ae = aplicar_ae_priorizado_nas_aulas(
+                    aulas,
+                    disciplina=disciplina,
+                    turma=turma_atual,
+                    bimestre=bimestre,
+                    caminho_planilha=str(st.session_state.get("caminho_ae_priorizado") or "").strip(),
+                )
 
-        for aula, dados in zip(aulas, dados_aulas): aula.update(dados)
-        cdp_contextual = eh_cdp_contextual(disciplina)
-        problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
-        
-        avisos_repeticao, problemas_bloqueantes = [], []
-        for problema in problemas_plano:
-            if "repetido de aula anterior" in str(problema).lower(): avisos_repeticao.append(problema)
-            else: problemas_bloqueantes.append(problema)
-        if problemas_bloqueantes: raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_bloqueantes))
+            for aula, dados in zip(aulas, dados_aulas): aula.update(dados)
+            cdp_contextual = eh_cdp_contextual(disciplina)
+            problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
+            
+            for problema in problemas_plano:
+                if "repetido de aula anterior" in str(problema).lower(): avisos_repeticao.append(problema)
+                else: raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_plano))
 
-        for aula in aulas:
+        aulas_vazias = []
+        for aula_envio in aulas_antecipacao:
+            aulas_vazias.append({
+                "tema": "",
+                "conteudo": "",
+                "aprendizagem": "",
+                "metodologia": [],
+                "acompanhamento": [],
+                "acessibilidade": [],
+                "ia_usada": False,
+                "data": aula_envio["data"].strftime("%d/%m"),
+                "horario": horario_para_plano(aula_envio["horario"]),
+            })
+            
+        aulas_completas = aulas_vazias + aulas
+
+        for aula in aulas_completas:
             metodologia = aula.get("metodologia", [])
             for i, item in enumerate(metodologia):
                 if isinstance(item, dict) and "texto" in item:
                     item["texto"] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item["texto"]))).strip()
                 elif isinstance(item, str):
                     metodologia[i] = re.sub(r'\s+', ' ', re.sub(r'\(\s*\)', '', re.sub(r'(?i)\s*(?:\(|-)?\s*\d+\s*min(?:uto)?s?(?:\))?', '', item))).strip()
-        return {"aulas": aulas, "avisos_repeticao": avisos_repeticao, "avisos_ae": avisos_ae, "avisos_ia": avisos_ia}
+                    
+        return {
+            "aulas": aulas_completas,
+            "avisos_repeticao": avisos_repeticao,
+            "avisos_ae": avisos_ae,
+            "avisos_ia": avisos_ia
+        }
     finally:
         for caminho_temp in caminhos_para_apagar:
             if caminho_temp:
@@ -2151,6 +2318,7 @@ if professor and disciplina and turma:
 
 extensao_mes_rotulo = st.selectbox("Extensão após o mês", EXTENSAO_MES_OPCOES, index=0, key="extensao_mes")
 extensao_mes = EXTENSAO_MES_VALORES.get(extensao_mes_rotulo, 0)
+antecipacao_mes = EXTENSAO_MES_ANTECIPACOES.get(extensao_mes_rotulo, 0)
 
 datas_horarios_mes, datas_sem_aula = [], []
 config_agenda_mes = config_turma_selecionada
@@ -2158,12 +2326,18 @@ if modo_cdp_dedicado and modelo_bytes:
     config_agenda_mes = {**(config_turma_selecionada or {}), **_config_agenda_a_partir_do_modelo(modelo_bytes)}
 
 if config_agenda_mes and mes and (not disciplina_cdp or modo_cdp_dedicado):
-    datas_horarios_mes_base = _datas_horarios_do_mes(config_agenda_mes, mes, turma, extensao=extensao_mes)
-    inicio_periodo = date(date.today().year, _mes_numero_app(mes), 1)
+    datas_horarios_mes_base = _datas_horarios_do_mes(
+        config_agenda_mes,
+        mes,
+        turma,
+        extensao=extensao_mes,
+        antecipacao=antecipacao_mes,
+    )
+    inicio_periodo = _inicio_periodo_mes_com_antecipacao(date.today().year, _mes_numero_app(mes), antecipacao_mes)
     fim_periodo = _fim_periodo_mes_com_extensao(date.today().year, _mes_numero_app(mes), extensao_mes)
     datas_opcoes_sem_aula = _datas_do_periodo(inicio_periodo, fim_periodo)
     
-    assinatura_datas = f"{professor}|{disciplina}|{turma}|{mes}|{extensao_mes}"
+    assinatura_datas = f"{professor}|{disciplina}|{turma}|{mes}|{extensao_mes}|{antecipacao_mes}"
     if st.session_state.get("datas_sem_aula_assinatura") != assinatura_datas:
         st.session_state["datas_sem_aula_assinatura"] = assinatura_datas
         st.session_state["datas_sem_aula"] = _datas_feriado_padrao(datas_opcoes_sem_aula) or _datas_sem_aula_padrao(datas_horarios_mes_base)
@@ -2171,7 +2345,25 @@ if config_agenda_mes and mes and (not disciplina_cdp or modo_cdp_dedicado):
     if datas_opcoes_sem_aula:
         datas_sem_aula = st.multiselect("Dias sem aula", options=datas_opcoes_sem_aula, format_func=_rotulo_data_sem_aula, key="datas_sem_aula")
     
-    datas_horarios_mes = _sincronizar_datas_horarios_mes(config_agenda_mes, mes, professor, disciplina, turma, extensao=extensao_mes, datas_sem_aula=datas_sem_aula)
+    deixar_antecipacao_vazia = False
+    if antecipacao_mes > 0:
+        deixar_antecipacao_vazia = st.checkbox(
+            "Deixar bloco da semana extra vazio",
+            key="deixar_antecipacao_vazia",
+            value=bool(st.session_state.get("deixar_antecipacao_vazia", False)),
+            help="Se marcado, as aulas da semana extra anterior ao início do mês virão completamente em branco no plano, e a correspondência com os PDFs começará a partir da primeira data oficial do mês."
+        )
+    
+    datas_horarios_mes = _sincronizar_datas_horarios_mes(
+        config_agenda_mes,
+        mes,
+        professor,
+        disciplina,
+        turma,
+        extensao=extensao_mes,
+        antecipacao=antecipacao_mes,
+        datas_sem_aula=datas_sem_aula,
+    )
 
 if professor and disciplina and turma and not disciplina_cdp and escolha_template == OPCAO_MODELO_AUTOMATICO:
     template_id_central = resolver_template_id_geracao(
@@ -2431,11 +2623,24 @@ def _render_previa_aulas_cdp(preview: list[dict]):
 
 semana = ""
 
-# Pre-populate observation for August with specific holidays/observances
-default_agosto = "06/08 - Aniversário da cidade\n07/08 - Ponto facultativo"
+# Pre-populate observation for August with the current fixed calendar text
+default_agosto = (
+    "Replanejamento – 22 e 23.07;\n"
+    "Período do plano – 24.07 até 31.08;\n"
+    "Reunião de pais/responsáveis – 04.08;\n"
+    "Feriado Municipal – 06.08;"
+)
+default_agosto_legado = "06/08 - Aniversário da cidade\n07/08 - Ponto facultativo"
+observacoes_automaticas_agosto = {default_agosto, default_agosto_legado}
+
 if "observacao" not in st.session_state or not st.session_state["observacao"]:
     if mes.strip().upper() == "AGOSTO":
         st.session_state["observacao"] = default_agosto
+elif (
+    mes.strip().upper() == "AGOSTO"
+    and str(st.session_state.get("observacao", "") or "").strip() == default_agosto_legado
+):
+    st.session_state["observacao"] = default_agosto
 
 if "last_mes_for_obs" not in st.session_state:
     st.session_state["last_mes_for_obs"] = mes
@@ -2443,10 +2648,10 @@ if "last_mes_for_obs" not in st.session_state:
 if st.session_state["last_mes_for_obs"] != mes:
     current_obs = st.session_state.get("observacao", "")
     if mes.strip().upper() == "AGOSTO":
-        if not current_obs or current_obs.strip() == "":
+        if not current_obs or current_obs.strip() in {"", default_agosto_legado}:
             st.session_state["observacao"] = default_agosto
     else:
-        if current_obs.strip() == default_agosto:
+        if current_obs.strip() in observacoes_automaticas_agosto:
             st.session_state["observacao"] = ""
     st.session_state["last_mes_for_obs"] = mes
 
@@ -2524,21 +2729,28 @@ else:
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
 
+    deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
+    if deixar_ant_vazia and datas_horarios_mes:
+        aulas_oficiais_modelo = [d for d in datas_horarios_mes if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)]
+        linhas_modelo_pdf = len(aulas_oficiais_modelo)
+    else:
+        linhas_modelo_pdf = linhas_modelo
+
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
-        if linhas_modelo > 0:
-            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo, dividir_metodologia)
+        if linhas_modelo_pdf > 0:
+            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo_pdf, dividir_metodologia)
 
         if usar_ae_priorizado and sequencia_ae_contexto:
             sequencia_pdf_esperada_ae = _limitar_sequencia_ae(
                 sequencia_ae_contexto,
-                est_necessarios or linhas_modelo,
+                est_necessarios or linhas_modelo_pdf,
             )
 
         label_uploader = "Envio Manual de PDFs"
         if est_necessarios > 0:
-            label_uploader = f"Envio Manual (Insira exatamente {est_necessarios} PDF(s) para as {linhas_modelo} aulas do mês)"
+            label_uploader = f"Envio Manual (Insira exatamente {est_necessarios} PDF(s) para as {linhas_modelo_pdf} aulas do mês)"
 
         if sequencia_pdf_esperada_ae:
             st.info(
@@ -2566,7 +2778,7 @@ else:
                 from core.database import obter_ultima_aula_gerada_sistema
                 ultima_aula = obter_ultima_aula_gerada_sistema(professor, disciplina, turma, bimestre)
                 
-                # Filtrar PDFs para pegar apenas aulas maiores que a ultima_aula
+                # A continuidade automática foi desativada; a seleção padrão volta à Aula 1.
                 pdf_files_filtrados = []
                 for p in pdf_files_disponiveis:
                     num_aula = numero_aula_pdf(p)
@@ -2576,9 +2788,6 @@ else:
                 # Fallback se a lista filtrada ficar vazia
                 if not pdf_files_filtrados:
                     pdf_files_filtrados = pdf_files_disponiveis
-                else:
-                    if ultima_aula > 0:
-                        st.info(f"💾 **Memória do sistema:** O último plano salvo para **{professor}** ({disciplina} - {turma}) parou na **Aula {ultima_aula}**. Os PDFs pré-selecionados começam da **Aula {ultima_aula + 1}**.")
 
                 if est_necessarios > 0:
                     default_selection = pdf_files_filtrados[:est_necessarios]
@@ -2629,6 +2838,8 @@ else:
             qtd_aulas = len(pdfs_aulas_files)
             pdfs_selecionados_tela = list(pdfs_aulas_files)
 
+    deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
+
     num_rows = linhas_modelo or int(qtd_aulas) * (2 if dividir_metodologia else 1)
     _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, contexto=contexto_divisao_pdf)
     aulas_envio = _coletar_aulas_envio(
@@ -2640,36 +2851,41 @@ else:
         modo_upload_individual=modo_upload_individual,
         preservar_datas_sincronizadas=bool(datas_horarios_mes),
         sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
+        deixar_antecipacao_vazia=deixar_ant_vazia,
+        mes=mes,
+        antecipacao_mes=antecipacao_mes,
     )
 
+    aulas_para_pdf = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else aulas_envio
+
     if modo_upload_individual:
-        grupos_individuais = _grupos_pdf_por_aula(aulas_envio) if dividir_metodologia else [{"indices": [idx]} for idx in range(len(aulas_envio))]
+        grupos_individuais = _grupos_pdf_por_aula(aulas_para_pdf) if dividir_metodologia else [{"indices": [idx]} for idx in range(len(aulas_para_pdf))]
         pdfs_individuais = [
-            aulas_envio[grupo["indices"][0]].get("pdf")
+            aulas_para_pdf[grupo["indices"][0]].get("pdf")
             for grupo in grupos_individuais
-            if aulas_envio[grupo["indices"][0]].get("pdf") is not None
+            if aulas_para_pdf[grupo["indices"][0]].get("pdf") is not None
         ]
-        pdfs_necessarios = len(grupos_individuais) if dividir_metodologia else (linhas_modelo or num_rows)
+        pdfs_necessarios = len(grupos_individuais) if dividir_metodologia else len(aulas_para_pdf)
         pdfs_prontos = len(pdfs_individuais)
         _render_painel_pdfs(
             modo=modo_upload_pdf,
             necessarios=pdfs_necessarios,
             carregados=pdfs_prontos,
-            total_aulas=linhas_modelo or num_rows,
+            total_aulas=len(aulas_para_pdf),
             dividir_metodologia=dividir_metodologia,
             selecionados=pdfs_individuais,
         )
     else:
-        pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_envio)) if dividir_metodologia else (linhas_modelo or qtd_aulas)
+        pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_para_pdf)) if dividir_metodologia else len(aulas_para_pdf)
 
-        if linhas_modelo > 0:
+        if linhas_modelo_pdf > 0:
             pdf_unico_orientacao = bool(orientacao_estudos and qtd_aulas == 1 and pdfs_necessarios >= 1)
             if qtd_aulas == pdfs_necessarios or pdf_unico_orientacao:
                 st.success(f"Quantidade de PDFs correta: {qtd_aulas}/{pdfs_necessarios} PDF(s) carregado(s).")
             elif qtd_aulas > 0:
                 st.warning(f"Quantidade de PDFs incorreta: foram adicionados {qtd_aulas}, mas o plano requer exatamente {pdfs_necessarios} PDF(s).")
             else:
-                st.info(f"Aguardando o envio de {pdfs_necessarios} PDF(s) para {linhas_modelo} aula(s).")
+                st.info(f"Aguardando o envio de {pdfs_necessarios} PDF(s) para {linhas_modelo_pdf} aula(s).")
 
     if gerar_turma_espelho:
         # Determine num_rows_espelho based on 2nd class config if month is selected
@@ -2679,7 +2895,7 @@ else:
         if config_turma_espelho and mes:
             datas_horarios_mes_espelho = _sincronizar_datas_horarios_mes_turma2(
                 config_turma_espelho, mes, professor, disciplina, turma_espelho,
-                extensao=extensao_mes, datas_sem_aula=datas_sem_aula,
+                extensao=extensao_mes, antecipacao=antecipacao_mes, datas_sem_aula=datas_sem_aula,
             )
             linhas_modelo_espelho = len(datas_horarios_mes_espelho)
             if linhas_modelo_espelho > 0:
@@ -2727,16 +2943,22 @@ if erro_processamento:
 geracao_em_andamento = bool(st.session_state.get("geracao_em_andamento", False))
 if disciplina_cdp:
     st.checkbox(
-        "Salvar este plano no histórico e atualizar a memória da última aula",
+        "Salvar este plano no histórico",
         key="salvar_historico_geracao",
         value=bool(st.session_state.get("salvar_historico_geracao", False)),
-        help="Marque apenas quando o plano estiver realmente ok. Se desmarcar, o DOCX será gerado normalmente, mas o sistema não avançará a memória da próxima aula.",
+        help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
     )
 if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
-    erro = validar_entrada(modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma, bimestre, mes, aulas_previstas_manual, pdfs_enviados_val, pdfs_necessarios)
+    deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
+    erro = validar_entrada(
+        modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma,
+        bimestre, mes, aulas_previstas_manual, pdfs_enviados_val, pdfs_necessarios,
+        deixar_antecipacao_vazia=deixar_ant_vazia,
+        antecipacao_mes=antecipacao_mes,
+    )
     if not erro:
         erro = validar_aulas_secundarias(
             gerar_turma_espelho,
@@ -2797,6 +3019,9 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                         usar_ae_priorizado=usar_ae_priorizado,
                         progress_callback=_callback_pdf,
                         professor=professor,
+                        deixar_antecipacao_vazia=deixar_ant_vazia,
+                        mes=mes,
+                        antecipacao_mes=antecipacao_mes,
                     )
                     turmas_processadas.append({"turma": t, "aulas": res["aulas"]})
                     avisos_turma = []
@@ -3055,10 +3280,10 @@ if st.session_state.get("turmas_processadas"):
         unsafe_allow_html=True,
     )
     st.checkbox(
-        "Salvar este plano no histórico e atualizar a memória da última aula",
+        "Salvar este plano no histórico",
         key="salvar_historico_geracao",
         value=bool(st.session_state.get("salvar_historico_geracao", False)),
-        help="Marque apenas quando o plano estiver realmente ok. Se desmarcar, o DOCX será gerado normalmente, mas o sistema não avançará a memória da próxima aula.",
+        help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
     )
     if st.button("GERAR DOCX", type="primary"):
         planos_gerados = []

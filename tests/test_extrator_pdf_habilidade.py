@@ -101,3 +101,34 @@ def test_rejeita_habilidade_textual_truncada():
     habilidade = ExtratorPDF()._extrair_habilidade(linhas)
 
     assert habilidade == ""
+
+
+def test_texto_prioritario_para_antes_de_referencias_e_notas_ao_professor():
+    texto = "\n".join(
+        [
+            "Foco no conteúdo",
+            "A teoria celular é um dos fundamentos da Biologia.",
+            "Pause e responda",
+            "Responda à pergunta sobre os pilares da teoria celular.",
+            "Na prática",
+            "Compare as imagens e registre o que os seres vivos têm em comum.",
+            "Encerramento 5 minutos",
+            "Retome os três pilares estudados.",
+            "Referências",
+            "Revisão técnica: equipe editorial.",
+            "Para professores",
+            "Dinâmica de condução: faça uma sondagem inicial.",
+        ]
+    )
+
+    extracao = ExtratorPDF().extrair(texto, "A célula como unidade básica da vida", disciplina="Ciencias")
+    texto_prioritario = extracao["texto_prioritario"].lower()
+    secao_pratica = " ".join(extracao["secoes_extraidas"]["na pratica"]).lower()
+
+    assert "referencias" not in texto_prioritario
+    assert "revisao tecnica" not in texto_prioritario
+    assert "para professores" not in texto_prioritario
+    assert "dinamica de conducao" not in texto_prioritario
+    assert "teoria celular" in texto_prioritario
+    assert "encerramento" in extracao["etapas_detectadas"]
+    assert "retome os três pilares estudados".lower() not in secao_pratica

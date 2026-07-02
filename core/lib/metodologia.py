@@ -1973,10 +1973,11 @@ class MotorMetodologico:
             """
             # 1. Classificar
             perfil = perfil_disciplina(disciplina, turma=turma)
-            tipo = detectar_tipo_aula(texto_pdf, tema, disciplina, turma=turma)
+            extracao = self.extrator.extrair(texto_pdf, tema)
+            texto_para_classificacao = extracao.get("texto_prioritario") or texto_pdf
+            tipo = detectar_tipo_aula(texto_para_classificacao, tema, disciplina, turma=turma)
 
             # 2. Extrair conceito
-            extracao = self.extrator.extrair(texto_pdf, tema)
             conceito = extracao["conceito_extraido"]
             atividade = extracao.get("atividade_extraida", "")
             recursos = extracao.get("recursos_detectados", [])

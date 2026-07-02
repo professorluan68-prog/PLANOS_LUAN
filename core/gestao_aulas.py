@@ -97,20 +97,9 @@ def obter_aula_parada_do_json(professor: str, disciplina: str, turma: str, bimes
 
 def obter_ultima_aula_gerada_sistema_impl(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     """
-    Orquestra a busca da última aula gerada a partir do histórico no banco e,
-    como fallback, do arquivo JSON de mapeamento.
+    Regra atual do projeto: novos planos sempre começam pela Aula 1.
+
+    O histórico continua salvo para consulta e download, mas não deve mais
+    interferir na aula inicial sugerida para novas gerações.
     """
-    from core.database import obter_ultimo_plano_docx
-
-    # 1. Tentar obter do historico no banco de dados
-    try:
-        docx_bytes = obter_ultimo_plano_docx(professor, disciplina, turma)
-        if docx_bytes:
-            aula_docx = detectar_ultima_aula_de_docx_bytes(docx_bytes, bimestre)
-            if aula_docx > 0:
-                return aula_docx
-    except Exception:
-        pass
-
-    # 2. Tentar obter do arquivo JSON de mapeamento
-    return obter_aula_parada_do_json(professor, disciplina, turma, bimestre)
+    return 0
