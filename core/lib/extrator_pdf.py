@@ -9,11 +9,16 @@ import re
 import unicodedata
 import pdfplumber
 import logging
+import os
 
 from config import PDF_TEXTO_LIMITE_CHARS
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 
 logger = logging.getLogger(__name__)
+
+
+class PDFImagemSemOCR(RuntimeError):
+    """Indica PDF sem camada de texto e sem OCR disponivel no ambiente."""
 
 
 def limpar_linhas(texto: str) -> list[str]:
@@ -28,8 +33,64 @@ def limpar_linhas(texto: str) -> list[str]:
 from core.normalizacao import normalizar as normalizar_texto
 
 
+def _mensagem_pdf_imagem(caminho_pdf: str, detalhe: str = "") -> str:
+    mensagem = (
+        f"PDF '{caminho_pdf}' parece ser baseado em imagem ou nao contem texto extraivel. "
+        "Para processar esse tipo de arquivo no Windows, instale/configure Tesseract OCR "
+        "e Poppler, ou envie uma versao do PDF com camada de texto."
+    )
+    if detalhe:
+        mensagem += f" Detalhe: {detalhe}"
+    return mensagem
+
+
+def _extrair_texto_pdf_ocr(caminho_pdf: str, limite_chars: int) -> str:
+    try:
+        from pdf2image import convert_from_path
+        import pytesseract
+    except ImportError as exc:
+        raise PDFImagemSemOCR(
+            _mensagem_pdf_imagem(
+                caminho_pdf,
+                "bibliotecas pdf2image e/ou pytesseract nao estao instaladas no ambiente Python.",
+            )
+        ) from exc
+
+    paginas_limite = int(os.getenv("PLANOS_LUAN_OCR_MAX_PAGES", "12") or "12")
+    try:
+        imagens = convert_from_path(caminho_pdf, first_page=1, last_page=paginas_limite)
+    except Exception as exc:
+        raise PDFImagemSemOCR(
+            _mensagem_pdf_imagem(
+                caminho_pdf,
+                "nao foi possivel converter paginas em imagem. Verifique se o Poppler esta instalado e no PATH.",
+            )
+        ) from exc
+
+    partes = []
+    for imagem in imagens:
+        try:
+            partes.append(pytesseract.image_to_string(imagem, lang=os.getenv("PLANOS_LUAN_OCR_LANG", "por")))
+        except Exception as exc:
+            raise PDFImagemSemOCR(
+                _mensagem_pdf_imagem(
+                    caminho_pdf,
+                    "nao foi possivel executar o Tesseract. Verifique instalacao, PATH e idioma 'por'.",
+                )
+            ) from exc
+        if sum(len(p) for p in partes) >= limite_chars:
+            break
+
+    texto_ocr = "\n".join(partes)[:limite_chars].strip()
+    if len(texto_ocr) < 50:
+        raise PDFImagemSemOCR(
+            _mensagem_pdf_imagem(caminho_pdf, "o OCR foi executado, mas extraiu pouco texto.")
+        )
+    return texto_ocr
+
+
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS, permitir_fallback_teste: bool = None) -> str:
-    """Extrai texto de um PDF com detecção de PDFs baseados em imagem."""
+    """Extrai texto de um PDF; usa OCR opcional quando o PDF parece imagem."""
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
             partes = []
@@ -41,17 +102,13 @@ def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHA
             texto_total = "\n".join(partes)[:limite_chars]
 
             if len(texto_total.strip()) < 50 and len(pdf.pages) > 0:
-                raise ValueError(
-                    f"PDF '{caminho_pdf}' parece ser baseado em imagem "
-                    "ou nao contem texto extraivel. "
-                    "Verifique se o arquivo possui camada de texto."
-                )
+                logger.warning("PDF sem texto extraivel por pdfplumber; tentando OCR: %s", caminho_pdf)
+                return _extrair_texto_pdf_ocr(caminho_pdf, limite_chars)
             return texto_total
-    except ValueError as ve:
-        logger.warning("Falha na extracao de texto do PDF (provavel imagem): %s. Erro: %s", caminho_pdf, ve)
+    except PDFImagemSemOCR as ve:
+        logger.warning("Falha na extracao de texto do PDF por OCR: %s. Erro: %s", caminho_pdf, ve)
         raise
     except Exception as e:
-        import os
         permitir = permitir_fallback_teste
         if permitir is None:
             permitir = "PYTEST_CURRENT_TEST" in os.environ

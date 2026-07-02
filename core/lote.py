@@ -6,6 +6,7 @@ from pathlib import Path
 
 from core.ae_priorizado import carregar_base_habilidades_planilha
 from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_dinamico
+from core.listas_pedagogicas import normalizar_lista_exatamente_tres
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
 from core.referencias_biologia import localizar_docx_referencia_biologia, referencia_biologia_por_pdf
@@ -1930,32 +1931,8 @@ def _normalizar_itens_contextuais(
             if fallback:
                 acess = fallback
 
-    def _formatar_item(it: str) -> str:
-        it = re.sub(r'^(?:[☑☒☐]|☑|[\u2611\u2612\u2610]|\s|[-*+•]|\[[ xX]\])+\s*', '', it.strip())
-        return f"☑ {it}"
-
-    acomp = [_formatar_item(x) for x in acomp if x.strip()]
-    acess = [_formatar_item(x) for x in acess if x.strip()]
-
-    fb_acomp = [_formatar_item(x) for x in _fallback_acompanhamento_tema(tema, perfil)]
-    fb_acess = [_formatar_item(x) for x in _fallback_acessibilidade_tema(tema, perfil)]
-
-    while len(acomp) < 3:
-        idx = len(acomp)
-        if idx < len(fb_acomp):
-            acomp.append(fb_acomp[idx])
-        else:
-            acomp.append(fb_acomp[0])
-
-    while len(acess) < 3:
-        idx = len(acess)
-        if idx < len(fb_acess):
-            acess.append(fb_acess[idx])
-        else:
-            acess.append(fb_acess[0])
-
-    acomp = acomp[:3]
-    acess = acess[:3]
+    acomp = normalizar_lista_exatamente_tres(acomp, _fallback_acompanhamento_tema(tema, perfil))
+    acess = normalizar_lista_exatamente_tres(acess, _fallback_acessibilidade_tema(tema, perfil))
 
     return acomp, acess
 

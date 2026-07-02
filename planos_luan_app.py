@@ -2383,8 +2383,17 @@ if bool(professor and disciplina and turma and not disciplina_cdp and not modelo
         modelo_file = st.file_uploader("Novo Modelo", type=["docx"], key="novo_modelo_file")
         if modelo_file:
             modelo_bytes = modelo_file.getvalue()
-            if st.button("Salvar para futuro"):
-                (TEMPLATES_DIR / modelo_file.name).write_bytes(modelo_bytes)
+            destino_modelo = TEMPLATES_DIR / modelo_file.name
+            modelo_existe = destino_modelo.exists()
+            confirmar_modelo = True
+            if modelo_existe:
+                confirmar_modelo = st.checkbox(
+                    f"Confirmo que desejo substituir o modelo existente '{modelo_file.name}'.",
+                    key="confirmar_substituir_modelo_manual",
+                )
+                st.warning("Ja existe um modelo com esse nome. Marque a confirmacao para substituir.")
+            if st.button("Salvar para futuro", disabled=modelo_existe and not confirmar_modelo):
+                destino_modelo.write_bytes(modelo_bytes)
                 st.rerun()
     else:
         if (TEMPLATES_DIR / escolha_template).exists(): modelo_bytes = (TEMPLATES_DIR / escolha_template).read_bytes()
@@ -2809,7 +2818,7 @@ else:
                     ]
                 )
                 if est_necessarios > 0:
-                    st.markdown(f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;'><h3 style='color: #ff4b4b; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #333; margin-top: 5px; font-weight: bold;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; color: #2b0f14 !important;'><h3 style='color: #c81e2d !important; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #2b0f14 !important; margin-top: 5px; font-weight: 700;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>", unsafe_allow_html=True)
 
                 selecionados = st.multiselect(
                     "PDFs automaticos na ordem de processamento",
@@ -2825,7 +2834,7 @@ else:
         else:
             if est_necessarios > 0:
                 st.markdown(
-                    f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;'><h3 style='color: #ff4b4b; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #333; margin-top: 5px; font-weight: bold;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>",
+                    f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; color: #2b0f14 !important;'><h3 style='color: #c81e2d !important; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #2b0f14 !important; margin-top: 5px; font-weight: 700;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>",
                     unsafe_allow_html=True,
                 )
             pdfs_aulas_files = st.file_uploader(
@@ -3231,7 +3240,17 @@ if st.session_state.get("turmas_processadas"):
                 aulas_ref_unicas[num] = a
                 
             btn_key = f"save_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
-            if st.button(f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela", key=btn_key, type="secondary"):
+            confirmar_ref_key = f"confirm_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
+            confirmar_ref = st.checkbox(
+                f"Confirmo que desejo sobrescrever o DOCX de referência '{nome_ref_simpl}'.",
+                key=confirmar_ref_key,
+            )
+            if st.button(
+                f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela",
+                key=btn_key,
+                type="secondary",
+                disabled=not confirmar_ref,
+            ):
                 try:
                     from docx import Document
                     doc = Document()

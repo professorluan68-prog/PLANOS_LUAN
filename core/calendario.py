@@ -3,7 +3,6 @@ from datetime import date, timedelta
 
 DATAS_SEM_AULA_FIXAS = {
     date(2026, 8, 6),
-    date(2026, 8, 7),
 }
 
 

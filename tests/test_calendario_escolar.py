@@ -68,13 +68,13 @@ def test_datas_feriado_padrao_marca_corpus_christi_no_periodo():
     assert date(2026, 6, 4) in datas_feriado_padrao(datas)
 
 
-def test_datas_sem_aula_padrao_inclui_feriados_escolares_de_agosto_2026():
+def test_datas_sem_aula_padrao_inclui_apenas_feriado_escolar_de_06_de_agosto_em_2026():
     datas = datas_do_periodo(date(2026, 8, 1), date(2026, 8, 31))
 
     assert date(2026, 8, 6) in datas_sem_aula_calendario(2026)
-    assert date(2026, 8, 7) in datas_sem_aula_calendario(2026)
     assert date(2026, 8, 6) in datas_feriado_padrao(datas)
-    assert date(2026, 8, 7) in datas_feriado_padrao(datas)
+    assert date(2026, 8, 7) not in datas_sem_aula_calendario(2026)
+    assert date(2026, 8, 7) not in datas_feriado_padrao(datas)
 
 
 def test_filtrar_datas_sem_aula_remove_apenas_data_especifica_nao_dia_da_semana():

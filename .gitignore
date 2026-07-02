@@ -29,3 +29,4 @@ scratch_planilha.py
 scratch_planilha2.py
 tmp/*
 !tmp/*.py
+EXCLUIR/

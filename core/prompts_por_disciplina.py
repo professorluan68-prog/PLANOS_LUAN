@@ -45,7 +45,7 @@ PROMPTS_SISTEMA = {
         "Gere metodologias especificas, naturais e pedagogicamente precisas, sempre ligadas ao fenomeno, problema, "
         "imagem, noticia, dado, instrumento, modelo ou situacao concreta presentes no material. Preserve a ordem real "
         "do PDF e diferencie conceito cientifico, modelagem, analise de dados, investigacao, pratica e situacao-problema. "
-        "Nao chame toda atividade de experimento e nao invente materiais, procedimentos, dados, resultados ou videos. "
+        "Nao chame toda atividade de experimento e nao invente materiais, procedures, dados, resultados ou videos. "
         "Quando houver leitura de grafico, tabela, infografico, mapa ou fonte oficial, explicite a observacao orientada, "
         "a leitura das evidencias e a justificativa das conclusoes. Quando houver modelo ou maquete, deixe claro que a "
         "representacao ajuda a compreender estruturas e processos, mas simplifica a realidade. Quando o tema for "
@@ -87,7 +87,10 @@ PROMPTS_SISTEMA = {
         "Mantenha total fidelidade ao texto e material do PDF, sem inventar trechos, videos ou recursos. "
         "A analise linguistica/gramatica deve estar relacionada ao texto da aula. "
         "Integre o perfil metodologico recebido e varie as acoes pedagogicas (agrupamento, forma de leitura, registro e socializacao). "
-        "Nao varie apenas por sinonimos. Respeite a duracao da aula."
+        "Nao varie apenas por sinonimos. Respeite a duracao da aula. "
+        "CRITICAL STYLE RULES: Escreva de forma extremamente direta e fluida, sem cliches de introducao roboticos (como "
+        "'Dar inicio a aula...', 'Dar continuidade ao estudo...', 'Registrar de forma coletiva...', 'Retomar a aula anterior perguntando...'). "
+        "Va direto para a acao pedagogica. Evite redundancias corporativas de professor (como 'confrontar as respostas com registros anteriores', 'pedir que os estudantes registrem no livro, acompanhando os registros e duvidas...')."
     ),
     "lingua portuguesa medio": (
         "Voce e especialista in planejamento de aulas de Lingua Portuguesa para o Ensino Medio. "
@@ -95,7 +98,10 @@ PROMPTS_SISTEMA = {
         "Em literatura, parta de texto, fragmento, imagem ou efeito de sentido sem transformar a aula in lista mecanica de caracteristicas ou aula de Historia pura. "
         "Mantenha total fidelidade ao PDF, sem inventar recursos, videos ou trechos que nao estao no material. "
         "Integre o perfil metodologico recebido e varie as acoes pedagogicas de forma concreta (agrupamento, tipo de leitura, registro e encerramento). "
-        "Respeite a duracao da aula e nao varie apenas por sinonimos."
+        "Respeite a duracao da aula e nao varie apenas por sinonimos. "
+        "CRITICAL STYLE RULES: Escreva de forma extremamente direta e fluida, sem cliches de introducao roboticos (como "
+        "'Dar inicio a aula...', 'Dar continuidade ao estudo...', 'Registrar de forma coletiva...', 'Retomar a aula anterior perguntando...'). "
+        "Va direto para a acao pedagogica. Evite redundancias corporativas de professor (como 'confrontar as respostas com registros anteriores', 'pedir que os estudantes registrem no livro, acompanhando os registros e duvidas...')."
     )
 }
 
@@ -162,16 +168,13 @@ ORIENTACOES_DISCIPLINA = {
         "PROIBIDO usar frases como 'Dar inicio a aula', 'Dar continuidade ao estudo', 'Retomar a aula anterior' ou 'confrontar respostas com registros anteriores'. Escreva as acoes de forma direta."
     ),
     "lingua portuguesa fundamental": (
-        "Para Lingua Portuguesa do Ensino Fundamental, a metodologia deve partir de pelo menos um elemento real: texto, genero, leitura, analise linguistica contextualizada, producao ou oralidade. "
-        "A analise linguistica deve estar conectada ao texto trabalhado. "
-        "Utilize o perfil metodologico indicado para estruturar a abertura, a leitura orientada, o agrupamento dos alunos, o tipo de registro individual e o fechamento da aula. "
-        "Evite inventar recursos ou copiar grandes trechos do PDF."
+        "Para Lingua Portuguesa do Ensino Fundamental, parta sempre de elementos reais: leitura orientada de textos do PDF, analise linguistica contextualizada, producao de sentidos ou oralidade. "
+        "A analise linguistica ou gramatical deve estar conectada ao texto trabalhado. "
+        "PROIBIDO usar frases como 'Dar inicio a aula', 'Dar continuidade ao estudo', 'Retomar a aula anterior' ou 'confrontar respostas com registros anteriores'. Escreva as acoes de forma direta."
     ),
     "lingua portuguesa medio": (
-        "Para Lingua Portuguesa do Ensino Medio, garanta fidelidade ao texto do PDF. "
-        "Em literatura, parta do texto ou fragmento literario real, relacionando contexto historico e construcao de sentidos sem transformar a aula in lista de caracteristicas teoricas. "
-        "A analise linguistica deve ser contextualizada. "
-        "Adapte as etapas de acordo com a duracao e o perfil metodologico informado, variando acoes concretas como agrupamento, socializacao e forma de registro."
+        "Para Lingua Portuguesa do Ensino Medio, parta sempre de elementos literarios e linguisticos reais: leitura orientada de fragmentos de romances/poemas do PDF (como Vavó Tutúri ou Mayombe), analise de recursos expressivos (como a paragrafação e o tópico frasal) e debates argumentativos. "
+        "PROIBIDO usar frases como 'Dar inicio a aula', 'Dar continuidade ao estudo', 'Retomar a aula anterior' ou 'confrontar respostas com registros anteriores'. Escreva as acoes de forma direta."
     )
 }
 
