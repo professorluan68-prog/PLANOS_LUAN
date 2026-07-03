@@ -5,8 +5,6 @@ import re
 import time
 from typing import Any
 
-from pydantic import BaseModel, Field
-
 try:
     from openai import APIConnectionError, APITimeoutError, OpenAI, RateLimitError
 except ImportError:
@@ -24,6 +22,7 @@ except ImportError:
 
 from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO
 from core.lib.classificador import normalizar_texto, perfil_disciplina
+from core.models import EtapaMetodologia, PlanoAulaIA
 from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
 from core.qualidade_metodologica import (
     detectar_contexto_metodologico,
@@ -62,19 +61,6 @@ _TERMOS_RETRY_GENERICO = (
 def _erro_parece_temporario(erro: Exception) -> bool:
     texto = f"{type(erro).__name__}: {erro}".lower()
     return any(termo in texto for termo in _TERMOS_RETRY_GENERICO)
-
-
-class EtapaMetodologia(BaseModel):
-    titulo: str = Field(description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.")
-    texto: str = Field(description="Texto descritivo com a acao do professor e os recursos utilizados.")
-
-
-class PlanoAulaIA(BaseModel):
-    tema: str = Field(description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.")
-    aprendizagem: str = Field(description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.")
-    metodologia: list[EtapaMetodologia] = Field(description="Etapas de desenvolvimento da aula.")
-    acompanhamento: list[str] = Field(description="Lista com exatamente 3 itens curtos de acompanhamento da aprendizagem, focados na aula.")
-    acessibilidade: list[str] = Field(description="Lista com exatamente 3 itens curtos de acessibilidade/adaptacoes para necessidades especiais, focados na aula.")
 
 
 _FRASES_PROIBIDAS = (

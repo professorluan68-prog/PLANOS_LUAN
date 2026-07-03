@@ -157,9 +157,9 @@ def validar_aula_final(aula: dict) -> list[str]:
 
     conteudo_ref = tema + " " + aprendizagem
     conteudo_palavras = {
-        palavra
+        palavra.strip("?,.:;!()")
         for palavra in conteudo_ref.split()
-        if len(palavra) > 3 and palavra not in {
+        if len(palavra.strip("?,.:;!()")) > 3 and palavra.strip("?,.:;!()") not in {
             "para", "como", "com", "uma", "mais", "sobre", "aula", "conteudo", "tema",
             "estudantes", "alunos", "professor", "ciencias", "matematica", "portugues",
             "atividade", "recurso",
@@ -264,7 +264,7 @@ def validar_aula_final(aula: dict) -> list[str]:
             itens_lista_pedagogica(acessibilidade),
         )
     )
-    texto_acessibilidade = " ".join(str(item) for item in acessibilidade).lower()
+    texto_acessibilidade = normalizar_texto(" ".join(str(item) for item in acessibilidade)).lower()
     placeholders_acess = {
         "estrategia generica", "apoio generico", "leitura simples", "informacao do material",
     }

@@ -44,6 +44,9 @@ MODELO_OPENAI_PADRAO = "gpt-4o-mini"
 MODELO_GEMINI_PADRAO = "gemini-2.5-flash"
 IA_TIMEOUT_SEGUNDOS = 120
 
+# 4.1 Fluxos temporariamente desabilitados
+HABILITAR_REVISAO_POS_GERACAO = False
+
 # 5. Limites e regras de leitura
 PDF_TEXTO_LIMITE_CHARS = 100000
 MAX_CHARS_WORD = 15000

@@ -7,7 +7,6 @@ import base64
 import html
 import math
 import traceback
-import zipfile
 import unicodedata
 import hashlib
 from datetime import date, timedelta, datetime
@@ -148,9 +147,14 @@ from core.calendario import (
     rotulo_data_sem_aula as _rotulo_data_sem_aula,
 )
 from core.lote import processar_varios_pdfs
+from core.operacao import (
+    detectar_alteracoes_planos_revisados,
+    gerar_docx_final as _gerar_docx_final,
+    gerar_planos_finais_sem_revisao as _gerar_planos_finais_sem_revisao,
+    montar_zip_planos as _montar_zip_planos,
+)
 from core.validador_plano import validar_aulas_geradas
-from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR
-from docx_generator.preencher import preencher_documento
+from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
     LocalFileWrapper,
@@ -158,7 +162,6 @@ from core.helpers import (
     arquivos_na_ordem_de_envio,
     horario_para_plano,
     listar_falhas_ia,
-    montar_relatorio_geracao,
     normalizar_para_pasta,
     numeros_pdfs_faltantes,
     ordenar_pdfs_por_numero,
@@ -2108,14 +2111,6 @@ def _extrair_aulas_dos_pdfs(
                 try: os.unlink(caminho_temp)
                 except OSError: pass
 
-def _gerar_docx_final(modelo_bytes: bytes, aulas, escola: str, professor: str, disciplina: str, componente_curricular: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str):
-    docx_bytes = preencher_documento(
-        BytesIO(modelo_bytes), aulas, escola=escola, professor=professor, disciplina=componente_curricular or disciplina,
-        turma=turma_atual, mes=mes, bimestre=bimestre, semana=semana, observacao=observacao, aulas_previstas_manual=aulas_previstas_manual,
-    )
-    relatorio = montar_relatorio_geracao(aulas, disciplina, turma_atual, bimestre, mes)
-    return {"turma": turma_atual, "aulas": aulas, "docx_bytes": docx_bytes, "relatorio": relatorio, "ia_usada": any(aula.get("ia_usada") for aula in aulas)}
-
 def _gerar_docx_cdp_final(modelo_bytes: bytes, escola: str, professor: str, disciplina: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str, cdp_aula_inicial: int, turma_cdp: str = "", modo_ia: str = "Sem IA", modelo_openai: str = "", modelo_gemini: str = "", datas_horarios: list[dict] | None = None):
     docx_bytes = preencher_documento_cdp(
         BytesIO(modelo_bytes), escola=escola, professor=professor, turma=turma_atual, mes=mes, bimestre=bimestre,
@@ -2130,15 +2125,11 @@ def _gerar_docx_cdp_final(modelo_bytes: bytes, escola: str, professor: str, disc
     if modo_ia != "Sem IA": relatorio += f"IA: {modo_ia}\n"
     return {"turma": turma_atual, "aulas": [], "docx_bytes": docx_bytes, "relatorio": relatorio, "ia_usada": modo_ia != "Sem IA"}
 
-def _montar_zip_planos(planos: list[dict], disciplina: str) -> bytes:
-    saida = BytesIO()
-    with zipfile.ZipFile(saida, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for plano in planos:
-            nome_docx = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano["ia_usada"])
-            zf.writestr(nome_docx, plano["docx_bytes"].getvalue())
-            zf.writestr(nome_docx.replace(".docx", "_relatorio.txt"), plano["relatorio"].encode("utf-8"))
-    saida.seek(0)
-    return saida.read()
+if not HABILITAR_REVISAO_POS_GERACAO:
+    st.session_state["turmas_processadas"] = []
+    st.session_state["avisos_processamento"] = []
+    st.session_state.pop("revisao_token", None)
+    _limpar_revisao_aulas()
 
 st.markdown(HERO_CSS, unsafe_allow_html=True)
 
@@ -2941,16 +2932,19 @@ else:
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Confira a organização das aulas e inicie o processamento para transformar os PDFs em blocos prontos para revisão.</div>', unsafe_allow_html=True)
+if HABILITAR_REVISAO_POS_GERACAO:
+    st.markdown('<div class="section-subtitle">Confira a organização das aulas e inicie o processamento para transformar os PDFs em blocos prontos para revisão.</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="section-subtitle">Confira a organização das aulas e gere o documento final diretamente, sem abrir a etapa de revisão na tela.</div>', unsafe_allow_html=True)
 st.markdown(
     """
     <div class="process-panel">
         <div class="panel-title">Tudo pronto para processar</div>
-        <div class="panel-text">Revise rapidamente as datas, horários e PDFs vinculados. Quando estiver ok, o sistema prepara as aulas para você revisar antes de gerar o documento final.</div>
+        <div class="panel-text">Revise rapidamente as datas, horários e PDFs vinculados. Quando estiver ok, o sistema prepara as aulas e segue para a geração do arquivo final.</div>
         <div class="panel-pills">
             <span class="panel-pill">Fluxo guiado</span>
             <span class="panel-pill">Menos retrabalho</span>
-            <span class="panel-pill">Revisão antes do DOCX</span>
+            <span class="panel-pill">DOCX direto</span>
         </div>
     </div>
     """,
@@ -2971,7 +2965,8 @@ if disciplina_cdp:
         value=bool(st.session_state.get("salvar_historico_geracao", False)),
         help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
     )
-if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
+rotulo_botao_geracao = "GERAR PLANO" if disciplina_cdp else ("PROCESSAR AULAS" if HABILITAR_REVISAO_POS_GERACAO else "PROCESSAR E GERAR DOCX")
+if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
@@ -3056,15 +3051,47 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                         avisos_turma.extend(res["avisos_ia"])
                     if avisos_turma:
                         avisos.append({"turma": t, "avisos": avisos_turma})
-                progress_bar.progress(100, text="Extração concluída. Preparando a revisão...")
-                status.update(label="✅ Extraído!", state="complete", expanded=False)
-                st.session_state["turmas_processadas"] = turmas_processadas
-                st.session_state["avisos_processamento"] = avisos
-                st.session_state["revisao_token"] = st.session_state.get("revisao_token", 0) + 1
+                if HABILITAR_REVISAO_POS_GERACAO:
+                    progress_bar.progress(100, text="Extração concluída. Preparando a revisão...")
+                    status.update(label="✅ Extraído!", state="complete", expanded=False)
+                    st.session_state["turmas_processadas"] = turmas_processadas
+                    st.session_state["avisos_processamento"] = avisos
+                    st.session_state["revisao_token"] = st.session_state.get("revisao_token", 0) + 1
+                else:
+                    progress_bar.progress(100, text="Extração concluída. Gerando DOCX final...")
+                    planos_gerados = _gerar_planos_finais_sem_revisao(
+                        modelo_bytes,
+                        turmas_processadas,
+                        escola,
+                        professor,
+                        disciplina,
+                        componente_curricular,
+                        mes,
+                        bimestre,
+                        semana,
+                        observacao,
+                        aulas_previstas_manual,
+                    )
+                    st.session_state["planos_gerados"] = planos_gerados
+                    st.session_state["turmas_processadas"] = []
+                    st.session_state["avisos_processamento"] = avisos
+                    st.session_state.pop("revisao_token", None)
+                    _limpar_revisao_aulas()
+                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+                    salvou_historico = _salvar_planos_gerados_se_configurado(
+                        planos_gerados,
+                        professor,
+                        disciplina,
+                        bimestre,
+                    )
+                    _registrar_mensagem_memoria_plano(salvou_historico)
+                    status.update(label="✅ DOCX gerado!", state="complete", expanded=False)
             except Exception as e:
                 _registrar_erro_processamento(e)
             st.session_state["geracao_em_andamento"] = False
             st.rerun()
+
+alteracoes_detectadas = False
 
 if st.session_state.get("turmas_processadas"):
     avisos_processamento = st.session_state.get("avisos_processamento") or []
@@ -3347,27 +3374,10 @@ if st.session_state.get("turmas_processadas"):
         st.success("Planos gerados!")
 
     # Checa se houve alterações na tela após a geração do DOCX
-    alteracoes_detectadas = False
-    if st.session_state.get("planos_gerados"):
-        for tr in turmas_revisadas:
-            plano_gerado = next((p for p in st.session_state["planos_gerados"] if p["turma"] == tr["turma"]), None)
-            if plano_gerado:
-                if len(plano_gerado.get("aulas", [])) != len(tr["aulas"]):
-                    alteracoes_detectadas = True
-                    break
-                for a1, a2 in zip(plano_gerado.get("aulas", []), tr["aulas"]):
-                    if (
-                        a1.get("tema") != a2.get("tema")
-                        or a1.get("aprendizagem") != a2.get("aprendizagem")
-                        or a1.get("acompanhamento") != a2.get("acompanhamento")
-                        or a1.get("acessibilidade") != a2.get("acessibilidade")
-                        or a1.get("metodologia") != a2.get("metodologia")
-                    ):
-                        alteracoes_detectadas = True
-                        break
-            else:
-                alteracoes_detectadas = True
-                break
+    alteracoes_detectadas = detectar_alteracoes_planos_revisados(
+        st.session_state.get("planos_gerados") or [],
+        turmas_revisadas,
+    )
 
 if st.session_state.get("planos_gerados"):
     if alteracoes_detectadas:

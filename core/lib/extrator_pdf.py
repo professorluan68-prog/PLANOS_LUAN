@@ -89,8 +89,66 @@ def _extrair_texto_pdf_ocr(caminho_pdf: str, limite_chars: int) -> str:
     return texto_ocr
 
 
+def _extrair_texto_via_pdf2docx(caminho_pdf: str, limite_chars: int) -> tuple[str, list[str]]:
+    import tempfile
+    import docx
+    from pdf2docx import Converter
+    import logging
+    
+    # Suprime logs verbosos de conversão
+    logging.getLogger("pdf2docx").setLevel(logging.WARNING)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        caminho_docx = os.path.join(temp_dir, "temp_converted.docx")
+        cv = Converter(caminho_pdf)
+        cv.convert(caminho_docx, start=0, end=None)
+        cv.close()
+
+        doc = docx.Document(caminho_docx)
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+
+        tables_text = []
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                if row_text:
+                    tables_text.append(row_text)
+
+        all_text = "\n".join(paragraphs) + "\n" + "\n".join(tables_text)
+        return all_text[:limite_chars], paragraphs
+
+
+def _avaliar_qualidade_docx_texto(texto: str, paragraphs: list[str]) -> bool:
+    texto_limpo = texto.strip()
+    if len(texto_limpo) < 200:
+        return False
+    if len(paragraphs) < 3:
+        return False
+    
+    avg_len = sum(len(p) for p in paragraphs) / len(paragraphs)
+    if avg_len < 25:
+        return False
+        
+    decent_paragraphs = sum(1 for p in paragraphs if len(p) > 30)
+    decent_ratio = decent_paragraphs / len(paragraphs)
+    if decent_ratio < 0.3:
+        return False
+        
+    return True
+
+
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS, permitir_fallback_teste: bool = None) -> str:
-    """Extrai texto de um PDF; usa OCR opcional quando o PDF parece imagem."""
+    """Extrai texto de um PDF usando pdf2docx estruturado com fallback para pdfplumber e OCR."""
+    try:
+        texto_docx, paragrafos = _extrair_texto_via_pdf2docx(caminho_pdf, limite_chars)
+        if _avaliar_qualidade_docx_texto(texto_docx, paragrafos):
+            logger.info("Extração via pdf2docx bem-sucedida e com boa qualidade para: %s", caminho_pdf)
+            return texto_docx
+        else:
+            logger.warning("Qualidade do texto do pdf2docx insuficiente para: %s. Usando fallback pdfplumber.", caminho_pdf)
+    except Exception as exc:
+        logger.warning("Falha na extração por pdf2docx para %s: %s. Usando fallback pdfplumber.", caminho_pdf, exc)
+
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
             partes = []
@@ -105,6 +163,7 @@ def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHA
                 logger.warning("PDF sem texto extraivel por pdfplumber; tentando OCR: %s", caminho_pdf)
                 return _extrair_texto_pdf_ocr(caminho_pdf, limite_chars)
             return texto_total
+
     except PDFImagemSemOCR as ve:
         logger.warning("Falha na extracao de texto do PDF por OCR: %s. Erro: %s", caminho_pdf, ve)
         raise
