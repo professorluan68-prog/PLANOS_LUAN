@@ -56,7 +56,22 @@ class ModeloPlanoBase(BaseModel):
         return _normalizar_valor(_model_dump(self))
 
 
-class EtapaMetodologia(ModeloPlanoBase):
+class ModeloIABase(BaseModel):
+    if ConfigDict is not None:
+        model_config = ConfigDict(extra="forbid")
+    else:  # pragma: no cover - compatibilidade com Pydantic v1
+        class Config:
+            extra = "forbid"
+
+    @classmethod
+    def from_any(cls, dados: Any):
+        return _model_validate(cls, dados)
+
+    def to_dict(self) -> dict[str, Any]:
+        return _normalizar_valor(_model_dump(self))
+
+
+class EtapaMetodologia(ModeloIABase):
     titulo: str = Field(
         default="",
         description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
@@ -67,7 +82,7 @@ class EtapaMetodologia(ModeloPlanoBase):
     )
 
 
-class PlanoAulaIA(ModeloPlanoBase):
+class PlanoAulaIA(ModeloIABase):
     tema: str = Field(
         default="",
         description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.",
@@ -125,6 +140,12 @@ class PlanoCompleto(ModeloPlanoBase):
     recursos_detectados: list[str] = Field(default_factory=list)
     texto_fonte: str = ""
     diagnostico_geracao: dict[str, Any] = Field(default_factory=dict)
+    palavras_chave_esperadas: list[str] = Field(default_factory=list)
+    caminho_docx_auxiliar: str | None = None
+    valido_palavras_chave: bool = True
+    cobertura_palavras_chave: float = 100.0
+    palavras_chave_encontradas: list[str] = Field(default_factory=list)
+    palavras_chave_ausentes: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_any(cls, dados: Any):
@@ -207,4 +228,10 @@ class PlanoCompleto(ModeloPlanoBase):
             "recursos_detectados": dados.get("recursos_detectados") or [],
             "texto_fonte": dados.get("texto_fonte") or "",
             "diagnostico_geracao": dados.get("diagnostico_geracao") or {},
+            "palavras_chave_esperadas": dados.get("palavras_chave_esperadas") or [],
+            "caminho_docx_auxiliar": dados.get("caminho_docx_auxiliar"),
+            "valido_palavras_chave": bool(dados.get("valido_palavras_chave", True)),
+            "cobertura_palavras_chave": float(dados.get("cobertura_palavras_chave", 100.0)),
+            "palavras_chave_encontradas": dados.get("palavras_chave_encontradas") or [],
+            "palavras_chave_ausentes": dados.get("palavras_chave_ausentes") or [],
         }

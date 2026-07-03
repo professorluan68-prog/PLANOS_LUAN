@@ -217,3 +217,61 @@ def test_verificar_plano_gerado_por_outro_professor_filtra_bimestre(monkeypatch,
     assert outros[0]["professor_nome"] == "CARLA"
     assert outros[0]["arquivo_nome"] == "hist_3b.docx"
     assert outros[0]["bimestre"] == "3º BIMESTRE"
+
+
+def test_listar_ultimos_planos_por_contexto_filtra_bimestre_e_pega_mais_recente(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "mat_3b_antigo.docx",
+        b"docx-1",
+        bimestre="3º BIMESTRE",
+    )
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "mat_3b_novo.docx",
+        b"docx-2",
+        bimestre="3º BIMESTRE",
+    )
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "mat_4b.docx",
+        b"docx-3",
+        bimestre="4º BIMESTRE",
+    )
+    database.salvar_historico_plano(
+        "BIA",
+        "Historia",
+        "7 ANO B",
+        "hist_3b.docx",
+        b"docx-4",
+        bimestre="3º BIMESTRE",
+    )
+
+    registros_3b = database.listar_ultimos_planos_por_contexto("3º BIMESTRE")
+
+    assert [
+        (item["professor_nome"], item["disciplina"], item["turma"], item["arquivo_nome"], item["bimestre"])
+        for item in registros_3b
+    ] == [
+        ("ANA", "Matematica", "6 ANO A", "mat_3b_novo.docx", "3º BIMESTRE"),
+        ("BIA", "Historia", "7 ANO B", "hist_3b.docx", "3º BIMESTRE"),
+    ]
+
+    registros_todos = database.listar_ultimos_planos_por_contexto()
+
+    assert [
+        (item["professor_nome"], item["disciplina"], item["turma"], item["arquivo_nome"], item["bimestre"])
+        for item in registros_todos
+    ] == [
+        ("ANA", "Matematica", "6 ANO A", "mat_3b_novo.docx", "3º BIMESTRE"),
+        ("ANA", "Matematica", "6 ANO A", "mat_4b.docx", "4º BIMESTRE"),
+        ("BIA", "Historia", "7 ANO B", "hist_3b.docx", "3º BIMESTRE"),
+    ]

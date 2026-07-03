@@ -337,6 +337,29 @@ def preparar_contexto_aula_pdf(
         dependencias=dependencias,
     )
 
+    # Novo fluxo: Conversão de PDF para DOCX e extração de palavras-chave destacadas em amarelo
+    palavras_chave_esperadas = []
+    caminho_docx_aux = None
+    if caminho_pdf:
+        try:
+            from pathlib import Path
+            from core.extracao_palavras_chave_pdf import converter_pdf_para_docx_auxiliar, extrair_palavras_chave_docx
+            caminho_p = Path(caminho_pdf)
+            if caminho_p.suffix.lower() == ".pdf":
+                pasta_docx_aux = caminho_p.parent / "DOCX_AUXILIARES_EXTRACAO"
+                caminho_docx_aux = converter_pdf_para_docx_auxiliar(caminho_pdf, pasta_docx_aux)
+                if caminho_docx_aux and caminho_docx_aux.exists():
+                    palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_docx_aux)
+            elif caminho_p.suffix.lower() == ".docx":
+                palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_pdf)
+                caminho_docx_aux = caminho_p
+        except Exception as exc:
+            dependencias.logger.warning(
+                "Falha na conversão/extração de palavras-chave DOCX para %s: %s",
+                caminho_pdf,
+                exc
+            )
+
     return {
         "texto": texto,
         "tema": tema,
@@ -356,4 +379,6 @@ def preparar_contexto_aula_pdf(
         "aprendizagem_pv": aprendizagem_pv,
         "fonte_extracao": fonte_extracao,
         "arquivo_fonte_extracao": arquivo_fonte_extracao,
+        "palavras_chave_esperadas": palavras_chave_esperadas,
+        "caminho_docx_auxiliar": str(caminho_docx_aux) if caminho_docx_aux else None,
     }

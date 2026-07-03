@@ -452,3 +452,64 @@ def calcular_aderencia_pdf(aula: dict) -> tuple[float, list[str]]:
         alertas.append(f"Aderência ao PDF baixa ({aderencia:.0f}%). A metodologia inseriu conceitos não encontrados no material original (ex: '{termos_formatados}'). Sugestão: Remova conteúdos externos e foque apenas no que está no PDF.")
         
     return aderencia, alertas
+
+
+def validar_aderencia_palavras_chave(aula: dict, palavras_chave_esperadas: list[str]) -> dict:
+    """
+    Verifica a presença das palavras-chave esperadas na metodologia,
+    no acompanhamento da aprendizagem e na acessibilidade da aula gerada.
+    Retorna um dicionário com a flag 'valido' (caso cobertura >= 85%),
+    a porcentagem de cobertura e as palavras ausentes.
+    """
+    from core.qualidade_metodologica import normalizar_texto
+    
+    if not palavras_chave_esperadas:
+        return {
+            "valido": True,
+            "cobertura": 100.0,
+            "palavras_encontradas": [],
+            "palavras_ausentes": []
+        }
+        
+    metodologia = aula.get("metodologia") or []
+    texto_metodologia = " ".join(
+        item.get("texto", "") if isinstance(item, dict) else str(item)
+        for item in metodologia
+    )
+    texto_acomp = " ".join(str(item) for item in (aula.get("acompanhamento") or []))
+    texto_acess = " ".join(str(item) for item in (aula.get("acessibilidade") or []))
+    
+    # Consolida todo o texto gerado para a aula
+    texto_completo = normalizar_texto(f"{texto_metodologia} {texto_acomp} {texto_acess}").lower()
+    
+    palavras_encontradas = []
+    palavras_ausentes = []
+    
+    for palavra in palavras_chave_esperadas:
+        palavra_norm = normalizar_texto(palavra).lower()
+        if not palavra_norm:
+            continue
+            
+        # 1. Correspondência direta substring normalizada
+        if palavra_norm in texto_completo:
+            palavras_encontradas.append(palavra)
+            continue
+            
+        # 2. Correspondência parcial flexível para termos compostos (ex: "cidades-estado gregas")
+        partes = [p for p in palavra_norm.split() if len(p) > 3]
+        if partes and all(p in texto_completo for p in partes):
+            palavras_encontradas.append(palavra)
+        else:
+            palavras_ausentes.append(palavra)
+            
+    total_esperado = len(palavras_chave_esperadas)
+    total_encontrado = len(palavras_encontradas)
+    cobertura = (total_encontrado / total_esperado) * 100 if total_esperado > 0 else 100.0
+    
+    return {
+        "valido": cobertura >= 85.0,
+        "cobertura": round(cobertura, 1),
+        "palavras_encontradas": palavras_encontradas,
+        "palavras_ausentes": palavras_ausentes
+    }
+

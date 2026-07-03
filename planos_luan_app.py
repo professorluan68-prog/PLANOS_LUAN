@@ -154,7 +154,7 @@ from core.operacao import (
     montar_zip_planos as _montar_zip_planos,
 )
 from core.validador_plano import validar_aulas_geradas
-from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO
+from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, PLANOS_FEITOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
     LocalFileWrapper,
@@ -295,18 +295,76 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
-def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str) -> list[str]:
+import unicodedata
+
+def _remover_acentos(texto: str) -> str:
+    if not texto:
+        return ""
+    return "".join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def _normalizar_nome_diretorio(nome: str) -> str:
+    if not nome:
+        return ""
+    res = nome.strip().replace(" ", "_").upper()
+    res = "".join(c for c in res if c not in r'\/:*?"<>|')
+    return res
+
+def _resolver_caminho_professor_disciplina(professor: str, disciplina: str) -> Path:
+    if not professor:
+        return PLANOS_FINALIZADOS_DIR
+        
+    prof_norm = _normalizar_nome_diretorio(professor)
+    prof_norm_sem_acento = _remover_acentos(prof_norm)
+    
+    disc_norm = _normalizar_nome_diretorio(disciplina)
+    disc_norm_sem_acento = _remover_acentos(disc_norm)
+    
+    PLANOS_FEITOS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Busca o professor de forma case-insensitive e acento-insensitive
+    caminho_prof = PLANOS_FEITOS_DIR / prof_norm
+    for p_child in PLANOS_FEITOS_DIR.iterdir():
+        if p_child.is_dir():
+            child_norm_sem_acento = _remover_acentos(p_child.name.upper())
+            if child_norm_sem_acento == prof_norm_sem_acento:
+                caminho_prof = p_child
+                break
+                
+    caminho_prof.mkdir(parents=True, exist_ok=True)
+    
+    # Busca a disciplina de forma case-insensitive e acento-insensitive sob o professor
+    caminho_disc = caminho_prof / disc_norm
+    for d_child in caminho_prof.iterdir():
+        if d_child.is_dir():
+            child_norm_sem_acento = _remover_acentos(d_child.name.upper())
+            if child_norm_sem_acento == disc_norm_sem_acento:
+                caminho_disc = d_child
+                break
+                
+    caminho_disc.mkdir(parents=True, exist_ok=True)
+    return caminho_disc
+
+def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, professor: str = None) -> list[str]:
     caminhos_salvos = []
     try:
-        PLANOS_FINALIZADOS_DIR.mkdir(parents=True, exist_ok=True)
+        if professor:
+            dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina)
+        else:
+            PLANOS_FINALIZADOS_DIR.mkdir(parents=True, exist_ok=True)
+            dir_destino = PLANOS_FINALIZADOS_DIR
+            
         for plano in planos_gerados or []:
             nome_arq = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False))
-            caminho_completo = PLANOS_FINALIZADOS_DIR / nome_arq
+            caminho_completo = dir_destino / nome_arq
             with open(caminho_completo, "wb") as f:
                 f.write(plano["docx_bytes"].getvalue())
             caminhos_salvos.append(str(caminho_completo))
     except Exception as e:
-        st.warning(f"Não foi possível salvar os arquivos localmente em {PLANOS_FINALIZADOS_DIR}: {e}")
+        destino_mensagem = str(dir_destino) if 'dir_destino' in locals() else str(PLANOS_FINALIZADOS_DIR)
+        st.warning(f"Não foi possível salvar os arquivos localmente em {destino_mensagem}: {e}")
     return caminhos_salvos
 
 
@@ -3077,7 +3135,7 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                     st.session_state["avisos_processamento"] = avisos
                     st.session_state.pop("revisao_token", None)
                     _limpar_revisao_aulas()
-                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
                     salvou_historico = _salvar_planos_gerados_se_configurado(
                         planos_gerados,
                         professor,
@@ -3211,6 +3269,42 @@ if st.session_state.get("turmas_processadas"):
                 if frases_dupl:
                     st.warning("**Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):**\n" + "\n".join([f"- \"{frase}\"" for frase in frases_dupl]))
 
+                # Validação dinâmica de palavras-chave destacadas em amarelo (DOCX)
+                t_val = st.session_state.get(f"tema_{rev_tok}_{t_idx}_{a_idx}")
+                a_val = st.session_state.get(f"apr_{rev_tok}_{t_idx}_{a_idx}")
+                acomp_val = st.session_state.get(f"acomp_{rev_tok}_{t_idx}_{a_idx}")
+                aces_val = st.session_state.get(f"acess_{rev_tok}_{t_idx}_{a_idx}")
+                m_val = st.session_state.get(f"met_{rev_tok}_{t_idx}_{a_idx}")
+                
+                if t_val is None: t_val = aula.get("tema", "")
+                if a_val is None: a_val = aula.get("aprendizagem", "")
+                if acomp_val is None: acomp_val = "\n".join(aula.get("acompanhamento", []))
+                if aces_val is None: aces_val = "\n".join(aula.get("acessibilidade", []))
+                if m_val is None: m_val = _texto_metodologia_app(aula)
+                
+                palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    aula_temp = {
+                        "metodologia": _metodologia_app_para_blocos(m_val),
+                        "acompanhamento": [x.strip() for x in acomp_val.split("\n") if x.strip()],
+                        "acessibilidade": [x.strip() for x in aces_val.split("\n") if x.strip()]
+                    }
+                    from core.validador_plano import validar_aderencia_palavras_chave
+                    resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
+                    
+                    cobertura_atual = resultado_pc["cobertura"]
+                    valido_atual = resultado_pc["valido"]
+                    palavras_ausentes_atuais = resultado_pc["palavras_ausentes"]
+                    
+                    if valido_atual:
+                        st.success(f"🎯 **Aderência de Palavras-Chave Validada ({cobertura_atual:.1f}%)**: Pelo menos 85% das palavras-chave obrigatórias estão presentes.")
+                    else:
+                        st.error(f"❌ **Plano Não Confiável - Aderência de Palavras-Chave Baixa ({cobertura_atual:.1f}%)**: O plano gerado não possui pelo menos 85% das palavras-chave obrigatórias.")
+                        st.markdown("**Palavras-chave ausentes que devem ser incluídas no texto:**")
+                        termos_ausentes_html = " ".join([f'<span style="background-color: #ffe6e6; color: #cc0000; padding: 2px 6px; border: 1px solid #ffcccc; border-radius: 4px; margin-right: 6px; font-family: monospace; font-size: 0.9em; display: inline-block; margin-bottom: 4px;">{palavra}</span>' for palavra in palavras_ausentes_atuais])
+                        st.markdown(termos_ausentes_html, unsafe_allow_html=True)
+                        st.caption("Dica: Edite os campos de Metodologia, Acompanhamento ou Acessibilidade abaixo e reinsira estes termos. O validador será atualizado instantaneamente.")
+
                 col1, col2 = st.columns(2)
                 with col1:
                     t = st.text_input("Tema", value=aula.get("tema",""), key=f"tema_{rev_tok}_{t_idx}_{a_idx}")
@@ -3266,7 +3360,24 @@ if st.session_state.get("turmas_processadas"):
                                 st.info("Nenhuma metodologia final.")
                 
                 ae = aula.copy()
-                ae.update({"tema": t, "aprendizagem": a, "acompanhamento": [x for x in acomp.split("\n") if x], "acessibilidade": [x for x in aces.split("\n") if x], "metodologia": _metodologia_app_para_blocos(m)})
+                ae.update({
+                    "tema": t,
+                    "aprendizagem": a,
+                    "acompanhamento": [x.strip() for x in acomp.split("\n") if x.strip()],
+                    "acessibilidade": [x.strip() for x in aces.split("\n") if x.strip()],
+                    "metodologia": _metodologia_app_para_blocos(m)
+                })
+                # Recalcula a aderência das palavras-chave para o salvamento final
+                palavras_chave_esperadas = ae.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    from core.validador_plano import validar_aderencia_palavras_chave
+                    resultado_pc_final = validar_aderencia_palavras_chave(ae, palavras_chave_esperadas)
+                    ae.update({
+                        "valido_palavras_chave": resultado_pc_final["valido"],
+                        "cobertura_palavras_chave": resultado_pc_final["cobertura"],
+                        "palavras_chave_encontradas": resultado_pc_final["palavras_encontradas"],
+                        "palavras_chave_ausentes": resultado_pc_final["palavras_ausentes"]
+                    })
                 aulas_edit.append(ae)
         turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
 
@@ -3339,6 +3450,38 @@ if st.session_state.get("turmas_processadas"):
                     st.success(f"✓ O arquivo '{nome_ref_simpl}' foi atualizado e agora contém as versões corrigidas dos planos!")
                 except Exception as err:
                     st.error(f"Erro ao salvar arquivo de referência: {err}")
+
+    # Sempre disponibilizar a opção de atualizar o cache de metodologia base do PDF original (sidecar JSON)
+    planos_com_pdf = []
+    for tr in turmas_revisadas:
+        for aula in tr["aulas"]:
+            caminho_pdf_original = aula.get("caminho_pdf")
+            if caminho_pdf_original and os.path.exists(caminho_pdf_original):
+                planos_com_pdf.append(aula)
+                
+    if planos_com_pdf:
+        st.markdown('<div class="section-card"></div><div class="section-title">🔄 Salvar no Cache de Metodologia Base (PDF)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Grave os ajustes feitos nesta tela no cache de metodologia base da aula original. As próximas gerações desta aula usarão esta versão corrigida automaticamente.</div>', unsafe_allow_html=True)
+        
+        confirmar_cache = st.checkbox(
+            "Confirmo que desejo salvar as edições no cache de metodologia base permanente para estes PDFs.",
+            key="confirmar_salvar_cache_base",
+        )
+        if st.button(
+            "Salvar Alterações no Cache Base de Metodologias",
+            key="btn_salvar_cache_base",
+            type="secondary",
+            disabled=not confirmar_cache,
+        ):
+            try:
+                from core.revisao_final import gravar_sidecar_json, calcular_sha256
+                for aula in planos_com_pdf:
+                    caminho_pdf_original = aula.get("caminho_pdf")
+                    hash_pdf = aula.get("hash_pdf") or calcular_sha256(caminho_pdf_original)
+                    gravar_sidecar_json(caminho_pdf_original, aula, hash_pdf)
+                st.success("✓ O cache de metodologia base permanente foi atualizado com sucesso para todos os PDFs editados nesta tela!")
+            except Exception as err:
+                st.error(f"Erro ao salvar cache de metodologia base: {err}")
         
     st.markdown(
         """
@@ -3361,8 +3504,8 @@ if st.session_state.get("turmas_processadas"):
             planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
         st.session_state["planos_gerados"] = planos_gerados
         
-        # Salva fisicamente na pasta local de finalizados
-        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+        # Salva fisicamente na pasta do professor/disciplina
+        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
         
         salvou_historico = _salvar_planos_gerados_se_configurado(
             planos_gerados,
@@ -3389,14 +3532,15 @@ if st.session_state.get("planos_gerados"):
             st.session_state["planos_gerados"] = planos_gerados
             
             # Salva localmente e no histórico
-            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina)
+            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
             if st.session_state.get("salvar_historico_geracao", False):
                 _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina, bimestre)
             st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
             st.rerun()
 
     planos_gerados = st.session_state["planos_gerados"]
-    st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{PLANOS_FINALIZADOS_DIR}`")
+    dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina) if professor else PLANOS_FINALIZADOS_DIR
+    st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{dir_destino}`")
     
     mensagem_historico = str(st.session_state.pop("mensagem_historico_planos", "") or "").strip()
     mensagem_historico_tipo = str(st.session_state.pop("mensagem_historico_planos_tipo", "") or "").strip()

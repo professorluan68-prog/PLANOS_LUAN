@@ -258,6 +258,7 @@ def _montar_prompt(
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
+    palavras_chave_esperadas: list[str] | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
@@ -346,12 +347,27 @@ CONTEXTO DE VARIAÇÃO METODOLÓGICA:
 - Não mencione o nome do professor na metodologia.
 """
 
+    bloco_palavras_chave = ""
+    if palavras_chave_esperadas:
+        palavras_txt = "; ".join(palavras_chave_esperadas)
+        bloco_palavras_chave = f"""
+PALAVRAS-CHAVE OBRIGATÓRIAS (CURADORIA DO PROFESSOR):
+{palavras_txt}
+
+INSTRUÇÃO CRÍTICA DE ADERÊNCIA:
+- Você DEVE incluir todas (ou no mínimo 85% delas) as palavras-chave listadas acima no texto final do seu plano de aula (distribuídas na Metodologia, Acompanhamento ou Acessibilidade).
+- Mantenha essas palavras-chave na exata ordem sequencial/cronológica em que foram listadas, garantindo um sentido pedagógico correto.
+- Não altere o radical ou a grafia destas palavras para evitar falhas no validador automático.
+- Use essas palavras-chave como guia principal para detalhar e reescrever a metodologia da aula.
+"""
+
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
 PERFIL METODOLOGICO: {perfil}
 CONTEXTO: {contexto}
 NIVEL: {nivel}
+{bloco_palavras_chave}
 {bloco_eja}
 {bloco_leitura_redacao}
 {bloco_historia}
@@ -830,6 +846,7 @@ def processar_plano_ia(
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
+    palavras_chave_esperadas: list[str] | None = None,
 ) -> dict:
     prompt = _montar_prompt(
         texto_pdf,
@@ -839,6 +856,7 @@ def processar_plano_ia(
         permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
         rascunho_base=rascunho_base,
         contexto_geracao=contexto_geracao,
+        palavras_chave_esperadas=palavras_chave_esperadas,
     )
     system_prompt = get_system_prompt(disciplina, turma)
 

@@ -828,6 +828,99 @@ def listar_historico_planos(limite=HISTORICO_PLANOS_LIMITE_PADRAO):
         return cursor.fetchall()
 
 
+def listar_ultimos_planos_por_contexto(bimestre: str = "") -> list[dict]:
+    bimestre = _normalizar_campo(bimestre)
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        if bimestre:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    WHERE UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """,
+                (bimestre,),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    UPPER(TRIM(COALESCE(h.bimestre, ''))),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """
+            )
+
+        return [
+            {
+                "id": int(row[0]),
+                "professor_nome": row[1] or "",
+                "disciplina": row[2] or "",
+                "turma": row[3] or "",
+                "bimestre": row[4] or "",
+                "data_geracao": row[5] or "",
+                "arquivo_nome": row[6] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+
 def obter_arquivo_historico(plano_id):
     with get_connection() as conn:
         cursor = conn.cursor()

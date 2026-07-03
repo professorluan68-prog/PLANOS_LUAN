@@ -109,12 +109,35 @@ def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
         deducoes += penalidade
         avisos.extend(avisos_aderencia)
 
+    # 6.5. Validar aderência de palavras-chave destacadas em amarelo (DOCX)
+    palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
+    if palavras_chave_esperadas:
+        from core.validador_plano import validar_aderencia_palavras_chave
+        resultado_pc = validar_aderencia_palavras_chave(aula, palavras_chave_esperadas)
+        aula["valido_palavras_chave"] = resultado_pc["valido"]
+        aula["cobertura_palavras_chave"] = resultado_pc["cobertura"]
+        aula["palavras_chave_encontradas"] = resultado_pc["palavras_encontradas"]
+        aula["palavras_chave_ausentes"] = resultado_pc["palavras_ausentes"]
+        
+        if not resultado_pc["valido"]:
+            taxa = resultado_pc["cobertura"]
+            penalidade_pc = 15 + (85 - taxa)
+            deducoes += penalidade_pc
+            avisos.append(
+                f"Aderência de palavras-chave baixa ({taxa:.1f}%). "
+                f"As seguintes palavras-chave obrigatórias estão ausentes: {', '.join(resultado_pc['palavras_ausentes'][:8])}."
+            )
+
     # 7. Atualizar dicionário
     aula["confidence_score"] = int(max(0, 100 - deducoes))
     
-    # Travar máximo em 75% caso tenha falhado fortemente na aderência
+    # Travar máximo em 75% caso tenha falhado fortemente na aderência ao PDF
     if aderencia < 80:
         aula["confidence_score"] = min(aula["confidence_score"], 75)
+        
+    # Travar máximo em 70% caso tenha falhado fortemente na aderência de palavras-chave
+    if palavras_chave_esperadas and not aula.get("valido_palavras_chave", True):
+        aula["confidence_score"] = min(aula["confidence_score"], 70)
         
     aula["avisos_validacao"] = sorted(list(set(avisos)))
     aula["versao_gerador"] = VERSAO_GERADOR_ATUAL
