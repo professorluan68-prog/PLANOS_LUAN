@@ -406,7 +406,7 @@ REGRAS:
 2. Identifique o codigo da BNCC e a descricao da aprendizagem essencial se houver.
 3. Elabore a metodologia seguindo as etapas identificadas no esboco do PDF. O numero de etapas deve corresponder a estrutura real do material. Quando nao houver esboco, use 4 a 6 etapas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
 3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico mas fiel a sequencia do PDF.
-3.2. Cada etapa pode ter ate 1200 caracteres. Detalhe o suficiente para refletir todos os recursos visuais e atividades do PDF.
+3.2. Cada etapa pode ter no maximo 600 caracteres. Detalhe o suficiente para refletir todos os recursos visuais e atividades do PDF.
 3.3. Preserve o produto real da atividade do material (ex.: texto-sintese, tabela, legenda de figura, resumo, respostas no livro). Nao troque o produto por outro formato.
 4. Varie os inicios das frases entre as etapas e entre aulas diferentes, mantendo linguagem natural, objetiva e pedagogica.
 {regra_tecnicas}
@@ -692,7 +692,7 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
         restante = 9600 - total
         if restante <= 40:
             break
-        limite_item = min(1200, restante)
+        limite_item = min(600, restante)
         texto = _cortar_sem_quebrar_frase(item["texto"], limite_item)
         if not texto:
             continue

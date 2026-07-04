@@ -1,3 +1,18 @@
+import sys
+import os
+
+print("--- DIRETÓRIOS QUE O PYTHON ESTÁ OLHANDO ---")
+for path in sys.path:
+    print(path)
+print("-------------------------------------------")
+
+# Substitua 'nome_de_um_arquivo_suspeito' pelo nome do módulo que você acha que está vindo do C:
+try:
+    import nome_de_um_arquivo_suspeito
+    print(f"O arquivo foi carregado de: {nome_de_um_arquivo_suspeito.__file__}")
+except ImportError:
+    print("Não foi possível importar o arquivo.")
+
 import streamlit as st
 import tempfile
 import re

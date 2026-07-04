@@ -12,7 +12,7 @@ from core.listas_pedagogicas import (
 from core.models import PlanoCompleto
 from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
-VERSAO_GERADOR_ATUAL = "1.2.9"
+VERSAO_GERADOR_ATUAL = "1.2.10"
 
 
 def _limpar_tema_final(tema: str) -> str:
