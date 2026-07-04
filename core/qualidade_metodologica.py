@@ -1190,6 +1190,7 @@ def revisar_metodologia(
     perfil: str = "geral",
     tema: str = "",
     contexto: str = "regular",
+    consolidar: bool = True,
 ) -> tuple[list[dict[str, str]], dict[str, Any]]:
     revisada: list[dict[str, str]] = []
     alertas: list[str] = []
@@ -1208,7 +1209,8 @@ def revisar_metodologia(
             revisada.append({"titulo": titulo, "texto": texto_limpo})
 
     # Consolidar nas 4 etapas canônicas obrigatórias
-    revisada = consolidar_quatro_etapas(revisada, tema=tema)
+    if consolidar:
+        revisada = consolidar_quatro_etapas(revisada, tema=tema)
 
     score = 100
     score -= min(60, 10 * len(alertas))

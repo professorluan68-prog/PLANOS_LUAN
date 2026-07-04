@@ -259,6 +259,7 @@ def _montar_prompt(
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
     palavras_chave_esperadas: list[str] | None = None,
+    esboco_pdf: list[str] | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
@@ -315,10 +316,13 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
         bloco_historia = """
 
 MODELO ESPECIFICO DE HISTORIA:
-- Organize a metodologia em pelo menos 4 etapas quando o material tiver conteudo suficiente.
-- Priorize contextualizacao historica, leitura de imagem/fonte/mapa quando aparecer, relacao entre sujeitos historicos, tempo, espaco, causa, consequencia, mudanca e permanencia.
-- Em 6o ano, use linguagem clara e concreta, com perguntas orientadoras, registro no caderno e socializacao breve.
-- Para Grecia e Roma Antiga, cite os conceitos reais do material, como polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis ou instituicoes quando aparecerem no PDF.
+- A metodologia DEVE seguir FIELMENTE a sequencia de secoes e elementos do PDF/esboço.
+- Se o esboco lista dois blocos "FOCO NO CONTEUDO" separados por "NA PRATICA", gere dois blocos distintos de "Foco no conteudo" na metodologia.
+- Se o esboco lista "NA PRATICA: ATIVIDADE 1" e "NA PRATICA: ATIVIDADE 2", gere duas etapas "Na pratica" distintas, numerando as atividades.
+- Para cada pagina de "FOCO NO CONTEUDO", descreva os recursos visuais NA ORDEM do PDF: imagens, mapas, mapas mentais, videos, quadros comparativos, textos, ruinas, estatuas.
+- Use linguagem clara e concreta. Cite os conceitos reais do material: polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis etc.
+- Nao funda secoes que o PDF distingue. Nao reorganize a ordem. Nao omita recursos visuais listados no esboco.
+- Em 6o ano, inclua perguntas orientadoras, registro no caderno e socializacao breve.
 - Evite repetir literalmente as mesmas frases de retomada entre aulas do lote.
 """
 
@@ -361,12 +365,32 @@ INSTRUÇÃO CRÍTICA DE ADERÊNCIA:
 - Use essas palavras-chave como guia principal para detalhar e reescrever a metodologia da aula.
 """
 
+    bloco_esboco = ""
+    if esboco_pdf:
+        linhas_esboco = "\n".join(f"  {linha}" for linha in esboco_pdf)
+        bloco_esboco = f"""
+ESTRUTURA SEQUENCIAL DO PDF (ESBOÇO PÁGINA-A-PÁGINA):
+{linhas_esboco}
+
+INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
+- A metodologia DEVE seguir EXATAMENTE a sequencia de secoes e elementos listados no esboco acima.
+- Se o esboco mostra "PARA COMECAR: IMAGEM / urna eletronica", a etapa "Para comecar" DEVE mencionar a urna eletronica.
+- Se o esboco lista dois blocos "FOCO NO CONTEUDO" separados por "NA PRATICA", gere dois blocos distintos na metodologia, cada um com seu titulo "Foco no conteudo".
+- Se o esboco lista "NA PRATICA: ATIVIDADE 1" e "NA PRATICA: ATIVIDADE 2", gere DUAS etapas "Na pratica" distintas.
+- Cada pagina descrita no esboco de "FOCO NO CONTEUDO" (IMAGEM, MAPA, TEXTO, MAPA MENTAL, VIDEO, QUADRO) deve ser refletida na metodologia em ordem.
+- NAO reorganize, NAO funda, NAO omita secoes que o esboco distingue.
+- Use as TECNICAS PEDAGOGICAS exatamente como listadas no esboco (entre aspas).
+- Os titulos das etapas devem corresponder as secoes do esboco: "Para comecar", "Foco no conteudo", "Na pratica", "Encerramento".
+- Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
+"""
+
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
 PERFIL METODOLOGICO: {perfil}
 CONTEXTO: {contexto}
 NIVEL: {nivel}
+{bloco_esboco}
 {bloco_palavras_chave}
 {bloco_eja}
 {bloco_leitura_redacao}
@@ -380,9 +404,9 @@ NIVEL: {nivel}
 REGRAS:
 1. Extraia o conceito central da aula. Nao devolva rotulos como "AULA 1", "2o bimestre", "Ensino Fundamental" ou "Parte 1" como tema principal.
 2. Identifique o codigo da BNCC e a descricao da aprendizagem essencial se houver.
-3. Elabore a metodologia em 4 a 6 etapas curtas e objetivas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
-3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico.
-3.2. Limite o desenvolvimento total a cerca de 900 caracteres.
+3. Elabore a metodologia seguindo as etapas identificadas no esboco do PDF. O numero de etapas deve corresponder a estrutura real do material. Quando nao houver esboco, use 4 a 6 etapas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
+3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico mas fiel a sequencia do PDF.
+3.2. Cada etapa pode ter ate 1200 caracteres. Detalhe o suficiente para refletir todos os recursos visuais e atividades do PDF.
 3.3. Preserve o produto real da atividade do material (ex.: texto-sintese, tabela, legenda de figura, resumo, respostas no livro). Nao troque o produto por outro formato.
 4. Varie os inicios das frases entre as etapas e entre aulas diferentes, mantendo linguagem natural, objetiva e pedagogica.
 {regra_tecnicas}
@@ -651,30 +675,32 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
                 },
             )
 
-    itens = itens[:6]
-    while len(itens) < 4:
-        itens.append(
+    # Permitir até 10 etapas para seguir a estrutura real do PDF
+    itens = itens[:10]
+    # Não forçar mínimo de 4 etapas — manter apenas as etapas que o PDF realmente tem
+    if not itens:
+        itens = [
             {
-                "titulo": f"Etapa {len(itens)+1}",
+                "titulo": "Desenvolvimento",
                 "texto": "Realizar socialização breve das respostas e finalizar com síntese dos conceitos principais.",
             }
-        )
+        ]
 
     total = 0
     saida: list[dict[str, str]] = []
     for idx, item in enumerate(itens):
-        restante = 1200 - total
+        restante = 9600 - total
         if restante <= 40:
             break
-        limite_item = min(320, restante)
+        limite_item = min(1200, restante)
         texto = _cortar_sem_quebrar_frase(item["texto"], limite_item)
         if not texto:
             continue
         saida.append({"titulo": item["titulo"], "texto": texto})
         total += len(texto)
-        if idx >= 5:
+        if idx >= 9:
             break
-    return saida[:6]
+    return saida[:10]
 
 
 def _validar_schema_resposta(data: dict) -> None:
@@ -710,6 +736,7 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
         perfil=perfil,
         tema=tema,
         contexto=contexto,
+        consolidar=False,
     )
     metodologia = _compactar_metodologia(metodologia, texto_pdf, perfil)
     metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
@@ -847,6 +874,7 @@ def processar_plano_ia(
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
     palavras_chave_esperadas: list[str] | None = None,
+    esboco_pdf: list[str] | None = None,
 ) -> dict:
     prompt = _montar_prompt(
         texto_pdf,
@@ -857,6 +885,7 @@ def processar_plano_ia(
         rascunho_base=rascunho_base,
         contexto_geracao=contexto_geracao,
         palavras_chave_esperadas=palavras_chave_esperadas,
+        esboco_pdf=esboco_pdf,
     )
     system_prompt = get_system_prompt(disciplina, turma)
 

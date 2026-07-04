@@ -2859,6 +2859,7 @@ def _aula_por_pdf(
     arquivo_fonte_extracao = contexto.get("arquivo_fonte_extracao", caminho_fonte_extracao_esperada)
     palavras_chave_esperadas = contexto.get("palavras_chave_esperadas") or []
     caminho_docx_auxiliar = contexto.get("caminho_docx_auxiliar")
+    esboco_pdf = contexto.get("esboco_pdf") or []
 
     contexto_geracao = {
         "professor": professor,
@@ -2940,6 +2941,7 @@ def _aula_por_pdf(
                         rascunho_base=rascunho_local,
                         contexto_geracao=contexto_geracao,
                         palavras_chave_esperadas=palavras_chave_esperadas,
+                        esboco_pdf=esboco_pdf,
                     )
                     tema_ia = tema if escopo_pv.get("titulo") else plano_ia.get("tema") or tema
                     resultado_candidato = _montar_resultado_aula_ia(
