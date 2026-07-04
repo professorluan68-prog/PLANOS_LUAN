@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import re
 from pathlib import Path
 from config import BASE_DIR
@@ -13,6 +14,11 @@ from core.models import PlanoCompleto
 from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
 VERSAO_GERADOR_ATUAL = "1.2.10"
+
+# CORREÇÃO FALHA #8 — Score mínimo aceitável para entrega sem regeneração
+SCORE_MINIMO_ACEITAVEL = 70
+
+logger = logging.getLogger(__name__)
 
 
 def _limpar_tema_final(tema: str) -> str:
@@ -138,11 +144,94 @@ def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     # Travar máximo em 70% caso tenha falhado fortemente na aderência de palavras-chave
     if palavras_chave_esperadas and not aula.get("valido_palavras_chave", True):
         aula["confidence_score"] = min(aula["confidence_score"], 70)
-        
+
+    # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
+    tentativas_regeneracao = aula.get("_tentativas_regeneracao", 0)
+    if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < 1:
+        etapas_problematicas = _identificar_etapas_com_aviso(avisos)
+        if etapas_problematicas and perfil == "historia":
+            aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas)
+            if aula_corrigida:
+                aula_corrigida["_tentativas_regeneracao"] = tentativas_regeneracao + 1
+                logger.info(
+                    "Regeneração seletiva aplicada (score %d → re-validando). Etapas: %s",
+                    aula["confidence_score"],
+                    ", ".join(etapas_problematicas),
+                )
+                return revisar_aula_gerada(aula_corrigida, perfil)
+
     aula["avisos_validacao"] = sorted(list(set(avisos)))
     aula["versao_gerador"] = VERSAO_GERADOR_ATUAL
     aula["perfil"] = perfil
+    # Limpar campo interno de controle
+    aula.pop("_tentativas_regeneracao", None)
     return PlanoCompleto.from_any(aula).to_dict()
+
+
+def _identificar_etapas_com_aviso(avisos: list[str]) -> list[str]:
+    """
+    CORREÇÃO FALHA #8 — Extrai os nomes das etapas mencionadas nos avisos de validação.
+    Ex: "Etapa 'Encerramento': não descreve..." → "Encerramento"
+    """
+    etapas = set()
+    for aviso in avisos:
+        match = re.search(r"Etapa '([^']+)'", aviso)
+        if match:
+            etapas.add(match.group(1))
+    return sorted(etapas)
+
+
+def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> dict | None:
+    """
+    CORREÇÃO FALHA #8 — Regeneração seletiva de etapas genéricas para o perfil 'historia'.
+    Foca no encerramento genérico, que é o caso mais comum detectado pela auditoria.
+    """
+    metodologia = aula.get("metodologia") or []
+    tema = aula.get("tema", "")
+    houve_correcao = False
+
+    for idx, etapa in enumerate(metodologia):
+        titulo = str(etapa.get("titulo", "")).strip()
+        titulo_lower = titulo.lower()
+
+        if titulo_lower == "encerramento" and "Encerramento" in etapas_problematicas:
+            texto_atual = str(etapa.get("texto", "")).strip()
+            # Detectar encerramento genérico (sem termos específicos do conteúdo)
+            termos_genericos = [
+                "momento de síntese",
+                "verificação dos aprendizados",
+                "expressam o que compreenderam",
+                "síntese coletiva",
+                "retomada dos principais",
+            ]
+            is_generico = any(t in texto_atual.lower() for t in termos_genericos)
+            is_curto = len(texto_atual) < 80
+
+            if is_generico or is_curto:
+                # Gerar encerramento específico com "COM SUAS PALAVRAS" e tema
+                conceito = extrair_conceito_central(tema) or tema or "o conteúdo da aula"
+                novo_texto = (
+                    f'Para encerrar a aula, os alunos refletem e respondem "COM SUAS PALAVRAS" '
+                    f"sobre as perguntas finais relacionadas a {conceito}, "
+                    f"consolidando os principais conceitos trabalhados e registrando suas conclusões no caderno."
+                )
+                metodologia[idx] = {"titulo": titulo, "texto": novo_texto}
+                houve_correcao = True
+                logger.info("Encerramento genérico substituído por versão específica com COM SUAS PALAVRAS.")
+
+        elif titulo_lower == "para começar" and "Para começar" in etapas_problematicas:
+            texto_atual = str(etapa.get("texto", "")).strip()
+            # Se o "Para começar" não menciona termos do conteúdo, tentar enriquecer
+            conceito = extrair_conceito_central(tema) or tema
+            if conceito and conceito.lower() not in texto_atual.lower():
+                novo_texto = texto_atual.rstrip(". ") + f", contextualizando o tema {conceito}."
+                metodologia[idx] = {"titulo": titulo, "texto": novo_texto}
+                houve_correcao = True
+
+    if houve_correcao:
+        aula["metodologia"] = metodologia
+        return aula
+    return None
 
 def _normalizar_caminho_relativo(caminho) -> str:
     """Normaliza um caminho absoluto para que seja relativo ao BASE_DIR se possível."""

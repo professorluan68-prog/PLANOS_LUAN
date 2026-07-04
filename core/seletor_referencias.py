@@ -54,7 +54,6 @@ from core.referencias_projeto_vida import (
 )
 
 _LOCALIZADORES_REFERENCIA = {
-    "historia": localizar_docx_referencia_historia,
     "educacao_financeira": localizar_docx_referencia,
     "biologia": localizar_docx_referencia_biologia,
     "ciencias_ef": localizar_docx_referencia_ciencias,
@@ -68,7 +67,6 @@ _LOCALIZADORES_REFERENCIA = {
 }
 
 _REFERENCIAS_POR_PERFIL = {
-    "historia": referencia_historia_por_pdf,
     "educacao_financeira": referencia_por_pdf,
     "biologia": referencia_biologia_por_pdf,
     "ciencias_ef": referencia_ciencias_por_pdf,
@@ -82,7 +80,6 @@ _REFERENCIAS_POR_PERFIL = {
 }
 
 _ORIGENS_METODOLOGIA = {
-    "historia": "docx_referencia_historia",
     "educacao_financeira": "docx_referencia_educacao_financeira",
     "biologia": "docx_referencia_biologia",
     "ciencias_ef": "docx_referencia_ciencias",
@@ -128,8 +125,6 @@ def localizar_docx_referencia_por_perfil(
     if not caminho_pdf:
         return None
     if eh_cdp_contextual_disciplina(disciplina):
-        if "HISTORIA" in str(caminho_pdf).upper():
-            return localizar_docx_referencia_historia_cdp(caminho_pdf)
         return localizar_docx_referencia_cdp_contextual(caminho_pdf)
     if perfil in _PERFIS_PORTUGUES:
         return localizar_docx_referencia_portugues(caminho_pdf)

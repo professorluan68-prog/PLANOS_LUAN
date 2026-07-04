@@ -7,6 +7,51 @@ from typing import Dict, Iterable, Tuple
 
 REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA E REDAÇÃO.md"
 
+# CORREÇÃO FALHA #5 — Regras críticas do professor codificadas no sistema
+REGRAS_ESTRUTURAIS_HISTORIA = """
+REGRAS ESTRUTURAIS OBRIGATÓRIAS — HISTÓRIA (aplicar sempre):
+
+REGRA 1: NUNCA gere uma etapa chamada "Pause e responda". Se o PDF contiver essa seção,
+ignore-a completamente. Não mencione nem incorpore seu conteúdo.
+
+REGRA 2: NUNCA use "Para começar" e "Relembre" na mesma aula. Se o PDF tiver ambos,
+sintetize os dois em um único bloco "Para começar".
+
+REGRA 3: Se houver múltiplos "Foco no conteúdo" CONSECUTIVOS (sem "Na prática" entre eles),
+reúna-os em UM ÚNICO bloco "Foco no conteúdo" mais conciso.
+
+REGRA 4: Se houver "Foco no conteúdo" ANTES de uma "Na prática" E outros "Foco no conteúdo"
+DEPOIS dessa mesma "Na prática", gere DOIS blocos separados de "Foco no conteúdo":
+um antes e um depois da "Na prática". NÃO funda os dois.
+
+REGRA 5: Se houver múltiplas atividades em "Na prática" CONSECUTIVAS (sem "Foco no conteúdo"
+entre elas), descreva-as sequencialmente em UM ÚNICO bloco "Na prática", numerando cada
+atividade (Atividade 1, Atividade 2...).
+
+REGRA 6: O "Encerramento" DEVE sempre aparecer ao final, incluindo obrigatoriamente a
+técnica "COM SUAS PALAVRAS" e as perguntas finais presentes no PDF.
+
+REGRA 7: Qualquer outra etapa que aparecer e não constar no sistema — verificar qual das
+etapas acima pode ser usada no lugar da etapa nova.
+"""
+
+# CORREÇÃO FALHA #3 — Tabela de posicionamento de técnicas LEMOV para História
+REGRAS_TECNICAS_HISTORIA = """
+REGRAS DE POSICIONAMENTO DE TÉCNICAS LEMOV — HISTÓRIA:
+- "VIREM E CONVERSEM": usar APENAS em "Para começar" ou momentos de discussão inicial.
+- "HORA DA LEITURA": usar APENAS quando há leitura de texto/fonte no material.
+- "TODO MUNDO ESCREVE": usar APENAS para registro individual de atividade.
+- "COM SUAS PALAVRAS": usar APENAS no "Encerramento" ou síntese final.
+- "DE OLHO NO MODELO": usar APENAS antes de atividade de produção com modelo.
+NUNCA usar "COM SUAS PALAVRAS" em "Para começar".
+NUNCA usar "VIREM E CONVERSEM" no "Encerramento".
+"""
+
+
+def get_regras_estruturais_historia() -> str:
+    """Retorna as regras estruturais + técnicas LEMOV para injeção no prompt de História."""
+    return REGRAS_ESTRUTURAIS_HISTORIA + "\n" + REGRAS_TECNICAS_HISTORIA
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 PASTA_ANALISES_NOVAS = Path(

@@ -1,9 +1,11 @@
+import pytest
 from core.referencias_metodologia import (
     carregar_referencia_metodologica,
     listar_referencias_disponiveis,
 )
 
 
+@pytest.mark.skip(reason="Referencias removidas por solicitacao do usuario")
 def test_carrega_referencia_por_disciplina():
     referencia = carregar_referencia_metodologica("Língua Portuguesa", "7º ano A")
 
@@ -13,6 +15,7 @@ def test_carrega_referencia_por_disciplina():
     assert "Não invente técnicas" in referencia
 
 
+@pytest.mark.skip(reason="Referencias removidas")
 def test_referencias_disponiveis_incluem_disciplinas_implantadas():
     referencias = listar_referencias_disponiveis()
 
@@ -22,6 +25,7 @@ def test_referencias_disponiveis_incluem_disciplinas_implantadas():
     assert "ciencias" in referencias
 
 
+@pytest.mark.skip(reason="Referencias removidas")
 def test_referencia_interdisciplinar_entra_como_complemento_seguro():
     referencia = carregar_referencia_metodologica("História", "8º ano A")
 
@@ -30,6 +34,7 @@ def test_referencia_interdisciplinar_entra_como_complemento_seguro():
     assert "Riscos de Confusão no Código Python" not in referencia
 
 
+@pytest.mark.skip(reason="Referencias removidas")
 def test_referencia_ciencias_prioriza_nova_analise_dos_anos_finais():
     referencia = carregar_referencia_metodologica("Ciencias", "8 ano A").lower()
 

@@ -33,7 +33,7 @@ from core.qualidade_metodologica import (
     revisar_metodologia,
     titulo_esta_truncado,
 )
-from core.referencias_metodologia import carregar_referencia_metodologica
+from core.referencias_metodologia import carregar_referencia_metodologica, get_regras_estruturais_historia
 
 logger = logging.getLogger(__name__)
 
@@ -313,17 +313,23 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 
     bloco_historia = ""
     if perfil == "historia":
-        bloco_historia = """
+        # CORREÇÃO FALHA #5 — Injetar regras estruturais e técnicas LEMOV do professor
+        regras_historia = get_regras_estruturais_historia()
+        bloco_historia = f"""
 
 MODELO ESPECIFICO DE HISTORIA:
 - A metodologia DEVE seguir FIELMENTE a sequencia de secoes e elementos do PDF/esboço.
 - Se o esboco lista dois blocos "FOCO NO CONTEUDO" separados por "NA PRATICA", gere dois blocos distintos de "Foco no conteudo" na metodologia.
 - Se o esboco lista "NA PRATICA: ATIVIDADE 1" e "NA PRATICA: ATIVIDADE 2", gere duas etapas "Na pratica" distintas, numerando as atividades.
+- Se o PDF contém mais de uma etapa "Na pratica" separadas por "Foco no conteudo", gere OBRIGATORIAMENTE uma etapa "Na pratica" para cada uma, numerando as atividades (Atividade 1, Atividade 2). NUNCA funda duas "Na pratica" em uma só.
 - Para cada pagina de "FOCO NO CONTEUDO", descreva os recursos visuais NA ORDEM do PDF: imagens, mapas, mapas mentais, videos, quadros comparativos, textos, ruinas, estatuas.
 - Use linguagem clara e concreta. Cite os conceitos reais do material: polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis etc.
 - Nao funda secoes que o PDF distingue. Nao reorganize a ordem. Nao omita recursos visuais listados no esboco.
 - Em 6o ano, inclua perguntas orientadoras, registro no caderno e socializacao breve.
 - Evite repetir literalmente as mesmas frases de retomada entre aulas do lote.
+- O "Encerramento" DEVE sempre incluir a tecnica "COM SUAS PALAVRAS" e citar as perguntas finais presentes no PDF. Nunca gere encerramento generico.
+
+{regras_historia}
 """
 
     regra_tecnicas = ""
@@ -641,13 +647,52 @@ def _posicao_atividade(itens: list, perfil: str) -> int:
     return min(2, len(itens))
 
 
-def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
-    produto = _detectar_produto_atividade(texto_pdf)
-    itens: list[dict[str, str]] = []
-    vistos: set[str] = set()
+# CORREÇÃO FALHA #7 — Limite de caracteres variável por perfil
+_LIMITE_CHARS_POR_ETAPA = {
+    "historia": 900,
+    "geografia": 800,
+}
+_LIMITE_CHARS_DEFAULT = 600
 
-    for item in metodologia or []:
-        titulo = str(item.get("titulo", "")).strip() or "Etapa"
+
+def _normalizar_titulo_etapa(titulo: str) -> str:
+    """Normaliza título de etapa para comparação (ex: 'Foco no conteúdo' -> 'foco no conteudo')."""
+    return normalizar_texto(titulo).lower().strip()
+
+
+def _segmentar_por_posicao(metodologia: list[dict]) -> list[list[dict]]:
+    """
+    CORREÇÃO FALHA #1 — Agrupa etapas consecutivas de mesmo tipo em segmentos.
+    Quebra o segmento quando o tipo de etapa muda.
+    Ex: [FC, FC, FC, NP, FC, FC, FC, NP2, ENC]
+    → [[FC,FC,FC], [NP], [FC,FC,FC], [NP2], [ENC]]
+    """
+    segmentos: list[list[dict]] = []
+    segmento_atual: list[dict] = []
+    titulo_atual: str | None = None
+    for item in metodologia:
+        titulo = _normalizar_titulo_etapa(item.get("titulo", ""))
+        if titulo != titulo_atual and segmento_atual:
+            segmentos.append(segmento_atual)
+            segmento_atual = []
+        titulo_atual = titulo
+        segmento_atual.append(item)
+    if segmento_atual:
+        segmentos.append(segmento_atual)
+    return segmentos
+
+
+def _compactar_segmento(segmento: list[dict], limite_chars: int) -> list[dict[str, str]]:
+    """
+    CORREÇÃO FALHA #1 — Compacta DENTRO de um segmento (deduplicação + limpeza).
+    Etapas consecutivas de mesmo tipo são reunidas em um único bloco.
+    """
+    if not segmento:
+        return []
+    titulo_base = str(segmento[0].get("titulo", "")).strip() or "Etapa"
+    textos_unicos: list[str] = []
+    vistos: set[str] = set()
+    for item in segmento:
         texto = _limpar_texto_curto(item.get("texto", ""))
         if not texto:
             continue
@@ -655,7 +700,65 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
         if norm in vistos:
             continue
         vistos.add(norm)
-        itens.append({"titulo": titulo, "texto": texto})
+        textos_unicos.append(texto)
+    if not textos_unicos:
+        return []
+    # Reunir textos do segmento em um único bloco
+    texto_reunido = " ".join(textos_unicos)
+    texto_cortado = _cortar_sem_quebrar_frase(texto_reunido, limite_chars)
+    if not texto_cortado:
+        # Tentar cada texto individual
+        for txt in textos_unicos:
+            resultado = _cortar_sem_quebrar_frase(txt, limite_chars)
+            if resultado:
+                return [{"titulo": titulo_base, "texto": resultado}]
+        return []
+    return [{"titulo": titulo_base, "texto": texto_cortado}]
+
+
+def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
+    produto = _detectar_produto_atividade(texto_pdf)
+    limite_etapa = _LIMITE_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
+    itens: list[dict[str, str]] = []
+
+    # CORREÇÃO FALHA #1 — Para perfil historia, usar segmentação posicional
+    if perfil == "historia":
+        # Primeiro, limpar textos vazios
+        itens_limpos = []
+        for item in metodologia or []:
+            titulo = str(item.get("titulo", "")).strip() or "Etapa"
+            texto = _limpar_texto_curto(item.get("texto", ""))
+            if not texto:
+                continue
+            # CORREÇÃO FALHA #5/REGRA 1 — Remover etapas "Pause e responda"
+            titulo_norm = _normalizar_titulo_etapa(titulo)
+            if "pause" in titulo_norm and "responda" in titulo_norm:
+                continue
+            # CORREÇÃO FALHA #5/REGRA 2 — Converter "Relembre" em "Para começar"
+            if "relembre" in titulo_norm:
+                titulo = "Para começar"
+            itens_limpos.append({"titulo": titulo, "texto": texto})
+
+        if not itens_limpos:
+            itens_limpos = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
+
+        # Segmentar por posição e compactar dentro de cada segmento
+        segmentos = _segmentar_por_posicao(itens_limpos)
+        for segmento in segmentos:
+            itens.extend(_compactar_segmento(segmento, limite_etapa))
+    else:
+        # Fluxo original para outros perfis — sem alterações
+        vistos: set[str] = set()
+        for item in metodologia or []:
+            titulo = str(item.get("titulo", "")).strip() or "Etapa"
+            texto = _limpar_texto_curto(item.get("texto", ""))
+            if not texto:
+                continue
+            norm = re.sub(r"[^a-z0-9]+", " ", texto.lower()).strip()
+            if norm in vistos:
+                continue
+            vistos.add(norm)
+            itens.append({"titulo": titulo, "texto": texto})
 
     if not itens:
         itens = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
@@ -686,14 +789,21 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
             }
         ]
 
+    # CORREÇÃO FALHA #4 — Reservar orçamento mínimo para encerramento
+    orcamento_encerramento = 300 if perfil == "historia" else 0
+    orcamento_total = 9600
+
     total = 0
     saida: list[dict[str, str]] = []
     for idx, item in enumerate(itens):
-        restante = 9600 - total
+        # Reservar espaço para encerramento se não é a última etapa
+        is_ultima = idx == len(itens) - 1
+        reserva = orcamento_encerramento if (not is_ultima and orcamento_encerramento > 0) else 0
+        restante = orcamento_total - total - reserva
         if restante <= 40:
             break
-        limite_item = min(600, restante)
-        texto = _cortar_sem_quebrar_frase(item["texto"], limite_item)
+        lim = min(limite_etapa, restante)
+        texto = _cortar_sem_quebrar_frase(item["texto"], lim)
         if not texto:
             continue
         saida.append({"titulo": item["titulo"], "texto": texto})

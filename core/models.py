@@ -73,34 +73,27 @@ class ModeloIABase(BaseModel):
 
 class EtapaMetodologia(ModeloIABase):
     titulo: str = Field(
-        default="",
         description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
     )
     texto: str = Field(
-        default="",
         description="Texto descritivo com a acao do professor e os recursos utilizados.",
     )
 
 
 class PlanoAulaIA(ModeloIABase):
     tema: str = Field(
-        default="",
         description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.",
     )
     aprendizagem: str = Field(
-        default="",
         description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.",
     )
     metodologia: list[EtapaMetodologia] = Field(
-        default_factory=list,
         description="Etapas de desenvolvimento da aula.",
     )
     acompanhamento: list[str] = Field(
-        default_factory=list,
         description="Lista com exatamente 3 itens curtos de acompanhamento da aprendizagem, focados na aula.",
     )
     acessibilidade: list[str] = Field(
-        default_factory=list,
         description="Lista com exatamente 3 itens curtos de acessibilidade/adaptacoes para necessidades especiais, focados na aula.",
     )
 
