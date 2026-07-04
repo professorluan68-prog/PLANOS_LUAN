@@ -7,6 +7,76 @@ from typing import Dict, Iterable, Tuple
 
 REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA E REDAÇÃO.md"
 
+# Títulos de etapa que NUNCA podem aparecer em planos de História
+TITULOS_PROIBIDOS_HISTORIA: tuple[str, ...] = (
+    "pause e responda",
+    "pause e responda:",
+)
+
+# Mapa global de títulos proibidos por perfil (usado em ia.py e revisao_final.py)
+TITULOS_PROIBIDOS_POR_PERFIL: dict[str, tuple[str, ...]] = {
+    "historia": TITULOS_PROIBIDOS_HISTORIA,
+    # Adicionar outros perfis aqui conforme necessário
+}
+
+
+def get_titulos_proibidos(perfil: str) -> tuple[str, ...]:
+    """Retorna os títulos de etapa proibidos para um dado perfil."""
+    import unicodedata
+    perfil_norm = unicodedata.normalize("NFKD", str(perfil or "").lower().strip())
+    perfil_norm = "".join(ch for ch in perfil_norm if not unicodedata.combining(ch))
+    return TITULOS_PROIBIDOS_POR_PERFIL.get(perfil_norm, ())
+
+
+REGRAS_ESTRUTURAIS_HISTORIA = """\
+REGRAS ESTRUTURAIS OBRIGATÓRIAS — HISTÓRIA (aplicar sempre):
+
+REGRA 1 [PROIBIÇÃO ABSOLUTA]: NUNCA gere uma etapa com título "Pause e responda".
+  - Esta regra não tem exceção para História.
+  - Se o PDF contiver a seção "PAUSE E RESPONDA", ignore-a completamente.
+  - Não mencione, não incorpore, não parafraseie seu conteúdo.
+  - Se você gerar uma etapa com esse título, o plano será REJEITADO automaticamente.
+
+REGRA 2 [FUSÃO OBRIGATÓRIA]: NUNCA use "Para começar" e "Relembre" na mesma aula.
+  - Se o PDF tiver ambos, sintetize os dois em um único bloco "Para começar".
+
+REGRA 3 [FUSÃO DE CONSECUTIVOS]: Se houver múltiplos "Foco no conteúdo" CONSECUTIVOS
+  (sem "Na prática" entre eles), reúna-os em UM ÚNICO bloco "Foco no conteúdo" mais conciso.
+
+REGRA 4 [SEPARAÇÃO OBRIGATÓRIA]: Se houver "Foco no conteúdo" ANTES de uma "Na prática"
+  E outros "Foco no conteúdo" DEPOIS dessa mesma "Na prática", gere DOIS blocos separados:
+  um antes e um depois da "Na prática". NÃO funda os dois.
+
+REGRA 5 [NUMERAÇÃO DE ATIVIDADES]: Se houver múltiplas atividades em "Na prática"
+  CONSECUTIVAS (sem "Foco no conteúdo" entre elas), descreva-as em UM ÚNICO bloco
+  "Na prática", numerando cada atividade (Atividade 1, Atividade 2...).
+
+REGRA 6 [ENCERRAMENTO OBRIGATÓRIO]: O "Encerramento" DEVE sempre aparecer ao final,
+  incluindo obrigatoriamente a técnica "COM SUAS PALAVRAS" e as perguntas finais do PDF.
+
+REGRA 7 [LIMITE DE TAMANHO — CRÍTICO]: Cada etapa da metodologia de História deve ter
+  NO MÁXIMO 900 caracteres. Conte os caracteres antes de finalizar cada etapa.
+  Se ultrapassar 900 caracteres, corte na última frase completa antes do limite.
+  Uma etapa com mais de 900 caracteres será truncada automaticamente pelo sistema.
+"""
+
+REGRAS_TECNICAS_HISTORIA = """\
+REGRAS DE POSICIONAMENTO DE TÉCNICAS LEMOV — HISTÓRIA:
+- "VIREM E CONVERSEM": usar APENAS em "Para começar" ou momentos de discussão inicial.
+- "HORA DA LEITURA": usar APENAS quando há leitura de texto/fonte no material.
+- "TODO MUNDO ESCREVE": usar APENAS para registro individual de atividade.
+- "COM SUAS PALAVRAS": usar APENAS no "Encerramento" ou síntese final.
+- "DE OLHO NO MODELO": usar APENAS antes de atividade de produção com modelo.
+NUNCA usar "COM SUAS PALAVRAS" em "Para começar".
+NUNCA usar "VIREM E CONVERSEM" no "Encerramento".
+NUNCA usar "PAUSE E RESPONDA" em nenhuma etapa de História.
+"""
+
+
+def get_regras_estruturais_historia() -> str:
+    """Retorna as regras estruturais + técnicas LEMOV para injeção no prompt de História."""
+    return REGRAS_ESTRUTURAIS_HISTORIA + "\n" + REGRAS_TECNICAS_HISTORIA
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 PASTA_ANALISES_NOVAS = Path(
@@ -230,14 +300,15 @@ def _limpar_interdisciplinar(texto: str) -> str:
 
 def _reforcar_regras_do_sistema(texto: str) -> str:
     reforco = (
-        "REGRAS FIXAS DO SISTEMA:\n"
-        "- Use esta biblioteca apenas como referência de estilo e qualidade, sem copiar trechos prontos.\n"
-        "- Priorize textos completos; não use reticências para encurtar frases em desenvolvimento, acompanhamento ou acessibilidade.\n"
-        "- Se precisar reduzir, reescreva a frase de forma mais curta e completa.\n"
-        "- Não invente técnicas pedagógicas; só cite técnicas quando estiverem explicitamente presentes nos slides.\n"
-        "- Exceção: Pause e responda sempre é verificação da aprendizagem com correção mediada.\n"
-        "- Respeite a ordem real dos slides enviados.\n"
-        "- Mantenha metodologia fluida, objetiva e adequada ao conteúdo da aula.\n\n"
+        "REGRAS FIXAS DO SISTEMA:\\n"
+        "- Use esta biblioteca apenas como referência de estilo e qualidade, sem copiar trechos prontos.\\n"
+        "- Priorize textos completos; não use reticências para encurtar frases em desenvolvimento, acompanhamento ou acessibilidade.\\n"
+        "- Se precisar reduzir, reescreva a frase de forma mais curta e completa.\\n"
+        "- Não invente técnicas pedagógicas; só cite técnicas quando estiverem explicitamente presentes nos slides.\\n"
+        "- Exceção APENAS para Biologia, Inglês e EJA: 'Pause e responda' é verificação da aprendizagem com correção mediada.\\n"
+        "- Para HISTÓRIA: 'Pause e responda' é SEMPRE PROIBIDO, sem exceção.\\n"
+        "- Respeite a ordem real dos slides enviados.\\n"
+        "- Mantenha metodologia fluida, objetiva e adequada ao conteúdo da aula.\\n\\n"
     )
     return reforco + texto
 

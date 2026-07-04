@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from contextlib import contextmanager
 
-from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH
+from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +123,8 @@ def _limpar_historico_planos_incompletos(cursor) -> None:
     cursor.execute(
         """
         DELETE FROM historico_planos
-        WHERE arquivo_docx IS NULL
-           OR LENGTH(arquivo_docx) = 0
+        WHERE arquivo_path IS NULL
+           OR COALESCE(TRIM(arquivo_path), '') = ''
            OR COALESCE(TRIM(arquivo_nome), '') = ''
         """
     )
@@ -167,8 +167,81 @@ def _aplicar_migracoes(cursor):
         )
 
 
+def _migrar_blob_para_path(conn) -> None:
+    """
+    Verifica se a tabela historico_planos tem a coluna antiga 'arquivo_docx' (BLOB).
+    Se sim, migra os blobs para arquivos físicos em HISTORICO_DOCX_DIR,
+    salva a referência do caminho relativo em uma nova tabela e substitui a antiga.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='historico_planos'")
+    if not cursor.fetchone():
+        return
+
+    cursor.execute("PRAGMA table_info(historico_planos)")
+    colunas = [row[1] for row in cursor.fetchall()]
+    if "arquivo_docx" not in colunas:
+        return
+
+    logger.info("Iniciando migração de BLOBs do SQLite para arquivos físicos...")
+    cursor.execute("SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_docx FROM historico_planos")
+    registros = cursor.fetchall()
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS historico_planos_nova (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            professor_nome TEXT,
+            disciplina TEXT,
+            turma TEXT,
+            bimestre TEXT,
+            data_geracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            arquivo_nome TEXT,
+            arquivo_path TEXT
+        )
+        """
+    )
+
+    os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
+    from core.lib.classificador import normalizar_texto
+
+    for reg in registros:
+        r_id, prof, disc, turma, bim, data_gen, arq_nome, blob = reg
+        if not arq_nome:
+            arq_nome = f"plano_{r_id}.docx"
+
+        stem = Path(arq_nome).stem
+        ext = Path(arq_nome).suffix or ".docx"
+
+        prof_clean = normalizar_texto(prof).replace(" ", "_")
+        disc_clean = normalizar_texto(disc).replace(" ", "_")
+        turma_clean = normalizar_texto(turma).replace(" ", "_")
+
+        unique_name = f"{prof_clean}_{disc_clean}_{turma_clean}_{r_id}_{stem}{ext}"
+        filepath = Path(HISTORICO_DOCX_DIR) / unique_name
+
+        if blob:
+            try:
+                filepath.write_bytes(blob)
+            except Exception as e:
+                logger.error(f"Erro ao salvar arquivo fisico na migracao: {e}")
+
+        cursor.execute(
+            """
+            INSERT INTO historico_planos_nova (id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (r_id, prof, disc, turma, bim, data_gen, arq_nome, unique_name),
+        )
+
+    cursor.execute("DROP TABLE historico_planos")
+    cursor.execute("ALTER TABLE historico_planos_nova RENAME TO historico_planos")
+    logger.info("Migração concluída com sucesso!")
+
+
 def init_db():
     with get_connection() as conn:
+        _migrar_blob_para_path(conn)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -210,10 +283,11 @@ def init_db():
                 bimestre TEXT,
                 data_geracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 arquivo_nome TEXT,
-                arquivo_docx BLOB
+                arquivo_path TEXT
             )
             """
         )
+
 
         cursor.execute(
             """
@@ -618,11 +692,29 @@ def salvar_historico_plano(
     arquivo_nome = _normalizar_campo(arquivo_nome)
     arquivo_docx_bytes = bytes(arquivo_docx_bytes or b"")
 
+    # Gera um nome físico único para salvar no disco
+    from core.lib.classificador import normalizar_texto
+    import time
+    prof_clean = normalizar_texto(professor_nome).replace(" ", "_")
+    disc_clean = normalizar_texto(disciplina).replace(" ", "_")
+    turma_clean = normalizar_texto(turma).replace(" ", "_")
+    ts = int(time.time())
+    
+    unique_filename = f"{prof_clean}_{disc_clean}_{turma_clean}_{ts}_{arquivo_nome.strip()}"
+    filepath = Path(HISTORICO_DOCX_DIR) / unique_filename
+
+    try:
+        os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
+        filepath.write_bytes(arquivo_docx_bytes)
+    except Exception as e:
+        logger.error(f"Erro ao salvar arquivo fisico de historico: {e}")
+        return
+
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO historico_planos (professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_docx)
+            INSERT INTO historico_planos (professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_path)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
@@ -631,12 +723,51 @@ def salvar_historico_plano(
                 turma,
                 bimestre,
                 arquivo_nome,
-                sqlite3.Binary(arquivo_docx_bytes),
+                unique_filename,
             ),
         )
         
         # Aplicar política de retenção
         if limite_retencao > 0:
+            cursor.execute(
+                """
+                SELECT arquivo_path FROM historico_planos
+                WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                  AND id NOT IN (
+                      SELECT id FROM historico_planos
+                      WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                        AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                      ORDER BY data_geracao DESC, id DESC
+                      LIMIT ?
+                  )
+                """,
+                (
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    bimestre,
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    bimestre,
+                    limite_retencao,
+                ),
+            )
+            caminhos_remover = [row[0] for row in cursor.fetchall()]
+            for p_rel in caminhos_remover:
+                if p_rel:
+                    try:
+                        p_abs = Path(HISTORICO_DOCX_DIR) / p_rel
+                        if p_abs.exists():
+                            p_abs.unlink()
+                    except Exception as e:
+                        logger.error(f"Erro ao remover arquivo fisico do historico: {e}")
+
             cursor.execute(
                 """
                 DELETE FROM historico_planos
@@ -653,7 +784,7 @@ def salvar_historico_plano(
                       ORDER BY data_geracao DESC, id DESC
                       LIMIT ?
                   )
-                                """,
+                """,
                 (
                     professor_nome,
                     disciplina,
@@ -680,6 +811,7 @@ def salvar_historico_plano(
         conn.commit()
 
 
+
 def listar_historico_planos(limite=HISTORICO_PLANOS_LIMITE_PADRAO):
     limite = _normalizar_limite_historico(limite)
     with get_connection() as conn:
@@ -696,11 +828,117 @@ def listar_historico_planos(limite=HISTORICO_PLANOS_LIMITE_PADRAO):
         return cursor.fetchall()
 
 
+def listar_ultimos_planos_por_contexto(bimestre: str = "") -> list[dict]:
+    bimestre = _normalizar_campo(bimestre)
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        if bimestre:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    WHERE UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """,
+                (bimestre,),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    UPPER(TRIM(COALESCE(h.bimestre, ''))),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """
+            )
+
+        return [
+            {
+                "id": int(row[0]),
+                "professor_nome": row[1] or "",
+                "disciplina": row[2] or "",
+                "turma": row[3] or "",
+                "bimestre": row[4] or "",
+                "data_geracao": row[5] or "",
+                "arquivo_nome": row[6] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+
 def obter_arquivo_historico(plano_id):
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT arquivo_nome, arquivo_docx FROM historico_planos WHERE id = ?", (plano_id,))
-        return cursor.fetchone()
+        cursor.execute("SELECT arquivo_nome, arquivo_path FROM historico_planos WHERE id = ?", (plano_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        nome, path_rel = row
+        bytes_content = b""
+        if path_rel:
+            p_abs = Path(HISTORICO_DOCX_DIR) / path_rel
+            if p_abs.exists():
+                try:
+                    bytes_content = p_abs.read_bytes()
+                except Exception as e:
+                    logger.error(f"Erro ao ler arquivo fisico do historico: {e}")
+        return nome, bytes_content
+
 
 
 def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) -> bytes | None:
@@ -712,7 +950,7 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT arquivo_docx FROM historico_planos
+            SELECT arquivo_path FROM historico_planos
             WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
               AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
               AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
@@ -722,7 +960,15 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
             (professor_nome, disciplina, turma),
         )
         row = cursor.fetchone()
-        return row[0] if row else None
+        if row and row[0]:
+            p_abs = Path(HISTORICO_DOCX_DIR) / row[0]
+            if p_abs.exists():
+                try:
+                    return p_abs.read_bytes()
+                except Exception as e:
+                    logger.error(f"Erro ao ler ultimo arquivo docx: {e}")
+        return None
+
 
 
 def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:

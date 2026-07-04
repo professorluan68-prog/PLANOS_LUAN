@@ -1,16 +1,26 @@
 import hashlib
 import json
+import logging
+from core.referencias_metodologia import get_titulos_proibidos
+from core.lib.classificador import normalizar_texto
 import re
 from pathlib import Path
+from config import BASE_DIR
 
 from core.qualidade_metodologica import extrair_conceito_central
 from core.listas_pedagogicas import (
     itens_lista_pedagogica,
     problemas_lista_exatamente_tres,
 )
-from core.validador_plano import validar_aula_final
+from core.models import PlanoCompleto
+from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
-VERSAO_GERADOR_ATUAL = "1.2.9"
+VERSAO_GERADOR_ATUAL = "1.2.10"
+
+# CORREÇÃO FALHA #8 — Score mínimo aceitável para entrega sem regeneração
+SCORE_MINIMO_ACEITAVEL = 70
+
+logger = logging.getLogger(__name__)
 
 
 def _limpar_tema_final(tema: str) -> str:
@@ -37,10 +47,11 @@ def calcular_sha256(caminho_pdf: str | Path) -> str:
     except Exception:
         return ""
 
-def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
+def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     """
     Executa a auditoria pedagógica final e atribui um score de qualidade (confidence_score).
     """
+    aula = PlanoCompleto.from_any(aula).to_dict()
     avisos = []
     deducoes = 0
 
@@ -61,6 +72,16 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
     if len(metodologia) < 3:
         deducoes += 15
         avisos.append("Metodologia com poucas etapas.")
+
+    ded_titulos, avisos_titulos = _validar_titulos_proibidos(metodologia, perfil)
+    if ded_titulos:
+        deducoes += ded_titulos
+        avisos.extend(avisos_titulos)
+
+    ded_tamanho, avisos_tamanho = _validar_tamanho_etapas(metodologia, perfil)
+    if ded_tamanho:
+        deducoes += ded_tamanho
+        avisos.extend(avisos_tamanho)
 
     # 3. Validar Acompanhamento da Aprendizagem
     acompanhamento = aula.get("acompanhamento") or []
@@ -97,53 +118,174 @@ def revisar_aula_gerada(aula: dict, perfil: str) -> dict:
         deducoes += 10
         avisos.append(aviso)
 
-    # 6. Atualizar dicionário
-    aula["confidence_score"] = max(0, 100 - deducoes)
+    # 6. Calcular aderência lexical ao PDF (Alerte e puna se < 80%)
+    aderencia, avisos_aderencia = calcular_aderencia_pdf(aula)
+    if avisos_aderencia:
+        # Se for muito baixa, puxamos a nota final pra baixo com força
+        # penalizando 10 pontos fixos + a diferença percentual abaixo de 80
+        penalidade = 10 + (80 - aderencia)
+        deducoes += penalidade
+        avisos.extend(avisos_aderencia)
+
+    # 6.5. Validar aderência de palavras-chave destacadas em amarelo (DOCX)
+    palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
+    if palavras_chave_esperadas:
+        from core.validador_plano import validar_aderencia_palavras_chave
+        resultado_pc = validar_aderencia_palavras_chave(aula, palavras_chave_esperadas)
+        aula["valido_palavras_chave"] = resultado_pc["valido"]
+        aula["cobertura_palavras_chave"] = resultado_pc["cobertura"]
+        aula["palavras_chave_encontradas"] = resultado_pc["palavras_encontradas"]
+        aula["palavras_chave_ausentes"] = resultado_pc["palavras_ausentes"]
+        
+        if not resultado_pc["valido"]:
+            taxa = resultado_pc["cobertura"]
+            penalidade_pc = 15 + (85 - taxa)
+            deducoes += penalidade_pc
+            avisos.append(
+                f"Aderência de palavras-chave baixa ({taxa:.1f}%). "
+                f"As seguintes palavras-chave obrigatórias estão ausentes: {', '.join(resultado_pc['palavras_ausentes'][:8])}."
+            )
+
+    # 7. Atualizar dicionário
+    aula["confidence_score"] = int(max(0, 100 - deducoes))
+    
+    # Travar máximo em 75% caso tenha falhado fortemente na aderência ao PDF
+    if aderencia < 80:
+        aula["confidence_score"] = min(aula["confidence_score"], 75)
+        
+    # Travar máximo em 70% caso tenha falhado fortemente na aderência de palavras-chave
+    if palavras_chave_esperadas and not aula.get("valido_palavras_chave", True):
+        aula["confidence_score"] = min(aula["confidence_score"], 70)
+
+    # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
+    tentativas_regeneracao = aula.get("_tentativas_regeneracao", 0)
+    if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < 1:
+        etapas_problematicas = _identificar_etapas_com_aviso(avisos)
+        if etapas_problematicas and perfil == "historia":
+            aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas)
+            if aula_corrigida:
+                aula_corrigida["_tentativas_regeneracao"] = tentativas_regeneracao + 1
+                logger.info(
+                    "Regeneração seletiva aplicada (score %d → re-validando). Etapas: %s",
+                    aula["confidence_score"],
+                    ", ".join(etapas_problematicas),
+                )
+                return revisar_aula_gerada(aula_corrigida, perfil)
+
     aula["avisos_validacao"] = sorted(list(set(avisos)))
     aula["versao_gerador"] = VERSAO_GERADOR_ATUAL
     aula["perfil"] = perfil
-    return aula
+    # Limpar campo interno de controle
+    aula.pop("_tentativas_regeneracao", None)
+    return PlanoCompleto.from_any(aula).to_dict()
 
-def gravar_sidecar_json(caminho_pdf: str | Path, aula: dict, hash_pdf: str) -> Path | None:
+
+def _identificar_etapas_com_aviso(avisos: list[str]) -> list[str]:
+    """
+    CORREÇÃO FALHA #8 — Extrai os nomes das etapas mencionadas nos avisos de validação.
+    Ex: "Etapa 'Encerramento': não descreve..." → "Encerramento"
+    """
+    etapas = set()
+    for aviso in avisos:
+        match = re.search(r"Etapa '([^']+)'", aviso)
+        if match:
+            etapas.add(match.group(1))
+    return sorted(etapas)
+
+
+def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> dict | None:
+    from core.qualidade_metodologica import extrair_conceito_central
+
+    metodologia = aula.get("metodologia") or []
+    tema = aula.get("tema", "")
+    houve_correcao = False
+
+    titulos_proibidos = get_titulos_proibidos("historia")
+    metodologia_limpa = []
+    for etapa in metodologia:
+        titulo_norm = normalizar_texto(str(etapa.get("titulo", ""))).lower().strip()
+        if titulo_norm in titulos_proibidos:
+            logger.info(
+                "Regeneração: etapa proibida '%s' removida da metodologia de História.",
+                etapa.get("titulo", ""),
+            )
+            houve_correcao = True
+        else:
+            metodologia_limpa.append(etapa)
+
+    metodologia = metodologia_limpa
+
+    for idx, etapa in enumerate(metodologia):
+        titulo = str(etapa.get("titulo", "")).strip()
+        titulo_lower = titulo.lower()
+
+        if titulo_lower == "encerramento" and "Encerramento" in etapas_problematicas:
+            texto_atual = str(etapa.get("texto", "")).strip()
+            termos_genericos = [
+                "momento de síntese",
+                "verificação dos aprendizados",
+                "expressam o que compreenderam",
+                "síntese coletiva",
+                "retomada dos principais",
+            ]
+            is_generico = any(t in texto_atual.lower() for t in termos_genericos)
+            is_curto = len(texto_atual) < 80
+
+            if is_generico or is_curto:
+                conceito = extrair_conceito_central(tema) or tema or "o conteúdo da aula"
+                novo_texto = (
+                    f'Para encerrar a aula, os alunos refletem e respondem "COM SUAS PALAVRAS" '
+                    f"sobre as perguntas finais relacionadas a {conceito}, "
+                    f"consolidando os principais conceitos trabalhados e registrando suas conclusões no caderno."
+                )
+                metodologia[idx] = {"titulo": titulo, "texto": novo_texto}
+                houve_correcao = True
+                logger.info("Encerramento genérico substituído por versão específica com COM SUAS PALAVRAS.")
+
+        elif titulo_lower == "para começar" and "Para começar" in etapas_problematicas:
+            texto_atual = str(etapa.get("texto", "")).strip()
+            conceito = extrair_conceito_central(tema) or tema
+            if conceito and conceito.lower() not in texto_atual.lower():
+                novo_texto = texto_atual.rstrip(". ") + f", contextualizando o tema {conceito}."
+                metodologia[idx] = {"titulo": titulo, "texto": novo_texto}
+                houve_correcao = True
+
+    if houve_correcao:
+        aula["metodologia"] = metodologia
+        return aula
+    return None
+
+def _normalizar_caminho_relativo(caminho) -> str:
+    """Normaliza um caminho absoluto para que seja relativo ao BASE_DIR se possível."""
+    if not caminho:
+        return ""
+    try:
+        caminho_abs = Path(caminho).resolve()
+        base_abs = Path(BASE_DIR).resolve()
+        return str(caminho_abs.relative_to(base_abs))
+    except (ValueError, TypeError, AttributeError):
+        return str(caminho)
+
+
+def gravar_sidecar_json(
+    caminho_pdf: str | Path,
+    aula: dict | PlanoCompleto,
+    hash_pdf: str,
+) -> Path | None:
     """Grava o arquivo JSON do plano de aula ao lado do PDF correspondente contendo metadados de auditoria."""
     if not caminho_pdf:
         return None
+
     try:
         caminho_json = Path(caminho_pdf).with_suffix(".json")
-        dados_salvar = {
-            "disciplina": aula.get("disciplina") or "",
-            "tema": aula.get("tema") or "",
-            "material": aula.get("material") or Path(caminho_pdf).name,
-            "numero_aula": aula.get("numero_aula") or "",
-            "aprendizagem": aula.get("aprendizagem") or "",
-            "metodologia": aula.get("metodologia") or [],
-            "acompanhamento": aula.get("acompanhamento") or [],
-            "acessibilidade": aula.get("acessibilidade") or [],
-            "ia_usada": aula.get("ia_usada", False),
-            "ia_provedor": aula.get("ia_provedor") or "",
-            "ia_erro": aula.get("ia_erro") or "",
-            "fonte_extracao": aula.get("fonte_extracao") or "pdf",
-            "arquivo_fonte_extracao": aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
-            "hash_fonte_extracao": aula.get("hash_fonte_extracao") or hash_pdf,
-            "fonte_principal": aula.get("fonte_principal") or aula.get("fonte_extracao") or "pdf",
-            "arquivo_fonte": aula.get("arquivo_fonte") or aula.get("arquivo_fonte_extracao") or str(caminho_pdf),
-            "cache_reutilizado": bool(aula.get("cache_reutilizado", False)),
-            "origem_metodologia": aula.get("origem_metodologia") or "",
-            "fonte_referencia_metodologia": aula.get("fonte_referencia_metodologia") or "",
-            "perfil_metodologico": aula.get("perfil_metodologico") or "",
-            "versao_prompt": aula.get("versao_prompt") or "",
-            "etapas_detectadas": aula.get("etapas_detectadas") or [],
-            # Metadados de auditoria e integridade
-            "hash_pdf": hash_pdf,
-            "confidence_score": aula.get("confidence_score", 100),
-            "avisos_validacao": aula.get("avisos_validacao") or [],
-            "versao_gerador": aula.get("versao_gerador", VERSAO_GERADOR_ATUAL),
-            "perfil": aula.get("perfil") or "",
-            "fingerprint_contexto": aula.get("fingerprint_contexto") or "",
-            "recursos_detectados": aula.get("recursos_detectados") or [],
-            "texto_fonte": aula.get("texto_fonte") or "",
-            "diagnostico_geracao": aula.get("diagnostico_geracao") or {},
-        }
+        plano = PlanoCompleto.from_any(aula)
+        if not plano.versao_gerador:
+            plano.versao_gerador = VERSAO_GERADOR_ATUAL
+        dados_salvar = plano.to_sidecar_dict(
+            caminho_pdf,
+            hash_pdf,
+            normalizar_caminho=_normalizar_caminho_relativo,
+        )
         with open(caminho_json, "w", encoding="utf-8") as f:
             json.dump(dados_salvar, f, ensure_ascii=False, indent=2)
         return caminho_json

@@ -221,23 +221,8 @@ def _selecionar_referencia(
 
 
 def localizar_docx_referencia_historia(caminho_pdf: str | Path) -> Path | None:
-    caminho = Path(caminho_pdf)
-    if not caminho_pdf:
-        return None
-        
-    # Standard location is the parent or grandparent folder
-    # D:\PDF novos\HISTORIA\AF\3_BIMESTRE\
-    candidatos = []
-    folders = [caminho.parent, caminho.parent.parent]
-    for folder in folders:
-        if folder.exists():
-            candidatos.extend(folder.glob("Metodologias_Historia_Ensino_Regular*.docx"))
-            candidatos.extend(folder.glob("*Historia*Metodologia*.docx"))
-            
-    candidatos_unicos = {c.resolve(): c for c in candidatos if not c.name.startswith("~$")}.values()
-    if not candidatos_unicos:
-        return None
-    return list(candidatos_unicos)[0]
+    # AJUSTE: Desativado a pedido do usuário. A metodologia de História agora vem 100% da IA.
+    return None
 
 
 def localizar_docx_referencia_historia_cdp(caminho_pdf: str | Path) -> Path | None:
@@ -259,27 +244,8 @@ def localizar_docx_referencia_historia_cdp(caminho_pdf: str | Path) -> Path | No
 
 
 def referencia_historia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
-    docx = localizar_docx_referencia_historia(caminho_pdf)
-    if not docx:
-        return None
-
-    grade, numero = _obter_grade_e_aula_do_pdf(caminho_pdf, numero_aula)
-    if not grade or not numero:
-        return None
-
-    referencias = _carregar_referencias_historia_docx(str(docx))
-    referencia = _selecionar_referencia(referencias, grade, numero, tema)
-    if not referencia:
-        return None
-
-    return {
-        "titulo": referencia.get("titulo", ""),
-        "metodologia": list(referencia.get("metodologia") or []),
-        "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
-        "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],
-        "fonte": str(docx),
-        "referencia_pedagogica_aplicada": True,
-    }
+    # AJUSTE: Forçar o retorno vazio para que o sistema use as regras da IA, ignorando os DOCXs antigos
+    return None
 
 
 def referencia_historia_cdp_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:

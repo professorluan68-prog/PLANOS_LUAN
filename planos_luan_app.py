@@ -1,3 +1,18 @@
+import sys
+import os
+
+print("--- DIRETÓRIOS QUE O PYTHON ESTÁ OLHANDO ---")
+for path in sys.path:
+    print(path)
+print("-------------------------------------------")
+
+# Substitua 'nome_de_um_arquivo_suspeito' pelo nome do módulo que você acha que está vindo do C:
+try:
+    import nome_de_um_arquivo_suspeito
+    print(f"O arquivo foi carregado de: {nome_de_um_arquivo_suspeito.__file__}")
+except ImportError:
+    print("Não foi possível importar o arquivo.")
+
 import streamlit as st
 import tempfile
 import re
@@ -7,7 +22,6 @@ import base64
 import html
 import math
 import traceback
-import zipfile
 import unicodedata
 import hashlib
 from datetime import date, timedelta, datetime
@@ -148,9 +162,14 @@ from core.calendario import (
     rotulo_data_sem_aula as _rotulo_data_sem_aula,
 )
 from core.lote import processar_varios_pdfs
+from core.operacao import (
+    detectar_alteracoes_planos_revisados,
+    gerar_docx_final as _gerar_docx_final,
+    gerar_planos_finais_sem_revisao as _gerar_planos_finais_sem_revisao,
+    montar_zip_planos as _montar_zip_planos,
+)
 from core.validador_plano import validar_aulas_geradas
-from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR
-from docx_generator.preencher import preencher_documento
+from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, PLANOS_FEITOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
     LocalFileWrapper,
@@ -158,7 +177,6 @@ from core.helpers import (
     arquivos_na_ordem_de_envio,
     horario_para_plano,
     listar_falhas_ia,
-    montar_relatorio_geracao,
     normalizar_para_pasta,
     numeros_pdfs_faltantes,
     ordenar_pdfs_por_numero,
@@ -291,6 +309,78 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
             partes.append(f"{caminho.name}|0|0|{numero_aula_pdf(caminho) or ''}")
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
+
+import unicodedata
+
+def _remover_acentos(texto: str) -> str:
+    if not texto:
+        return ""
+    return "".join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def _normalizar_nome_diretorio(nome: str) -> str:
+    if not nome:
+        return ""
+    res = nome.strip().replace(" ", "_").upper()
+    res = "".join(c for c in res if c not in r'\/:*?"<>|')
+    return res
+
+def _resolver_caminho_professor_disciplina(professor: str, disciplina: str) -> Path:
+    if not professor:
+        return PLANOS_FINALIZADOS_DIR
+        
+    prof_norm = _normalizar_nome_diretorio(professor)
+    prof_norm_sem_acento = _remover_acentos(prof_norm)
+    
+    disc_norm = _normalizar_nome_diretorio(disciplina)
+    disc_norm_sem_acento = _remover_acentos(disc_norm)
+    
+    PLANOS_FEITOS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Busca o professor de forma case-insensitive e acento-insensitive
+    caminho_prof = PLANOS_FEITOS_DIR / prof_norm
+    for p_child in PLANOS_FEITOS_DIR.iterdir():
+        if p_child.is_dir():
+            child_norm_sem_acento = _remover_acentos(p_child.name.upper())
+            if child_norm_sem_acento == prof_norm_sem_acento:
+                caminho_prof = p_child
+                break
+                
+    caminho_prof.mkdir(parents=True, exist_ok=True)
+    
+    # Busca a disciplina de forma case-insensitive e acento-insensitive sob o professor
+    caminho_disc = caminho_prof / disc_norm
+    for d_child in caminho_prof.iterdir():
+        if d_child.is_dir():
+            child_norm_sem_acento = _remover_acentos(d_child.name.upper())
+            if child_norm_sem_acento == disc_norm_sem_acento:
+                caminho_disc = d_child
+                break
+                
+    caminho_disc.mkdir(parents=True, exist_ok=True)
+    return caminho_disc
+
+def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, professor: str = None) -> list[str]:
+    caminhos_salvos = []
+    try:
+        if professor:
+            dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina)
+        else:
+            PLANOS_FINALIZADOS_DIR.mkdir(parents=True, exist_ok=True)
+            dir_destino = PLANOS_FINALIZADOS_DIR
+            
+        for plano in planos_gerados or []:
+            nome_arq = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False))
+            caminho_completo = dir_destino / nome_arq
+            with open(caminho_completo, "wb") as f:
+                f.write(plano["docx_bytes"].getvalue())
+            caminhos_salvos.append(str(caminho_completo))
+    except Exception as e:
+        destino_mensagem = str(dir_destino) if 'dir_destino' in locals() else str(PLANOS_FINALIZADOS_DIR)
+        st.warning(f"Não foi possível salvar os arquivos localmente em {destino_mensagem}: {e}")
+    return caminhos_salvos
 
 
 def _salvar_planos_gerados_se_configurado(
@@ -2094,14 +2184,6 @@ def _extrair_aulas_dos_pdfs(
                 try: os.unlink(caminho_temp)
                 except OSError: pass
 
-def _gerar_docx_final(modelo_bytes: bytes, aulas, escola: str, professor: str, disciplina: str, componente_curricular: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str):
-    docx_bytes = preencher_documento(
-        BytesIO(modelo_bytes), aulas, escola=escola, professor=professor, disciplina=componente_curricular or disciplina,
-        turma=turma_atual, mes=mes, bimestre=bimestre, semana=semana, observacao=observacao, aulas_previstas_manual=aulas_previstas_manual,
-    )
-    relatorio = montar_relatorio_geracao(aulas, disciplina, turma_atual, bimestre, mes)
-    return {"turma": turma_atual, "aulas": aulas, "docx_bytes": docx_bytes, "relatorio": relatorio, "ia_usada": any(aula.get("ia_usada") for aula in aulas)}
-
 def _gerar_docx_cdp_final(modelo_bytes: bytes, escola: str, professor: str, disciplina: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str, cdp_aula_inicial: int, turma_cdp: str = "", modo_ia: str = "Sem IA", modelo_openai: str = "", modelo_gemini: str = "", datas_horarios: list[dict] | None = None):
     docx_bytes = preencher_documento_cdp(
         BytesIO(modelo_bytes), escola=escola, professor=professor, turma=turma_atual, mes=mes, bimestre=bimestre,
@@ -2116,15 +2198,11 @@ def _gerar_docx_cdp_final(modelo_bytes: bytes, escola: str, professor: str, disc
     if modo_ia != "Sem IA": relatorio += f"IA: {modo_ia}\n"
     return {"turma": turma_atual, "aulas": [], "docx_bytes": docx_bytes, "relatorio": relatorio, "ia_usada": modo_ia != "Sem IA"}
 
-def _montar_zip_planos(planos: list[dict], disciplina: str) -> bytes:
-    saida = BytesIO()
-    with zipfile.ZipFile(saida, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for plano in planos:
-            nome_docx = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano["ia_usada"])
-            zf.writestr(nome_docx, plano["docx_bytes"].getvalue())
-            zf.writestr(nome_docx.replace(".docx", "_relatorio.txt"), plano["relatorio"].encode("utf-8"))
-    saida.seek(0)
-    return saida.read()
+if not HABILITAR_REVISAO_POS_GERACAO:
+    st.session_state["turmas_processadas"] = []
+    st.session_state["avisos_processamento"] = []
+    st.session_state.pop("revisao_token", None)
+    _limpar_revisao_aulas()
 
 st.markdown(HERO_CSS, unsafe_allow_html=True)
 
@@ -2383,8 +2461,17 @@ if bool(professor and disciplina and turma and not disciplina_cdp and not modelo
         modelo_file = st.file_uploader("Novo Modelo", type=["docx"], key="novo_modelo_file")
         if modelo_file:
             modelo_bytes = modelo_file.getvalue()
-            if st.button("Salvar para futuro"):
-                (TEMPLATES_DIR / modelo_file.name).write_bytes(modelo_bytes)
+            destino_modelo = TEMPLATES_DIR / modelo_file.name
+            modelo_existe = destino_modelo.exists()
+            confirmar_modelo = True
+            if modelo_existe:
+                confirmar_modelo = st.checkbox(
+                    f"Confirmo que desejo substituir o modelo existente '{modelo_file.name}'.",
+                    key="confirmar_substituir_modelo_manual",
+                )
+                st.warning("Ja existe um modelo com esse nome. Marque a confirmacao para substituir.")
+            if st.button("Salvar para futuro", disabled=modelo_existe and not confirmar_modelo):
+                destino_modelo.write_bytes(modelo_bytes)
                 st.rerun()
     else:
         if (TEMPLATES_DIR / escolha_template).exists(): modelo_bytes = (TEMPLATES_DIR / escolha_template).read_bytes()
@@ -2809,7 +2896,7 @@ else:
                     ]
                 )
                 if est_necessarios > 0:
-                    st.markdown(f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;'><h3 style='color: #ff4b4b; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #333; margin-top: 5px; font-weight: bold;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; color: #2b0f14 !important;'><h3 style='color: #c81e2d !important; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #2b0f14 !important; margin-top: 5px; font-weight: 700;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>", unsafe_allow_html=True)
 
                 selecionados = st.multiselect(
                     "PDFs automaticos na ordem de processamento",
@@ -2825,7 +2912,7 @@ else:
         else:
             if est_necessarios > 0:
                 st.markdown(
-                    f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px;'><h3 style='color: #ff4b4b; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #333; margin-top: 5px; font-weight: bold;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>",
+                    f"<div style='background-color: #ffe6e6; border: 2px solid #ff4b4b; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 15px; color: #2b0f14 !important;'><h3 style='color: #c81e2d !important; margin: 0;'>🚨 QUANTIDADE NECESSÁRIA: {est_necessarios} PDFs 🚨</h3><p style='color: #2b0f14 !important; margin-top: 5px; font-weight: 700;'>O sistema precisa de exatamente {est_necessarios} PDFs para montar o plano deste mês.</p></div>",
                     unsafe_allow_html=True,
                 )
             pdfs_aulas_files = st.file_uploader(
@@ -2918,16 +3005,19 @@ else:
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Confira a organização das aulas e inicie o processamento para transformar os PDFs em blocos prontos para revisão.</div>', unsafe_allow_html=True)
+if HABILITAR_REVISAO_POS_GERACAO:
+    st.markdown('<div class="section-subtitle">Confira a organização das aulas e inicie o processamento para transformar os PDFs em blocos prontos para revisão.</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="section-subtitle">Confira a organização das aulas e gere o documento final diretamente, sem abrir a etapa de revisão na tela.</div>', unsafe_allow_html=True)
 st.markdown(
     """
     <div class="process-panel">
         <div class="panel-title">Tudo pronto para processar</div>
-        <div class="panel-text">Revise rapidamente as datas, horários e PDFs vinculados. Quando estiver ok, o sistema prepara as aulas para você revisar antes de gerar o documento final.</div>
+        <div class="panel-text">Revise rapidamente as datas, horários e PDFs vinculados. Quando estiver ok, o sistema prepara as aulas e segue para a geração do arquivo final.</div>
         <div class="panel-pills">
             <span class="panel-pill">Fluxo guiado</span>
             <span class="panel-pill">Menos retrabalho</span>
-            <span class="panel-pill">Revisão antes do DOCX</span>
+            <span class="panel-pill">DOCX direto</span>
         </div>
     </div>
     """,
@@ -2948,7 +3038,8 @@ if disciplina_cdp:
         value=bool(st.session_state.get("salvar_historico_geracao", False)),
         help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
     )
-if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disabled=geracao_em_andamento, type="primary"):
+rotulo_botao_geracao = "GERAR PLANO" if disciplina_cdp else ("PROCESSAR AULAS" if HABILITAR_REVISAO_POS_GERACAO else "PROCESSAR E GERAR DOCX")
+if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
     pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
@@ -3033,15 +3124,47 @@ if st.button("PROCESSAR AULAS" if not disciplina_cdp else "GERAR PLANO", disable
                         avisos_turma.extend(res["avisos_ia"])
                     if avisos_turma:
                         avisos.append({"turma": t, "avisos": avisos_turma})
-                progress_bar.progress(100, text="Extração concluída. Preparando a revisão...")
-                status.update(label="✅ Extraído!", state="complete", expanded=False)
-                st.session_state["turmas_processadas"] = turmas_processadas
-                st.session_state["avisos_processamento"] = avisos
-                st.session_state["revisao_token"] = st.session_state.get("revisao_token", 0) + 1
+                if HABILITAR_REVISAO_POS_GERACAO:
+                    progress_bar.progress(100, text="Extração concluída. Preparando a revisão...")
+                    status.update(label="✅ Extraído!", state="complete", expanded=False)
+                    st.session_state["turmas_processadas"] = turmas_processadas
+                    st.session_state["avisos_processamento"] = avisos
+                    st.session_state["revisao_token"] = st.session_state.get("revisao_token", 0) + 1
+                else:
+                    progress_bar.progress(100, text="Extração concluída. Gerando DOCX final...")
+                    planos_gerados = _gerar_planos_finais_sem_revisao(
+                        modelo_bytes,
+                        turmas_processadas,
+                        escola,
+                        professor,
+                        disciplina,
+                        componente_curricular,
+                        mes,
+                        bimestre,
+                        semana,
+                        observacao,
+                        aulas_previstas_manual,
+                    )
+                    st.session_state["planos_gerados"] = planos_gerados
+                    st.session_state["turmas_processadas"] = []
+                    st.session_state["avisos_processamento"] = avisos
+                    st.session_state.pop("revisao_token", None)
+                    _limpar_revisao_aulas()
+                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+                    salvou_historico = _salvar_planos_gerados_se_configurado(
+                        planos_gerados,
+                        professor,
+                        disciplina,
+                        bimestre,
+                    )
+                    _registrar_mensagem_memoria_plano(salvou_historico)
+                    status.update(label="✅ DOCX gerado!", state="complete", expanded=False)
             except Exception as e:
                 _registrar_erro_processamento(e)
             st.session_state["geracao_em_andamento"] = False
             st.rerun()
+
+alteracoes_detectadas = False
 
 if st.session_state.get("turmas_processadas"):
     avisos_processamento = st.session_state.get("avisos_processamento") or []
@@ -3137,11 +3260,21 @@ if st.session_state.get("turmas_processadas"):
         st.markdown(f'<div class="review-class-meta">{total_aulas_turma} aula(s) prontas para conferência nesta turma.</div>', unsafe_allow_html=True)
         aulas_edit = []
         for a_idx, aula in enumerate(td["aulas"]):
-            with st.expander(f"Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
+            score = aula.get("confidence_score", 100)
+            if score >= 80:
+                status_emoji = "🟢"
+            elif score >= 60:
+                status_emoji = "🟡"
+            else:
+                status_emoji = "🔴"
+            with st.expander(f"{status_emoji} Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
                 # Alertas de Qualidade e Redundância (Item 13)
-                score = aula.get("confidence_score")
-                if score is not None and score < 70:
-                    st.error(f"⚠️ **Baixo Score de Confiança ({score}%)**: Este plano de aula pode necessitar de ajustes manuais significativos.")
+                if score < 60:
+                    st.error(f"🔴 **Qualidade Crítica ({score}%)**: Este plano possui baixíssima aderência ao PDF ou problemas pedagógicos graves.")
+                elif score < 80:
+                    st.warning(f"🟡 **Qualidade Aceitável ({score}%)**: O plano possui ressalvas ou desvios menores em relação ao PDF.")
+                else:
+                    st.success(f"🟢 **Alta Qualidade ({score}%)**: Plano totalmente aderente e validado.")
                 
                 avisos_val = aula.get("avisos_validacao") or []
                 if avisos_val:
@@ -3150,6 +3283,42 @@ if st.session_state.get("turmas_processadas"):
                 frases_dupl = duplicadas_por_aula.get((t_idx, a_idx))
                 if frases_dupl:
                     st.warning("**Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):**\n" + "\n".join([f"- \"{frase}\"" for frase in frases_dupl]))
+
+                # Validação dinâmica de palavras-chave destacadas em amarelo (DOCX)
+                t_val = st.session_state.get(f"tema_{rev_tok}_{t_idx}_{a_idx}")
+                a_val = st.session_state.get(f"apr_{rev_tok}_{t_idx}_{a_idx}")
+                acomp_val = st.session_state.get(f"acomp_{rev_tok}_{t_idx}_{a_idx}")
+                aces_val = st.session_state.get(f"acess_{rev_tok}_{t_idx}_{a_idx}")
+                m_val = st.session_state.get(f"met_{rev_tok}_{t_idx}_{a_idx}")
+                
+                if t_val is None: t_val = aula.get("tema", "")
+                if a_val is None: a_val = aula.get("aprendizagem", "")
+                if acomp_val is None: acomp_val = "\n".join(aula.get("acompanhamento", []))
+                if aces_val is None: aces_val = "\n".join(aula.get("acessibilidade", []))
+                if m_val is None: m_val = _texto_metodologia_app(aula)
+                
+                palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    aula_temp = {
+                        "metodologia": _metodologia_app_para_blocos(m_val),
+                        "acompanhamento": [x.strip() for x in acomp_val.split("\n") if x.strip()],
+                        "acessibilidade": [x.strip() for x in aces_val.split("\n") if x.strip()]
+                    }
+                    from core.validador_plano import validar_aderencia_palavras_chave
+                    resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
+                    
+                    cobertura_atual = resultado_pc["cobertura"]
+                    valido_atual = resultado_pc["valido"]
+                    palavras_ausentes_atuais = resultado_pc["palavras_ausentes"]
+                    
+                    if valido_atual:
+                        st.success(f"🎯 **Aderência de Palavras-Chave Validada ({cobertura_atual:.1f}%)**: Pelo menos 85% das palavras-chave obrigatórias estão presentes.")
+                    else:
+                        st.error(f"❌ **Plano Não Confiável - Aderência de Palavras-Chave Baixa ({cobertura_atual:.1f}%)**: O plano gerado não possui pelo menos 85% das palavras-chave obrigatórias.")
+                        st.markdown("**Palavras-chave ausentes que devem ser incluídas no texto:**")
+                        termos_ausentes_html = " ".join([f'<span style="background-color: #ffe6e6; color: #cc0000; padding: 2px 6px; border: 1px solid #ffcccc; border-radius: 4px; margin-right: 6px; font-family: monospace; font-size: 0.9em; display: inline-block; margin-bottom: 4px;">{palavra}</span>' for palavra in palavras_ausentes_atuais])
+                        st.markdown(termos_ausentes_html, unsafe_allow_html=True)
+                        st.caption("Dica: Edite os campos de Metodologia, Acompanhamento ou Acessibilidade abaixo e reinsira estes termos. O validador será atualizado instantaneamente.")
 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -3206,7 +3375,24 @@ if st.session_state.get("turmas_processadas"):
                                 st.info("Nenhuma metodologia final.")
                 
                 ae = aula.copy()
-                ae.update({"tema": t, "aprendizagem": a, "acompanhamento": [x for x in acomp.split("\n") if x], "acessibilidade": [x for x in aces.split("\n") if x], "metodologia": _metodologia_app_para_blocos(m)})
+                ae.update({
+                    "tema": t,
+                    "aprendizagem": a,
+                    "acompanhamento": [x.strip() for x in acomp.split("\n") if x.strip()],
+                    "acessibilidade": [x.strip() for x in aces.split("\n") if x.strip()],
+                    "metodologia": _metodologia_app_para_blocos(m)
+                })
+                # Recalcula a aderência das palavras-chave para o salvamento final
+                palavras_chave_esperadas = ae.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    from core.validador_plano import validar_aderencia_palavras_chave
+                    resultado_pc_final = validar_aderencia_palavras_chave(ae, palavras_chave_esperadas)
+                    ae.update({
+                        "valido_palavras_chave": resultado_pc_final["valido"],
+                        "cobertura_palavras_chave": resultado_pc_final["cobertura"],
+                        "palavras_chave_encontradas": resultado_pc_final["palavras_encontradas"],
+                        "palavras_chave_ausentes": resultado_pc_final["palavras_ausentes"]
+                    })
                 aulas_edit.append(ae)
         turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
 
@@ -3231,7 +3417,17 @@ if st.session_state.get("turmas_processadas"):
                 aulas_ref_unicas[num] = a
                 
             btn_key = f"save_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
-            if st.button(f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela", key=btn_key, type="secondary"):
+            confirmar_ref_key = f"confirm_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
+            confirmar_ref = st.checkbox(
+                f"Confirmo que desejo sobrescrever o DOCX de referência '{nome_ref_simpl}'.",
+                key=confirmar_ref_key,
+            )
+            if st.button(
+                f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela",
+                key=btn_key,
+                type="secondary",
+                disabled=not confirmar_ref,
+            ):
                 try:
                     from docx import Document
                     doc = Document()
@@ -3269,6 +3465,38 @@ if st.session_state.get("turmas_processadas"):
                     st.success(f"✓ O arquivo '{nome_ref_simpl}' foi atualizado e agora contém as versões corrigidas dos planos!")
                 except Exception as err:
                     st.error(f"Erro ao salvar arquivo de referência: {err}")
+
+    # Sempre disponibilizar a opção de atualizar o cache de metodologia base do PDF original (sidecar JSON)
+    planos_com_pdf = []
+    for tr in turmas_revisadas:
+        for aula in tr["aulas"]:
+            caminho_pdf_original = aula.get("caminho_pdf")
+            if caminho_pdf_original and os.path.exists(caminho_pdf_original):
+                planos_com_pdf.append(aula)
+                
+    if planos_com_pdf:
+        st.markdown('<div class="section-card"></div><div class="section-title">🔄 Salvar no Cache de Metodologia Base (PDF)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Grave os ajustes feitos nesta tela no cache de metodologia base da aula original. As próximas gerações desta aula usarão esta versão corrigida automaticamente.</div>', unsafe_allow_html=True)
+        
+        confirmar_cache = st.checkbox(
+            "Confirmo que desejo salvar as edições no cache de metodologia base permanente para estes PDFs.",
+            key="confirmar_salvar_cache_base",
+        )
+        if st.button(
+            "Salvar Alterações no Cache Base de Metodologias",
+            key="btn_salvar_cache_base",
+            type="secondary",
+            disabled=not confirmar_cache,
+        ):
+            try:
+                from core.revisao_final import gravar_sidecar_json, calcular_sha256
+                for aula in planos_com_pdf:
+                    caminho_pdf_original = aula.get("caminho_pdf")
+                    hash_pdf = aula.get("hash_pdf") or calcular_sha256(caminho_pdf_original)
+                    gravar_sidecar_json(caminho_pdf_original, aula, hash_pdf)
+                st.success("✓ O cache de metodologia base permanente foi atualizado com sucesso para todos os PDFs editados nesta tela!")
+            except Exception as err:
+                st.error(f"Erro ao salvar cache de metodologia base: {err}")
         
     st.markdown(
         """
@@ -3290,6 +3518,10 @@ if st.session_state.get("turmas_processadas"):
         for tr in turmas_revisadas:
             planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
         st.session_state["planos_gerados"] = planos_gerados
+        
+        # Salva fisicamente na pasta do professor/disciplina
+        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+        
         salvou_historico = _salvar_planos_gerados_se_configurado(
             planos_gerados,
             professor,
@@ -3299,8 +3531,32 @@ if st.session_state.get("turmas_processadas"):
         _registrar_mensagem_memoria_plano(salvou_historico)
         st.success("Planos gerados!")
 
+    # Checa se houve alterações na tela após a geração do DOCX
+    alteracoes_detectadas = detectar_alteracoes_planos_revisados(
+        st.session_state.get("planos_gerados") or [],
+        turmas_revisadas,
+    )
+
 if st.session_state.get("planos_gerados"):
+    if alteracoes_detectadas:
+        st.warning("⚠️ **Alterações detectadas nos campos da tela!** Os arquivos de download abaixo ainda contêm a versão anterior. Clique no botão abaixo para atualizar os arquivos finais com as suas correções.")
+        if st.button("🔄 ATUALIZAR ARQUIVOS DOCX COM AS CORREÇÕES DA TELA", type="primary"):
+            planos_gerados = []
+            for tr in turmas_revisadas:
+                planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
+            st.session_state["planos_gerados"] = planos_gerados
+            
+            # Salva localmente e no histórico
+            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+            if st.session_state.get("salvar_historico_geracao", False):
+                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina, bimestre)
+            st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
+            st.rerun()
+
     planos_gerados = st.session_state["planos_gerados"]
+    dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina) if professor else PLANOS_FINALIZADOS_DIR
+    st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{dir_destino}`")
+    
     mensagem_historico = str(st.session_state.pop("mensagem_historico_planos", "") or "").strip()
     mensagem_historico_tipo = str(st.session_state.pop("mensagem_historico_planos_tipo", "") or "").strip()
     if mensagem_historico:

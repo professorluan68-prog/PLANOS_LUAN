@@ -1,0 +1,90 @@
+=== SCHEMA ATUAL DO BANCO DE DADOS (planos_luan.db) ===
+
+Data da fotografia: 02/07/2026
+Banco analisado: D:\PLANOS_LUAN\planos_luan.db
+
+1. Tabelas e DDL
+
+Tabela: configuracoes
+DDL:
+CREATE TABLE configuracoes (
+                chave TEXT PRIMARY KEY,
+                valor TEXT
+            )
+----------------------------------------
+
+Tabela: historico_planos
+DDL:
+CREATE TABLE "historico_planos" (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            professor_nome TEXT,
+            disciplina TEXT,
+            turma TEXT,
+            bimestre TEXT,
+            data_geracao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            arquivo_nome TEXT,
+            arquivo_path TEXT
+        )
+----------------------------------------
+
+Tabela: professor_turmas
+DDL:
+CREATE TABLE professor_turmas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                professor_id INTEGER,
+                disciplina TEXT,
+                turma TEXT,
+                dia_semana TEXT,
+                horario TEXT,
+                aulas_semana TEXT, arquivo_modelo TEXT, componente_curricular TEXT, template_id TEXT,
+                FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
+            )
+----------------------------------------
+
+Tabela: professores
+DDL:
+CREATE TABLE professores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT UNIQUE NOT NULL
+            )
+----------------------------------------
+
+Tabela: schema_version
+DDL:
+CREATE TABLE schema_version (versao INTEGER PRIMARY KEY)
+----------------------------------------
+
+Tabela: sqlite_sequence
+DDL:
+CREATE TABLE sqlite_sequence(name,seq)
+----------------------------------------
+
+2. Contagem atual de registros
+
+- professores: 18
+- professor_turmas: 147
+- historico_planos: 452
+- configuracoes: 0
+
+3. O que mudou em relacao a leituras antigas
+
+- A tabela historico_planos NAO armazena mais o binario inteiro do DOCX.
+- O campo atual e arquivo_path TEXT, ou seja, o banco guarda o caminho do arquivo gerado.
+- Isso reduz bastante o risco de inchaco do SQLite e deixa o historico mais leve.
+
+4. Leitura pratica do banco hoje
+
+- O cadastro principal esta dividido entre professores e professor_turmas.
+- O historico guarda quem gerou, disciplina, turma, bimestre, data e local do arquivo salvo.
+- Existe uma estrutura simples de versionamento por schema_version, mas o banco continua enxuto e bastante manual.
+
+5. Pontos de atencao para auditoria externa
+
+- Quase tudo relevante ainda esta em campos TEXT, inclusive campos que poderiam ter dominio mais fechado, como aulas_semana, dia_semana e template_id.
+- O banco esta no mesmo diretorio raiz do sistema, junto com codigo, artefatos gerados e materiais de apoio. Isso facilita uso local, mas mistura aplicacao com operacao.
+- O historico depende do sistema de arquivos continuar organizado. Se um DOCX for movido manualmente, o banco fica com caminho desatualizado.
+- Nao ha, nesta leitura, evidencia de camadas mais robustas de migracao, backup automatico ou validacao forte de integridade alem da chave estrangeira professor_turmas -> professores.
+
+6. Conclusao curta
+
+O banco esta melhor do que a fotografia antiga, porque o historico deixou de salvar BLOB do DOCX. Mesmo assim, ele ainda reflete um sistema muito orientado a uso local, com forte dependencia de caminhos em disco e pouco isolamento entre dados operacionais e pasta de trabalho.

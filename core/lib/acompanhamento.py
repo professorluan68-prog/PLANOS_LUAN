@@ -12,6 +12,7 @@ Gera textos de acompanhamento contextualizados por:
 import re
 from core.lib.classificador import normalizar_texto
 from core.lib.progressao import verbo_observacao, verbo_verificacao, verbo_acompanhamento, conector_progressao
+from core.listas_pedagogicas import normalizar_lista_exatamente_tres
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 from core.lib.acompanhamento_perfis import (
     gerar_acompanhamento_especifico_por_aula,
@@ -418,19 +419,12 @@ _compositor = CompositorAcompanhamento()
 
 
 def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
-    saida = []
-    for texto in itens or []:
-        txt = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
-        if not txt:
-            continue
-        if len(txt) > 220:
-            txt = limitar_texto_natural(txt, 220)
-        txt = re.sub(r"^[^\w(]+", "", txt)
-        txt = f"\u2611 {txt}"
-        saida.append(txt)
-        if len(saida) >= maximo:
-            break
-    return saida[:maximo] if len(saida) >= minimo else saida
+    fallbacks = [
+        "Verificar se os estudantes compreendem os conceitos centrais da aula por meio das respostas e registros.",
+        "Observar a participação da turma nas discussões, atividades orientadas e momentos de socialização.",
+        "Conferir se os registros finais retomam o conteúdo trabalhado com clareza e progressiva autonomia.",
+    ]
+    return normalizar_lista_exatamente_tres(itens, fallbacks)[:maximo]
 
 
 

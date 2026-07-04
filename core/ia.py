@@ -5,8 +5,6 @@ import re
 import time
 from typing import Any
 
-from pydantic import BaseModel, Field
-
 try:
     from openai import APIConnectionError, APITimeoutError, OpenAI, RateLimitError
 except ImportError:
@@ -24,6 +22,7 @@ except ImportError:
 
 from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO
 from core.lib.classificador import normalizar_texto, perfil_disciplina
+from core.models import EtapaMetodologia, PlanoAulaIA
 from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
 from core.qualidade_metodologica import (
     detectar_contexto_metodologico,
@@ -34,7 +33,7 @@ from core.qualidade_metodologica import (
     revisar_metodologia,
     titulo_esta_truncado,
 )
-from core.referencias_metodologia import carregar_referencia_metodologica
+from core.referencias_metodologia import carregar_referencia_metodologica, get_regras_estruturais_historia
 
 logger = logging.getLogger(__name__)
 
@@ -64,25 +63,15 @@ def _erro_parece_temporario(erro: Exception) -> bool:
     return any(termo in texto for termo in _TERMOS_RETRY_GENERICO)
 
 
-class EtapaMetodologia(BaseModel):
-    titulo: str = Field(description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.")
-    texto: str = Field(description="Texto descritivo com a acao do professor e os recursos utilizados.")
-
-
-class PlanoAulaIA(BaseModel):
-    tema: str = Field(description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.")
-    aprendizagem: str = Field(description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.")
-    metodologia: list[EtapaMetodologia] = Field(description="Etapas de desenvolvimento da aula.")
-    acompanhamento: list[str] = Field(description="Lista com exatamente 3 itens curtos de acompanhamento da aprendizagem, focados na aula.")
-    acessibilidade: list[str] = Field(description="Lista com exatamente 3 itens curtos de acessibilidade/adaptacoes para necessidades especiais, focados na aula.")
-
-
 _FRASES_PROIBIDAS = (
     "Relacionar a explicação aos registros anteriores para que a turma perceba continuidade, aprofundamento e novos desafios.",
     "O docente apresenta",
     "Conduzir uma discussão final onde",
     "Ressalte a importância",
     "Foco no conteúdo",
+    "PAUSE E RESPONDA",
+    "Pause e responda",
+    "pause e responda",
 )
 
 _CORRECOES_PONTUAIS = {
@@ -272,6 +261,8 @@ def _montar_prompt(
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
+    palavras_chave_esperadas: list[str] | None = None,
+    esboco_pdf: list[str] | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
@@ -302,7 +293,8 @@ MODALIDADE EJA:
 - Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, objetiva e respeitosa.
 - Contextualize os conceitos em situacoes de vida, trabalho, saude, tecnologia, comunidade e cotidiano.
 - Explique de forma pausada e dialogada, retomando vocabulario essencial sem infantilizar os estudantes.
-- Em Biologia e Ingles, mantenha os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- Em Biologia e Inglês (APENAS), mantenha os blocos "Para começar", "Foco no conteúdo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- ATENÇÃO: Para História, 'Pause e responda' é SEMPRE PROIBIDO mesmo em EJA.
 - Preserve tecnicas explicitas do PDF quando isso fizer parte do modelo da disciplina.
 """
 
@@ -325,14 +317,70 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 
     bloco_historia = ""
     if perfil == "historia":
-        bloco_historia = """
+        regras_historia = get_regras_estruturais_historia()
+        bloco_historia = f"""
+================================================================================
+DISCIPLINA: HISTÓRIA — INSTRUÇÕES OBRIGATÓRIAS E INEGOCIÁVEIS
+================================================================================
+{regras_historia}
 
-MODELO ESPECIFICO DE HISTORIA:
-- Organize a metodologia em pelo menos 4 etapas quando o material tiver conteudo suficiente.
-- Priorize contextualizacao historica, leitura de imagem/fonte/mapa quando aparecer, relacao entre sujeitos historicos, tempo, espaco, causa, consequencia, mudanca e permanencia.
-- Em 6o ano, use linguagem clara e concreta, com perguntas orientadoras, registro no caderno e socializacao breve.
-- Para Grecia e Roma Antiga, cite os conceitos reais do material, como polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis ou instituicoes quando aparecerem no PDF.
-- Evite repetir literalmente as mesmas frases de retomada entre aulas do lote.
+================================================================================
+SCHEMA JSON OBRIGATÓRIO PARA HISTÓRIA
+================================================================================
+O campo "metodologia" deve ser uma lista de objetos com esta estrutura exata:
+
+  {{
+    "titulo": <string — APENAS um dos valores permitidos abaixo>,
+    "texto":  <string — MÁXIMO 900 CARACTERES. Conte antes de escrever.>
+  }}
+
+VALORES PERMITIDOS para o campo "titulo" (enum estrito):
+  - "Para começar"
+  - "Foco no conteúdo"
+  - "Na prática"
+  - "Encerramento"
+  - "Relembre"  (somente se NÃO houver "Para começar" na mesma aula)
+
+VALORES PROIBIDOS para o campo "titulo" (nunca use):
+  ❌ "Pause e responda"   É PROIBIDO ABSOLUTO EM HISTÓRIA
+  ❌ "Pausa e responda"
+  ❌ "Pause"
+  ❌ Qualquer variação de "Pause e responda"
+
+LIMITE DE CARACTERES — REGRA CRÍTICA:
+  - Cada "texto" de etapa: MÁXIMO 900 CARACTERES
+  - Antes de finalizar cada etapa, conte: len(texto) <= 900
+  - Se ultrapassar: corte na última frase completa antes do limite
+  - Uma etapa com mais de 900 chars será TRUNCADA pelo sistema
+
+================================================================================
+EXEMPLO NEGATIVO — O QUE NÃO FAZER (saída REJEITADA):
+================================================================================
+❌ ERRADO:
+{{
+  "metodologia": [
+    {{"titulo": "Para começar", "texto": "..."}},
+    {{"titulo": "Foco no conteúdo", "texto": "..."}},
+    {{"titulo": "Pause e responda", "texto": "Responda: O que é uma polis?"}},
+    {{"titulo": "Encerramento", "texto": "..."}}
+  ]
+}}
+⛔ REJEITADO porque contém "Pause e responda" (proibido em História)
+⛔ REJEITADO se qualquer "texto" tiver mais de 900 caracteres
+
+================================================================================
+EXEMPLO POSITIVO — O QUE FAZER (saída ACEITA):
+================================================================================
+✅ CORRETO:
+{{
+  "metodologia": [
+    {{"titulo": "Para começar",    "texto": "Iniciar com VIREM E CONVERSEM: o que os alunos sabem sobre cidades-estado gregas? Registrar hipóteses no quadro. (máx 900 chars ✅)"}},
+    {{"titulo": "Foco no conteúdo","texto": "Conduzir leitura do mapa das polis gregas, destacando Atenas e Esparta. Solicitar registro no caderno dos conceitos: polis, cidadão, ágora. (máx 900 chars ✅)"}},
+    {{"titulo": "Na prática",      "texto": "Atividade 1: Responder no caderno as questões do material sobre diferenças entre Atenas e Esparta. Atividade 2: Completar o quadro comparativo. (máx 900 chars ✅)"}},
+    {{"titulo": "Encerramento",    "texto": "Aplicar COM SUAS PALAVRAS: cada aluno escreve uma frase respondendo às perguntas finais do PDF sobre permanências e mudanças das polis na atualidade. (máx 900 chars ✅)"}}
+  ]
+}}
+================================================================================
 """
 
     regra_tecnicas = ""
@@ -360,12 +408,47 @@ CONTEXTO DE VARIAÇÃO METODOLÓGICA:
 - Não mencione o nome do professor na metodologia.
 """
 
+    bloco_palavras_chave = ""
+    if palavras_chave_esperadas:
+        palavras_txt = "; ".join(palavras_chave_esperadas)
+        bloco_palavras_chave = f"""
+PALAVRAS-CHAVE OBRIGATÓRIAS (CURADORIA DO PROFESSOR):
+{palavras_txt}
+
+INSTRUÇÃO CRÍTICA DE ADERÊNCIA:
+- Você DEVE incluir todas (ou no mínimo 85% delas) as palavras-chave listadas acima no texto final do seu plano de aula (distribuídas na Metodologia, Acompanhamento ou Acessibilidade).
+- Mantenha essas palavras-chave na exata ordem sequencial/cronológica em que foram listadas, garantindo um sentido pedagógico correto.
+- Não altere o radical ou a grafia destas palavras para evitar falhas no validador automático.
+- Use essas palavras-chave como guia principal para detalhar e reescrever a metodologia da aula.
+"""
+
+    bloco_esboco = ""
+    if esboco_pdf:
+        linhas_esboco = "\n".join(f"  {linha}" for linha in esboco_pdf)
+        bloco_esboco = f"""
+ESTRUTURA SEQUENCIAL DO PDF (ESBOÇO PÁGINA-A-PÁGINA):
+{linhas_esboco}
+
+INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
+- A metodologia DEVE seguir EXATAMENTE a sequencia de secoes e elementos listados no esboco acima.
+- Se o esboco mostra "PARA COMECAR: IMAGEM / urna eletronica", a etapa "Para comecar" DEVE mencionar a urna eletronica.
+- Se o esboco lista dois blocos "FOCO NO CONTEUDO" separados por "NA PRATICA", gere dois blocos distintos na metodologia, cada um com seu titulo "Foco no conteudo".
+- Se o esboco lista "NA PRATICA: ATIVIDADE 1" e "NA PRATICA: ATIVIDADE 2", gere DUAS etapas "Na pratica" distintas.
+- Cada pagina descrita no esboco de "FOCO NO CONTEUDO" (IMAGEM, MAPA, TEXTO, MAPA MENTAL, VIDEO, QUADRO) deve ser refletida na metodologia em ordem.
+- NAO reorganize, NAO funda, NAO omita secoes que o esboco distingue.
+- Use as TECNICAS PEDAGOGICAS exatamente como listadas no esboco (entre aspas).
+- Os titulos das etapas devem corresponder as secoes do esboco: "Para comecar", "Foco no conteudo", "Na pratica", "Encerramento".
+- Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
+"""
+
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
 PERFIL METODOLOGICO: {perfil}
 CONTEXTO: {contexto}
 NIVEL: {nivel}
+{bloco_esboco}
+{bloco_palavras_chave}
 {bloco_eja}
 {bloco_leitura_redacao}
 {bloco_historia}
@@ -378,9 +461,9 @@ NIVEL: {nivel}
 REGRAS:
 1. Extraia o conceito central da aula. Nao devolva rotulos como "AULA 1", "2o bimestre", "Ensino Fundamental" ou "Parte 1" como tema principal.
 2. Identifique o codigo da BNCC e a descricao da aprendizagem essencial se houver.
-3. Elabore a metodologia em 4 a 6 etapas curtas e objetivas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
-3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico.
-3.2. Limite o desenvolvimento total a cerca de 900 caracteres.
+3. Elabore a metodologia seguindo as etapas identificadas no esboco do PDF. O numero de etapas deve corresponder a estrutura real do material. Quando nao houver esboco, use 4 a 6 etapas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
+3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico mas fiel a sequencia do PDF.
+3.2. Cada etapa pode ter no maximo 600 caracteres. Detalhe o suficiente para refletir todos os recursos visuais e atividades do PDF.
 3.3. Preserve o produto real da atividade do material (ex.: texto-sintese, tabela, legenda de figura, resumo, respostas no livro). Nao troque o produto por outro formato.
 4. Varie os inicios das frases entre as etapas e entre aulas diferentes, mantendo linguagem natural, objetiva e pedagogica.
 {regra_tecnicas}
@@ -615,13 +698,52 @@ def _posicao_atividade(itens: list, perfil: str) -> int:
     return min(2, len(itens))
 
 
-def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
-    produto = _detectar_produto_atividade(texto_pdf)
-    itens: list[dict[str, str]] = []
-    vistos: set[str] = set()
+# CORREÇÃO FALHA #7 — Limite de caracteres variável por perfil
+_LIMITE_CHARS_POR_ETAPA = {
+    "historia": 900,
+    "geografia": 800,
+}
+_LIMITE_CHARS_DEFAULT = 600
 
-    for item in metodologia or []:
-        titulo = str(item.get("titulo", "")).strip() or "Etapa"
+
+def _normalizar_titulo_etapa(titulo: str) -> str:
+    """Normaliza título de etapa para comparação (ex: 'Foco no conteúdo' -> 'foco no conteudo')."""
+    return normalizar_texto(titulo).lower().strip()
+
+
+def _segmentar_por_posicao(metodologia: list[dict]) -> list[list[dict]]:
+    """
+    CORREÇÃO FALHA #1 — Agrupa etapas consecutivas de mesmo tipo em segmentos.
+    Quebra o segmento quando o tipo de etapa muda.
+    Ex: [FC, FC, FC, NP, FC, FC, FC, NP2, ENC]
+    → [[FC,FC,FC], [NP], [FC,FC,FC], [NP2], [ENC]]
+    """
+    segmentos: list[list[dict]] = []
+    segmento_atual: list[dict] = []
+    titulo_atual: str | None = None
+    for item in metodologia:
+        titulo = _normalizar_titulo_etapa(item.get("titulo", ""))
+        if titulo != titulo_atual and segmento_atual:
+            segmentos.append(segmento_atual)
+            segmento_atual = []
+        titulo_atual = titulo
+        segmento_atual.append(item)
+    if segmento_atual:
+        segmentos.append(segmento_atual)
+    return segmentos
+
+
+def _compactar_segmento(segmento: list[dict], limite_chars: int) -> list[dict[str, str]]:
+    """
+    CORREÇÃO FALHA #1 — Compacta DENTRO de um segmento (deduplicação + limpeza).
+    Etapas consecutivas de mesmo tipo são reunidas em um único bloco.
+    """
+    if not segmento:
+        return []
+    titulo_base = str(segmento[0].get("titulo", "")).strip() or "Etapa"
+    textos_unicos: list[str] = []
+    vistos: set[str] = set()
+    for item in segmento:
         texto = _limpar_texto_curto(item.get("texto", ""))
         if not texto:
             continue
@@ -629,7 +751,65 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
         if norm in vistos:
             continue
         vistos.add(norm)
-        itens.append({"titulo": titulo, "texto": texto})
+        textos_unicos.append(texto)
+    if not textos_unicos:
+        return []
+    # Reunir textos do segmento em um único bloco
+    texto_reunido = " ".join(textos_unicos)
+    texto_cortado = _cortar_sem_quebrar_frase(texto_reunido, limite_chars)
+    if not texto_cortado:
+        # Tentar cada texto individual
+        for txt in textos_unicos:
+            resultado = _cortar_sem_quebrar_frase(txt, limite_chars)
+            if resultado:
+                return [{"titulo": titulo_base, "texto": resultado}]
+        return []
+    return [{"titulo": titulo_base, "texto": texto_cortado}]
+
+
+def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
+    produto = _detectar_produto_atividade(texto_pdf)
+    limite_etapa = _LIMITE_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
+    itens: list[dict[str, str]] = []
+
+    # CORREÇÃO FALHA #1 — Para perfil historia, usar segmentação posicional
+    if perfil == "historia":
+        # Primeiro, limpar textos vazios
+        itens_limpos = []
+        for item in metodologia or []:
+            titulo = str(item.get("titulo", "")).strip() or "Etapa"
+            texto = _limpar_texto_curto(item.get("texto", ""))
+            if not texto:
+                continue
+            # CORREÇÃO FALHA #5/REGRA 1 — Remover etapas "Pause e responda"
+            titulo_norm = _normalizar_titulo_etapa(titulo)
+            if "pause" in titulo_norm and "responda" in titulo_norm:
+                continue
+            # CORREÇÃO FALHA #5/REGRA 2 — Converter "Relembre" em "Para começar"
+            if "relembre" in titulo_norm:
+                titulo = "Para começar"
+            itens_limpos.append({"titulo": titulo, "texto": texto})
+
+        if not itens_limpos:
+            itens_limpos = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
+
+        # Segmentar por posição e compactar dentro de cada segmento
+        segmentos = _segmentar_por_posicao(itens_limpos)
+        for segmento in segmentos:
+            itens.extend(_compactar_segmento(segmento, limite_etapa))
+    else:
+        # Fluxo original para outros perfis — sem alterações
+        vistos: set[str] = set()
+        for item in metodologia or []:
+            titulo = str(item.get("titulo", "")).strip() or "Etapa"
+            texto = _limpar_texto_curto(item.get("texto", ""))
+            if not texto:
+                continue
+            norm = re.sub(r"[^a-z0-9]+", " ", texto.lower()).strip()
+            if norm in vistos:
+                continue
+            vistos.add(norm)
+            itens.append({"titulo": titulo, "texto": texto})
 
     if not itens:
         itens = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]
@@ -649,30 +829,39 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
                 },
             )
 
-    itens = itens[:6]
-    while len(itens) < 4:
-        itens.append(
+    # Permitir até 10 etapas para seguir a estrutura real do PDF
+    itens = itens[:10]
+    # Não forçar mínimo de 4 etapas — manter apenas as etapas que o PDF realmente tem
+    if not itens:
+        itens = [
             {
-                "titulo": f"Etapa {len(itens)+1}",
+                "titulo": "Desenvolvimento",
                 "texto": "Realizar socialização breve das respostas e finalizar com síntese dos conceitos principais.",
             }
-        )
+        ]
+
+    # CORREÇÃO FALHA #4 — Reservar orçamento mínimo para encerramento
+    orcamento_encerramento = 300 if perfil == "historia" else 0
+    orcamento_total = 9600
 
     total = 0
     saida: list[dict[str, str]] = []
     for idx, item in enumerate(itens):
-        restante = 1200 - total
+        # Reservar espaço para encerramento se não é a última etapa
+        is_ultima = idx == len(itens) - 1
+        reserva = orcamento_encerramento if (not is_ultima and orcamento_encerramento > 0) else 0
+        restante = orcamento_total - total - reserva
         if restante <= 40:
             break
-        limite_item = min(320, restante)
-        texto = _cortar_sem_quebrar_frase(item["texto"], limite_item)
+        lim = min(limite_etapa, restante)
+        texto = _cortar_sem_quebrar_frase(item["texto"], lim)
         if not texto:
             continue
         saida.append({"titulo": item["titulo"], "texto": texto})
         total += len(texto)
-        if idx >= 5:
+        if idx >= 9:
             break
-    return saida[:6]
+    return saida[:10]
 
 
 def _validar_schema_resposta(data: dict) -> None:
@@ -708,6 +897,7 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
         perfil=perfil,
         tema=tema,
         contexto=contexto,
+        consolidar=False,
     )
     metodologia = _compactar_metodologia(metodologia, texto_pdf, perfil)
     metodologia = naturalizar_metodologia_professor(metodologia, perfil=perfil)
@@ -844,6 +1034,8 @@ def processar_plano_ia(
     permitir_tecnicas_explicitamente: bool = True,
     rascunho_base: dict | None = None,
     contexto_geracao: dict | None = None,
+    palavras_chave_esperadas: list[str] | None = None,
+    esboco_pdf: list[str] | None = None,
 ) -> dict:
     prompt = _montar_prompt(
         texto_pdf,
@@ -853,6 +1045,8 @@ def processar_plano_ia(
         permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
         rascunho_base=rascunho_base,
         contexto_geracao=contexto_geracao,
+        palavras_chave_esperadas=palavras_chave_esperadas,
+        esboco_pdf=esboco_pdf,
     )
     system_prompt = get_system_prompt(disciplina, turma)
 

@@ -10,6 +10,7 @@ import re
 from core.lib.classificador import normalizar_texto, contem_termos, detectar_recursos
 from core.lib.progressao import _indice_hash
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
+from core.listas_pedagogicas import normalizar_lista_exatamente_tres
 from core.lib.acessibilidade_perfis import (
     gerar_acessibilidade_especifica_por_aula,
     gerar_acessibilidade_por_perfil,
@@ -170,27 +171,27 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
     "orcamento_planejamento": [
         "Organizar receitas, despesas, metas e saldo em tabela simples ou esquema no quadro, com exemplos graduados antes da atividade individual.",
         "Oferecer roteiro com etapas do planejamento financeiro: identificar recursos, listar gastos, definir prioridades e revisar escolhas.",
-        "Apoiar individualmente estudantes com dificuldade em leitura de dados, cálculos ou organização das respostas.",
+        "Apoiar individualmente estudantes com dificuldade em leitura de dados, cálculos ou organização das respostas, usando tabela-modelo, roteiro de preenchimento ou resposta oral mediada.",
     ],
     "consumo_consciente": [
-        "Apresentar critérios visuais para comparar alternativas de consumo, como necessidade, desejo, preço, durabilidade e consequência da escolha.",
+        "Apresentar quadro comparativo com critérios visuais para comparar alternativas de consumo, como necessidade, desejo, preço, durabilidade e consequência da escolha.",
         "Utilizar exemplos neutros e cotidianos, evitando exposição ou julgamento dos hábitos financeiros pessoais e familiares.",
         "Permitir registros por tópicos, esquemas ou explicação oral para apoiar a justificativa das decisões.",
     ],
     "investimento_poupanca": [
         "Representar metas, prazos e valores acumulados em quadro, tabela ou linha do tempo para facilitar a compreensão.",
-        "Retomar o vocabulário financeiro essencial, como poupança, reserva, rendimento, meta e imprevisto, antes dos cálculos.",
+        "Retomar o vocabulário financeiro essencial com glossário no quadro ou em roteiro simples, destacando poupança, reserva, rendimento, meta e imprevisto antes dos cálculos.",
         "Oferecer exemplos passo a passo e mediação individual durante a interpretação dos cenários.",
     ],
     "credito_endividamento": [
-        "Disponibilizar resolução comentada para comparação entre valor à vista, parcelas, juros e custo total.",
+        "Disponibilizar tabela comentada ou quadro de comparação entre valor à vista, parcelas, juros e custo total.",
         "Destacar no quadro os dados do problema e as perguntas que orientam a decisão responsável sobre crédito.",
         "Permitir calculadora, tabelas de apoio ou registro por etapas para estudantes com dificuldade nos cálculos.",
     ],
     "empreendedorismo": [
-        "Organizar o projeto em etapas curtas: ideia, público, recursos, custos, preço, viabilidade e revisão.",
+        "Organizar o projeto em etapas curtas com roteiro de planejamento: ideia, público, recursos, custos, preço, viabilidade e revisão.",
         "Utilizar quadro ou ficha de planejamento para apoiar a organização das decisões do grupo.",
-        "Permitir diferentes formas de participação, como fala, desenho, tópicos, cálculo com apoio ou registro em dupla.",
+        "Permitir diferentes formas de participação, como resposta oral, desenho, tópicos, cálculo com apoio ou registro em dupla.",
     ],
     "analise_percentuais_noticias": [
         "Organizar no quadro os dados principais da notícia, destacando valor de referência, percentual e comparação antes dos cálculos.",
@@ -203,9 +204,9 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
         "Realizar leitura mediada dos enunciados e permitir respostas por tópicos curtos ou fala orientada quando necessário.",
     ],
     "impacto_decisoes_economicas": [
-        "Organizar as situações em etapas curtas, destacando recursos disponíveis, alternativas e possíveis consequências de cada escolha.",
+        "Organizar as situações em etapas curtas com roteiro ou quadro de análise, destacando recursos disponíveis, alternativas e possíveis consequências de cada escolha.",
         "Utilizar exemplos próximos do cotidiano e comparações simples para apoiar a análise das decisões econômicas.",
-        "Oferecer apoio individual e flexibilização do registro para estudantes com dificuldade na interpretação dos cenários apresentados.",
+        "Oferecer apoio individual e flexibilização do registro com perguntas-guia, esquema simples ou resposta oral para estudantes com dificuldade na interpretação dos cenários apresentados.",
     ],
     "cidadania_financeira": [
         "Utilizar exemplos de comprovantes, garantias, direitos e cuidados de segurança com linguagem acessível.",
@@ -215,7 +216,7 @@ _ACESSIBILIDADE_FINANCEIRA_POR_TIPO = {
     "instituicoes_financeiras": [
         "Explicar funções de instituições financeiras com exemplos concretos e vocabulário acessível, como banco, conta, cartão e segurança.",
         "Organizar comparações em lista ou quadro para diferenciar formas de guardar, movimentar e proteger o dinheiro.",
-        "Oferecer apoio individual durante a leitura e a organização das respostas sobre serviços financeiros.",
+        "Oferecer apoio individual durante a leitura e a organização das respostas sobre serviços financeiros, com roteiro simples, quadro de palavras-chave ou resposta oral mediada.",
     ],
 }
 
@@ -360,19 +361,12 @@ _gerador = GeradorAcessibilidade()
 
 
 def _limitar_itens(itens: list[str], minimo: int = 2, maximo: int = 3) -> list[str]:
-    saida = []
-    for texto in itens or []:
-        txt = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
-        if not txt:
-            continue
-        if len(txt) > 220:
-            txt = limitar_texto_natural(txt, 220)
-        txt = re.sub(r"^[^\w(]+", "", txt)
-        txt = f"\u2611 {txt}"
-        saida.append(txt)
-        if len(saida) >= maximo:
-            break
-    return saida[:maximo] if len(saida) >= minimo else saida
+    fallbacks = [
+        "Oferecer leitura guiada dos comandos, destacando palavras-chave e informações centrais no quadro.",
+        "Disponibilizar perguntas orientadoras, roteiro em tópicos ou quadro comparativo para apoiar a organização das respostas.",
+        "Permitir registro em frases curtas, tópicos ou resposta oral mediada conforme as necessidades observadas na turma.",
+    ]
+    return normalizar_lista_exatamente_tres(itens, fallbacks)[:maximo]
 
 
 

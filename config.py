@@ -28,7 +28,10 @@ _padrao_finalizados = r"D:\PLANOS-FINALIZADOS" if _D_DRIVE_EXISTS else str(BASE_
 PLANOS_FINALIZADOS_DIR = Path(
     os.getenv("PLANOS_FINALIZADOS_DIR", _padrao_finalizados)
 )
+PLANOS_FEITOS_DIR = Path(r"D:\PLANOS_LUAN\PLANOS_FEITOS") if _D_DRIVE_EXISTS else BASE_DIR / "PLANOS_FEITOS"
 DB_PATH = BASE_DIR / "planos_luan.db"
+HISTORICO_DOCX_DIR = BASE_DIR / "historico_docx"
+
 
 # Arquivos de dados especificos
 ESCOPO_PROJETO_VIDA_PATH = BASE_DIR / "EM Escopo-sequencia 2026 (1).ods"
@@ -42,6 +45,9 @@ MODELO_OPENAI_PADRAO = "gpt-4o-mini"
 MODELO_GEMINI_PADRAO = "gemini-2.5-flash"
 IA_TIMEOUT_SEGUNDOS = 120
 
+# 4.1 Fluxos temporariamente desabilitados
+HABILITAR_REVISAO_POS_GERACAO = False
+
 # 5. Limites e regras de leitura
 PDF_TEXTO_LIMITE_CHARS = 100000
 MAX_CHARS_WORD = 15000
@@ -49,6 +55,7 @@ MAX_CHARS_WORD = 15000
 # 6. Criacao automatica de pastas
 def inicializar_pastas():
     os.makedirs(PLANOS_FINALIZADOS_DIR, exist_ok=True)
+    os.makedirs(PLANOS_FEITOS_DIR, exist_ok=True)
     os.makedirs(TEMPLATES_DOCX_DIR, exist_ok=True)
     os.makedirs(PASTA_BACKUP, exist_ok=True)
-
+    os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
