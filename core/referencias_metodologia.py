@@ -7,36 +7,60 @@ from typing import Dict, Iterable, Tuple
 
 REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA E REDAÇÃO.md"
 
-# CORREÇÃO FALHA #5 — Regras críticas do professor codificadas no sistema
-REGRAS_ESTRUTURAIS_HISTORIA = """
+# Títulos de etapa que NUNCA podem aparecer em planos de História
+TITULOS_PROIBIDOS_HISTORIA: tuple[str, ...] = (
+    "pause e responda",
+    "pause e responda:",
+)
+
+# Mapa global de títulos proibidos por perfil (usado em ia.py e revisao_final.py)
+TITULOS_PROIBIDOS_POR_PERFIL: dict[str, tuple[str, ...]] = {
+    "historia": TITULOS_PROIBIDOS_HISTORIA,
+    # Adicionar outros perfis aqui conforme necessário
+}
+
+
+def get_titulos_proibidos(perfil: str) -> tuple[str, ...]:
+    """Retorna os títulos de etapa proibidos para um dado perfil."""
+    import unicodedata
+    perfil_norm = unicodedata.normalize("NFKD", str(perfil or "").lower().strip())
+    perfil_norm = "".join(ch for ch in perfil_norm if not unicodedata.combining(ch))
+    return TITULOS_PROIBIDOS_POR_PERFIL.get(perfil_norm, ())
+
+
+REGRAS_ESTRUTURAIS_HISTORIA = """\
 REGRAS ESTRUTURAIS OBRIGATÓRIAS — HISTÓRIA (aplicar sempre):
 
-REGRA 1: NUNCA gere uma etapa chamada "Pause e responda". Se o PDF contiver essa seção,
-ignore-a completamente. Não mencione nem incorpore seu conteúdo.
+REGRA 1 [PROIBIÇÃO ABSOLUTA]: NUNCA gere uma etapa com título "Pause e responda".
+  - Esta regra não tem exceção para História.
+  - Se o PDF contiver a seção "PAUSE E RESPONDA", ignore-a completamente.
+  - Não mencione, não incorpore, não parafraseie seu conteúdo.
+  - Se você gerar uma etapa com esse título, o plano será REJEITADO automaticamente.
 
-REGRA 2: NUNCA use "Para começar" e "Relembre" na mesma aula. Se o PDF tiver ambos,
-sintetize os dois em um único bloco "Para começar".
+REGRA 2 [FUSÃO OBRIGATÓRIA]: NUNCA use "Para começar" e "Relembre" na mesma aula.
+  - Se o PDF tiver ambos, sintetize os dois em um único bloco "Para começar".
 
-REGRA 3: Se houver múltiplos "Foco no conteúdo" CONSECUTIVOS (sem "Na prática" entre eles),
-reúna-os em UM ÚNICO bloco "Foco no conteúdo" mais conciso.
+REGRA 3 [FUSÃO DE CONSECUTIVOS]: Se houver múltiplos "Foco no conteúdo" CONSECUTIVOS
+  (sem "Na prática" entre eles), reúna-os em UM ÚNICO bloco "Foco no conteúdo" mais conciso.
 
-REGRA 4: Se houver "Foco no conteúdo" ANTES de uma "Na prática" E outros "Foco no conteúdo"
-DEPOIS dessa mesma "Na prática", gere DOIS blocos separados de "Foco no conteúdo":
-um antes e um depois da "Na prática". NÃO funda os dois.
+REGRA 4 [SEPARAÇÃO OBRIGATÓRIA]: Se houver "Foco no conteúdo" ANTES de uma "Na prática"
+  E outros "Foco no conteúdo" DEPOIS dessa mesma "Na prática", gere DOIS blocos separados:
+  um antes e um depois da "Na prática". NÃO funda os dois.
 
-REGRA 5: Se houver múltiplas atividades em "Na prática" CONSECUTIVAS (sem "Foco no conteúdo"
-entre elas), descreva-as sequencialmente em UM ÚNICO bloco "Na prática", numerando cada
-atividade (Atividade 1, Atividade 2...).
+REGRA 5 [NUMERAÇÃO DE ATIVIDADES]: Se houver múltiplas atividades em "Na prática"
+  CONSECUTIVAS (sem "Foco no conteúdo" entre elas), descreva-as em UM ÚNICO bloco
+  "Na prática", numerando cada atividade (Atividade 1, Atividade 2...).
 
-REGRA 6: O "Encerramento" DEVE sempre aparecer ao final, incluindo obrigatoriamente a
-técnica "COM SUAS PALAVRAS" e as perguntas finais presentes no PDF.
+REGRA 6 [ENCERRAMENTO OBRIGATÓRIO]: O "Encerramento" DEVE sempre aparecer ao final,
+  incluindo obrigatoriamente a técnica "COM SUAS PALAVRAS" e as perguntas finais do PDF.
 
-REGRA 7: Qualquer outra etapa que aparecer e não constar no sistema — verificar qual das
-etapas acima pode ser usada no lugar da etapa nova.
+REGRA 7 [LIMITE DE TAMANHO — CRÍTICO]: Cada etapa da metodologia de História deve ter
+  NO MÁXIMO 900 caracteres. Conte os caracteres antes de finalizar cada etapa.
+  Se ultrapassar 900 caracteres, corte na última frase completa antes do limite.
+  Uma etapa com mais de 900 caracteres será truncada automaticamente pelo sistema.
 """
 
-# CORREÇÃO FALHA #3 — Tabela de posicionamento de técnicas LEMOV para História
-REGRAS_TECNICAS_HISTORIA = """
+REGRAS_TECNICAS_HISTORIA = """\
 REGRAS DE POSICIONAMENTO DE TÉCNICAS LEMOV — HISTÓRIA:
 - "VIREM E CONVERSEM": usar APENAS em "Para começar" ou momentos de discussão inicial.
 - "HORA DA LEITURA": usar APENAS quando há leitura de texto/fonte no material.
@@ -45,6 +69,7 @@ REGRAS DE POSICIONAMENTO DE TÉCNICAS LEMOV — HISTÓRIA:
 - "DE OLHO NO MODELO": usar APENAS antes de atividade de produção com modelo.
 NUNCA usar "COM SUAS PALAVRAS" em "Para começar".
 NUNCA usar "VIREM E CONVERSEM" no "Encerramento".
+NUNCA usar "PAUSE E RESPONDA" em nenhuma etapa de História.
 """
 
 
