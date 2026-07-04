@@ -47,6 +47,51 @@ def calcular_sha256(caminho_pdf: str | Path) -> str:
     except Exception:
         return ""
 
+def _validar_titulos_proibidos(metodologia: list, perfil: str) -> tuple[int, list[str]]:
+    titulos_proibidos = get_titulos_proibidos(perfil)
+    if not titulos_proibidos:
+        return 0, []
+
+    deducoes = 0
+    avisos = []
+
+    for etapa in metodologia:
+        titulo = str(etapa.get("titulo", "")).strip()
+        titulo_norm = normalizar_texto(titulo).lower().strip()
+
+        if titulo_norm in titulos_proibidos:
+            deducoes += 25
+            avisos.append(
+                f"VIOLAÇÃO CRÍTICA: Etapa '{titulo}' é proibida para o perfil '{perfil}'. "
+                f"Esta etapa deve ser removida ou renomeada."
+            )
+            logger.warning(
+                "[AUDITORIA] Título proibido detectado: '%s' (perfil=%s)",
+                titulo, perfil,
+            )
+
+    return deducoes, avisos
+
+def _validar_tamanho_etapas(metodologia: list, perfil: str) -> tuple[int, list[str]]:
+    from core.ia import _LIMITE_CHARS_POR_ETAPA, _LIMITE_CHARS_DEFAULT
+    limite = _LIMITE_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
+
+    deducoes = 0
+    avisos = []
+
+    for etapa in metodologia:
+        titulo = str(etapa.get("titulo", "")).strip()
+        texto = str(etapa.get("texto", "")).strip()
+        if len(texto) > limite:
+            excesso = len(texto) - limite
+            deducoes += min(15, excesso // 100 * 3)
+            avisos.append(
+                f"Etapa '{titulo}': texto com {len(texto)} caracteres "
+                f"(limite={limite}, excesso={excesso} chars)."
+            )
+
+    return deducoes, avisos
+
 def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     """
     Executa a auditoria pedagógica final e atribui um score de qualidade (confidence_score).
