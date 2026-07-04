@@ -69,6 +69,9 @@ _FRASES_PROIBIDAS = (
     "Conduzir uma discussão final onde",
     "Ressalte a importância",
     "Foco no conteúdo",
+    "PAUSE E RESPONDA",
+    "Pause e responda",
+    "pause e responda",
 )
 
 _CORRECOES_PONTUAIS = {
@@ -290,7 +293,8 @@ MODALIDADE EJA:
 - Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, objetiva e respeitosa.
 - Contextualize os conceitos em situacoes de vida, trabalho, saude, tecnologia, comunidade e cotidiano.
 - Explique de forma pausada e dialogada, retomando vocabulario essencial sem infantilizar os estudantes.
-- Em Biologia e Ingles, mantenha os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- Em Biologia e Inglês (APENAS), mantenha os blocos "Para começar", "Foco no conteúdo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- ATENÇÃO: Para História, 'Pause e responda' é SEMPRE PROIBIDO mesmo em EJA.
 - Preserve tecnicas explicitas do PDF quando isso fizer parte do modelo da disciplina.
 """
 
@@ -313,23 +317,70 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 
     bloco_historia = ""
     if perfil == "historia":
-        # CORREÇÃO FALHA #5 — Injetar regras estruturais e técnicas LEMOV do professor
         regras_historia = get_regras_estruturais_historia()
         bloco_historia = f"""
-
-MODELO ESPECIFICO DE HISTORIA:
-- A metodologia DEVE seguir FIELMENTE a sequencia de secoes e elementos do PDF/esboço.
-- Se o esboco lista dois blocos "FOCO NO CONTEUDO" separados por "NA PRATICA", gere dois blocos distintos de "Foco no conteudo" na metodologia.
-- Se o esboco lista "NA PRATICA: ATIVIDADE 1" e "NA PRATICA: ATIVIDADE 2", gere duas etapas "Na pratica" distintas, numerando as atividades.
-- Se o PDF contém mais de uma etapa "Na pratica" separadas por "Foco no conteudo", gere OBRIGATORIAMENTE uma etapa "Na pratica" para cada uma, numerando as atividades (Atividade 1, Atividade 2). NUNCA funda duas "Na pratica" em uma só.
-- Para cada pagina de "FOCO NO CONTEUDO", descreva os recursos visuais NA ORDEM do PDF: imagens, mapas, mapas mentais, videos, quadros comparativos, textos, ruinas, estatuas.
-- Use linguagem clara e concreta. Cite os conceitos reais do material: polis, cidades-estado, Atenas, Esparta, hoplitas, persas, cultura helenica, Roma, monarquia, patricios, reis etc.
-- Nao funda secoes que o PDF distingue. Nao reorganize a ordem. Nao omita recursos visuais listados no esboco.
-- Em 6o ano, inclua perguntas orientadoras, registro no caderno e socializacao breve.
-- Evite repetir literalmente as mesmas frases de retomada entre aulas do lote.
-- O "Encerramento" DEVE sempre incluir a tecnica "COM SUAS PALAVRAS" e citar as perguntas finais presentes no PDF. Nunca gere encerramento generico.
-
+================================================================================
+DISCIPLINA: HISTÓRIA — INSTRUÇÕES OBRIGATÓRIAS E INEGOCIÁVEIS
+================================================================================
 {regras_historia}
+
+================================================================================
+SCHEMA JSON OBRIGATÓRIO PARA HISTÓRIA
+================================================================================
+O campo "metodologia" deve ser uma lista de objetos com esta estrutura exata:
+
+  {{
+    "titulo": <string — APENAS um dos valores permitidos abaixo>,
+    "texto":  <string — MÁXIMO 900 CARACTERES. Conte antes de escrever.>
+  }}
+
+VALORES PERMITIDOS para o campo "titulo" (enum estrito):
+  - "Para começar"
+  - "Foco no conteúdo"
+  - "Na prática"
+  - "Encerramento"
+  - "Relembre"  (somente se NÃO houver "Para começar" na mesma aula)
+
+VALORES PROIBIDOS para o campo "titulo" (nunca use):
+  ❌ "Pause e responda"   É PROIBIDO ABSOLUTO EM HISTÓRIA
+  ❌ "Pausa e responda"
+  ❌ "Pause"
+  ❌ Qualquer variação de "Pause e responda"
+
+LIMITE DE CARACTERES — REGRA CRÍTICA:
+  - Cada "texto" de etapa: MÁXIMO 900 CARACTERES
+  - Antes de finalizar cada etapa, conte: len(texto) <= 900
+  - Se ultrapassar: corte na última frase completa antes do limite
+  - Uma etapa com mais de 900 chars será TRUNCADA pelo sistema
+
+================================================================================
+EXEMPLO NEGATIVO — O QUE NÃO FAZER (saída REJEITADA):
+================================================================================
+❌ ERRADO:
+{{
+  "metodologia": [
+    {{"titulo": "Para começar", "texto": "..."}},
+    {{"titulo": "Foco no conteúdo", "texto": "..."}},
+    {{"titulo": "Pause e responda", "texto": "Responda: O que é uma polis?"}},
+    {{"titulo": "Encerramento", "texto": "..."}}
+  ]
+}}
+⛔ REJEITADO porque contém "Pause e responda" (proibido em História)
+⛔ REJEITADO se qualquer "texto" tiver mais de 900 caracteres
+
+================================================================================
+EXEMPLO POSITIVO — O QUE FAZER (saída ACEITA):
+================================================================================
+✅ CORRETO:
+{{
+  "metodologia": [
+    {{"titulo": "Para começar",    "texto": "Iniciar com VIREM E CONVERSEM: o que os alunos sabem sobre cidades-estado gregas? Registrar hipóteses no quadro. (máx 900 chars ✅)"}},
+    {{"titulo": "Foco no conteúdo","texto": "Conduzir leitura do mapa das polis gregas, destacando Atenas e Esparta. Solicitar registro no caderno dos conceitos: polis, cidadão, ágora. (máx 900 chars ✅)"}},
+    {{"titulo": "Na prática",      "texto": "Atividade 1: Responder no caderno as questões do material sobre diferenças entre Atenas e Esparta. Atividade 2: Completar o quadro comparativo. (máx 900 chars ✅)"}},
+    {{"titulo": "Encerramento",    "texto": "Aplicar COM SUAS PALAVRAS: cada aluno escreve uma frase respondendo às perguntas finais do PDF sobre permanências e mudanças das polis na atualidade. (máx 900 chars ✅)"}}
+  ]
+}}
+================================================================================
 """
 
     regra_tecnicas = ""

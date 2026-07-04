@@ -275,14 +275,25 @@ def _limpar_interdisciplinar(texto: str) -> str:
 
 def _reforcar_regras_do_sistema(texto: str) -> str:
     reforco = (
-        "REGRAS FIXAS DO SISTEMA:\n"
-        "- Use esta biblioteca apenas como referência de estilo e qualidade, sem copiar trechos prontos.\n"
-        "- Priorize textos completos; não use reticências para encurtar frases em desenvolvimento, acompanhamento ou acessibilidade.\n"
-        "- Se precisar reduzir, reescreva a frase de forma mais curta e completa.\n"
-        "- Não invente técnicas pedagógicas; só cite técnicas quando estiverem explicitamente presentes nos slides.\n"
-        "- Exceção: Pause e responda sempre é verificação da aprendizagem com correção mediada.\n"
-        "- Respeite a ordem real dos slides enviados.\n"
-        "- Mantenha metodologia fluida, objetiva e adequada ao conteúdo da aula.\n\n"
+        "REGRAS FIXAS DO SISTEMA:
+"
+        "- Use esta biblioteca apenas como referência de estilo e qualidade, sem copiar trechos prontos.
+"
+        "- Priorize textos completos; não use reticências para encurtar frases em desenvolvimento, acompanhamento ou acessibilidade.
+"
+        "- Se precisar reduzir, reescreva a frase de forma mais curta e completa.
+"
+        "- Não invente técnicas pedagógicas; só cite técnicas quando estiverem explicitamente presentes nos slides.
+"
+        "- Exceção APENAS para Biologia, Inglês e EJA: 'Pause e responda' é verificação da aprendizagem com correção mediada.
+"
+        "- Para HISTÓRIA: 'Pause e responda' é SEMPRE PROIBIDO, sem exceção.
+"
+        "- Respeite a ordem real dos slides enviados.
+"
+        "- Mantenha metodologia fluida, objetiva e adequada ao conteúdo da aula.
+
+"
     )
     return reforco + texto
 

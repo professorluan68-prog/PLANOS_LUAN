@@ -1,6 +1,8 @@
 import hashlib
 import json
 import logging
+from core.referencias_metodologia import get_titulos_proibidos
+from core.lib.classificador import normalizar_texto
 import re
 from pathlib import Path
 from config import BASE_DIR
@@ -70,6 +72,16 @@ def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     if len(metodologia) < 3:
         deducoes += 15
         avisos.append("Metodologia com poucas etapas.")
+
+    ded_titulos, avisos_titulos = _validar_titulos_proibidos(metodologia, perfil)
+    if ded_titulos:
+        deducoes += ded_titulos
+        avisos.extend(avisos_titulos)
+
+    ded_tamanho, avisos_tamanho = _validar_tamanho_etapas(metodologia, perfil)
+    if ded_tamanho:
+        deducoes += ded_tamanho
+        avisos.extend(avisos_tamanho)
 
     # 3. Validar Acompanhamento da Aprendizagem
     acompanhamento = aula.get("acompanhamento") or []
@@ -182,13 +194,26 @@ def _identificar_etapas_com_aviso(avisos: list[str]) -> list[str]:
 
 
 def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> dict | None:
-    """
-    CORREÇÃO FALHA #8 — Regeneração seletiva de etapas genéricas para o perfil 'historia'.
-    Foca no encerramento genérico, que é o caso mais comum detectado pela auditoria.
-    """
+    from core.qualidade_metodologica import extrair_conceito_central
+
     metodologia = aula.get("metodologia") or []
     tema = aula.get("tema", "")
     houve_correcao = False
+
+    titulos_proibidos = get_titulos_proibidos("historia")
+    metodologia_limpa = []
+    for etapa in metodologia:
+        titulo_norm = normalizar_texto(str(etapa.get("titulo", ""))).lower().strip()
+        if titulo_norm in titulos_proibidos:
+            logger.info(
+                "Regeneração: etapa proibida '%s' removida da metodologia de História.",
+                etapa.get("titulo", ""),
+            )
+            houve_correcao = True
+        else:
+            metodologia_limpa.append(etapa)
+
+    metodologia = metodologia_limpa
 
     for idx, etapa in enumerate(metodologia):
         titulo = str(etapa.get("titulo", "")).strip()
@@ -196,7 +221,6 @@ def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> d
 
         if titulo_lower == "encerramento" and "Encerramento" in etapas_problematicas:
             texto_atual = str(etapa.get("texto", "")).strip()
-            # Detectar encerramento genérico (sem termos específicos do conteúdo)
             termos_genericos = [
                 "momento de síntese",
                 "verificação dos aprendizados",
@@ -208,7 +232,6 @@ def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> d
             is_curto = len(texto_atual) < 80
 
             if is_generico or is_curto:
-                # Gerar encerramento específico com "COM SUAS PALAVRAS" e tema
                 conceito = extrair_conceito_central(tema) or tema or "o conteúdo da aula"
                 novo_texto = (
                     f'Para encerrar a aula, os alunos refletem e respondem "COM SUAS PALAVRAS" '
@@ -221,7 +244,6 @@ def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> d
 
         elif titulo_lower == "para começar" and "Para começar" in etapas_problematicas:
             texto_atual = str(etapa.get("texto", "")).strip()
-            # Se o "Para começar" não menciona termos do conteúdo, tentar enriquecer
             conceito = extrair_conceito_central(tema) or tema
             if conceito and conceito.lower() not in texto_atual.lower():
                 novo_texto = texto_atual.rstrip(". ") + f", contextualizando o tema {conceito}."
