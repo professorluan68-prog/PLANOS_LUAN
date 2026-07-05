@@ -34,3 +34,6 @@ config.toml
 lo_profile_*/
 _tmp_render/
 historico_docx/
+
+PLANOS_FEITOS/
+PLanos_finais/
