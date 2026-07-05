@@ -293,8 +293,8 @@ MODALIDADE EJA:
 - Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, objetiva e respeitosa.
 - Contextualize os conceitos em situacoes de vida, trabalho, saude, tecnologia, comunidade e cotidiano.
 - Explique de forma pausada e dialogada, retomando vocabulario essencial sem infantilizar os estudantes.
-- Em Biologia e Inglês (APENAS), mantenha os blocos "Para começar", "Foco no conteúdo", "Pause e responda" e "Encerramento" sempre que o material permitir.
-- ATENÇÃO: Para História, 'Pause e responda' é SEMPRE PROIBIDO mesmo em EJA.
+- Em Inglês (APENAS), mantenha os blocos "Para começar", "Foco no conteúdo", "Pause e responda" e "Encerramento" sempre que o material permitir.
+- ATENÇÃO: Para História e Biologia, 'Pause e responda' é SEMPRE PROIBIDO mesmo em EJA.
 - Preserve tecnicas explicitas do PDF quando isso fizer parte do modelo da disciplina.
 """
 
@@ -316,16 +316,16 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 """
 
     bloco_historia = ""
-    if perfil == "historia":
-        regras_historia = get_regras_estruturais_historia()
+    if perfil in ["historia", "biologia"]:
+        regras_historia = get_regras_estruturais_historia().replace("História", disciplina.title()).replace("HISTÓRIA", disciplina.upper())
         bloco_historia = f"""
 ================================================================================
-DISCIPLINA: HISTÓRIA — INSTRUÇÕES OBRIGATÓRIAS E INEGOCIÁVEIS
+DISCIPLINA: {disciplina.upper()} — INSTRUÇÕES OBRIGATÓRIAS E INEGOCIÁVEIS
 ================================================================================
 {regras_historia}
 
 ================================================================================
-SCHEMA JSON OBRIGATÓRIO PARA HISTÓRIA
+SCHEMA JSON OBRIGATÓRIO PARA {disciplina.upper()}
 ================================================================================
 O campo "metodologia" deve ser uma lista de objetos com esta estrutura exata:
 
@@ -342,7 +342,7 @@ VALORES PERMITIDOS para o campo "titulo" (enum estrito):
   - "Relembre"  (somente se NÃO houver "Para começar" na mesma aula)
 
 VALORES PROIBIDOS para o campo "titulo" (nunca use):
-  ❌ "Pause e responda"   É PROIBIDO ABSOLUTO EM HISTÓRIA
+  ❌ "Pause e responda"   É PROIBIDO ABSOLUTO NESTA DISCIPLINA
   ❌ "Pausa e responda"
   ❌ "Pause"
   ❌ Qualquer variação de "Pause e responda"

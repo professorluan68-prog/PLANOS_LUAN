@@ -16,7 +16,7 @@ TITULOS_PROIBIDOS_HISTORIA: tuple[str, ...] = (
 # Mapa global de títulos proibidos por perfil (usado em ia.py e revisao_final.py)
 TITULOS_PROIBIDOS_POR_PERFIL: dict[str, tuple[str, ...]] = {
     "historia": TITULOS_PROIBIDOS_HISTORIA,
-    # Adicionar outros perfis aqui conforme necessário
+    "biologia": TITULOS_PROIBIDOS_HISTORIA,
 }
 
 

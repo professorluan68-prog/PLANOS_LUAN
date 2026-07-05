@@ -206,8 +206,8 @@ def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     tentativas_regeneracao = aula.get("_tentativas_regeneracao", 0)
     if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < 1:
         etapas_problematicas = _identificar_etapas_com_aviso(avisos)
-        if etapas_problematicas and perfil == "historia":
-            aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas)
+        if etapas_problematicas and perfil in ["historia", "biologia"]:
+            aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas, perfil)
             if aula_corrigida:
                 aula_corrigida["_tentativas_regeneracao"] = tentativas_regeneracao + 1
                 logger.info(
@@ -238,21 +238,21 @@ def _identificar_etapas_com_aviso(avisos: list[str]) -> list[str]:
     return sorted(etapas)
 
 
-def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> dict | None:
+def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str], perfil: str) -> dict | None:
     from core.qualidade_metodologica import extrair_conceito_central
 
     metodologia = aula.get("metodologia") or []
     tema = aula.get("tema", "")
     houve_correcao = False
 
-    titulos_proibidos = get_titulos_proibidos("historia")
+    titulos_proibidos = get_titulos_proibidos(perfil)
     metodologia_limpa = []
     for etapa in metodologia:
         titulo_norm = normalizar_texto(str(etapa.get("titulo", ""))).lower().strip()
         if titulo_norm in titulos_proibidos:
             logger.info(
-                "Regeneração: etapa proibida '%s' removida da metodologia de História.",
-                etapa.get("titulo", ""),
+                "Regeneração: etapa proibida '%s' removida da metodologia de %s.",
+                etapa.get("titulo", ""), perfil
             )
             houve_correcao = True
         else:
