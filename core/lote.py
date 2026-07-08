@@ -953,14 +953,6 @@ def _tema_por_texto(texto: str, caminho_pdf: str, disciplina: str) -> str:
 
 
 def _rotulo_aula_material(texto: str, caminho_pdf: str) -> str:
-    # 1. Tentar ler do texto do PDF
-    padrao_texto = re.compile(r"\baula\s*(?:n[.o]?\s*)?(\d{1,3})\b", flags=re.I)
-    for linha in _limpar_linhas(texto)[:30]:
-        match = padrao_texto.search(linha)
-        if match:
-            return f"AULA {match.group(1)}"
-
-    # 2. Tentar padrão com separador e número no final do nome do arquivo, ex: Nome_01.pdf
     stem = Path(caminho_pdf).stem
     # Limpar sufixos de cópia comuns
     stem = re.sub(r"\s*\(\d+\)$", "", stem)
@@ -968,18 +960,27 @@ def _rotulo_aula_material(texto: str, caminho_pdf: str) -> str:
     stem = re.sub(r"(?i)\s*-\s*copy$", "", stem)
     stem = stem.strip()
 
+    # 1. Padrão clássico "aula 12" ou "AULA_03" no nome do arquivo (Prioridade Máxima)
+    match = re.search(r"^(?:pdf)?[_\s-]*aula[_\s-]*(\d{1,3})\b", stem, flags=re.I)
+    if match:
+        return f"AULA {int(match.group(1))}"
+        
+    match_pdf = re.search(r"^pdf[_\s-]*(\d{1,3})(?:\D|$)", stem, flags=re.I)
+    if match_pdf:
+        return f"AULA {int(match_pdf.group(1))}"
+
+    # 2. Tentar ler do texto do PDF
+    padrao_texto = re.compile(r"\baula\s*(?:n[.o]?\s*)?(\d{1,3})\b", flags=re.I)
+    for linha in _limpar_linhas(texto)[:30]:
+        match = padrao_texto.search(linha)
+        if match:
+            return f"AULA {match.group(1)}"
+
+    # 3. Tentar padrão com separador e número no final do nome do arquivo, ex: Nome_01.pdf
     match_end = re.search(r"[\s_.-]\s*(\d{1,4})$", stem)
     if match_end:
         return f"AULA {int(match_end.group(1))}"
 
-    # 3. Padrão clássico "aula 12" no nome do arquivo
-    match = re.search(r"\baula[_\s-]*(\d{1,3})\b", stem, flags=re.I)
-    if match:
-        return f"AULA {match.group(1)}"
-
-    match_pdf = re.search(r"^pdf[_\s-]*(\d{1,3})(?:\D|$)", stem, flags=re.I)
-    if match_pdf:
-        return f"AULA {int(match_pdf.group(1))}"
     return ""
 
 
@@ -2966,11 +2967,10 @@ def _aula_por_pdf(
                         bimestre=bimestre,
                     )
                 except Exception as e:
-                    ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:150]}. Usando motor heurístico local."
-
+                    raise RuntimeError(f"Falha na IA ({provedor_ia}): {str(e)[:250]}. Operação cancelada.")
+            
             if resultado_candidato is None:
                 resultado_candidato = dict(rascunho_local)
-                resultado_candidato["ia_erro"] = ia_erro
                 if usar_ia:
                     resultado_candidato["ia_provedor"] = provedor_ia
 

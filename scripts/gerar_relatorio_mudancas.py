@@ -71,7 +71,7 @@ def create_report():
     
     p2 = doc.add_paragraph(
         "Anteriormente restrita ao Ensino Fundamental, a funcionalidade de leitura inteligente do Guia Priorizado "
-        "foi estendida com sucesso para o Ensino Médio. Além disso, foram processados os PDFs dos guias prioritários e criadas as respectivas planilhas estruturadas (.xlsx) em \"D:\\PDF novos\" para as seguintes disciplinas no 3º Bimestre:"
+        "foi estendida com sucesso para o Ensino Médio. Além disso, foram processados os PDFs dos guias prioritários e criadas as respectivas planilhas estruturadas (.xlsx) em \"C:\\Users\\Luan Dias\\PDF novos\" para as seguintes disciplinas no 3º Bimestre:"
     )
     
     disciplinas = [

@@ -119,7 +119,7 @@ print("=== Processing HISTÓRIA AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/HISTÓRIA_AF/HIS_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/HISTÓRIA_AF/3_BIMESTRE",
-    "D:/PDF novos/HISTORIA/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/HISTORIA/AF/3_BIMESTRE",
     is_em=False
 )
 
@@ -128,7 +128,7 @@ print("=== Processing HISTÓRIA EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/HISTÓRIA_EM/HIS_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/HISTÓRIA_EM/3_BIMESTRE",
-    "D:/PDF novos/HISTORIA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/HISTORIA/EM/3_BIMESTRE",
     is_em=True
 )
 

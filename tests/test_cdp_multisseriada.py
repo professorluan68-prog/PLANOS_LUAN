@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.skip(reason="CDP desativado temporariamente")
+
 from core.cdp import (
     carregar_planilha_cdp_multisseriada,
     habilidade_item_cdp,

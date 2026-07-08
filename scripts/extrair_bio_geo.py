@@ -112,7 +112,7 @@ print("=== Processing BIOLOGIA EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/BIOLOGIA_EM/BIO_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/BIOLOGIA_EM/3_BIMESTRE",
-    "D:/PDF novos/BIOLOGIA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/BIOLOGIA/EM/3_BIMESTRE",
     is_em=True
 )
 
@@ -121,7 +121,7 @@ print("=== Processing GEOGRAFIA AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/GEOGRAFIA_AF/GEO_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/GEOGRAFIA_AF/3_BIMESTRE",
-    "D:/PDF novos/GEOGRAFIA/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/GEOGRAFIA/AF/3_BIMESTRE",
     is_em=False
 )
 
@@ -130,7 +130,7 @@ print("=== Processing GEOGRAFIA EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/GEOGRAFIA_EM/GEO_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/GEOGRAFIA_EM/3_BIMESTRE",
-    "D:/PDF novos/GEOGRAFIA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/GEOGRAFIA/EM/3_BIMESTRE",
     is_em=True
 )
 

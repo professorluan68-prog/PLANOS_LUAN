@@ -54,4 +54,7 @@ def test_extrair_texto_pdf_fallback_quando_pdf2docx_falha():
         assert "Conteúdo de texto plano" in texto
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try:
+                os.remove(temp_path)
+            except PermissionError:
+                pass

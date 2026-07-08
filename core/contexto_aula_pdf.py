@@ -352,7 +352,8 @@ def preparar_contexto_aula_pdf(
             )
             caminho_p = Path(caminho_pdf)
             if caminho_p.suffix.lower() == ".pdf":
-                pasta_docx_aux = caminho_p.parent / "DOCX_AUXILIARES_EXTRACAO"
+                from config import BASE_DIR
+                pasta_docx_aux = BASE_DIR / "DOCX_AUXILIARES_EXTRACAO"
                 caminho_docx_aux = converter_pdf_para_docx_auxiliar(caminho_pdf, pasta_docx_aux)
                 if caminho_docx_aux and caminho_docx_aux.exists():
                     palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_docx_aux)

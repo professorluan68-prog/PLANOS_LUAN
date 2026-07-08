@@ -17,3 +17,4 @@ python-dotenv==1.2.2
 requests>=2.31.0,<3
 pdf2docx==0.5.13
 opencv-python-headless==4.8.1.78
+streamlit-option-menu

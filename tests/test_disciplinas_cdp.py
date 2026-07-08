@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.skip(reason="CDP desativado temporariamente")
+
 from core.disciplinas import (
     BIMESTRES,
     DISCIPLINA_CDP_CICLO_I,

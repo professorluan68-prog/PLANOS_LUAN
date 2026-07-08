@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Paths
 source_dir = Path("D:/GUIA_PRIORIZADO/PORTUGUÊS_EM/3_BIMESTRE")
-dest_base = Path("D:/PDF novos/LINGUA_PORTUGUESA/EM/3_BIMESTRE")
+dest_base = Path("C:/Users/Luan Dias/PDF novos/LINGUA_PORTUGUESA/EM/3_BIMESTRE")
 
 # PDF mapping
 pdfs = {

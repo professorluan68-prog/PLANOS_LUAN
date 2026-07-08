@@ -119,7 +119,7 @@ print("=== Processing ARTE AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/ARTE_AF/ARTE_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/ARTE_AF/3_BIMESTRE",
-    "D:/PDF novos/ARTE/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/ARTE/AF/3_BIMESTRE",
     is_em=False
 )
 
@@ -128,7 +128,7 @@ print("=== Processing ARTE EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/ARTE_EM/ARTE_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/ARTE_EM/3_BIMESTRE",
-    "D:/PDF novos/ARTE/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/ARTE/EM/3_BIMESTRE",
     is_em=True
 )
 
@@ -137,7 +137,7 @@ print("=== Processing INGLÊS AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/INGLÊS_AF/L.Inglesa_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/INGLÊS_AF/3_BIMESTRE",
-    "D:/PDF novos/LINGUA_INGLESA/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/LINGUA_INGLESA/AF/3_BIMESTRE",
     is_em=False
 )
 
@@ -146,7 +146,7 @@ print("=== Processing INGLÊS EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/INGLÊS_EM/L.INGLESA_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/INGLÊS_EM/3_BIMESTRE",
-    "D:/PDF novos/LINGUA_INGLESA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/LINGUA_INGLESA/EM/3_BIMESTRE",
     is_em=True
 )
 

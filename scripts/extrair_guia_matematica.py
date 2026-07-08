@@ -107,7 +107,7 @@ print("=== Processing AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/MATEMÁTICA_AF/MAT_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/MATEMÁTICA_AF/3_BIMESTRE",
-    "D:/PDF novos/MATEMATICA/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/MATEMATICA/AF/3_BIMESTRE",
     is_em=False
 )
 
@@ -116,7 +116,7 @@ print("=== Processing EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/MATEMÁTICA_EM/MAT_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/MATEMÁTICA_EM/3_BIMESTRE",
-    "D:/PDF novos/MATEMATICA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/MATEMATICA/EM/3_BIMESTRE",
     is_em=True
 )
 

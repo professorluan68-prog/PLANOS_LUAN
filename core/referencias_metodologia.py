@@ -82,7 +82,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 PASTA_ANALISES_NOVAS = Path(
     os.getenv(
         "PLANOS_ANALISES_METODOLOGICAS_DIR",
-        r"D:\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA",
+        r"C:\Users\Luan Dias\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA",
     )
 )
 PASTAS_BUSCA = [

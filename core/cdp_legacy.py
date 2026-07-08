@@ -20,28 +20,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 def _verificar_planilha(caminho_padrao: Path, nome_arquivo: str) -> Path:
     """Verifica se planilha existe, senão busca alternativas."""
     import logging
-    logger = logging.getLogger(__name__)
-
-    if caminho_padrao.exists():
-        logger.info(f"Planilha encontrada: {caminho_padrao}")
-        return caminho_padrao
-
-    # Tentar alternativas
-    alternativas = [
-        BASE_DIR / "planilhas" / nome_arquivo,
-        BASE_DIR / "dados" / nome_arquivo,
-        BASE_DIR / nome_arquivo,
-        Path.home() / "Downloads" / nome_arquivo,
-    ]
-
-    for alt in alternativas:
-        if alt.exists():
-            logger.warning(f"Planilha encontrada em caminho alternativo: {alt}")
-            return alt
-
-    logger.error(f"Planilha não encontrada: {caminho_padrao}")
-    logger.error(f"Alternativas tentadas: {[str(a) for a in alternativas]}")
-    # Retornar o padrão mesmo se não existir (erro será tratado no uso)
+    # Temporarily bypass verification as requested by user to pause CDP
     return caminho_padrao
 
 
@@ -411,24 +390,10 @@ def _remover_duplicatas_preservando_ordem(valores: List[str]) -> List[str]:
 def carregar_planilha_cdp_multisseriada() -> Dict[str, List[Dict[str, str]]]:
     """
     Carrega a planilha específica do CDP multisseriado (EJA) e retorna dados por sheet.
+    (Desabilitado temporariamente a pedido do usuário)
     """
-    if not PLANILHA_CDP_MULTISSERIADA.exists():
-        import logging
-        logging.getLogger(__name__).error(
-            f"PLANILHA CDP MULTISSERIADA NÃO ENCONTRADA: {PLANILHA_CDP_MULTISSERIADA}. "
-            "O plano será gerado sem dados de habilidades multisseriadas."
-        )
-        return {}
-    with ZipFile(PLANILHA_CDP_MULTISSERIADA) as z:
-        strings = _shared_strings(z)
-        sheets = _sheet_paths(z)
-        dados: Dict[str, List[Dict[str, str]]] = {}
-        for nome, path in sheets.items():
-            if normalizar(nome) == "resumo geral":
-                continue
-            componente = _nome_componente_exibicao(nome)
-            dados[componente] = _ler_linhas_sheet(z, path, strings)
-        return dados
+    return {}
+
 
 
 def _valor_celula_linha(row, idx: int) -> str:
@@ -477,23 +442,9 @@ def _ler_habilidades_docx(path: Path) -> List[Dict[str, str]]:
 def carregar_planilha_cdp() -> Dict[str, List[Dict[str, str]]]:
     """
     Carrega a planilha CDP e retorna dados estruturados por sheet.
-    Cada sheet contém lista de dicionários com colunas da planilha.
+    (Desabilitado temporariamente a pedido do usuário)
     """
-    if not PLANILHA_CDP.exists():
-        import logging
-        logging.getLogger(__name__).error(
-            f"PLANILHA CDP NÃO ENCONTRADA: {PLANILHA_CDP}. "
-            "O plano CDP será gerado sem dados de habilidades. "
-            "Verifique se o arquivo existe no caminho correto."
-        )
-        return {}
-    with ZipFile(PLANILHA_CDP) as z:
-        strings = _shared_strings(z)
-        sheets = _sheet_paths(z)
-        return {
-            nome: _ler_linhas_sheet(z, path, strings)
-            for nome, path in sheets.items()
-        }
+    return {}
 
 
 def listar_habilidades_cdp(disciplina: str, turma: str = "", bimestre: str = "1°") -> List[Dict[str, str]]:

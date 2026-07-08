@@ -114,7 +114,7 @@ $Url = "http://127.0.0.1:$Port"
 Write-Host "Abrindo PLANOS_LUAN em $Url ..."
 
 $args = @(
-    "-m", "streamlit", "run", $App,
+    "-m", "streamlit", "run", "`"$App`"",
     "--server.address", "127.0.0.1",
     "--server.port", "$Port",
     "--server.headless", "true",

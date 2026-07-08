@@ -23,7 +23,7 @@ def nome_arquivo_plano_operacao(
 ) -> str:
     s_turma = _slug_download(turma)
     s_disc = _slug_download(disciplina)
-    s_ia = "_IA" if ia_usada else ""
+    s_ia = "_In" if ia_usada else ""
     return f"Plano_{s_turma}_{s_disc}{s_ia}.docx"
 
 

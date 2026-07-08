@@ -101,8 +101,10 @@ def _extrair_texto_via_pdf2docx(caminho_pdf: str, limite_chars: int) -> tuple[st
     with tempfile.TemporaryDirectory() as temp_dir:
         caminho_docx = os.path.join(temp_dir, "temp_converted.docx")
         cv = Converter(caminho_pdf)
-        cv.convert(caminho_docx, start=0, end=None)
-        cv.close()
+        try:
+            cv.convert(caminho_docx, start=0, end=None)
+        finally:
+            cv.close()
 
         doc = docx.Document(caminho_docx)
         paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]

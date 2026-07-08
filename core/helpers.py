@@ -377,7 +377,7 @@ def _pasta_aprofundamento_biologia_2ano_a(base_dir: str, bimestre_token: str) ->
 
 
 def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: str, professor: str = "") -> Path:
-    r"""Monta o caminho D:\PDF novos\<DISCIPLINA>\<AF|EM>\<N>_BIMESTRE\<N>_ANO"""
+    r"""Monta o caminho C:\Users\Luan Dias\Documents\PDF_AULAS\<DISCIPLINA>\<AF|EM>\<N>_BIMESTRE\<N>_ANO"""
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
     turma_norm = normalizar_para_pasta(turma)
     bimestre_norm = normalizar_para_pasta(bimestre)

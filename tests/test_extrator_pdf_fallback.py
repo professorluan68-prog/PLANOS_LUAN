@@ -20,5 +20,8 @@ def test_extrair_texto_pdf_sem_fallback_falha_para_invalido():
         assert "Este nao eh um PDF valido" in conteudo
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try:
+                os.remove(temp_path)
+            except PermissionError:
+                pass
 

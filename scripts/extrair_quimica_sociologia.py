@@ -119,7 +119,7 @@ print("=== Processing QUÍMICA EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/QUÍMICA_EM/QUI_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/QUÍMICA_EM/3_BIMESTRE",
-    "D:/PDF novos/QUIMICA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/QUIMICA/EM/3_BIMESTRE",
     is_em=True
 )
 
@@ -128,7 +128,7 @@ print("=== Processing SOCIOLOGIA EM ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/SOCIOLOGIA_EM/SOCIO_EM_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/SOCIOLOGIA_EM/3_BIMESTRE",
-    "D:/PDF novos/SOCIOLOGIA/EM/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/SOCIOLOGIA/EM/3_BIMESTRE",
     is_em=True
 )
 

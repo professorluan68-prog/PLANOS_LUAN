@@ -114,7 +114,7 @@ def _slug_download(texto: str) -> str:
 def nome_arquivo_plano(turma: str, disciplina: str, ia_usada: bool = False) -> str:
     s_turma = _slug_download(turma)
     s_disc = _slug_download(disciplina)
-    s_ia = "_IA" if ia_usada else ""
+    s_ia = "_In" if ia_usada else ""
     return f"Plano_{s_turma}_{s_disc}{s_ia}.docx"
 
 # ==========================================
@@ -177,7 +177,7 @@ def _diagnosticar_modelos_professores_cache():
 # ==========================================
 # CSS E CONFIGURAÇÕES DE ENVIROMENT
 # ==========================================
-@st.cache_data(show_spinner=False)
+# Cache removed to allow immediate UI updates upon CSS modification
 def _ler_css_app(caminho: str) -> str:
     return Path(caminho).read_text(encoding="utf-8")
 

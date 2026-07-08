@@ -216,6 +216,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+carregar_css(BASE_DIR)
+
 CAMPOS_TELA = {
     "modelo_file",
     "pdfs_aulas_files",
@@ -397,7 +399,7 @@ def _salvar_planos_gerados_se_configurado(
             professor,
             disciplina,
             plano["turma"],
-            nome_arquivo_plano(plano["turma"], disciplina),
+            nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False)),
             plano["docx_bytes"].getvalue(),
             bimestre=bimestre,
         )
@@ -841,7 +843,7 @@ def _salvar_pdf_temporario(pdf_file) -> str:
 def _preparar_pdf_para_processamento(pdf_file) -> tuple[str, bool]:
     """Retorna o caminho do PDF e se ele deve ser apagado ao final.
 
-    No modo automatico, o arquivo ja existe em D:\\PDF novos. Usar esse caminho
+    No modo automatico, o arquivo ja existe em C:\\Users\\Luan Dias\\Documents\\PDF_AULAS. Usar esse caminho
     real preserva os JSONs, DOCXs de referencia e hashes da pasta original.
     No upload manual, criamos uma copia temporaria como antes.
     """
@@ -1796,7 +1798,32 @@ def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files, replicar_p
     return aulas_envio, len(grupos)
 
 
-def _divisao_pdf_padrao(idx: int, total_aulas: int) -> bool:
+def _is_aula_dupla(item: dict) -> bool:
+    if not item: return False
+    horario = str(item.get("horario") or "").lower()
+    aulas_list = item.get("aulas")
+    if isinstance(aulas_list, list) and len(aulas_list) > 1:
+        return True
+    if " e " in horario or "dupla" in horario or "geminada" in horario:
+        return True
+    return False
+
+def _divisao_pdf_padrao(idx: int, total_aulas: int, lista_aulas: list = None) -> bool:
+    if lista_aulas and idx < len(lista_aulas):
+        if _is_aula_dupla(lista_aulas[idx]):
+            return False
+            
+        single_class_count = 0
+        for i in range(idx):
+            if not _is_aula_dupla(lista_aulas[i]):
+                single_class_count += 1
+                
+        if idx + 1 < len(lista_aulas):
+            if not _is_aula_dupla(lista_aulas[idx+1]) and single_class_count % 2 == 0:
+                return True
+                
+        return False
+
     return bool(idx % 2 == 0 and idx < total_aulas - 1)
 
 
@@ -1805,6 +1832,7 @@ def _sincronizar_divisao_pdf_padrao(
     dividir_metodologia: bool,
     key_prefix: str = "",
     contexto: str = "",
+    lista_aulas: list = None,
 ) -> None:
     assinatura_chave = f"{key_prefix}dividir_metodologia_assinatura"
     assinatura_atual = f"v3|{bool(dividir_metodologia)}|{int(num_rows or 0)}|{contexto}"
@@ -1818,10 +1846,10 @@ def _sincronizar_divisao_pdf_padrao(
     for idx in range(int(num_rows or 0)):
         chave = f"{key_prefix}dividir_pdf_aula_{idx}"
         if acabou_de_ativar or chave not in st.session_state:
-            st.session_state[chave] = _divisao_pdf_padrao(idx, int(num_rows or 0))
+            st.session_state[chave] = _divisao_pdf_padrao(idx, int(num_rows or 0), lista_aulas)
 
 
-def _estimar_pdfs_por_estado(num_rows: int, dividir_metodologia: bool, key_prefix: str = "") -> int:
+def _estimar_pdfs_por_estado(num_rows: int, dividir_metodologia: bool, key_prefix: str = "", lista_aulas: list = None) -> int:
     num_rows = int(num_rows or 0)
     if num_rows <= 0:
         return 0
@@ -1831,7 +1859,7 @@ def _estimar_pdfs_por_estado(num_rows: int, dividir_metodologia: bool, key_prefi
     aulas_simuladas = []
     for idx in range(num_rows):
         chave = f"{key_prefix}dividir_pdf_aula_{idx}"
-        dividir_pdf = st.session_state.get(chave, _divisao_pdf_padrao(idx, num_rows))
+        dividir_pdf = st.session_state.get(chave, _divisao_pdf_padrao(idx, num_rows, lista_aulas))
         aulas_simuladas.append({"dividir_pdf": bool(dividir_pdf)})
     return len(_grupos_pdf_por_aula(aulas_simuladas))
 
@@ -2310,15 +2338,8 @@ disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
 orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
 disciplina_cdp = eh_cdp(disciplina)
 
-# Verificar disponibilidade das planilhas CDP
+# Verificar disponibilidade das planilhas CDP (desativado temporariamente)
 from core.cdp_legacy import PLANILHA_CDP, PLANILHA_CDP_MULTISSERIADA
-if eh_cdp(disciplina) and not PLANILHA_CDP.exists():
-    st.warning(
-        f"⚠️ Planilha CDP não encontrada em: `{PLANILHA_CDP}`. "
-        "O plano será gerado sem habilidades específicas. "
-        "Verifique se o arquivo PLANILHACDP.xlsx está na pasta correta."
-    )
-
 if (disciplina_cdp or eh_cdp_fundamental(disciplina) or modo_cdp_dedicado) and escolha_template != "Upload de novo modelo...":
     modelo_cdp = TEMPLATES_DIR / "MODELOCDP.docx"
     if modelo_cdp.exists(): modelo_bytes = modelo_cdp.read_bytes()
@@ -2344,10 +2365,17 @@ with col_turma:
                 if st.session_state.get("last_aula_prof") != selecao_vaga_id:
                     st.session_state["last_aula_prof"] = selecao_vaga_id
                     val_aulas = str(config_selecionada.get("aulas_semana") or "")
-                    st.session_state["aulas_previstas_manual"] = val_aulas
-
-                    if "aulas_previstas_manual_select" in st.session_state:
-                        del st.session_state["aulas_previstas_manual_select"]
+                    
+                    if not val_aulas:
+                        for d_conf in dados_prof.get("disciplinas", []):
+                            if d_conf.get("disciplina") == disciplina and d_conf.get("aulas_semana"):
+                                val_aulas = str(d_conf.get("aulas_semana"))
+                                break
+                    
+                    if val_aulas:
+                        st.session_state["aulas_previstas_manual"] = val_aulas
+                        if "aulas_previstas_manual_select" in st.session_state:
+                            del st.session_state["aulas_previstas_manual_select"]
                         
                     datas_horarios = list(config_selecionada.get("datas_horarios") or [])
                     if datas_horarios:
@@ -2495,7 +2523,7 @@ if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
 
 def _resolver_caminho_ae_priorizado(disciplina: str, turma: str, bimestre: str, professor: str = "") -> str:
     try:
-        pasta = resolver_pasta_pdfs(r"D:\PDF novos", disciplina, turma, bimestre, professor=professor)
+        pasta = resolver_pasta_pdfs(r"C:\Users\Luan Dias\Documents\PDF_AULAS", disciplina, turma, bimestre, professor=professor)
     except Exception:
         return ""
 
@@ -2619,40 +2647,58 @@ def _render_painel_pdfs(
     criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
     aulas_rotulo = total_aulas or necessarios
 
-    with st.container():
-        st.markdown("### Painel dos PDFs")
-        st.caption(orientacao)
+    html = f"""<div class="pdf-dashboard">
+    <div class="pdf-dashboard__header">
+        <div>
+            <span class="pdf-dashboard__eyebrow">Painel dos PDFs</span>
+            <div class="pdf-dashboard__title">Organização das aulas</div>
+            <div class="pdf-dashboard__subtitle">{orientacao}</div>
+        </div>
+        <div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">
+            {status_texto}
+        </div>
+    </div>
+    
+    <div class="pdf-dashboard__stats">
+        <div class="pdf-stat">
+            <span>Modo</span>
+            <strong>{modo_texto}</strong>
+        </div>
+        <div class="pdf-stat">
+            <span>Necessários</span>
+            <strong>{necessarios}</strong>
+        </div>
+        <div class="pdf-stat">
+            <span>Agendados</span>
+            <strong>{carregados}</strong>
+        </div>
+        <div class="pdf-stat">
+            <span>Encontrados</span>
+            <strong>{encontrados}</strong>
+        </div>
+    </div>
+    <div class="pdf-progress">
+        <div class="pdf-progress__bar" style="width: {progresso}%;"></div>
+    </div>
+</div>"""
+    st.markdown(html, unsafe_allow_html=True)
 
-        if status_classe == "success":
-            st.success(status_texto)
-        elif status_classe == "warning":
-            st.warning(status_texto)
-        else:
-            st.info(status_texto)
+    st.progress(progresso)
+    st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
 
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Modo", modo_texto)
-        col2.metric("Aulas previstas", aulas_rotulo)
-        col3.metric("PDFs necessarios", necessarios)
-        col4.metric("Selecionados", carregados)
-        col5.metric("Encontrados", encontrados)
+    if pasta:
+        st.caption(f"Pasta automatica: {pasta}")
 
-        st.progress(progresso)
-        st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
+    if faltantes_ae:
+        faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
+        st.warning(f"PDFs AE nao encontrados: {faltantes_txt}")
 
-        if pasta:
-            st.caption(f"Pasta automatica: {pasta}")
-
-        if faltantes_ae:
-            faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
-            st.warning(f"PDFs AE nao encontrados: {faltantes_txt}")
-
-        st.markdown("**Ordem que sera processada**")
-        if selecionados:
-            for indice, item in enumerate(selecionados, start=1):
-                st.write(f"{indice}. {_nome_pdf_para_tela(item)}")
-        else:
-            st.caption("Nenhum PDF selecionado ainda.")
+    st.markdown("**Ordem que sera processada**")
+    if selecionados:
+        for indice, item in enumerate(selecionados, start=1):
+            st.write(f"{indice}. {_nome_pdf_para_tela(item)}")
+    else:
+        st.caption("Nenhum PDF selecionado ainda.")
 
 
 sequencia_ae_contexto = []
@@ -2781,13 +2827,21 @@ else:
     sequencia_pdf_esperada_ae = []
     contexto_divisao_pdf = "|".join(str(valor or "") for valor in [professor, disciplina, turma, mes, bimestre])
 
+    deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
+    if deixar_ant_vazia and datas_horarios_mes:
+        aulas_oficiais_modelo = [d for d in datas_horarios_mes if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)]
+        linhas_modelo_pdf = len(aulas_oficiais_modelo)
+    else:
+        aulas_oficiais_modelo = datas_horarios_mes or []
+        linhas_modelo_pdf = linhas_modelo
+
     if bool(len(datas_horarios_mes or [])):
         st.session_state["auto_repetir_semana"] = False
     elif "auto_repetir_semana" not in st.session_state:
         st.session_state["auto_repetir_semana"] = True
     auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
     dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
-    _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf)
+    _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
     if st.session_state.get("modo_upload_pdf") not in opcoes_modo_upload:
@@ -2798,7 +2852,7 @@ else:
         horizontal=True,
         key="modo_upload_pdf",
         help=(
-            "Automatico: busca os PDFs em D:\\PDF novos e aplica a ordem do sistema.\n"
+            "Automatico: busca os PDFs em C:\\Users\\Luan Dias\\Documents\\PDF_AULAS e aplica a ordem do sistema.\n"
             "Todos de uma vez: envie os arquivos manualmente em lote.\n"
             "Um por aula: envie o PDF diretamente em cada card."
         ),
@@ -2810,24 +2864,17 @@ else:
     qtd_aulas = 0
     pdfs_auto_total = 0
     try:
-        pasta_pdfs_auto = str(resolver_pasta_pdfs(r"D:\PDF novos", disciplina, turma, bimestre, professor=professor))
+        pasta_pdfs_auto = str(resolver_pasta_pdfs(r"C:\Users\Luan Dias\Documents\PDF_AULAS", disciplina, turma, bimestre, professor=professor))
     except Exception:
         pasta_pdfs_auto = ""
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
 
-    deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
-    if deixar_ant_vazia and datas_horarios_mes:
-        aulas_oficiais_modelo = [d for d in datas_horarios_mes if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)]
-        linhas_modelo_pdf = len(aulas_oficiais_modelo)
-    else:
-        linhas_modelo_pdf = linhas_modelo
-
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
         if linhas_modelo_pdf > 0:
-            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo_pdf, dividir_metodologia)
+            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo_pdf, dividir_metodologia, lista_aulas=aulas_oficiais_modelo)
 
         if usar_ae_priorizado and sequencia_ae_contexto:
             sequencia_pdf_esperada_ae = _limitar_sequencia_ae(
@@ -2847,8 +2894,17 @@ else:
             st.caption("Envie os arquivos nessa ordem do guia priorizado.")
 
         # Busca automatica de PDFs locais ou envio manual, conforme modo escolhido.
-        if modo_upload_automatico:
-            base_pdfs_dir = r"D:\PDF novos"
+        if modo_upload_individual:
+            if linhas_modelo_pdf == 0:
+                qtd_aulas = st.number_input(
+                    "O sistema não tem o horário do professor configurado. Quantas aulas este plano terá no total?",
+                    min_value=1, max_value=40, value=8, step=1,
+                    key="qtd_aulas_manual_individual"
+                )
+            else:
+                qtd_aulas = linhas_modelo_pdf
+        elif modo_upload_automatico:
+            base_pdfs_dir = r"C:\Users\Luan Dias\Documents\PDF_AULAS"
             pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre, professor=professor)
             pasta_pdfs_auto = str(pasta_pdfs)
 
@@ -2928,7 +2984,7 @@ else:
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
 
     num_rows = linhas_modelo or int(qtd_aulas) * (2 if dividir_metodologia else 1)
-    _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, contexto=contexto_divisao_pdf)
+    _sincronizar_divisao_pdf_padrao(num_rows, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
     aulas_envio = _coletar_aulas_envio(
         num_rows,
         pdfs_aulas_files,
@@ -2988,8 +3044,12 @@ else:
             if linhas_modelo_espelho > 0:
                 num_rows_espelho = linhas_modelo_espelho
 
+        aulas_oficiais_modelo_espelho = []
+        if datas_horarios_mes_espelho:
+            aulas_oficiais_modelo_espelho = [d for d in datas_horarios_mes_espelho if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)] if deixar_ant_vazia else datas_horarios_mes_espelho
+
         contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
-        _sincronizar_divisao_pdf_padrao(num_rows_espelho, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho)
+        _sincronizar_divisao_pdf_padrao(num_rows_espelho, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho, lista_aulas=aulas_oficiais_modelo_espelho)
         
         aulas_envio_espelho = _coletar_aulas_envio(
             num_rows_espelho,
@@ -3581,8 +3641,8 @@ if st.session_state.get("planos_gerados"):
         unsafe_allow_html=True,
     )
     if len(planos_gerados) == 1:
-        st.download_button("Baixar DOCX", data=planos_gerados[0]["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(planos_gerados[0]["turma"], disciplina), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.download_button("Baixar DOCX", data=planos_gerados[0]["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(planos_gerados[0]["turma"], disciplina, ia_usada=planos_gerados[0].get("ia_usada", False)), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     else:
         st.download_button("📦 Baixar ZIP", data=_montar_zip_planos(planos_gerados, disciplina), file_name="planos.zip", mime="application/zip")
         for p in planos_gerados:
-            st.download_button(f"Baixar DOCX - {p['turma']}", data=p["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(p["turma"], disciplina), key=f"dl_{p['turma']}")
+            st.download_button(f"Baixar DOCX - {p['turma']}", data=p["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(p["turma"], disciplina, ia_usada=p.get("ia_usada", False)), key=f"dl_{p['turma']}")

@@ -181,14 +181,11 @@ def nome_arquivo_plano(turma: str, disciplina: str, ia_usada: bool = False) -> s
     disciplina_limpa = (disciplina or "Disciplina").strip()
     turma_limpa = turma_limpa.replace("º", "").replace("ª", "")
     turma_limpa = re.sub(r"\s+", "", turma_limpa)
-    disciplina_limpa = re.sub(r"\s+", "", disciplina_limpa)
+    s_turma = re.sub(r"\s+", "", turma_limpa.replace("º", "").replace("ª", ""))
+    s_disc = re.sub(r"\s+", "", disciplina_limpa)
 
-    nome = f"{turma_limpa}{disciplina_limpa}"
-    if ia_usada:
-        nome += "COMIA"
-    nome = re.sub(r'[\\/:*?"<>|]', "", nome)
-    nome = nome.strip(". ") or "PlanoDeAula"
-    return f"{nome}.docx"
+    s_ia = "_In" if ia_usada else ""
+    return f"Plano_{s_turma}_{s_disc}{s_ia}.docx"
 
 def main():
     parser = argparse.ArgumentParser(

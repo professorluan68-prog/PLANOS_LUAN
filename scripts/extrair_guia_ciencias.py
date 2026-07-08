@@ -107,7 +107,7 @@ print("=== Processing Ciencias AF ===")
 process_guia(
     "D:/GUIA_PRIORIZADO/CIÊNCIAS_AF/CIE_AF_3_BIMESTRE.pdf",
     "D:/GUIA_PRIORIZADO/CIÊNCIAS_AF/3_BIMESTRE",
-    "D:/PDF novos/CIENCIAS/AF/3_BIMESTRE",
+    "C:/Users/Luan Dias/PDF novos/CIENCIAS/AF/3_BIMESTRE",
     is_em=False
 )
 

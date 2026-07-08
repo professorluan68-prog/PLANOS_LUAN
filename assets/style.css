@@ -2,19 +2,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
-    --pl-primary: #2563eb;
-    --pl-primary-dark: #1d4ed8;
-    --pl-primary-ink: #1e3a8a;
-    --pl-bg: #ffffff;
-    --pl-bg-soft: #f8fafc;
-    --pl-bg-soft-hover: #f1f5f9;
-    --pl-text: #1e293b;
-    --pl-text-soft: #334155;
-    --pl-border: #cbd5e1;
-    --pl-border-soft: #e2e8f0;
-    --pl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-    --pl-shadow-primary: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2);
-    --pl-shadow-primary-hover: 0 10px 15px -3px rgba(37, 99, 235, 0.4), 0 4px 6px -2px rgba(37, 99, 235, 0.2);
+    --pl-primary: #3b82f6;
+    --pl-primary-dark: #2563eb;
+    --pl-primary-ink: #60a5fa;
+    --pl-bg: #0f172a;
+    --pl-bg-soft: #1e293b;
+    --pl-bg-soft-hover: #334155;
+    --pl-text: #f8fafc;
+    --pl-text-soft: #cbd5e1;
+    --pl-border: #334155;
+    --pl-border-soft: #1e293b;
+    --pl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --pl-shadow-primary: 0 4px 6px -1px rgba(59, 130, 246, 0.3), 0 2px 4px -1px rgba(59, 130, 246, 0.2);
+    --pl-shadow-primary-hover: 0 10px 15px -3px rgba(59, 130, 246, 0.4), 0 4px 6px -2px rgba(59, 130, 246, 0.2);
     --pl-font: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -55,7 +55,7 @@ span[class*="material"] {
 
 /* Títulos */
 h1 {
-    background: linear-gradient(90deg, var(--pl-primary-ink) 0%, #3b82f6 100%);
+    background: var(--pl-bg-soft);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -72,10 +72,8 @@ h3 {
 }
 
 .app-hero {
-    background:
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 26%),
-        linear-gradient(135deg, #ffffff 0%, #f4fbff 52%, #dceffc 100%);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
     border-radius: 20px;
     padding: 30px 32px;
@@ -100,13 +98,13 @@ h3 {
     font-size: 2.45rem;
     font-weight: 800;
     line-height: 1.05;
-    color: #0f172a;
+    color: var(--pl-text);
     margin: 0 0 8px 0;
 }
 
 .app-subtitle {
     font-size: 1.02rem;
-    color: #475569;
+    color: var(--pl-text-soft);
     margin-bottom: 18px;
     max-width: 760px;
 }
@@ -123,9 +121,9 @@ h3 {
     gap: 6px;
     font-size: 0.90rem;
     font-weight: 600;
-    color: #1e3a8a;
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(148, 163, 184, 0.30);
+    color: var(--pl-primary-ink);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     border-radius: 999px;
     padding: 8px 12px;
 }
@@ -133,14 +131,14 @@ h3 {
 .section-title {
     font-size: 1.18rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--pl-text);
     margin: 18px 0 8px 0;
     letter-spacing: -0.01em;
 }
 
 .section-subtitle {
     font-size: 0.93rem;
-    color: #64748b;
+    color: var(--pl-text-soft);
     margin: -2px 0 14px 0;
 }
 
@@ -152,8 +150,8 @@ h3 {
 }
 
 .summary-card {
-    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     border-radius: 16px;
     padding: 14px 16px;
     box-shadow: var(--pl-shadow-sm);
@@ -165,7 +163,7 @@ h3 {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #64748b;
+    color: var(--pl-text-soft);
     margin-bottom: 6px;
 }
 
@@ -173,12 +171,12 @@ h3 {
     display: block;
     font-size: 1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--pl-text);
     line-height: 1.3;
 }
 
 .soft-panel {
-    background: rgba(255,255,255,0.72);
+    background: var(--pl-bg-soft);
     border: 1px solid rgba(226, 232, 240, 0.95);
     border-radius: 18px;
     padding: 18px 18px 8px 18px;
@@ -199,23 +197,21 @@ h3 {
     gap: 8px;
     padding: 10px 14px;
     border-radius: 14px;
-    background: rgba(255,255,255,0.78);
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    color: #334155;
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
+    color: var(--pl-text-soft);
     font-weight: 700;
     font-size: 0.92rem;
 }
 
 .step-pill--active {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-    color: #1d4ed8;
+    background: var(--pl-bg-soft);
+    color: var(--pl-primary-dark);
     border-color: rgba(59,130,246,0.28);
 }
 
 .pdf-dashboard {
-    background:
-        radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.18), transparent 30%),
-        linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(239,246,255,0.92) 48%, rgba(224,242,254,0.92) 100%);
+    background: var(--pl-bg-soft);
     border: 1px solid rgba(37, 99, 235, 0.20);
     border-radius: 22px;
     padding: 22px;
@@ -238,7 +234,7 @@ h3 {
     padding: 6px 10px;
     border-radius: 999px;
     background: rgba(37, 99, 235, 0.10);
-    color: #1d4ed8;
+    color: var(--pl-primary-dark);
     font-size: 0.74rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -249,14 +245,14 @@ h3 {
     font-size: 1.42rem;
     line-height: 1.05;
     font-weight: 850;
-    color: #0f172a;
+    color: var(--pl-text);
     letter-spacing: -0.03em;
 }
 
 .pdf-dashboard__subtitle,
 .pdf-dashboard__meta,
 .pdf-dashboard__path {
-    color: #475569;
+    color: var(--pl-text-soft);
     font-size: 0.95rem;
 }
 
@@ -272,20 +268,20 @@ h3 {
 }
 
 .pdf-dashboard__status--success {
-    background: #dcfce7;
-    color: #166534;
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
     border: 1px solid rgba(22, 101, 52, 0.18);
 }
 
 .pdf-dashboard__status--warning {
-    background: #fef3c7;
-    color: #92400e;
+    background: rgba(234, 179, 8, 0.2);
+    color: #fde047;
     border: 1px solid rgba(146, 64, 14, 0.18);
 }
 
 .pdf-dashboard__status--neutral {
-    background: #f1f5f9;
-    color: #334155;
+    background: var(--pl-bg-soft-hover);
+    color: var(--pl-text-soft);
     border: 1px solid rgba(100, 116, 139, 0.18);
 }
 
@@ -297,15 +293,15 @@ h3 {
 }
 
 .pdf-stat {
-    background: rgba(255,255,255,0.86);
-    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     border-radius: 16px;
     padding: 14px;
 }
 
 .pdf-stat span {
     display: block;
-    color: #64748b;
+    color: var(--pl-text-soft);
     font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -315,7 +311,7 @@ h3 {
 
 .pdf-stat strong {
     display: block;
-    color: #0f172a;
+    color: var(--pl-text);
     font-size: 1.55rem;
     line-height: 1.05;
     font-weight: 850;
@@ -337,16 +333,16 @@ h3 {
 .pdf-progress__bar {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #2563eb 0%, #06b6d4 100%);
+    background: var(--pl-bg-soft);
 }
 
 .pdf-dashboard__alert {
     margin-top: 10px;
     padding: 10px 12px;
     border-radius: 14px;
-    background: #fff7ed;
+    background: rgba(249, 115, 22, 0.2);
     border: 1px solid rgba(249, 115, 22, 0.22);
-    color: #9a3412;
+    color: #fdba74;
     font-weight: 700;
 }
 
@@ -357,7 +353,7 @@ h3 {
 }
 
 .pdf-order__title {
-    color: #0f172a;
+    color: var(--pl-text);
     font-size: 0.92rem;
     font-weight: 850;
     margin-bottom: 10px;
@@ -375,15 +371,15 @@ h3 {
     align-items: center;
     border-radius: 999px;
     padding: 8px 11px;
-    background: rgba(255,255,255,0.92);
+    background: var(--pl-bg-soft);
     border: 1px solid rgba(37, 99, 235, 0.18);
-    color: #1e3a8a;
+    color: var(--pl-primary-ink);
     font-size: 0.86rem;
     font-weight: 750;
 }
 
 .pdf-order-empty {
-    color: #64748b;
+    color: var(--pl-text-soft);
     border-color: rgba(148, 163, 184, 0.30);
 }
 
@@ -409,8 +405,8 @@ h3 {
 }
 
 .lesson-card {
-    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     border-radius: 16px;
     padding: 12px;
     margin-bottom: 12px;
@@ -418,17 +414,17 @@ h3 {
 }
 
 .lesson-card--continuation {
-    background: linear-gradient(180deg, rgba(239,246,255,0.96) 0%, rgba(219,234,254,0.92) 100%);
+    background: var(--pl-bg-soft);
     border-color: rgba(59, 130, 246, 0.24);
 }
 
 .lesson-card--paired {
-    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(240,253,250,0.96) 100%);
+    background: var(--pl-bg-soft);
     border-color: rgba(16, 185, 129, 0.22);
 }
 
 .lesson-card--locked {
-    background: linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(241,245,249,0.98) 100%);
+    background: var(--pl-bg-soft);
     border-style: dashed;
 }
 
@@ -438,7 +434,7 @@ h3 {
     align-items: flex-start;
     gap: 14px;
     flex-wrap: wrap;
-    background: linear-gradient(135deg, rgba(219, 234, 254, 0.98) 0%, rgba(191, 219, 254, 0.92) 100%);
+    background: var(--pl-bg-soft);
     border: 1px solid rgba(59, 130, 246, 0.18);
     border-radius: 14px;
     padding: 14px 16px;
@@ -447,13 +443,13 @@ h3 {
 .lesson-title {
     font-size: 1rem;
     font-weight: 800;
-    color: #1d4ed8;
+    color: var(--pl-primary-dark);
     margin-bottom: 4px;
 }
 
 .lesson-subtitle {
     font-size: 0.92rem;
-    color: #64748b;
+    color: var(--pl-text-soft);
     line-height: 1.45;
     max-width: 700px;
 }
@@ -473,14 +469,14 @@ h3 {
     border-radius: 999px;
     font-size: 0.78rem;
     font-weight: 700;
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    color: #334155;
-    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--pl-border);
+    color: var(--pl-text-soft);
+    background: var(--pl-bg-soft);
 }
 
 .lesson-badge--index {
     color: #1e40af;
-    background: linear-gradient(135deg, rgba(219, 234, 254, 0.98) 0%, rgba(191, 219, 254, 0.95) 100%);
+    background: var(--pl-bg-soft);
     border-color: rgba(59, 130, 246, 0.32);
     box-shadow: 0 4px 10px rgba(59, 130, 246, 0.14);
     padding: 7px 12px;
@@ -499,7 +495,7 @@ h3 {
 }
 
 .lesson-badge--neutral {
-    color: #475569;
+    color: var(--pl-text-soft);
     background: rgba(241, 245, 249, 0.95);
     border-color: rgba(148, 163, 184, 0.22);
 }
@@ -507,7 +503,7 @@ h3 {
 .lesson-field-label {
     font-size: 0.92rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--pl-text);
     margin-bottom: 2px;
 }
 
@@ -521,8 +517,8 @@ h3 {
 .process-panel,
 .review-shell,
 .download-panel {
-    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
     border-radius: 18px;
     padding: 18px 18px 14px 18px;
     margin: 10px 0 16px 0;
@@ -530,27 +526,23 @@ h3 {
 }
 
 .process-panel {
-    background:
-        radial-gradient(circle at top right, rgba(59,130,246,0.12), transparent 24%),
-        linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.88) 100%);
+    background: var(--pl-bg-soft);
 }
 
 .download-panel {
-    background:
-        radial-gradient(circle at top right, rgba(16,185,129,0.10), transparent 24%),
-        linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(240,253,250,0.92) 100%);
+    background: var(--pl-bg-soft);
 }
 
 .panel-title {
     font-size: 1rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--pl-text);
     margin-bottom: 6px;
 }
 
 .panel-text {
     font-size: 0.92rem;
-    color: #64748b;
+    color: var(--pl-text-soft);
     line-height: 1.5;
     margin-bottom: 10px;
 }
@@ -569,21 +561,21 @@ h3 {
     border-radius: 999px;
     font-size: 0.80rem;
     font-weight: 700;
-    color: #1e3a8a;
-    background: rgba(255, 255, 255, 0.88);
-    border: 1px solid rgba(148, 163, 184, 0.24);
+    color: var(--pl-primary-ink);
+    background: var(--pl-bg-soft);
+    border: 1px solid var(--pl-border);
 }
 
 .review-class-title {
     font-size: 1.12rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--pl-text);
     margin: 8px 0 12px 0;
 }
 
 .review-class-meta {
     font-size: 0.88rem;
-    color: #64748b;
+    color: var(--pl-text-soft);
     margin-top: -4px;
     margin-bottom: 10px;
 }
@@ -591,7 +583,7 @@ h3 {
 /* Botões */
 button[kind="primary"],
 button[kind="primaryFormSubmit"] {
-    background: linear-gradient(135deg, var(--pl-primary) 0%, var(--pl-primary-dark) 100%) !important;
+    background: var(--pl-bg-soft);
     color: #fff !important;
     border: none !important;
     border-radius: 8px !important;
@@ -725,7 +717,7 @@ section[data-testid="stFileUploadDropzone"]:hover {
 }
 
 .cdp-preview-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f5fbff 100%);
+    background: var(--pl-bg-soft);
     border: 1px solid var(--pl-border-soft);
     border-radius: 14px;
     padding: 14px 16px;
