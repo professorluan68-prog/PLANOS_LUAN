@@ -921,6 +921,56 @@ def listar_ultimos_planos_por_contexto(bimestre: str = "") -> list[dict]:
         ]
 
 
+def obter_meses_historico_planos() -> list[str]:
+    """Retorna uma lista de anos-meses (YYYY-MM) disponíveis no histórico."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT strftime('%Y-%m', data_geracao) as mes
+            FROM historico_planos
+            WHERE data_geracao IS NOT NULL
+            ORDER BY mes DESC
+            """
+        )
+        return [row[0] for row in cursor.fetchall() if row[0]]
+
+
+def buscar_historico_planos(professor_nome: str, mes: str = "") -> list[dict]:
+    """Busca os planos gerados por um professor, filtrando opcionalmente por mês (YYYY-MM)."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path
+            FROM historico_planos
+            WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+        """
+        params = [professor_nome]
+        
+        if mes:
+            query += " AND strftime('%Y-%m', data_geracao) = ?"
+            params.append(mes)
+            
+        query += " ORDER BY data_geracao DESC, id DESC"
+        
+        cursor.execute(query, params)
+        return [
+            {
+                "id": int(row[0]),
+                "professor_nome": row[1] or "",
+                "disciplina": row[2] or "",
+                "turma": row[3] or "",
+                "bimestre": row[4] or "",
+                "data_geracao": row[5] or "",
+                "arquivo_nome": row[6] or "",
+                "arquivo_path": row[7] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+
 def obter_arquivo_historico(plano_id):
     with get_connection() as conn:
         cursor = conn.cursor()

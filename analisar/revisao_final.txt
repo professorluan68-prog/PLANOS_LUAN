@@ -47,16 +47,11 @@ def calcular_sha256(caminho_pdf: str | Path) -> str:
     except Exception:
         return ""
 
-def revisar_aula_gerada(
-    aula: dict | PlanoCompleto, 
-    perfil: str,
-    _max_regeneracoes: int = 1
-) -> dict:
+def revisar_aula_gerada(aula: dict | PlanoCompleto, perfil: str) -> dict:
     """
     Executa a auditoria pedagógica final e atribui um score de qualidade (confidence_score).
     """
     aula = PlanoCompleto.from_any(aula).to_dict()
-    tentativas_regeneracao = aula.pop("_tentativas_regeneracao", 0)
     avisos = []
     deducoes = 0
 
@@ -125,17 +120,15 @@ def revisar_aula_gerada(
 
     # 6. Calcular aderência lexical ao PDF (Alerte e puna se < 80%)
     aderencia, avisos_aderencia = calcular_aderencia_pdf(aula)
-    if aderencia < 80:
-        penalidade = max(10, int(80 - aderencia))
+    if avisos_aderencia:
+        # Se for muito baixa, puxamos a nota final pra baixo com força
+        # penalizando 10 pontos fixos + a diferença percentual abaixo de 80
+        penalidade = 10 + (80 - aderencia)
         deducoes += penalidade
-        if avisos_aderencia:
-            avisos.extend(avisos_aderencia)
+        avisos.extend(avisos_aderencia)
 
     # 6.5. Validar aderência de palavras-chave destacadas em amarelo (DOCX)
     palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
-    origem_metodologia = aula.get("origem_metodologia", "")
-    pdf_requer_validacao = "pdf" in origem_metodologia.lower()
-
     if palavras_chave_esperadas:
         from core.validador_plano import validar_aderencia_palavras_chave
         resultado_pc = validar_aderencia_palavras_chave(aula, palavras_chave_esperadas)
@@ -152,26 +145,32 @@ def revisar_aula_gerada(
                 f"Aderência de palavras-chave baixa ({taxa:.1f}%). "
                 f"As seguintes palavras-chave obrigatórias estão ausentes: {', '.join(resultado_pc['palavras_ausentes'][:8])}."
             )
-    elif pdf_requer_validacao and not aula.get("extracao_palavras_chave_ok", True):
-        avisos.append("ATENÇÃO: Extração de palavras-chave falhou. Verifique o material original.")
-        deducoes += 10
 
     # 7. Atualizar dicionário
     aula["confidence_score"] = int(max(0, 100 - deducoes))
     
+    # Travar máximo em 75% caso tenha falhado fortemente na aderência ao PDF
+    if aderencia < 80:
+        aula["confidence_score"] = min(aula["confidence_score"], 75)
+        
     # Travar máximo em 70% caso tenha falhado fortemente na aderência de palavras-chave
     if palavras_chave_esperadas and not aula.get("valido_palavras_chave", True):
         aula["confidence_score"] = min(aula["confidence_score"], 70)
 
     # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
-    if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < _max_regeneracoes:
+    tentativas_regeneracao = aula.get("_tentativas_regeneracao", 0)
+    if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < 1:
         etapas_problematicas = _identificar_etapas_com_aviso(avisos)
         if etapas_problematicas and perfil == "historia":
             aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas)
             if aula_corrigida:
                 aula_corrigida["_tentativas_regeneracao"] = tentativas_regeneracao + 1
-                logger.info(f"Regeneração seletiva: tentativa {tentativas_regeneracao + 1}/{_max_regeneracoes}")
-                return revisar_aula_gerada(aula_corrigida, perfil, _max_regeneracoes)
+                logger.info(
+                    "Regeneração seletiva aplicada (score %d → re-validando). Etapas: %s",
+                    aula["confidence_score"],
+                    ", ".join(etapas_problematicas),
+                )
+                return revisar_aula_gerada(aula_corrigida, perfil)
 
     aula["avisos_validacao"] = sorted(list(set(avisos)))
     aula["versao_gerador"] = VERSAO_GERADOR_ATUAL

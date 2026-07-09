@@ -1,4 +1,4 @@
-﻿"""
+"""
 Compositor de acompanhamento da aprendizagem por camadas.
 
 Gera textos de acompanhamento contextualizados por:
@@ -156,7 +156,7 @@ _ACOMPANHAMENTO_POR_PERFIL_TIPO = {
             "{v_acomp} a qualidade da troca em duplas, avaliando se o estudante escuta ativamente o colega e oferece sugestões pertinentes ao projeto de vida do outro.",
         ],
         "futureme": [
-            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar â€˜a resposta certaâ€™.",
+            "{v_obs} se o estudante completa o questionário da plataforma com autenticidade, respondendo com base em suas preferências reais, sem buscar 'a resposta certa'.",
             "{v_ver} se o estudante interpreta o relatório de forma crítica, identificando o que faz sentido e o que não se alinha à sua experiência, sem aceitar passivamente o resultado.",
             "{v_acomp} a troca em duplas/trios, avaliando se o estudante conecta os resultados da plataforma a situações concretas do cotidiano escolar e pessoal.",
         ],

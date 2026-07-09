@@ -342,7 +342,6 @@ def preparar_contexto_aula_pdf(
     esboco_pdf: list[str] = []
     ancoras_pdf: list[str] = []
     caminho_docx_aux = None
-    extracao_palavras_chave_ok = True
     if caminho_pdf:
         try:
             from pathlib import Path
@@ -373,7 +372,6 @@ def preparar_contexto_aula_pdf(
                 palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_pdf)
                 caminho_docx_aux = caminho_p
         except Exception as exc:
-            extracao_palavras_chave_ok = False
             dependencias.logger.warning(
                 "Falha na conversão/extração de palavras-chave DOCX para %s: %s",
                 caminho_pdf,
@@ -400,7 +398,6 @@ def preparar_contexto_aula_pdf(
         "fonte_extracao": fonte_extracao,
         "arquivo_fonte_extracao": arquivo_fonte_extracao,
         "palavras_chave_esperadas": palavras_chave_esperadas,
-        "extracao_palavras_chave_ok": extracao_palavras_chave_ok,
         "caminho_docx_auxiliar": str(caminho_docx_aux) if caminho_docx_aux else None,
         "esboco_pdf": esboco_pdf,
         "ancoras_pdf": ancoras_pdf,

@@ -123,6 +123,7 @@ from ui.shared import (
     DIAS_SEMANA_COMPLETOS,
 )
 from ui.cadastro import _renderizar_cadastro_professor
+from ui.historico import _renderizar_historico
 from ui.diagnostico import _renderizar_diagnostico_modelos
 from ui.reescrita_cdp import _renderizar_reescrita_cdp_em
 
@@ -1946,6 +1947,7 @@ def _coletar_aulas_envio(
 
     if titulo_secao: st.markdown(f"**{titulo_secao}**")
 
+    aula_valida_count = 0
     for idx in range(num_rows):
         chave_data = f"{key_prefix}data_aula_{idx}"
         chave_horario = f"{key_prefix}horario_aula_{idx}"
@@ -1961,7 +1963,14 @@ def _coletar_aulas_envio(
         continuidade_anterior = bool(dividir_metodologia and idx > 0 and st.session_state.get(f"{key_prefix}dividir_pdf_aula_{idx - 1}", False))
         dividir_pdf_ativo = bool(dividir_metodologia and st.session_state.get(chave_dividir, False))
         card_class, status_titulo, status_texto, badges = _status_visual_aula(idx, num_rows, bloqueado, continuidade_anterior, dividir_pdf_ativo)
-        badges_html = "".join([f'<span class="lesson-badge lesson-badge--index">Aula {idx + 1}</span>'] + badges)
+        
+        eh_antecipacao_vazia = deixar_antecipacao_vazia and _eh_data_antecipacao(data_fallback, mes, antecipacao_mes)
+        if eh_antecipacao_vazia:
+            badges_html = "".join([f'<span class="lesson-badge lesson-badge--index" style="background:var(--pl-bg-soft); color:var(--pl-text-soft); border-color:var(--pl-border);">Vazia</span>'] + badges)
+        else:
+            aula_valida_count += 1
+            badges_html = "".join([f'<span class="lesson-badge lesson-badge--index">Aula {aula_valida_count}</span>'] + badges)
+            
         numero_pdf_esperado = None
         if not dividir_metodologia and sequencia_pdf_esperada and idx < len(sequencia_pdf_esperada):
             numero_pdf_esperado = sequencia_pdf_esperada[idx]
@@ -2159,6 +2168,8 @@ def _extrair_aulas_dos_pdfs(
                 if aviso_ia:
                     avisos_ia.append(aviso_ia)
             
+            for aula, dados in zip(aulas, dados_aulas): aula.update(dados)
+
             if usar_ae_priorizado:
                 aulas, avisos_ae = aplicar_ae_priorizado_nas_aulas(
                     aulas,
@@ -2167,8 +2178,6 @@ def _extrair_aulas_dos_pdfs(
                     bimestre=bimestre,
                     caminho_planilha=str(st.session_state.get("caminho_ae_priorizado") or "").strip(),
                 )
-
-            for aula, dados in zip(aulas, dados_aulas): aula.update(dados)
             cdp_contextual = eh_cdp_contextual(disciplina)
             problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
             
@@ -2188,9 +2197,18 @@ def _extrair_aulas_dos_pdfs(
                 "ia_usada": False,
                 "data": aula_envio["data"].strftime("%d/%m"),
                 "horario": horario_para_plano(aula_envio["horario"]),
+                "aula_vazia": True,
             })
             
         aulas_completas = aulas_vazias + aulas
+
+        # Garantir numeração sequencial a partir da primeira aula válida (ignora as vazias do bloco de antecipação)
+        contador = 1
+        for aula in aulas_completas:
+            if not aula.get("aula_vazia"):
+                # Define explícito para o gerador DOCX não se perder
+                aula["numero_aula"] = str(contador)
+                contador += 1
 
         for aula in aulas_completas:
             metodologia = aula.get("metodologia", [])
@@ -2245,7 +2263,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico"]
+modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico", "Histórico"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -2258,7 +2276,7 @@ idx_default = modos_disponiveis.index(default_modo)
 modo_tela = option_menu(
     menu_title=None,
     options=modos_disponiveis,
-    icons=["file-earmark-text", "file-earmark-spreadsheet", "pencil-square", "person-badge", "tools"],
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "pencil-square", "person-badge", "tools", "clock-history"],
     menu_icon="cast",
     default_index=idx_default,
     orientation="horizontal",
@@ -2270,9 +2288,12 @@ modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
 modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
+modo_historico = modo_tela == "Histórico"
+
 if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_reescrita_cdp_em: _renderizar_reescrita_cdp_em(); st.stop()
+if modo_historico: _renderizar_historico(PROFESSORES_DB); st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
 TEMPLATES_DIR.mkdir(exist_ok=True)

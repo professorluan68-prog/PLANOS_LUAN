@@ -441,6 +441,10 @@ INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
 - Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
 """
 
+    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO: CADA ETAPA deve ter em média 150 a 200 palavras (cerca de 1000 a 1400 caracteres). Seja direto e objetivo, NÃO escreva textos exaustivos (nunca passe de 200 palavras por etapa). Detalhe o suficiente para refletir os recursos do PDF, mas mantendo a concisão e praticidade de um plano de aula real."
+    if perfil == "historia":
+        tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (HISTÓRIA): CADA ETAPA deve ser extremamente curta (NO MÁXIMO 900 caracteres no total). Apenas refine o texto base com as palavras-chave do PDF. NÃO AUMENTE O TEXTO INUTILMENTE. Seja cirúrgico, mantendo a metodologia curta e direta."
+
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}
 TURMA: {turma}
@@ -463,7 +467,7 @@ REGRAS:
 2. Identifique o codigo da BNCC e a descricao da aprendizagem essencial se houver.
 3. Elabore a metodologia seguindo as etapas identificadas no esboco do PDF. O numero de etapas deve corresponder a estrutura real do material. Quando nao houver esboco, use 4 a 6 etapas. Para Biologia e Ciencias, prefira os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando forem coerentes com o material.
 3.1. Nao narre a aula inteira e nao repita os slides; escreva como plano de aula sintetico mas fiel a sequencia do PDF.
-3.2. Cada etapa pode ter no maximo 600 caracteres. Detalhe o suficiente para refletir todos os recursos visuais e atividades do PDF.
+{tamanho_etapa_regras}
 3.3. Preserve o produto real da atividade do material (ex.: texto-sintese, tabela, legenda de figura, resumo, respostas no livro). Nao troque o produto por outro formato.
 4. Varie os inicios das frases entre as etapas e entre aulas diferentes, mantendo linguagem natural, objetiva e pedagogica.
 {regra_tecnicas}
@@ -702,8 +706,13 @@ def _posicao_atividade(itens: list, perfil: str) -> int:
 _LIMITE_CHARS_POR_ETAPA = {
     "historia": 900,
     "geografia": 800,
+    "lingua_portuguesa": 600,
+    "lingua_portuguesa_ef": 600,
+    "lingua_portuguesa_em": 600,
+    "leitura_redacao": 600,
+    "redacao": 600,
 }
-_LIMITE_CHARS_DEFAULT = 600
+_LIMITE_CHARS_DEFAULT = 400
 
 
 def _normalizar_titulo_etapa(titulo: str) -> str:

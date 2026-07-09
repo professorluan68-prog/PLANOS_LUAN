@@ -265,12 +265,7 @@ def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = N
                 ("Socialização", "socializacao"),
                 ("Encerramento", "encerramento"),
             ]
-        if tipo == "pratica_oral":
-            return [
-                ("Relembre", "relembre"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
+
         if tipo in {"literatura", "genero_textual", "producao_textual", "gramatica_integrada"}:
             return [
                 ("Para começar", "para_comecar"),
@@ -1688,15 +1683,6 @@ def _frases_por_contexto(
                 "Acompanhar pronúncia, compreensão e uso funcional das expressões."
             )
 
-    elif perfil == "arte":
-            base["foco"] = (
-                f"Apresentar referências artísticas relacionadas a {conceito}, orientando apreciação de elementos visuais, "
-                "sonoros, corporais ou culturais. Valorizar percepções diferentes sem reduzir a aula a explicação teórica."
-            )
-            base["pratica"] = (
-                f"Propor experimentação, criação ou apreciação orientada, com {t_reg} no diário de bordo. Acompanhar "
-                "processos criativos, escolhas dos estudantes e socialização das produções ou percepções."
-            )
 
     elif perfil == "projeto_de_vida":
             _frases_pv = _metodologia_projeto_de_vida(texto_base, tema, tipo, conceito, atividade_extraida)

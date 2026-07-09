@@ -1148,11 +1148,7 @@ def mapear_etapa_canonical(titulo: str, texto: str, index: int, total: int) -> s
         return "Encerramento"
 
 
-def consolidar_quatro_etapas(metodologia: list[dict], tema: str = "", perfil: str = "") -> list[dict]:
-    PERFIS_SEM_CONSOLIDACAO = {"educacao_financeira", "projeto_de_vida", "ingles"}
-    if perfil in PERFIS_SEM_CONSOLIDACAO:
-        return metodologia
-    
+def consolidar_quatro_etapas(metodologia: list[dict], tema: str = "") -> list[dict]:
     agrupado = {
         "Para começar": [],
         "Foco no conteúdo": [],
@@ -1214,7 +1210,7 @@ def revisar_metodologia(
 
     # Consolidar nas 4 etapas canônicas obrigatórias
     if consolidar:
-        revisada = consolidar_quatro_etapas(revisada, tema=tema, perfil=perfil)
+        revisada = consolidar_quatro_etapas(revisada, tema=tema)
 
     score = 100
     score -= min(60, 10 * len(alertas))

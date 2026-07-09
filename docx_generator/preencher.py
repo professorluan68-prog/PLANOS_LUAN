@@ -947,6 +947,9 @@ def _semana_atual_cabecalho(tabela) -> str:
 
 
 def _titulo_aula(aula: dict, numero: int) -> str:
+    if aula.get("aula_vazia"):
+        return ""
+        
     material = str(aula.get("material") or aula.get("titulo_material") or "").strip()
     if material:
         return material

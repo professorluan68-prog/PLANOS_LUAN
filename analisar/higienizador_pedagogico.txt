@@ -380,14 +380,6 @@ REGRAS_RECURSOS = {
     ],
 }
 
-_REGRAS_COMPILADAS: dict[str, list[tuple[re.Pattern, str]]] = {
-    perfil: [
-        (re.compile(padrao, re.I), substituicao)
-        for padrao, substituicao in regras
-    ]
-    for perfil, regras in REGRAS_SUBSTITUICAO.items()
-}
-
 
 def normalizar_para_busca(texto: str) -> str:
     if not texto:
@@ -535,7 +527,7 @@ def detectar_perfil_pedagogico_real(tema: str, disciplina: str) -> str:
             return "jornalistico_valido"
         
         # Padrão para português se não for explicitamente jornalístico é considerado literário/geral
-        return "geral_nao_jornalistica"
+        return "literatura"
 
     if "arte" in disc_norm:
         if _contem_algum(tema_norm, ["musica", "música", "samba", "forro", "forró", "repertorio musical", "escuta", "palmas", "asa branca"]):
@@ -657,8 +649,8 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
     
     # 2. Higienizar termos jornalísticos/notícias se o perfil não for jornalístico válido
     if perfil_pedagogico not in {"jornalistico_valido", "noticia_multimodal"}:
-        regras_compiladas = _REGRAS_COMPILADAS.get(perfil_pedagogico, _REGRAS_COMPILADAS["geral_nao_jornalistica"])
-        for padrao_compilado, subst in regras_compiladas:
+        regras = REGRAS_SUBSTITUICAO.get(perfil_pedagogico, REGRAS_SUBSTITUICAO["geral_nao_jornalistica"])
+        for padrao, subst in regras:
             def substituir(match):
                 match_text = match.group(0)
                 if match_text.isupper():
@@ -666,7 +658,7 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
                 if match_text[0].isupper():
                     return subst[0].upper() + subst[1:]
                 return subst
-            texto_final = padrao_compilado.sub(substituir, texto_final)
+            texto_final = re.sub(padrao, substituir, texto_final, flags=re.I)
         substituto_caso = {
             "texto_publicitario": "a campanha discutida",
             "biografia": "a trajetória discutida",

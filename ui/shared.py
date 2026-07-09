@@ -107,13 +107,21 @@ def _tipo_horario(item) -> str:
     return "Simples"
 
 def _slug_download(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", str(texto or ""))
+    texto = str(texto or "").replace("º", "o").replace("°", "o").replace("ª", "a")
+    texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return re.sub(r"[^A-Za-z0-9_-]+", "_", texto).strip("_")
 
 def nome_arquivo_plano(turma: str, disciplina: str, ia_usada: bool = False) -> str:
-    s_turma = _slug_download(turma)
-    s_disc = _slug_download(disciplina)
+    # Formata a turma para 1o_ANO_A
+    s_turma = str(turma or "").upper().replace("º", "o").replace("°", "o").replace("ª", "a")
+    s_turma = unicodedata.normalize("NFKD", s_turma)
+    s_turma = "".join(ch for ch in s_turma if not unicodedata.combining(ch))
+    s_turma = re.sub(r"[^A-Za-z0-9_-]+", "_", s_turma).strip("_")
+    
+    # Formata a disciplina para Química -> Quimica
+    s_disc = _slug_download(disciplina).title()
+    
     s_ia = "_In" if ia_usada else ""
     return f"Plano_{s_turma}_{s_disc}{s_ia}.docx"
 
