@@ -58,6 +58,7 @@ _LOCALIZADORES_REFERENCIA = {
     "biologia": localizar_docx_referencia_biologia,
     "ciencias_ef": localizar_docx_referencia_ciencias,
     "geografia": localizar_docx_referencia_geografia,
+    "historia": localizar_docx_referencia_historia,
     "matematica": localizar_docx_referencia_matematica,
     "lideranca_oratoria": localizar_docx_referencia_lideranca_oratoria,
     "ingles": localizar_docx_referencia_lingua_inglesa,
@@ -71,6 +72,7 @@ _REFERENCIAS_POR_PERFIL = {
     "biologia": referencia_biologia_por_pdf,
     "ciencias_ef": referencia_ciencias_por_pdf,
     "geografia": referencia_geografia_por_pdf,
+    "historia": referencia_historia_por_pdf,
     "matematica": referencia_matematica_por_pdf,
     "lideranca_oratoria": referencia_lideranca_oratoria_por_pdf,
     "ingles": referencia_lingua_inglesa_por_pdf,
@@ -84,6 +86,7 @@ _ORIGENS_METODOLOGIA = {
     "biologia": "docx_referencia_biologia",
     "ciencias_ef": "docx_referencia_ciencias",
     "geografia": "docx_referencia_geografia",
+    "historia": "docx_referencia_historia",
     "matematica": "docx_referencia_matematica",
     "lideranca_oratoria": "docx_referencia_lideranca_oratoria",
     "ingles": "docx_referencia_lingua_inglesa",
@@ -104,17 +107,6 @@ _PERFIS_DOCX_SOMENTE_COLUNAS = {
     "leitura_redacao",
     "matematica",
 }
-
-_PERFIS_PRIORIZAM_DOCX = {
-    "ciencias_ef",
-}
-
-_PERFIS_APLICAM_DOCX_EM_IA = {
-    "educacao_financeira",
-    "ciencias_ef",
-    "projeto_de_vida",
-}
-
 
 def localizar_docx_referencia_por_perfil(
     caminho_pdf: str,
@@ -161,7 +153,7 @@ def perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
 
 
 def perfil_prioriza_docx_sobre_cache_json(perfil: str) -> bool:
-    return perfil in _PERFIS_PRIORIZAM_DOCX
+    return perfil in _PERFIS_PORTUGUES or perfil in _LOCALIZADORES_REFERENCIA
 
 
 def referencia_docx_sobrescreve_metadados(perfil: str) -> bool:
@@ -173,8 +165,6 @@ def deve_aplicar_referencia_docx_no_resultado_ia(
     plano_ia: dict | None,
 ) -> bool:
     if perfil_docx_somente_colunas_pedagogicas(perfil):
-        return True
-    if perfil in _PERFIS_APLICAM_DOCX_EM_IA:
         return True
     return not plano_ia or not plano_ia.get("metodologia")
 

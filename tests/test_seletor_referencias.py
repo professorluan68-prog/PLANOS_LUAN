@@ -61,6 +61,17 @@ def test_deve_aplicar_referencia_docx_no_resultado_ia_respeita_perfil():
         "historia",
         {"metodologia": [{"titulo": "Etapa", "texto": "Texto IA"}]},
     )
+    assert seletor_referencias.deve_aplicar_referencia_docx_no_resultado_ia(
+        "historia",
+        {"metodologia": []},
+    )
+
+
+def test_perfil_prioriza_docx_sobre_cache_json_para_perfis_com_referencia():
+    assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("historia")
+    assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("arte")
+    assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("lingua_portuguesa_ef")
+    assert not seletor_referencias.perfil_prioriza_docx_sobre_cache_json("filosofia")
 
 
 def test_material_aula_com_titulo_monta_rotulo_padrao():

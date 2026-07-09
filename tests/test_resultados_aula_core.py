@@ -1,4 +1,8 @@
-from core.resultados_aula import DependenciasResultadosAula, montar_resultado_aula_ia, montar_resultado_aula_local
+from core.resultados_aula import (
+    DependenciasResultadosAula,
+    montar_resultado_aula_ia,
+    montar_resultado_aula_local,
+)
 
 
 def _deps_resultados_base() -> DependenciasResultadosAula:
@@ -7,7 +11,12 @@ def _deps_resultados_base() -> DependenciasResultadosAula:
         habilidade_referencia_docx_fn=lambda referencia: "",
         origem_metodologia_por_referencia_fn=lambda perfil: f"docx_referencia_{perfil}",
         deve_aplicar_referencia_docx_no_resultado_ia_fn=lambda perfil, plano_ia: False,
-        sobrescrever_listas_pedagogicas_com_referencia_fn=lambda referencia, acompanhamento, acessibilidade: (acompanhamento, acessibilidade),
+        sobrescrever_listas_pedagogicas_com_referencia_fn=(
+            lambda referencia, acompanhamento, acessibilidade: (
+                acompanhamento,
+                acessibilidade,
+            )
+        ),
         extracao_pdf_fn=lambda *args, **kwargs: {
             "habilidade": "HAB001",
             "conceito_extraido": "Conceito base",
@@ -17,25 +26,58 @@ def _deps_resultados_base() -> DependenciasResultadosAula:
             "texto_prioritario": "Texto prioritario",
         },
         detectar_tipo_aula_fn=lambda *args, **kwargs: "regular",
-        resolver_habilidade_portugues_fn=lambda habilidade, caminho_pdf, numero_aula: habilidade,
+        resolver_habilidade_portugues_fn=(
+            lambda habilidade, caminho_pdf, numero_aula: habilidade
+        ),
         montar_aprendizagem_inteligente_fn=lambda **kwargs: "Aprendizagem montada",
         tentar_gerador_colunas_pedagogicas_fn=lambda **kwargs: None,
-        metodologia_leitura_redacao_modelo_fn=lambda texto, tema, turma="": [{"titulo": "Para começar", "texto": "Modelo leitura"}],
+        metodologia_leitura_redacao_modelo_fn=(
+            lambda texto, tema, turma="": [
+                {"titulo": "Para começar", "texto": "Modelo leitura"}
+            ]
+        ),
         detectar_tecnicas_lemov_fn=lambda texto, tema: [],
-        garantir_tecnicas_lemov_na_metodologia_fn=lambda metodologia, tecnicas: metodologia,
-        variar_linguagem_metodologia_fn=lambda metodologia, disciplina, turma, tema: metodologia,
+        garantir_tecnicas_lemov_na_metodologia_fn=(
+            lambda metodologia, tecnicas: metodologia
+        ),
+        variar_linguagem_metodologia_fn=(
+            lambda metodologia, disciplina, turma, tema: metodologia
+        ),
         ajustar_metodologia_por_sequencia_fn=lambda metodologia, **kwargs: metodologia,
         revisar_metodologia_fn=lambda metodologia, **kwargs: (metodologia, []),
         naturalizar_metodologia_professor_fn=lambda metodologia, perfil="": metodologia,
         adaptar_metodologia_eja_fn=lambda metodologia, *args, **kwargs: metodologia,
-        texto_metodologia_fn=lambda metodologia: " ".join(item.get("texto", "") for item in metodologia if isinstance(item, dict)),
+        texto_metodologia_fn=lambda metodologia: " ".join(
+            item.get("texto", "")
+            for item in metodologia
+            if isinstance(item, dict)
+        ),
         gerar_acompanhamento_aprimorado_fn=lambda **kwargs: ["☑ A", "☑ B", "☑ C"],
         gerar_acessibilidade_aprimorada_fn=lambda **kwargs: ["☑ X", "☑ Y", "☑ Z"],
-        normalizar_itens_contextuais_fn=lambda acompanhamento, acessibilidade, tema, perfil: (acompanhamento, acessibilidade),
-        montar_etapas_metodologia_fn=lambda *args, **kwargs: [{"titulo": "Para começar", "texto": "Etapa local"}],
-        aprimorar_historia_pos_processamento_fn=lambda metodologia, acompanhamento, acessibilidade, **kwargs: (metodologia, acompanhamento, acessibilidade),
+        normalizar_itens_contextuais_fn=(
+            lambda acompanhamento, acessibilidade, tema, perfil: (
+                acompanhamento,
+                acessibilidade,
+            )
+        ),
+        montar_etapas_metodologia_fn=lambda *args, **kwargs: [
+            {"titulo": "Para começar", "texto": "Etapa local"}
+        ],
+        aprimorar_historia_pos_processamento_fn=(
+            lambda metodologia, acompanhamento, acessibilidade, **kwargs: (
+                metodologia,
+                acompanhamento,
+                acessibilidade,
+            )
+        ),
         detectar_recursos_reais_fn=lambda texto: ["quadro"],
-        higienizar_plano_fn=lambda metodologia, acompanhamento, acessibilidade, perfil, disciplina, tema, recursos: (metodologia, acompanhamento, acessibilidade),
+        higienizar_plano_fn=(
+            lambda metodologia, acompanhamento, acessibilidade, perfil, disciplina, tema, recursos: (
+                metodologia,
+                acompanhamento,
+                acessibilidade,
+            )
+        ),
         validar_aula_final_fn=lambda aula: [],
     )
 
@@ -70,7 +112,7 @@ def test_montar_resultado_aula_local_core_retorna_motor_local():
     assert resultado["metodologia"][0]["texto"] == "Etapa local"
 
 
-def test_montar_resultado_aula_ia_core_aplica_referencia_quando_habilitada():
+def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_refino():
     deps = _deps_resultados_base()
     referencia = {
         "metodologia": [{"titulo": "Para começar", "texto": "Texto DOCX"}],
@@ -79,7 +121,9 @@ def test_montar_resultado_aula_ia_core_aplica_referencia_quando_habilitada():
         "fonte": "referencia.docx",
     }
     deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
-    deps.deve_aplicar_referencia_docx_no_resultado_ia_fn = lambda perfil, plano_ia: True
+    deps.deve_aplicar_referencia_docx_no_resultado_ia_fn = (
+        lambda perfil, plano_ia: True
+    )
 
     resultado = montar_resultado_aula_ia(
         texto="Texto da aula",
@@ -107,5 +151,6 @@ def test_montar_resultado_aula_ia_core_aplica_referencia_quando_habilitada():
     )
 
     assert resultado["origem_metodologia"] == "docx_referencia_historia"
-    assert resultado["metodologia"][0]["texto"] == "Texto DOCX"
-    assert resultado["acompanhamento"] == ["☑ R1", "☑ R2", "☑ R3"]
+    assert resultado["metodologia"][0]["texto"] == "Texto IA"
+    assert resultado["acompanhamento"] == ["IA1", "IA2", "IA3"]
+    assert resultado["acessibilidade"] == ["IX1", "IX2", "IX3"]

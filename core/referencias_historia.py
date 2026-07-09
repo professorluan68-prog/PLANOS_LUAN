@@ -1,4 +1,4 @@
-"""Referências prontas de História a partir de arquivos DOCX unificados."""
+"""Referencias prontas de Historia a partir de arquivos DOCX unificados."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _tokens_titulo(texto: str) -> set[str]:
     ignorar = {
         "a", "o", "as", "os", "e", "de", "do", "da", "dos", "das",
         "um", "uma", "para", "por", "que", "em", "no", "na", "nos", "nas",
-        "aula", "parte", "ano"
+        "aula", "parte", "ano",
     }
     return {
         token
@@ -83,27 +83,38 @@ def _itens_com_check(texto: str) -> list[str]:
     return itens
 
 
-def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[tuple[int, int], dict[str, Any]]) -> None:
+def _finalizar_aula(
+    aula: dict[str, Any] | None,
+    aulas: dict[tuple[int, int], dict[str, Any]],
+) -> None:
     if not aula:
         return
     grade = aula.get("grade")
     numero = aula.get("numero")
     if not grade or not numero:
         return
-    if aula.get("metodologia") and len(aula.get("acompanhamento") or []) >= 3 and len(aula.get("acessibilidade") or []) >= 3:
+    if (
+        aula.get("metodologia")
+        and len(aula.get("acompanhamento") or []) >= 3
+        and len(aula.get("acessibilidade") or []) >= 3
+    ):
         aulas[(grade, numero)] = aula
 
 
 @lru_cache(maxsize=8)
-def _carregar_referencias_historia_docx(caminho_docx: str) -> dict[tuple[int, int], dict[str, Any]]:
-    """Carrega as referências de História estruturadas por (grade, numero_aula)."""
+def _carregar_referencias_historia_docx(
+    caminho_docx: str,
+) -> dict[tuple[int, int], dict[str, Any]]:
+    """Carrega as referencias de Historia estruturadas por (grade, numero_aula)."""
     paragrafos = _paragrafos_docx(caminho_docx)
     aulas: dict[tuple[int, int], dict[str, Any]] = {}
     aula_atual: dict[str, Any] | None = None
     secao = ""
 
-    # Matches "6º ANO - AULA 1 - As pólis gregas" or "1º SÉRIE (EM) - AULA 1 - ..."
-    padrao_header = re.compile(r"^(\d{1,2})(?:º|o|a)?\s*(?:ANO|S[EÉ]RIE(?:\s*\(EM\))?)\s*[-–—]\s*AULA\s*(\d{1,2})\s*[-–—]\s*(.+)$", re.I)
+    padrao_header = re.compile(
+        r"^(\d{1,2})(?:º|o|a)?\s*(?:ANO|S[EÉ]RIE(?:\s*\(EM\))?)\s*[-–—]\s*AULA\s*(\d{1,2})\s*[-–—]\s*(.+)$",
+        re.I,
+    )
 
     for texto in paragrafos:
         match_aula = padrao_header.match(texto)
@@ -140,12 +151,14 @@ def _carregar_referencias_historia_docx(caminho_docx: str) -> dict[tuple[int, in
                 aula_atual["metodologia"].append(
                     {
                         "titulo": _normalizar_espacos(match_etapa.group(1)),
-                        "text": _normalizar_espacos(match_etapa.group(2)), # Use "text" to be compatible with normalizer/generator schema
+                        "text": _normalizar_espacos(match_etapa.group(2)),
                         "texto": _normalizar_espacos(match_etapa.group(2)),
                     }
                 )
             elif aula_atual["metodologia"]:
-                aux = _normalizar_espacos(f"{aula_atual['metodologia'][-1]['texto']} {texto}")
+                aux = _normalizar_espacos(
+                    f"{aula_atual['metodologia'][-1]['texto']} {texto}"
+                )
                 aula_atual["metodologia"][-1]["texto"] = aux
                 aula_atual["metodologia"][-1]["text"] = aux
         elif secao in {"acompanhamento", "acessibilidade"}:
@@ -155,8 +168,10 @@ def _carregar_referencias_historia_docx(caminho_docx: str) -> dict[tuple[int, in
     return aulas
 
 
-def _obter_grade_e_aula_do_pdf(caminho_pdf: str | Path, numero_aula: Any) -> tuple[int, int]:
-    # Extract grade (e.g. "6_ANO" or "6" from path)
+def _obter_grade_e_aula_do_pdf(
+    caminho_pdf: str | Path,
+    numero_aula: Any,
+) -> tuple[int, int]:
     caminho = Path(caminho_pdf)
     grade = 0
     for part in [caminho.parent.name, caminho.name]:
@@ -165,8 +180,7 @@ def _obter_grade_e_aula_do_pdf(caminho_pdf: str | Path, numero_aula: Any) -> tup
         if match_grade:
             grade = int(match_grade.group(1))
             break
-            
-    # Fallback checking parent paths
+
     if not grade:
         for parent in caminho.parents:
             parent_clean = parent.name.replace("_", " ").replace("-", " ")
@@ -175,7 +189,6 @@ def _obter_grade_e_aula_do_pdf(caminho_pdf: str | Path, numero_aula: Any) -> tup
                 grade = int(match_grade.group(1))
                 break
 
-    # Extract lesson number
     numero = 0
     if isinstance(numero_aula, int):
         numero = numero_aula
@@ -197,58 +210,127 @@ def _selecionar_referencia(
     numero_aula: int,
     tema: str = "",
 ) -> dict[str, Any] | None:
-    # Try exact match first
     referencia_exata = referencias.get((grade, numero_aula))
     if referencia_exata:
         return referencia_exata
 
-    # Fallback to title matching within the same grade
     if not tema:
         return None
 
     melhor_num = 0
     melhor_pontuacao = 0.0
     for (g, n), ref in referencias.items():
-        if g == grade:
-            pontuacao = _pontuar_titulo(tema, ref.get("titulo", ""))
-            if pontuacao > melhor_pontuacao:
-                melhor_num = n
-                melhor_pontuacao = pontuacao
+        if g != grade:
+            continue
+        pontuacao = _pontuar_titulo(tema, ref.get("titulo", ""))
+        if pontuacao > melhor_pontuacao:
+            melhor_num = n
+            melhor_pontuacao = pontuacao
 
     if melhor_num and melhor_pontuacao >= 0.60:
         return referencias.get((grade, melhor_num))
     return None
 
 
-def localizar_docx_referencia_historia(caminho_pdf: str | Path) -> Path | None:
-    # AJUSTE: Desativado a pedido do usuário. A metodologia de História agora vem 100% da IA.
-    return None
-
-
-def localizar_docx_referencia_historia_cdp(caminho_pdf: str | Path) -> Path | None:
+def _localizar_docx_historia_generico(
+    caminho_pdf: str | Path,
+    *,
+    incluir: list[str],
+    excluir: list[str],
+) -> Path | None:
     caminho = Path(caminho_pdf)
     if not caminho_pdf:
         return None
-        
+
     candidatos = []
     folders = [caminho.parent, caminho.parent.parent]
     for folder in folders:
-        if folder.exists():
-            candidatos.extend(folder.glob("Metodologias_Historia_CDP*.docx"))
-            candidatos.extend(folder.glob("*Historia*CDP*.docx"))
-            
-    candidatos_unicos = {c.resolve(): c for c in candidatos if not c.name.startswith("~$")}.values()
-    if not candidatos_unicos:
+        if not folder.exists():
+            continue
+        for padrao in incluir:
+            candidatos.extend(folder.glob(padrao))
+
+    vistos: set[Path] = set()
+    candidatos_filtrados = []
+    for candidato in candidatos:
+        try:
+            resolvido = candidato.resolve()
+        except Exception:
+            continue
+        nome_normalizado = _normalizar_busca(candidato.name)
+        if candidato.name.startswith("~$"):
+            continue
+        if any(token in nome_normalizado for token in excluir):
+            continue
+        if resolvido in vistos:
+            continue
+        vistos.add(resolvido)
+        candidatos_filtrados.append(candidato)
+
+    if not candidatos_filtrados:
         return None
-    return list(candidatos_unicos)[0]
+    return candidatos_filtrados[0]
 
 
-def referencia_historia_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
-    # AJUSTE: Forçar o retorno vazio para que o sistema use as regras da IA, ignorando os DOCXs antigos
-    return None
+def localizar_docx_referencia_historia(caminho_pdf: str | Path) -> Path | None:
+    return _localizar_docx_historia_generico(
+        caminho_pdf,
+        incluir=[
+            "Metodologias_Historia_Ensino_Regular*.docx",
+            "*Historia*Ensino*Regular*.docx",
+            "Metodologias_Historia*.docx",
+            "*Historia*.docx",
+        ],
+        excluir=["cdp"],
+    )
 
 
-def referencia_historia_cdp_por_pdf(caminho_pdf: str | Path, numero_aula: Any, tema: str = "") -> dict[str, Any] | None:
+def localizar_docx_referencia_historia_cdp(caminho_pdf: str | Path) -> Path | None:
+    return _localizar_docx_historia_generico(
+        caminho_pdf,
+        incluir=[
+            "Metodologias_Historia_CDP*.docx",
+            "*Historia*CDP*.docx",
+        ],
+        excluir=[],
+    )
+
+
+def referencia_historia_por_pdf(
+    caminho_pdf: str | Path,
+    numero_aula: Any,
+    tema: str = "",
+) -> dict[str, Any] | None:
+    docx = localizar_docx_referencia_historia(caminho_pdf)
+    if not docx:
+        return None
+
+    grade, numero = _obter_grade_e_aula_do_pdf(caminho_pdf, numero_aula)
+    if not grade or not numero:
+        return None
+
+    referencias = _carregar_referencias_historia_docx(str(docx))
+    referencia = _selecionar_referencia(referencias, grade, numero, tema)
+    if not referencia:
+        return None
+
+    return {
+        "numero": str(referencia.get("numero") or numero),
+        "titulo": referencia.get("titulo", ""),
+        "habilidade": "",
+        "metodologia": list(referencia.get("metodologia") or []),
+        "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
+        "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],
+        "fonte": str(docx),
+        "referencia_pedagogica_aplicada": True,
+    }
+
+
+def referencia_historia_cdp_por_pdf(
+    caminho_pdf: str | Path,
+    numero_aula: Any,
+    tema: str = "",
+) -> dict[str, Any] | None:
     docx = localizar_docx_referencia_historia_cdp(caminho_pdf)
     if not docx:
         return None

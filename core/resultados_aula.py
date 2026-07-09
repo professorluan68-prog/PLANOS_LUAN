@@ -429,12 +429,21 @@ def montar_resultado_aula_ia(
         )
     )
     if aplicar_referencia_docx:
-        metodologia = dependencias.naturalizar_metodologia_professor_fn(
-            referencia_docx.get("metodologia") or [],
-            perfil=perfil,
-        )
-        acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
-        acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+        sobrescrever_metodologia = perfil in {
+            "lingua_portuguesa_ef",
+            "lingua_portuguesa_em",
+            "leitura_redacao",
+            "matematica",
+        }
+        if sobrescrever_metodologia or not metodologia:
+            metodologia = dependencias.naturalizar_metodologia_professor_fn(
+                referencia_docx.get("metodologia") or [],
+                perfil=perfil,
+            )
+        if not acompanhamento:
+            acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
+        if not acessibilidade:
+            acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,
