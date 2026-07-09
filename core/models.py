@@ -104,7 +104,7 @@ class PlanoCompleto(ModeloPlanoBase):
     material: str = ""
     numero_aula: str = ""
     aprendizagem: str = ""
-    metodologia: list[EtapaMetodologia] = Field(default_factory=list)
+    metodologia: list[EtapaMetodologia | str] = Field(default_factory=list)
     acompanhamento: list[str] = Field(default_factory=list)
     acessibilidade: list[str] = Field(default_factory=list)
     conteudo: str = ""
@@ -161,8 +161,10 @@ class PlanoCompleto(ModeloPlanoBase):
         if isinstance(metodologia_bruta, list):
             metodologia_limpa = []
             for item in metodologia_bruta:
-                if isinstance(item, str) and item.strip():
-                    metodologia_limpa.append({"titulo": "", "texto": item.strip()})
+                if isinstance(item, str):
+                    texto = item.strip()
+                    if texto:
+                        metodologia_limpa.append(texto)
                 elif hasattr(item, "model_dump"):
                     metodologia_limpa.append(item.model_dump())
                 elif hasattr(item, "dict"):

@@ -31,4 +31,4 @@ def test_nome_arquivo_plano_lote_inclui_professor_e_mes():
     assert nome.endswith(".docx")
     assert "Ana_Maria" in nome
     assert "JUNHO" in nome
-    assert "Plano_7o_ANO_A_Matematica_IA" in nome
+    assert "Plano_7o_ANO_A_Matematica_In" in nome

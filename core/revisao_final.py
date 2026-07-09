@@ -22,6 +22,17 @@ SCORE_MINIMO_ACEITAVEL = 70
 
 logger = logging.getLogger(__name__)
 
+_LIMITES_CHARS_POR_ETAPA = {
+    "historia": 900,
+    "geografia": 800,
+    "lingua_portuguesa": 600,
+    "lingua_portuguesa_ef": 600,
+    "lingua_portuguesa_em": 600,
+    "leitura_redacao": 600,
+    "redacao": 600,
+}
+_LIMITE_CHARS_DEFAULT = 400
+
 
 def _limpar_tema_final(tema: str) -> str:
     texto = extrair_conceito_central(str(tema or "").strip())
@@ -46,6 +57,58 @@ def calcular_sha256(caminho_pdf: str | Path) -> str:
         return sha256.hexdigest()
     except Exception:
         return ""
+
+
+def _titulo_etapa(item) -> str:
+    if isinstance(item, dict):
+        return str(item.get("titulo") or "").strip()
+    return str(getattr(item, "titulo", "") or "").strip()
+
+
+def _texto_etapa(item) -> str:
+    if isinstance(item, dict):
+        return str(item.get("texto") or "").strip()
+    if isinstance(item, str):
+        return item.strip()
+    return str(getattr(item, "texto", "") or "").strip()
+
+
+def _validar_titulos_proibidos(metodologia, perfil: str) -> tuple[int, list[str]]:
+    avisos = []
+    deducoes = 0
+    titulos_proibidos = set(get_titulos_proibidos(perfil) or [])
+    if not titulos_proibidos:
+        return deducoes, avisos
+
+    for item in metodologia or []:
+        titulo = _titulo_etapa(item)
+        if not titulo:
+            continue
+        titulo_norm = normalizar_texto(titulo).lower().strip()
+        if titulo_norm in titulos_proibidos:
+            deducoes += 10
+            avisos.append(f"Etapa '{titulo}': título incompatível com o perfil {perfil}.")
+    return deducoes, avisos
+
+
+def _validar_tamanho_etapas(metodologia, perfil: str) -> tuple[int, list[str]]:
+    avisos = []
+    deducoes = 0
+    limite = _LIMITES_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
+
+    for item in metodologia or []:
+        texto = _texto_etapa(item)
+        titulo = _titulo_etapa(item) or "Etapa sem título"
+        if not texto:
+            deducoes += 5
+            avisos.append(f"Etapa '{titulo}': texto vazio.")
+            continue
+        if len(texto) > limite:
+            deducoes += 5
+            avisos.append(
+                f"Etapa '{titulo}': excede o limite de {limite} caracteres para o perfil {perfil}."
+            )
+    return deducoes, avisos
 
 def revisar_aula_gerada(
     aula: dict | PlanoCompleto, 
@@ -204,11 +267,14 @@ def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> d
     titulos_proibidos = get_titulos_proibidos("historia")
     metodologia_limpa = []
     for etapa in metodologia:
-        titulo_norm = normalizar_texto(str(etapa.get("titulo", ""))).lower().strip()
+        if not isinstance(etapa, dict):
+            metodologia_limpa.append(etapa)
+            continue
+        titulo_norm = normalizar_texto(_titulo_etapa(etapa)).lower().strip()
         if titulo_norm in titulos_proibidos:
             logger.info(
                 "Regeneração: etapa proibida '%s' removida da metodologia de História.",
-                etapa.get("titulo", ""),
+                _titulo_etapa(etapa),
             )
             houve_correcao = True
         else:
@@ -217,6 +283,8 @@ def _regenerar_etapas_historia(aula: dict, etapas_problematicas: list[str]) -> d
     metodologia = metodologia_limpa
 
     for idx, etapa in enumerate(metodologia):
+        if not isinstance(etapa, dict):
+            continue
         titulo = str(etapa.get("titulo", "")).strip()
         titulo_lower = titulo.lower()
 

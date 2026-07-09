@@ -779,6 +779,8 @@ def _compactar_segmento(segmento: list[dict], limite_chars: int) -> list[dict[st
 def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str = "") -> list[dict[str, str]]:
     produto = _detectar_produto_atividade(texto_pdf)
     limite_etapa = _LIMITE_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
+    if perfil == "historia":
+        limite_etapa = min(limite_etapa, 420)
     itens: list[dict[str, str]] = []
 
     # CORREÇÃO FALHA #1 — Para perfil historia, usar segmentação posicional
@@ -851,7 +853,7 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
 
     # CORREÇÃO FALHA #4 — Reservar orçamento mínimo para encerramento
     orcamento_encerramento = 300 if perfil == "historia" else 0
-    orcamento_total = 9600
+    orcamento_total = 1650 if perfil == "historia" else 9600
 
     total = 0
     saida: list[dict[str, str]] = []

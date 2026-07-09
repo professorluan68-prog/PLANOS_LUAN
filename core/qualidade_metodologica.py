@@ -636,6 +636,25 @@ def sanitizar_texto_metodologico(
         return ""
 
     texto_final = re.sub(
+        r"\(\s*(?:m[aá]x(?:imo)?\.?\s*)?\d+\s*(?:chars?|caracteres?)\s*(?:[✅✔]\s*)?\)",
+        "",
+        texto_final,
+        flags=re.I,
+    ).strip()
+    texto_final = re.sub(
+        r"\([^)]*\d+\s*(?:chars?|caracteres?)[^)]*\)",
+        "",
+        texto_final,
+        flags=re.I,
+    ).strip()
+    texto_final = re.sub(
+        r"\bm\S*x\s*\d+\s*(?:chars?|caracteres?)\b",
+        "",
+        texto_final,
+        flags=re.I,
+    ).strip()
+
+    texto_final = re.sub(
         r"^(?:aula|slide|p[aá]gina|p?gina)\s*(?:n[.o]?\s*)?\d{1,3}\s*[-:–—]?\s*",
         "",
         texto_final,

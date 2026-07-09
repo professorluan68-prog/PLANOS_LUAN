@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from typing import Callable, Sequence
 
 from core.models import PlanoCompleto
 from core.revisao_final import gravar_sidecar_json, revisar_aula_gerada
+
+logger = logging.getLogger(__name__)
 
 
 def finalizar_plano_aula(
@@ -41,11 +44,14 @@ def finalizar_plano_aula(
 
     try:
         dados_runtime = revisar_aula_gerada(dados_runtime, perfil)
+    except Exception:
+        logger.exception(
+            "Falha na revisão final do plano; mantendo dados gerados e gravando sidecar bruto."
+        )
+    finally:
         plano = PlanoCompleto.from_any(dados_runtime)
         if caminho_pdf and hash_pdf:
             gravar_sidecar_json(caminho_pdf, plano, hash_pdf)
-    except Exception:
-        plano = PlanoCompleto.from_any(dados_runtime)
 
     return plano.to_dict()
 

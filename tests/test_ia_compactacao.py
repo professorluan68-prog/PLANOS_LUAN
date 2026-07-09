@@ -135,3 +135,52 @@ def test_inicios_fragmentados_infinitivo():
 
 
 
+def test_compactar_metodologia_historia_aplica_teto_real_no_conjunto():
+    metodologia = [
+        {
+            "titulo": "Para comecar",
+            "texto": (
+                "Retomar o que foi estudado anteriormente sobre as polis gregas, "
+                "mobilizando conhecimentos previos com perguntas disparadoras, "
+                "registro individual e discussao inicial em duplas antes da socializacao coletiva."
+            ),
+        },
+        {
+            "titulo": "Foco no conteudo",
+            "texto": (
+                "Explorar imagens e mapas das cidades-estado, detalhando caracteristicas "
+                "de Atenas e Esparta, sua organizacao politica, cultural e social, "
+                "alem de discutir a relacao entre geografia e participacao politica."
+            ),
+        },
+        {
+            "titulo": "Na pratica",
+            "texto": (
+                "Orientar leitura do texto do material, propor respostas individuais no caderno, "
+                "acompanhar as duvidas da turma, organizar correcao comentada e pedir que os "
+                "estudantes confrontem as respostas atuais com registros anteriores."
+            ),
+        },
+        {
+            "titulo": "Foco no conteudo",
+            "texto": (
+                "Aprofundar a discussao com nova fonte historica, retomando o conceito de "
+                "cidadania nas polis e comparando permanencias e rupturas em relacao ao presente."
+            ),
+        },
+        {
+            "titulo": "Encerramento",
+            "texto": (
+                "Finalizar com Com suas palavras, propondo uma sintese sobre o que define uma "
+                "polis grega, quais diferencas principais existem entre Atenas e Esparta e como "
+                "esses registros serao retomados na continuidade da sequencia."
+            ),
+        },
+    ]
+
+    compactada = _compactar_metodologia(metodologia, "", perfil="historia")
+
+    total = sum(len(item["texto"]) for item in compactada)
+    assert total <= 1650
+    assert all(len(item["texto"]) <= 420 for item in compactada)
+    assert compactada[-1]["titulo"] == "Encerramento"

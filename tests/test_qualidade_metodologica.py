@@ -177,3 +177,25 @@ def test_modalidades_nao_deixa_frase_quebrada_em_com_suas_palavras():
     assert "para que retomar" not in texto
     assert "COM SUAS PALAVRAS" in texto
 
+
+def test_sanitiza_marcador_vazado_de_limite_de_caracteres():
+    metodologia, _ = revisar_metodologia(
+        [
+            {
+                "titulo": "Para comecar",
+                "texto": "Retomar o tema com pergunta inicial e registro no caderno. (max 900 chars)",
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": "Sistematizar a aula com conclusao coletiva. (max 900 caracteres)",
+            },
+        ],
+        perfil="historia",
+        tema="Guerras Medicas",
+        consolidar=False,
+    )
+
+    texto = normalizar_texto(" ".join(item["texto"] for item in metodologia))
+    assert "max 900 chars" not in texto
+    assert "900 caracteres" not in texto
+
