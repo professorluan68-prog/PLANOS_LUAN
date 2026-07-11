@@ -1,17 +1,3 @@
-import sys
-import os
-
-print("--- DIRETÓRIOS QUE O PYTHON ESTÁ OLHANDO ---")
-for path in sys.path:
-    print(path)
-print("-------------------------------------------")
-
-# Substitua 'nome_de_um_arquivo_suspeito' pelo nome do módulo que você acha que está vindo do C:
-try:
-    import nome_de_um_arquivo_suspeito
-    print(f"O arquivo foi carregado de: {nome_de_um_arquivo_suspeito.__file__}")
-except ImportError:
-    print("Não foi possível importar o arquivo.")
 
 import streamlit as st
 import tempfile
@@ -170,7 +156,7 @@ from core.operacao import (
     montar_zip_planos as _montar_zip_planos,
 )
 from core.validador_plano import validar_aulas_geradas
-from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, PLANOS_FEITOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO
+from config import MODELO_OPENAI_PADRAO, MODELO_GEMINI_PADRAO, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, PLANOS_FEITOS_DIR, TEMPLATES_DOCX_DIR, PASTA_BACKUP, inicializar_pastas, BASE_DIR, HABILITAR_REVISAO_POS_GERACAO, PDF_AULAS_DIR
 from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_cdp
 from core.helpers import (
     LocalFileWrapper,
@@ -738,7 +724,10 @@ inicializar_pastas()
 carregar_chaves_locais(BASE_DIR)
 init_db()
 migrar_json_para_sqlite()
-PROFESSORES_DB = obter_professores_db()
+PROFESSORES_DB = mesclar_professores(
+    obter_professores_db(),
+    _carregar_professores_dos_planos_cache(),
+)
 
 PROFESSORES = {}
 for prof, dados_prof in PROFESSORES_DB.items():
@@ -775,6 +764,41 @@ def _arquivo_existe(caminho: str) -> bool:
         return bool(caminho and Path(caminho).exists())
     except OSError:
         return False
+
+
+def _pontuacao_config_cadastro(config: dict | None) -> int:
+    config = config or {}
+    pontuacao = 0
+    if config.get("datas_horarios"):
+        pontuacao += 100
+    if str(config.get("arquivo") or config.get("arquivo_modelo") or "").strip():
+        pontuacao += 40
+    if str(config.get("dia_semana") or "").strip():
+        pontuacao += 20
+    if str(config.get("horario") or "").strip():
+        pontuacao += 20
+    if str(config.get("aulas_semana") or "").strip():
+        pontuacao += 15
+    if str(config.get("componente_curricular") or "").strip():
+        pontuacao += 5
+    return pontuacao
+
+
+def _selecionar_config_cadastro(disciplinas: list[dict], disciplina: str, turma: str) -> dict | None:
+    candidatos = [
+        d
+        for d in (disciplinas or [])
+        if d.get("disciplina") == disciplina and d.get("turma") == turma
+    ]
+    if not candidatos:
+        return None
+    return max(
+        candidatos,
+        key=lambda item: (
+            _pontuacao_config_cadastro(item),
+            len(str(item.get("arquivo") or item.get("arquivo_modelo") or "")),
+        ),
+    )
 
 def _abrir_cadastro_com_filtros(professor: str, disciplina: str, turma: str) -> None:
     st.session_state["modo_tela"] = "Cadastro"
@@ -844,7 +868,7 @@ def _salvar_pdf_temporario(pdf_file) -> str:
 def _preparar_pdf_para_processamento(pdf_file) -> tuple[str, bool]:
     """Retorna o caminho do PDF e se ele deve ser apagado ao final.
 
-    No modo automatico, o arquivo ja existe em C:\\Users\\Luan Dias\\Documents\\PDF_AULAS. Usar esse caminho
+    No modo automatico, o arquivo ja existe na pasta base configurada para PDFs. Usar esse caminho
     real preserva os JSONs, DOCXs de referencia e hashes da pasta original.
     No upload manual, criamos uma copia temporaria como antes.
     """
@@ -2376,7 +2400,11 @@ with col_turma:
         else:
             turma = turma_selecionada
             st.session_state["turma"] = turma
-            config_selecionada = next((d for d in dados_prof.get("disciplinas", []) if d["disciplina"] == disciplina and d["turma"] == turma), None)
+            config_selecionada = _selecionar_config_cadastro(
+                dados_prof.get("disciplinas", []),
+                disciplina,
+                turma,
+            )
             if config_selecionada:
                 config_turma_selecionada = config_selecionada
                 modelo_automatico_arquivo = str(config_selecionada.get("arquivo") or "")
@@ -2544,7 +2572,7 @@ if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
 
 def _resolver_caminho_ae_priorizado(disciplina: str, turma: str, bimestre: str, professor: str = "") -> str:
     try:
-        pasta = resolver_pasta_pdfs(r"C:\Users\Luan Dias\Documents\PDF_AULAS", disciplina, turma, bimestre, professor=professor)
+        pasta = resolver_pasta_pdfs(str(PDF_AULAS_DIR), disciplina, turma, bimestre, professor=professor)
     except Exception:
         return ""
 
@@ -2816,10 +2844,10 @@ aulas_envio_espelho = []
 # Buscar configuração cadastrada da turma espelho para usar os horários corretos
 config_turma_espelho = None
 if gerar_turma_espelho and turma_espelho:
-    config_turma_espelho = next(
-        (d for d in dados_prof.get("disciplinas", [])
-         if d["disciplina"] == disciplina and d["turma"] == turma_espelho),
-        None,
+    config_turma_espelho = _selecionar_config_cadastro(
+        dados_prof.get("disciplinas", []),
+        disciplina,
+        turma_espelho,
     )
 
 st.markdown('<div class="section-title">📚 Gestão das Aulas</div>', unsafe_allow_html=True)
@@ -2873,7 +2901,7 @@ else:
         horizontal=True,
         key="modo_upload_pdf",
         help=(
-            "Automatico: busca os PDFs em C:\\Users\\Luan Dias\\Documents\\PDF_AULAS e aplica a ordem do sistema.\n"
+            f"Automatico: busca os PDFs em {PDF_AULAS_DIR} e aplica a ordem do sistema.\n"
             "Todos de uma vez: envie os arquivos manualmente em lote.\n"
             "Um por aula: envie o PDF diretamente em cada card."
         ),
@@ -2885,7 +2913,7 @@ else:
     qtd_aulas = 0
     pdfs_auto_total = 0
     try:
-        pasta_pdfs_auto = str(resolver_pasta_pdfs(r"C:\Users\Luan Dias\Documents\PDF_AULAS", disciplina, turma, bimestre, professor=professor))
+        pasta_pdfs_auto = str(resolver_pasta_pdfs(str(PDF_AULAS_DIR), disciplina, turma, bimestre, professor=professor))
     except Exception:
         pasta_pdfs_auto = ""
     faltantes_ae_auto = []
@@ -2925,7 +2953,7 @@ else:
             else:
                 qtd_aulas = linhas_modelo_pdf
         elif modo_upload_automatico:
-            base_pdfs_dir = r"C:\Users\Luan Dias\Documents\PDF_AULAS"
+            base_pdfs_dir = str(PDF_AULAS_DIR)
             pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre, professor=professor)
             pasta_pdfs_auto = str(pasta_pdfs)
 

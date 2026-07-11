@@ -91,7 +91,11 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     secao = ""
 
     for texto in paragrafos:
-        match_aula = re.match(r"^AULA\s+(\d{1,2})\s*[-–—]\s*(.+)$", texto, flags=re.I)
+        match_aula = re.match(
+            r"^AULA(?:\s+|_)(\d{1,2})\s*[-–—]\s*(.+)$",
+            texto,
+            flags=re.I,
+        )
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
             aula_atual = {

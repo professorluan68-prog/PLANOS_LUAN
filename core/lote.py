@@ -131,6 +131,17 @@ def _localizar_planilha_habilidade_local(caminho_pdf: str) -> Path | None:
     return None
 
 
+def _assinatura_planilha_local(caminho_pdf: str) -> str:
+    planilha = _localizar_planilha_habilidade_local(caminho_pdf)
+    if not planilha:
+        return ""
+    try:
+        stat = planilha.stat()
+        return f"{planilha.name}|{stat.st_size}|{stat.st_mtime_ns}"
+    except OSError:
+        return planilha.name
+
+
 def _habilidade_planilha_local(caminho_pdf: str, numero_aula: str) -> str:
     planilha = _localizar_planilha_habilidade_local(caminho_pdf)
     if not planilha:
@@ -2445,61 +2456,53 @@ def _montar_resultado_cdp_contextual(
         )
         aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resolu??es com apoio do professor."
 
-    metodologia_cdp = metodologia_cdp_contextual(
-        perfil,
-        tipo,
-        tema,
-        conceito_cdp,
-        indice_aula,
-        texto_pdf=texto,
-        extracao_pdf=extracao_pdf,
-        disciplina_base=disciplina_base,
-    )
-    acompanhamento_cdp = acompanhamento_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
-    acessibilidade_cdp = acessibilidade_cdp_contextual(perfil, tema, conceito_cdp, indice_aula)
-
-    if referencia_docx:
-        metodologia_cdp = naturalizar_metodologia_professor(referencia_docx.get("metodologia") or [], perfil=perfil)
-        acompanhamento_cdp = list(referencia_docx.get("acompanhamento") or [])[:3]
-        acessibilidade_cdp = list(referencia_docx.get("acessibilidade") or [])[:3]
-
-    from core.lib.higienizador_pedagogico import higienizar_plano, detectar_recursos_reais
-
-    recursos_reais = detectar_recursos_reais(texto)
-    metodologia_cdp, acompanhamento_cdp, acessibilidade_cdp = higienizar_plano(
-        metodologia_cdp,
-        acompanhamento_cdp,
-        acessibilidade_cdp,
-        perfil,
-        disciplina_base,
-        tema,
-        recursos_reais,
-    )
-    if referencia_docx:
-        acompanhamento_cdp, acessibilidade_cdp = (
-            _sobrescrever_listas_pedagogicas_com_referencia(
-                referencia_docx,
-                acompanhamento_cdp,
-                acessibilidade_cdp,
-            )
-        )
-
     from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
-    return {
+    if referencia_docx:
+        resultado = {
+            "disciplina": disciplina_base,
+            "tema": tema,
+            "material": formatar_material_cdp_contextual(tema, disciplina_base),
+            "numero_aula": numero_aula,
+            "aprendizagem": sanitizar_texto_cdp_estrito(_sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil)),
+            "metodologia": list(referencia_docx.get("metodologia") or []),
+            "acompanhamento": list(referencia_docx.get("acompanhamento") or [])[:3],
+            "acessibilidade": list(referencia_docx.get("acessibilidade") or [])[:3],
+            "origem_metodologia": "docx_referencia_cdp_contextual",
+            "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+            "ia_usada": False,
+            "ia_provedor": "",
+            "ia_erro": "",
+        }
+        resultado["avisos_validacao"] = [
+            (
+                f"{disciplina_base}: metodologia, acompanhamento da aprendizagem e "
+                "acessibilidade foram copiados exatamente do arquivo .docx de referencia da pasta."
+            )
+        ]
+        return resultado
+
+    resultado = {
         "disciplina": disciplina_base,
         "tema": tema,
         "material": formatar_material_cdp_contextual(tema, disciplina_base),
         "numero_aula": numero_aula,
         "aprendizagem": sanitizar_texto_cdp_estrito(_sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil)),
-        "metodologia": metodologia_cdp,
-        "acompanhamento": acompanhamento_cdp,
-        "acessibilidade": acessibilidade_cdp,
-        "origem_metodologia": "docx_referencia_cdp_contextual" if referencia_docx else "motor_local_cdp_contextual",
-        "fonte_referencia_metodologia": (referencia_docx or {}).get("fonte", ""),
+        "metodologia": [],
+        "acompanhamento": [],
+        "acessibilidade": [],
+        "origem_metodologia": "referencia_docx_cdp_contextual_ausente",
+        "fonte_referencia_metodologia": "",
         "ia_usada": False,
         "ia_provedor": "",
         "ia_erro": "",
     }
+    resultado["avisos_validacao"] = [
+        (
+            f"{disciplina_base}: nao encontrei o arquivo .docx de referencia na pasta do PDF. "
+            "Sem essa referencia, a disciplina nao gera metodologia interna."
+        )
+    ]
+    return resultado
 
 
 def _limpar_repeticao_tecnicas_lemov_ia(metodologia: list[dict]) -> list[dict]:
@@ -2791,7 +2794,12 @@ def _aula_por_pdf(
         assinatura_referencia_docx
         and _perfil_prioriza_docx_sobre_cache_json(perfil_disciplina_cache)
     )
-    hash_contexto_fingerprint = f"{hash_atual}|ref:{assinatura_referencia_docx}" if assinatura_referencia_docx else hash_atual
+    assinatura_planilha = _assinatura_planilha_local(caminho_pdf)
+    hash_contexto_fingerprint = hash_atual
+    if assinatura_referencia_docx:
+        hash_contexto_fingerprint = f"{hash_contexto_fingerprint}|ref:{assinatura_referencia_docx}"
+    if assinatura_planilha:
+        hash_contexto_fingerprint = f"{hash_contexto_fingerprint}|xlsx:{assinatura_planilha}"
 
     fingerprint_atual = montar_fingerprint_contexto(
         hash_pdf=hash_contexto_fingerprint,
@@ -3063,14 +3071,20 @@ def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
             col_hab = [c for c in df.columns if 'HABILIDADE' in str(c).upper()]
             col_obj = [c for c in df.columns if 'OBJETIVO' in str(c).upper()]
             
-            tema_parts = []
+            titulo_planilha = ""
             if col_titulo and pd.notna(row[col_titulo[0]]):
-                tema_parts.append(str(row[col_titulo[0]]).strip())
+                titulo_planilha = re.sub(r"\s+", " ", str(row[col_titulo[0]]).strip())
             elif col_conteudo and pd.notna(row[col_conteudo[0]]):
-                tema_parts.append(str(row[col_conteudo[0]]).strip())
-                
-            if tema_parts and not str(resultado.get("fonte_referencia_metodologia") or "").strip():
-                resultado["tema"] = " - ".join(tema_parts)
+                titulo_planilha = re.sub(r"\s+", " ", str(row[col_conteudo[0]]).strip())
+
+            if titulo_planilha:
+                resultado["tema"] = titulo_planilha
+                numero_resultado = str(resultado.get("numero_aula") or numero_aula).strip()
+                match_numero_resultado = re.search(r"\d+", numero_resultado)
+                if match_numero_resultado:
+                    resultado["material"] = f"AULA {int(match_numero_resultado.group(0))} - {titulo_planilha}"
+                else:
+                    resultado["material"] = titulo_planilha
                 
             aprendizagem = ""
             if col_hab and pd.notna(row[col_hab[0]]):

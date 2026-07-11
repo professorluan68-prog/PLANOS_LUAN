@@ -166,3 +166,33 @@ def test_resultado_cdp_contextual_usa_docx_referencia(tmp_path):
     assert "circulacao cultural" in resultado["metodologia"][1]["texto"].lower()
     assert len(resultado["acompanhamento"]) == 3
     assert len(resultado["acessibilidade"]) == 3
+    assert any(
+        "copiados exatamente do arquivo .docx" in aviso.lower()
+        for aviso in resultado["avisos_validacao"]
+    )
+
+
+def test_resultado_cdp_contextual_sem_docx_retorna_colunas_vazias(tmp_path):
+    caminho_pdf = tmp_path / "2_ano_AULA_09 - Tema sem referencia.pdf"
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    resultado = _montar_resultado_cdp_contextual(
+        texto="Ensino Medio Geografia tema sem referencia",
+        tema="Tema sem referencia",
+        disciplina_base="Geografia",
+        numero_aula="9",
+        indice_aula=0,
+        perfil="geografia",
+        tipo="",
+        extracao_pdf={"conceito_extraido": "tema sem referencia"},
+        caminho_pdf=str(caminho_pdf),
+    )
+
+    assert resultado["origem_metodologia"] == "referencia_docx_cdp_contextual_ausente"
+    assert resultado["metodologia"] == []
+    assert resultado["acompanhamento"] == []
+    assert resultado["acessibilidade"] == []
+    assert any(
+        "nao encontrei o arquivo .docx de referencia" in aviso.lower()
+        for aviso in resultado["avisos_validacao"]
+    )

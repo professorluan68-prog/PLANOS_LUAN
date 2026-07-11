@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="180" viewBox="0 0 280 180" role="img" aria-label="Planejamento de aula">
+  <rect width="280" height="180" rx="18" fill="#dbeafe"/>
+  <rect x="34" y="30" width="132" height="118" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+  <path d="M54 58h88M54 82h70M54 106h92M54 130h56" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="210" cy="70" r="28" fill="#10b981"/>
+  <path d="M198 70l9 9 17-20" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="188" y="114" width="52" height="16" rx="8" fill="#334155"/>
+</svg>

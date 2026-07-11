@@ -198,6 +198,7 @@ def test_biologia_resultado_local_usa_docx_sem_trocar_titulo_oficial(tmp_path):
     caminho_pdf = tmp_path / "AULA 1.pdf"
     _criar_docx_referencia_biologia(caminho_docx)
     caminho_pdf.write_bytes(b"%PDF-1.4\n")
+    referencia = referencia_biologia_por_pdf(caminho_pdf, "1")
 
     resultado = _montar_resultado_aula_local(
         texto="Texto qualquer do PDF que nao deve prevalecer sobre o DOCX de referencia.",
@@ -224,6 +225,11 @@ def test_biologia_resultado_local_usa_docx_sem_trocar_titulo_oficial(tmp_path):
     assert resultado["tema"] == "Titulo vindo da planilha"
     assert resultado["material"] == "AULA 1 - Titulo vindo da planilha"
     assert resultado["origem_metodologia"] == "docx_referencia_biologia"
-    assert "combustao" in resultado["metodologia"][0]["texto"].lower()
-    assert len(resultado["acompanhamento"]) == 3
-    assert len(resultado["acessibilidade"]) == 3
+    assert resultado["metodologia"] == referencia["metodologia"]
+    assert resultado["acompanhamento"] == referencia["acompanhamento"][:3]
+    assert resultado["acessibilidade"] == referencia["acessibilidade"][:3]
+    assert any(
+        "copiados exatamente do arquivo .docx de referência da pasta" in aviso
+        or "copiados exatamente do arquivo .docx de referencia da pasta" in aviso
+        for aviso in resultado["avisos_validacao"]
+    )

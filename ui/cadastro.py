@@ -65,7 +65,7 @@ def _cadastros_para_gestao() -> list[dict]:
         cadastros.append(cadastro)
 
     # Nota: A pasta dos professores não está sendo iterada aqui (conforme estrutura original simplificada)
-    for professor, dados in {}.items():
+    for professor, dados in _carregar_professores_dos_planos_cache().items():
         for indice, item in enumerate(dados.get("disciplinas", [])):
             chave = _chave_cadastro(
                 professor,

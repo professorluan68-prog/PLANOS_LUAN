@@ -2,10 +2,14 @@ import json
 import os
 import sqlite3
 import logging
+import re
+import unicodedata
 from pathlib import Path
 from contextlib import contextmanager
+from datetime import datetime
 
-from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR
+from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR, PLANOS_FEITOS_DIR
+from core.lib.classificador import normalizar_texto
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +77,171 @@ def _normalizar_campo(valor):
 
 def _normalizar_campo_chave(valor):
     return _normalizar_campo(valor).upper()
+
+
+def _resolver_caminho_arquivo_historico(arquivo_path: str) -> Path:
+    caminho = Path(str(arquivo_path or "").strip())
+    if not str(caminho):
+        return Path()
+    return caminho if caminho.is_absolute() else Path(HISTORICO_DOCX_DIR) / caminho
+
+
+def _chave_caminho_historico(arquivo_path: str) -> str:
+    caminho = _resolver_caminho_arquivo_historico(arquivo_path)
+    if not str(caminho):
+        return ""
+    try:
+        return str(caminho.resolve()).upper()
+    except OSError:
+        return str(caminho).upper()
+
+
+def _normalizar_nome_pasta_historico(valor: str) -> str:
+    texto = str(valor or "").replace("_", " ").strip()
+    return re.sub(r"\s+", " ", normalizar_texto(texto)).strip().upper()
+
+
+def _slug_nome_arquivo_historico(texto: str) -> str:
+    texto = str(texto or "").replace("º", "o").replace("°", "o").replace("ª", "a")
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", texto).strip("_")
+
+
+def _inferir_turma_por_nome_arquivo(arquivo_nome: str, disciplina: str) -> str:
+    stem = Path(str(arquivo_nome or "")).stem
+    if stem.lower().startswith("plano_"):
+        stem = stem[6:]
+    if stem.lower().endswith("_in"):
+        stem = stem[:-3]
+
+    disciplina_slug = _slug_nome_arquivo_historico(disciplina)
+    sufixo_disciplina = f"_{disciplina_slug.lower()}" if disciplina_slug else ""
+    if sufixo_disciplina and stem.lower().endswith(sufixo_disciplina):
+        stem = stem[: -len(sufixo_disciplina)]
+
+    turma = re.sub(r"\s+", " ", stem.replace("_", " ")).strip()
+    return turma.upper()
+
+
+def _resolver_nome_professor_por_pasta(nome_pasta: str, nomes_professores: list[str]) -> str:
+    chave_pasta = _normalizar_nome_pasta_historico(nome_pasta)
+    for nome in nomes_professores:
+        if _normalizar_nome_pasta_historico(nome) == chave_pasta:
+            return str(nome or "").strip()
+    return re.sub(r"\s+", " ", str(nome_pasta or "").replace("_", " ")).strip().upper()
+
+
+def _buscar_id_historico_por_caminho(cursor, arquivo_path: str) -> int | None:
+    alvo = _chave_caminho_historico(arquivo_path)
+    if not alvo:
+        return None
+
+    cursor.execute(
+        """
+        SELECT id, arquivo_path
+        FROM historico_planos
+        WHERE COALESCE(TRIM(arquivo_path), '') <> ''
+        """
+    )
+    for row in cursor.fetchall():
+        if _chave_caminho_historico(row[1]) == alvo:
+            return int(row[0])
+    return None
+
+
+def _existe_historico_mesmo_contexto_arquivo(
+    cursor,
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    arquivo_nome: str,
+) -> bool:
+    cursor.execute(
+        """
+        SELECT 1
+        FROM historico_planos
+        WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+          AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+          AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+          AND UPPER(TRIM(arquivo_nome)) = UPPER(TRIM(?))
+        LIMIT 1
+        """,
+        (professor_nome, disciplina, turma, arquivo_nome),
+    )
+    return bool(cursor.fetchone())
+
+
+def sincronizar_historico_planos_com_planos_feitos() -> int:
+    pasta_planos = Path(PLANOS_FEITOS_DIR)
+    if not pasta_planos.exists():
+        return 0
+
+    arquivos_docx = [
+        caminho
+        for caminho in pasta_planos.rglob("*.docx")
+        if caminho.is_file() and not caminho.name.startswith("~$")
+    ]
+    if not arquivos_docx:
+        return 0
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT nome FROM professores ORDER BY nome")
+        nomes_professores = [row[0] for row in cursor.fetchall()]
+
+        inseridos = 0
+        for caminho in arquivos_docx:
+            try:
+                relativo = caminho.relative_to(pasta_planos)
+            except ValueError:
+                continue
+            partes = relativo.parts
+            if len(partes) < 3:
+                continue
+
+            professor_nome = _resolver_nome_professor_por_pasta(partes[0], nomes_professores)
+            disciplina = str(partes[1] or "").replace("_", " ").strip()
+            arquivo_nome = caminho.name
+            turma = _inferir_turma_por_nome_arquivo(arquivo_nome, disciplina)
+            if not professor_nome or not disciplina or not turma:
+                continue
+
+            caminho_str = str(caminho.resolve())
+            if _buscar_id_historico_por_caminho(cursor, caminho_str) is not None:
+                continue
+            if _existe_historico_mesmo_contexto_arquivo(
+                cursor,
+                professor_nome,
+                disciplina,
+                turma,
+                arquivo_nome,
+            ):
+                continue
+
+            data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            cursor.execute(
+                """
+                INSERT INTO historico_planos
+                (professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    "",
+                    data_geracao,
+                    arquivo_nome,
+                    caminho_str,
+                ),
+            )
+            inseridos += 1
+
+        conn.commit()
+        return inseridos
 
 
 def _obter_ou_criar_professor(cursor, nome: str) -> int:
@@ -981,7 +1150,7 @@ def obter_arquivo_historico(plano_id):
         nome, path_rel = row
         bytes_content = b""
         if path_rel:
-            p_abs = Path(HISTORICO_DOCX_DIR) / path_rel
+            p_abs = _resolver_caminho_arquivo_historico(path_rel)
             if p_abs.exists():
                 try:
                     bytes_content = p_abs.read_bytes()
@@ -1011,7 +1180,7 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
         )
         row = cursor.fetchone()
         if row and row[0]:
-            p_abs = Path(HISTORICO_DOCX_DIR) / row[0]
+            p_abs = _resolver_caminho_arquivo_historico(row[0])
             if p_abs.exists():
                 try:
                     return p_abs.read_bytes()

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from docx import Document
 
-from config import PASTA_PLANOS_PROFESSORES
+from config import PASTA_PLANOS_PROFESSORES, PLANOS_FEITOS_DIR
 
 MESES_PT = {
     "JANEIRO": 1,
@@ -248,34 +248,60 @@ def extrair_info_plano(caminho: Path, professor_pasta: str) -> dict[str, object]
     return info
 
 
+def _registrar_info_professor(
+    resultado: dict[str, dict[str, list[dict[str, object]]]],
+    caminho: Path,
+    professor_pasta: str,
+) -> None:
+    try:
+        info = extrair_info_plano(caminho, professor_pasta)
+    except Exception:
+        return
+
+    professor = str(info.get("professor") or professor_pasta)
+    disciplina = str(info.get("disciplina") or "").strip()
+    turma = str(info.get("turma") or "").strip()
+    if not disciplina or not turma:
+        return
+
+    resultado.setdefault(professor, {"disciplinas": []})["disciplinas"].append(
+        {
+            "disciplina": disciplina,
+            "turma": turma,
+            "dia_semana": str(info.get("dia_semana") or ""),
+            "horario": str(info.get("horario") or ""),
+            "aulas_semana": str(info.get("aulas_semana") or ""),
+            "componente_curricular": str(info.get("componente_curricular") or ""),
+            "datas_horarios": info.get("datas_horarios") or [],
+            "arquivo": str(info.get("arquivo") or caminho),
+        }
+    )
+
+
 def carregar_professores_dos_planos(base_dir: Path = PASTA_PLANOS_PROFESSORES) -> dict[str, dict[str, list[dict[str, object]]]]:
     resultado: dict[str, dict[str, list[dict[str, object]]]] = {}
-    if not base_dir.exists():
-        return resultado
 
-    for pasta_professor in sorted(p for p in base_dir.iterdir() if p.is_dir() and not p.name.startswith("_")):
-        for caminho in sorted(pasta_professor.glob("*.docx")):
+    if base_dir.exists():
+        for pasta_professor in sorted(p for p in base_dir.iterdir() if p.is_dir() and not p.name.startswith("_")):
+            for caminho in sorted(pasta_professor.glob("*.docx")):
+                _registrar_info_professor(resultado, caminho, pasta_professor.name)
+
+    # Fallback importante: quando a pasta principal dos modelos não existe,
+    # usamos os planos já gerados para recuperar grade semanal e contexto.
+    planos_feitos_dir = Path(PLANOS_FEITOS_DIR)
+    if planos_feitos_dir.exists():
+        for caminho in sorted(planos_feitos_dir.rglob("*.docx")):
+            if caminho.name.startswith("~$"):
+                continue
             try:
-                info = extrair_info_plano(caminho, pasta_professor.name)
-            except Exception:
+                relativo = caminho.relative_to(planos_feitos_dir)
+            except ValueError:
                 continue
-            professor = str(info.get("professor") or pasta_professor.name)
-            disciplina = str(info.get("disciplina") or "").strip()
-            turma = str(info.get("turma") or "").strip()
-            if not disciplina or not turma:
+            if len(relativo.parts) < 3:
                 continue
-            resultado.setdefault(professor, {"disciplinas": []})["disciplinas"].append(
-                {
-                    "disciplina": disciplina,
-                    "turma": turma,
-                    "dia_semana": str(info.get("dia_semana") or ""),
-                    "horario": str(info.get("horario") or ""),
-                    "aulas_semana": str(info.get("aulas_semana") or ""),
-                    "componente_curricular": str(info.get("componente_curricular") or ""),
-                    "datas_horarios": info.get("datas_horarios") or [],
-                    "arquivo": str(info.get("arquivo") or caminho),
-                }
-            )
+            professor_pasta = relativo.parts[0]
+            _registrar_info_professor(resultado, caminho, professor_pasta)
+
     return resultado
 
 
@@ -461,12 +487,16 @@ def mesclar_professores(base: dict, planos: dict) -> dict:
                 None,
             )
             if existente:
-                if not existente.get("arquivo"):
-                    existente["arquivo"] = item.get("arquivo", "")
-                if not existente.get("datas_horarios"):
-                    existente["datas_horarios"] = item.get("datas_horarios") or []
-                if not existente.get("componente_curricular"):
-                    existente["componente_curricular"] = item.get("componente_curricular", "")
+                for campo in (
+                    "arquivo",
+                    "datas_horarios",
+                    "componente_curricular",
+                    "dia_semana",
+                    "horario",
+                    "aulas_semana",
+                ):
+                    if not existente.get(campo) and item.get(campo):
+                        existente[campo] = item.get(campo)
                 continue
             mesclado[prof]["disciplinas"].append(item)
     return mesclado

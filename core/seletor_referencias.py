@@ -19,6 +19,10 @@ from core.referencias_educacao_financeira import (
     localizar_docx_referencia,
     referencia_por_pdf,
 )
+from core.referencias_fisica import (
+    localizar_docx_referencia_fisica,
+    referencia_fisica_por_pdf,
+)
 from core.referencias_geografia import (
     localizar_docx_referencia_geografia,
     referencia_geografia_por_pdf,
@@ -58,6 +62,7 @@ _LOCALIZADORES_REFERENCIA = {
     "biologia": localizar_docx_referencia_biologia,
     "ciencias_ef": localizar_docx_referencia_ciencias,
     "geografia": localizar_docx_referencia_geografia,
+    "fisica": localizar_docx_referencia_fisica,
     "historia": localizar_docx_referencia_historia,
     "matematica": localizar_docx_referencia_matematica,
     "lideranca_oratoria": localizar_docx_referencia_lideranca_oratoria,
@@ -72,6 +77,7 @@ _REFERENCIAS_POR_PERFIL = {
     "biologia": referencia_biologia_por_pdf,
     "ciencias_ef": referencia_ciencias_por_pdf,
     "geografia": referencia_geografia_por_pdf,
+    "fisica": referencia_fisica_por_pdf,
     "historia": referencia_historia_por_pdf,
     "matematica": referencia_matematica_por_pdf,
     "lideranca_oratoria": referencia_lideranca_oratoria_por_pdf,
@@ -86,6 +92,7 @@ _ORIGENS_METODOLOGIA = {
     "biologia": "docx_referencia_biologia",
     "ciencias_ef": "docx_referencia_ciencias",
     "geografia": "docx_referencia_geografia",
+    "fisica": "docx_referencia_fisica",
     "historia": "docx_referencia_historia",
     "matematica": "docx_referencia_matematica",
     "lideranca_oratoria": "docx_referencia_lideranca_oratoria",
@@ -153,7 +160,7 @@ def perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
 
 
 def perfil_prioriza_docx_sobre_cache_json(perfil: str) -> bool:
-    return perfil in _PERFIS_PORTUGUES or perfil in _LOCALIZADORES_REFERENCIA
+    return perfil == "fisica" or perfil in _PERFIS_PORTUGUES or perfil in _LOCALIZADORES_REFERENCIA
 
 
 def referencia_docx_sobrescreve_metadados(perfil: str) -> bool:

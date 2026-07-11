@@ -168,6 +168,191 @@ def _finalizar_resultado(
     return aula_gerada
 
 
+def _montar_resultado_referencia_docx_exata(
+    *,
+    texto: str,
+    tema: str,
+    material_digital: str,
+    numero_aula: str,
+    disciplina_base: str,
+    perfil: str,
+    aprendizagem: str,
+    referencia_docx: dict,
+    provedor_ia: str,
+    usar_ia: bool,
+    ia_erro: str,
+    indice_aula: int,
+    total_aulas: int,
+    dependencias: DependenciasResultadosAula,
+    aviso_sucesso: str,
+) -> dict:
+    metodologia = list(referencia_docx.get("metodologia") or [])
+    acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
+    acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+    recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
+    aula_gerada = {
+        "disciplina": disciplina_base,
+        "tema": tema,
+        "material": material_digital,
+        "numero_aula": numero_aula,
+        "aprendizagem": aprendizagem,
+        "metodologia": metodologia,
+        "acompanhamento": acompanhamento,
+        "acessibilidade": acessibilidade,
+        "origem_metodologia": dependencias.origem_metodologia_por_referencia_fn(perfil),
+        "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+        "ia_usada": False,
+        "ia_provedor": provedor_ia if usar_ia else "",
+        "ia_erro": ia_erro if not usar_ia else "",
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": {
+            "metodologia_local": metodologia,
+            "metodologia_ia_crua": [],
+            "metodologia_higienizada": metodologia,
+            "metodologia_final": metodologia,
+        },
+        "indice_aula": indice_aula,
+        "total_aulas": total_aulas,
+    }
+    aula_gerada["avisos_validacao"] = list(
+        dependencias.validar_aula_final_fn(aula_gerada) or []
+    )
+    aula_gerada["avisos_validacao"].append(aviso_sucesso)
+    return aula_gerada
+
+
+def _montar_resultado_sem_referencia_docx(
+    *,
+    texto: str,
+    tema: str,
+    material_digital: str,
+    numero_aula: str,
+    disciplina_base: str,
+    perfil: str,
+    aprendizagem: str,
+    origem_sem_referencia: str,
+    provedor_ia: str,
+    usar_ia: bool,
+    ia_erro: str,
+    indice_aula: int,
+    total_aulas: int,
+    dependencias: DependenciasResultadosAula,
+    aviso_ausencia: str,
+) -> dict:
+    recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
+    aula_gerada = {
+        "disciplina": disciplina_base,
+        "tema": tema,
+        "material": material_digital,
+        "numero_aula": numero_aula,
+        "aprendizagem": aprendizagem,
+        "metodologia": [],
+        "acompanhamento": [],
+        "acessibilidade": [],
+        "origem_metodologia": origem_sem_referencia,
+        "fonte_referencia_metodologia": "",
+        "ia_usada": False,
+        "ia_provedor": provedor_ia if usar_ia else "",
+        "ia_erro": ia_erro if not usar_ia else "",
+        "recursos_detectados": recursos_reais,
+        "texto_fonte": texto,
+        "diagnostico_geracao": {
+            "metodologia_local": [],
+            "metodologia_ia_crua": [],
+            "metodologia_higienizada": [],
+            "metodologia_final": [],
+        },
+        "indice_aula": indice_aula,
+        "total_aulas": total_aulas,
+    }
+    aula_gerada["avisos_validacao"] = list(
+        dependencias.validar_aula_final_fn(aula_gerada) or []
+    )
+    aula_gerada["avisos_validacao"].append(aviso_ausencia)
+    return aula_gerada
+
+
+def _perfil_referencia_docx_estrita(
+    dependencias: DependenciasResultadosAula,
+    perfil: str,
+) -> bool:
+    return bool(dependencias.origem_metodologia_por_referencia_fn(perfil))
+
+
+def _origem_sem_referencia_docx(
+    dependencias: DependenciasResultadosAula,
+    perfil: str,
+) -> str:
+    origem = str(dependencias.origem_metodologia_por_referencia_fn(perfil) or "").strip()
+    if origem.startswith("docx_referencia_"):
+        return origem.replace("docx_referencia_", "referencia_docx_", 1) + "_ausente"
+    if perfil:
+        return f"referencia_docx_{perfil}_ausente"
+    return "referencia_docx_ausente"
+
+
+def _resultado_referencia_docx_estrita(
+    *,
+    texto: str,
+    tema: str,
+    material_digital: str,
+    numero_aula: str,
+    disciplina_base: str,
+    perfil: str,
+    aprendizagem: str,
+    referencia_docx: dict | None,
+    provedor_ia: str,
+    usar_ia: bool,
+    ia_erro: str,
+    indice_aula: int,
+    total_aulas: int,
+    dependencias: DependenciasResultadosAula,
+) -> dict:
+    nome_disciplina = str(disciplina_base or perfil or "Disciplina").strip() or "Disciplina"
+    if referencia_docx:
+        return _montar_resultado_referencia_docx_exata(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=referencia_docx,
+            provedor_ia=provedor_ia,
+            usar_ia=usar_ia,
+            ia_erro=ia_erro,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
+            aviso_sucesso=(
+                f"{nome_disciplina}: metodologia, acompanhamento da aprendizagem e "
+                "acessibilidade foram copiados exatamente do arquivo .docx de referencia da pasta."
+            ),
+        )
+    return _montar_resultado_sem_referencia_docx(
+        texto=texto,
+        tema=tema,
+        material_digital=material_digital,
+        numero_aula=numero_aula,
+        disciplina_base=disciplina_base,
+        perfil=perfil,
+        aprendizagem=aprendizagem,
+        origem_sem_referencia=_origem_sem_referencia_docx(dependencias, perfil),
+        provedor_ia=provedor_ia,
+        usar_ia=usar_ia,
+        ia_erro=ia_erro,
+        indice_aula=indice_aula,
+        total_aulas=total_aulas,
+        dependencias=dependencias,
+        aviso_ausencia=(
+            f"{nome_disciplina}: nao encontrei o arquivo .docx de referencia na pasta do PDF. "
+            "Sem essa referencia, a disciplina nao gera metodologia interna."
+        ),
+    )
+
+
 def montar_resultado_aula_ia(
     *,
     texto: str,
@@ -230,6 +415,24 @@ def montar_resultado_aula_ia(
             perfil=perfil,
             objetivos_secao=objetivos_secao,
             conteudos_secao=conteudos_secao,
+        )
+
+    if _perfil_referencia_docx_estrita(dependencias, perfil):
+        return _resultado_referencia_docx_estrita(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=referencia_docx,
+            provedor_ia=provedor_ia,
+            usar_ia=bool(provedor_ia),
+            ia_erro="",
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
@@ -555,6 +758,24 @@ def montar_resultado_aula_local(
         aprendizagem = (
             f"Desenvolver estrategias de leitura, interpretacao e registro em {tema}, "
             "com foco em autonomia de estudo e resolucao orientada das atividades."
+        )
+
+    if _perfil_referencia_docx_estrita(dependencias, perfil):
+        return _resultado_referencia_docx_estrita(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=referencia_docx,
+            provedor_ia=provedor_ia,
+            usar_ia=usar_ia,
+            ia_erro=ia_erro,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(

@@ -20,7 +20,10 @@ from core.constantes import (
 )
 from core.disciplinas import eh_cdp, eh_cdp_contextual, TURMAS_CDP_MULTISSERIADA
 from core.database import obter_professores_db
-from core.professores_planos import diagnosticar_modelos_professores
+from core.professores_planos import (
+    carregar_professores_dos_planos,
+    diagnosticar_modelos_professores,
+)
 
 # ==========================================
 # CONSTANTES DE INTERFACE COMPARTILHADAS
@@ -176,7 +179,7 @@ def _ler_bytes_arquivo_cache(caminho: str) -> bytes | None:
 
 @st.cache_data(show_spinner=False, ttl=300)
 def _carregar_professores_dos_planos_cache():
-    return {}
+    return carregar_professores_dos_planos()
 
 @st.cache_data(show_spinner=False, ttl=120)
 def _diagnosticar_modelos_professores_cache():

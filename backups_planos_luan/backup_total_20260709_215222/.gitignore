@@ -1,0 +1,27 @@
+.venv/
+.venv_PLANOS_LUAN/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+google-cloud-sdk/
+*.db
+*.log
+scratch/
+.cache/
+.cache_test/
+outputs/
+Planos feitos/
+PLANOS_FEITOS/
+DOCX_AUXILIARES_EXTRACAO/
+CADASTRO_ANTIGO_PROFESSORES.xlsx
+PLANILHACDP.xlsx
+cadastro_base64.txt
+cdp-habilidades.xlsx
+curl/
+scratch_doc_output.txt
+planos_luan_app_backup.py
+install_mode
+chaves.txt
