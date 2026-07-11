@@ -76,7 +76,7 @@ class EtapaMetodologia(ModeloIABase):
         description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
     )
     texto: str = Field(
-        description="Texto descritivo da ação do professor. DEVE TER ENTRE 150 E 200 PALAVRAS no máximo (cerca de 1200 caracteres). JAMAIS escreva textos exaustivos ou longos. Seja objetivo e conciso.",
+        description="Texto descritivo da ação do professor. DEVE TER ENTRE 150 E 200 PALAVRAS no máximo (cerca de 1200 caracteres). JAMAIS escreva textos exaustivos ou longos. Seja objetivo e c[...]
     )
 
 
@@ -196,13 +196,30 @@ class PlanoCompleto(ModeloPlanoBase):
     ) -> dict[str, Any]:
         dados = self.to_dict()
         caminho_pdf = Path(caminho_pdf)
+
+        # Garantir que o campo 'metodologia' no sidecar é uma lista consistente de dicionários
+        metodologia_raw = dados.get("metodologia") or []
+        metodologia_serializada: list[dict[str, str]] = []
+        for item in metodologia_raw:
+            if isinstance(item, dict):
+                titulo = str(item.get("titulo") or "").strip()
+                texto = str(item.get("texto") or "").strip()
+            else:
+                # Pode ser string ou outro tipo; converte para texto
+                titulo = "Ação do Professor"
+                texto = str(item or "").strip()
+            # manter itens vazios fora do sidecar
+            if not titulo and not texto:
+                continue
+            metodologia_serializada.append({"titulo": titulo, "texto": texto})
+
         return {
             "disciplina": dados.get("disciplina") or "",
             "tema": dados.get("tema") or "",
             "material": dados.get("material") or caminho_pdf.name,
             "numero_aula": dados.get("numero_aula") or "",
             "aprendizagem": dados.get("aprendizagem") or "",
-            "metodologia": dados.get("metodologia") or [],
+            "metodologia": metodologia_serializada,
             "acompanhamento": dados.get("acompanhamento") or [],
             "acessibilidade": dados.get("acessibilidade") or [],
             "ia_usada": bool(dados.get("ia_usada", False)),
