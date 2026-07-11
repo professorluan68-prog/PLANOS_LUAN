@@ -3428,6 +3428,8 @@ if st.session_state.get("turmas_processadas"):
                         termos_ausentes_html = " ".join([f'<span style="background-color: #ffe6e6; color: #cc0000; padding: 2px 6px; border: 1px solid #ffcccc; border-radius: 4px; margin-right: 6px; font-family: monospace; font-size: 0.9em; display: inline-block; margin-bottom: 4px;">{palavra}</span>' for palavra in palavras_ausentes_atuais])
                         st.markdown(termos_ausentes_html, unsafe_allow_html=True)
                         st.caption("Dica: Edite os campos de Metodologia, Acompanhamento ou Acessibilidade abaixo e reinsira estes termos. O validador será atualizado instantaneamente.")
+                else:
+                    st.info("ℹ️ **Validação de Palavras-Chave**: Desativada no momento.")
 
                 col1, col2 = st.columns(2)
                 with col1:

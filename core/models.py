@@ -104,7 +104,7 @@ class PlanoCompleto(ModeloPlanoBase):
     material: str = ""
     numero_aula: str = ""
     aprendizagem: str = ""
-    metodologia: list[EtapaMetodologia | str] = Field(default_factory=list)
+    metodologia: list[EtapaMetodologia] = Field(default_factory=list)
     acompanhamento: list[str] = Field(default_factory=list)
     acessibilidade: list[str] = Field(default_factory=list)
     conteudo: str = ""
@@ -135,7 +135,7 @@ class PlanoCompleto(ModeloPlanoBase):
     diagnostico_geracao: dict[str, Any] = Field(default_factory=dict)
     palavras_chave_esperadas: list[str] = Field(default_factory=list)
     caminho_docx_auxiliar: str | None = None
-    valido_palavras_chave: bool = True
+    valido_palavras_chave: bool | None = None
     cobertura_palavras_chave: float = 100.0
     palavras_chave_encontradas: list[str] = Field(default_factory=list)
     palavras_chave_ausentes: list[str] = Field(default_factory=list)
@@ -164,7 +164,7 @@ class PlanoCompleto(ModeloPlanoBase):
                 if isinstance(item, str):
                     texto = item.strip()
                     if texto:
-                        metodologia_limpa.append(texto)
+                        metodologia_limpa.append({"titulo": "Ação do Professor", "texto": texto})
                 elif hasattr(item, "model_dump"):
                     metodologia_limpa.append(item.model_dump())
                 elif hasattr(item, "dict"):

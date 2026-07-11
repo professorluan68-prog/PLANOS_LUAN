@@ -11,8 +11,8 @@ BASE_DIR = Path(__file__).resolve().parent
 # 2. Caminhos de trabalho externos (com fallback se D: não existir)
 _D_DRIVE_EXISTS = Path(r"D:\\").exists()
 
-PASTA_PRINCIPAL_TRABALHO = Path(r"D:\PLANOS DE JUNHO") if _D_DRIVE_EXISTS else BASE_DIR / "planos_de_junho"
-PASTA_BACKUP = Path(r"D:\BACKUPS_PLANOS_LUAN") if _D_DRIVE_EXISTS else BASE_DIR / "backups_planos_luan"
+PASTA_PRINCIPAL_TRABALHO = Path(os.getenv("PLANOS_TRABALHO_DIR", r"D:\PLANOS DE JUNHO" if _D_DRIVE_EXISTS else str(BASE_DIR / "planos_de_junho")))
+PASTA_BACKUP = Path(os.getenv("PLANOS_BACKUP_DIR", r"D:\BACKUPS_PLANOS_LUAN" if _D_DRIVE_EXISTS else str(BASE_DIR / "backups_planos_luan")))
 
 # 3. Compatibilidade com o sistema existente
 PASTA_PLANOS_PROFESSORES = Path(

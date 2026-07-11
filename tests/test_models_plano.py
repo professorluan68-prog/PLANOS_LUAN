@@ -20,7 +20,7 @@ def test_plano_completo_normaliza_metodologia_e_sidecar():
 
     dados = plano.to_dict()
     assert dados["metodologia"][0]["titulo"] == "Para começar"
-    assert dados["metodologia"][1] == "Síntese final livre"
+    assert dados["metodologia"][1]["texto"] == "Síntese final livre"
 
     sidecar = plano.to_sidecar_dict(
         "D:/PDF novos/HISTORIA/AULA_1.pdf",

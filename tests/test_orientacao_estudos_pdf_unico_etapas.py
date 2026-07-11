@@ -118,6 +118,7 @@ def test_aula_por_pdf_orientacao_usa_etapa_por_indice(monkeypatch):
     texto_1 = " ".join(item.get("texto", "") for item in aula_1["metodologia"] if isinstance(item, dict)).lower()
     texto_2 = " ".join(item.get("texto", "") for item in aula_2["metodologia"] if isinstance(item, dict)).lower()
 
+    print("DEBUG METODOLOGIA:", aula_1["metodologia"])
     assert "cordel" in texto_1
     assert texto_1 != texto_2
 

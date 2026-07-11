@@ -142,7 +142,9 @@ def _avaliar_qualidade_docx_texto(texto: str, paragraphs: list[str]) -> bool:
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS, permitir_fallback_teste: bool = None) -> str:
     """Extrai texto de um PDF usando pdf2docx estruturado com fallback para pdfplumber e OCR."""
     try:
-        texto_docx, paragrafos = _extrair_texto_via_pdf2docx(caminho_pdf, limite_chars)
+        # Pula pdf2docx (lento) a pedido do usuário
+        raise Exception("pdf2docx desativado")
+        # texto_docx, paragrafos = _extrair_texto_via_pdf2docx(caminho_pdf, limite_chars)
         if _avaliar_qualidade_docx_texto(texto_docx, paragrafos):
             logger.info("Extração via pdf2docx bem-sucedida e com boa qualidade para: %s", caminho_pdf)
             return texto_docx

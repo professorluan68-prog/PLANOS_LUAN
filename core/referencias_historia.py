@@ -140,6 +140,11 @@ def _carregar_referencias_historia_docx(
             _finalizar_aula(aula_atual, aulas)
             grade_parsed = match_aula.group(1)
             grade_val = int(grade_parsed) if grade_parsed else default_grade
+            if not grade_val:
+                import logging
+                logging.getLogger(__name__).warning("Aula '%s' ignorada pois nao foi possivel determinar a serie.", match_aula.group(3))
+                aula_atual = None
+                continue
             aula_atual = {
                 "grade": grade_val,
                 "numero": int(match_aula.group(2)),
