@@ -112,16 +112,36 @@ def _carregar_referencias_historia_docx(
     secao = ""
 
     padrao_header = re.compile(
-        r"^(\d{1,2})(?:º|o|a)?\s*(?:ANO|S[EÉ]RIE(?:\s*\(EM\))?)\s*[-–—]\s*AULA\s*(\d{1,2})\s*[-–—]\s*(.+)$",
+        r"^(?:(\d{1,2})(?:º|o|a)?\s*(?:ANO|S[EÉ]RIE(?:\s*\(EM\))?)\s*[-–—]\s*)?AULA\s*(\d{1,2})\s*[-–—]\s*(.+)$",
         re.I,
     )
+
+    # Extract default grade from path
+    default_grade = 0
+    from pathlib import Path
+    caminho = Path(caminho_docx)
+    for part in [caminho.parent.name, caminho.name]:
+        part_clean = part.replace("_", " ").replace("-", " ")
+        match_grade = re.search(r"(\d)\s*(?:º|o|a)?\s*ano", part_clean, re.I)
+        if match_grade:
+            default_grade = int(match_grade.group(1))
+            break
+    if not default_grade:
+        for parent in caminho.parents:
+            parent_clean = parent.name.replace("_", " ").replace("-", " ")
+            match_grade = re.search(r"(\d)\s*(?:º|o|a)?\s*ano", parent_clean, re.I)
+            if match_grade:
+                default_grade = int(match_grade.group(1))
+                break
 
     for texto in paragrafos:
         match_aula = padrao_header.match(texto)
         if match_aula:
             _finalizar_aula(aula_atual, aulas)
+            grade_parsed = match_aula.group(1)
+            grade_val = int(grade_parsed) if grade_parsed else default_grade
             aula_atual = {
-                "grade": int(match_aula.group(1)),
+                "grade": grade_val,
                 "numero": int(match_aula.group(2)),
                 "titulo": _normalizar_espacos(match_aula.group(3)),
                 "metodologia": [],
@@ -151,7 +171,6 @@ def _carregar_referencias_historia_docx(
                 aula_atual["metodologia"].append(
                     {
                         "titulo": _normalizar_espacos(match_etapa.group(1)),
-                        "text": _normalizar_espacos(match_etapa.group(2)),
                         "texto": _normalizar_espacos(match_etapa.group(2)),
                     }
                 )
@@ -160,7 +179,6 @@ def _carregar_referencias_historia_docx(
                     f"{aula_atual['metodologia'][-1]['texto']} {texto}"
                 )
                 aula_atual["metodologia"][-1]["texto"] = aux
-                aula_atual["metodologia"][-1]["text"] = aux
         elif secao in {"acompanhamento", "acessibilidade"}:
             aula_atual[secao].extend(_itens_com_check(texto))
 

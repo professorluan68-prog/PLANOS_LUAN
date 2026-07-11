@@ -343,42 +343,8 @@ def preparar_contexto_aula_pdf(
     ancoras_pdf: list[str] = []
     caminho_docx_aux = None
     extracao_palavras_chave_ok = True
-    if caminho_pdf:
-        try:
-            from pathlib import Path
-            from core.extracao_palavras_chave_pdf import (
-                converter_pdf_para_docx_auxiliar,
-                extrair_palavras_chave_docx,
-                processar_pdf_palavras_chave,
-            )
-            caminho_p = Path(caminho_pdf)
-            if caminho_p.suffix.lower() == ".pdf":
-                from config import BASE_DIR
-                pasta_docx_aux = BASE_DIR / "DOCX_AUXILIARES_EXTRACAO"
-                caminho_docx_aux = converter_pdf_para_docx_auxiliar(caminho_pdf, pasta_docx_aux)
-                if caminho_docx_aux and caminho_docx_aux.exists():
-                    palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_docx_aux)
-                # Gerar esboço estrutural página-a-página para guiar a IA
-                try:
-                    aula_extraida = processar_pdf_palavras_chave(caminho_pdf)
-                    esboco_pdf = aula_extraida.esboco
-                    ancoras_pdf = aula_extraida.ancoras
-                except Exception as exc_esboco:
-                    dependencias.logger.warning(
-                        "Falha ao gerar esboço estrutural para %s: %s",
-                        caminho_pdf,
-                        exc_esboco,
-                    )
-            elif caminho_p.suffix.lower() == ".docx":
-                palavras_chave_esperadas = extrair_palavras_chave_docx(caminho_pdf)
-                caminho_docx_aux = caminho_p
-        except Exception as exc:
-            extracao_palavras_chave_ok = False
-            dependencias.logger.warning(
-                "Falha na conversão/extração de palavras-chave DOCX para %s: %s",
-                caminho_pdf,
-                exc
-            )
+    # Extração de palavras-chave desativada a pedido do usuário
+    pass
 
     return {
         "texto": texto,
