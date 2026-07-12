@@ -76,7 +76,7 @@ class EtapaMetodologia(ModeloIABase):
         description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
     )
     texto: str = Field(
-        description="Texto descritivo da ação do professor. DEVE TER ENTRE 150 E 200 PALAVRAS no máximo (cerca de 1200 caracteres). JAMAIS escreva textos exaustivos ou longos. Seja objetivo e c[...]
+        description="Texto descritivo da ação do professor. DEVE TER ENTRE 150 E 200 PALAVRAS no máximo (cerca de 1200 caracteres). JAMAIS escreva textos exaustivos ou longos. Seja objetivo e claro."
     )
 
 
