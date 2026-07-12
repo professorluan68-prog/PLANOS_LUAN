@@ -43,7 +43,7 @@ def _renderizar_historico(professores_db):
                     c1.markdown(f"**{plano['disciplina']}**")
                     import re
                     turma_display = plano['turma'].replace("O ANO", "\u00ba ANO").replace("o ANO", "\u00ba ANO")
-                    turma_display = re.sub(r'(\d+)\s+ANO', r'\1\u00ba ANO', turma_display)
+                    turma_display = re.sub(r'(\d+)\s+ANO', r'\1' + '\u00ba ANO', turma_display)
                     c2.markdown(f"**Turma:** {turma_display}")
 
                     data_formatada = plano["data_geracao"][:10]
