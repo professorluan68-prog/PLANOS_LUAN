@@ -251,19 +251,24 @@ def _renderizar_metricas_cadastro(cadastros: list[dict], diagnostico: dict) -> N
 def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
     professores = ["Todos"] + sorted({cad.get("professor", "") for cad in cadastros if cad.get("professor")})
     disciplinas = ["Todas"] + sorted({cad.get("disciplina", "") for cad in cadastros if cad.get("disciplina")})
+    turmas = ["Todas"] + sorted({cad.get("turma", "") for cad in cadastros if cad.get("turma")})
     origens = ["Todas"] + sorted({cad.get("origem", "") for cad in cadastros if cad.get("origem")})
     if st.session_state.get("cadastro_filtro_professor") not in professores:
         st.session_state["cadastro_filtro_professor"] = "Todos"
     if st.session_state.get("cadastro_filtro_disciplina") not in disciplinas:
         st.session_state["cadastro_filtro_disciplina"] = "Todas"
+    if st.session_state.get("cadastro_filtro_turma") not in turmas:
+        st.session_state["cadastro_filtro_turma"] = "Todas"
     if st.session_state.get("cadastro_filtro_origem") not in origens:
         st.session_state["cadastro_filtro_origem"] = "Todas"
 
-    col_prof, col_disc, col_origem, col_sem = st.columns([2, 2, 1.5, 1])
+    col_prof, col_disc, col_turma, col_origem, col_sem = st.columns([2, 1.5, 1.5, 1.5, 1])
     with col_prof:
         filtro_prof = st.selectbox("Professor", professores, key="cadastro_filtro_professor")
     with col_disc:
         filtro_disc = st.selectbox("Disciplina", disciplinas, key="cadastro_filtro_disciplina")
+    with col_turma:
+        filtro_turma = st.selectbox("Turma", turmas, key="cadastro_filtro_turma")
     with col_origem:
         filtro_origem = st.selectbox("Origem", origens, key="cadastro_filtro_origem")
     with col_sem:
@@ -277,6 +282,8 @@ def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
         if filtro_prof != "Todos" and cadastro.get("professor") != filtro_prof:
             continue
         if filtro_disc != "Todas" and cadastro.get("disciplina") != filtro_disc:
+            continue
+        if filtro_turma != "Todas" and cadastro.get("turma") != filtro_turma:
             continue
         if filtro_origem != "Todas" and cadastro.get("origem") != filtro_origem:
             continue
