@@ -2763,6 +2763,8 @@ def _aula_por_pdf(
     try:
         from core.domain.models import GerarPlanoCommand
         from core.extraction.context_builder import DefaultContextBuilder
+        from core.generation.local import LocalPlanGenerator
+        from core.application.gerar_plano import GerarPlanoService
         from pathlib import Path
         
         cmd = GerarPlanoCommand(
@@ -2774,9 +2776,14 @@ def _aula_por_pdf(
             modalidade_eja=modalidade_eja,
             permitir_ia=usar_ia
         )
-        if caminho_pdf:
-            ctx = DefaultContextBuilder().build(cmd)
-            logger.info(f"[StranglerFig] Contexto extraído: {ctx.perfil} | Tema: {ctx.tema}")
+        if caminho_pdf and not usar_ia:
+            # Por enquanto, rodando Strangler Fig apenas para fallback local para evitar duplo-faturamento na API da IA
+            servico = GerarPlanoService(
+                context_builder=DefaultContextBuilder(),
+                generator=LocalPlanGenerator()
+            )
+            plano_strangler = servico.execute(cmd)
+            logger.info(f"[StranglerFig] Geração paralela obteve plano para: {plano_strangler.get('tema', 'Sem tema')}")
     except Exception as e:
         logger.warning(f"[StranglerFig] Falha silenciosa no novo pipeline: {e}")
     # --- Fim Strangler Fig ---
