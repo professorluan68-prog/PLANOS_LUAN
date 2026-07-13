@@ -26,6 +26,7 @@ from core.constantes import MESES, HORARIOS_AULA
 from ui.shared import (
     _mes_numero_app,
     _datas_horarios_do_mes,
+    _rotulo_horario,
     nome_arquivo_plano,
 )
 from core.helpers import LocalFileWrapper, ordenar_pdfs_por_numero
@@ -288,7 +289,7 @@ def _renderizar_geracao_lote(
                         pdf_file = local_pdfs[0] if reutilizar_pdf_unico else local_pdfs[j]
                         aulas_envio_lote.append({
                             "data": item_dh["data"],
-                            "horario": item_dh["horario"],
+                            "horario": _rotulo_horario(item_dh["horario"]),
                             "pdf": pdf_file,
                             "dividir_pdf": False
                         })

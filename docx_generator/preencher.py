@@ -208,6 +208,9 @@ def _remover_alturas_fixas(tabela) -> None:
 
 
 def _normalizar_layout_tabela_aulas(tabela) -> None:
+    _encurtar_cabecalho_data_horario(tabela)
+    if tabela._tbl.tblGrid is not None and len(tabela._tbl.tblGrid.xpath("w:gridCol")) > 6:
+        return
     tabela.autofit = False
     tbl_pr = tabela._tbl.tblPr
     tbl_w = _elemento_filho(tbl_pr, "w:tblW")
@@ -233,7 +236,6 @@ def _normalizar_layout_tabela_aulas(tabela) -> None:
         for indice, celula in enumerate(celulas[: len(_LARGURAS_TABELA_AULAS)]):
             _definir_largura_celula(celula, _LARGURAS_TABELA_AULAS[indice])
             _definir_margens_celula(celula)
-    _encurtar_cabecalho_data_horario(tabela)
 
 
 def _encurtar_cabecalho_data_horario(tabela) -> None:

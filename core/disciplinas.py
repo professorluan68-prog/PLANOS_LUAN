@@ -30,6 +30,7 @@ _DISCIPLINAS = [
     "Arte e Mídias Digitais",
     "Biologia",
     "Aprofundamento em Biologia",
+    "Biologia-EJA",
     "Ciências",
     "Educação Financeira",
     "Educação Física",

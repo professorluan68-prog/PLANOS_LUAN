@@ -45,6 +45,18 @@ _PADROES_INFINITIVO_METODOLOGIA = [
     (r"\bPromova\b", "Promover"),
     (r"\bObserve\b", "Observar"),
     (r"\bRegistre\b", "Registrar"),
+    (r"\bProjete\b", "Projetar"),
+    (r"\bPeça\b", "Pedir"),
+    (r"\bFaça\b", "Fazer"),
+    (r"\bDivida\b", "Dividir"),
+    (r"\bSugira\b", "Sugerir"),
+    (r"\bDistribua\b", "Distribuir"),
+    (r"\bMostre\b", "Mostrar"),
+    (r"\bDiga\b", "Dizer"),
+    (r"\bLeia\b", "Ler"),
+    (r"\bEscreva\b", "Escrever"),
+    (r"\bPeçam\b", "Pedir"),
+    (r"\bEnfatize\b", "Enfatizar"),
 ]
 
 

@@ -35,42 +35,44 @@ def _renderizar_historico(professores_db):
         if not resultados:
             st.info("Nenhum plano encontrado para este professor no periodo selecionado.")
         else:
-            st.success(f"Foram encontrados {len(resultados)} planos.")
-
+            planos_com_arquivo = []
             for plano in resultados:
-                with st.container():
-                    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-                    c1.markdown(f"**{plano['disciplina']}**")
-                    import re
-                    turma_display = plano['turma'].replace("O ANO", "\u00ba ANO").replace("o ANO", "\u00ba ANO")
-                    turma_display = re.sub(r'(\d+)\s+ANO', r'\1' + '\u00ba ANO', turma_display)
-                    c2.markdown(f"**Turma:** {turma_display}")
+                nome_arq, bytes_arq = obter_arquivo_historico(plano["id"])
+                if bytes_arq:
+                    plano["_nome_arq"] = nome_arq
+                    plano["_bytes_arq"] = bytes_arq
+                    planos_com_arquivo.append(plano)
+            
+            if not planos_com_arquivo:
+                st.info("Nenhum plano disponivel encontrado para este professor no periodo selecionado.")
+            else:
+                st.success(f"Foram encontrados {len(planos_com_arquivo)} planos.")
 
-                    data_formatada = plano["data_geracao"][:10]
-                    if len(data_formatada) == 10:
-                        ano, mes, dia = data_formatada.split("-")
-                        data_formatada = f"{dia}/{mes}/{ano}"
+                for plano in planos_com_arquivo:
+                    with st.container():
+                        c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+                        c1.markdown(f"**{plano['disciplina']}**")
+                        import re
+                        turma_display = plano['turma'].replace("O ANO", "\u00ba ANO").replace("o ANO", "\u00ba ANO")
+                        turma_display = re.sub(r'(\d+)\s+ANO', r'\1' + '\u00ba ANO', turma_display)
+                        c2.markdown(f"**Turma:** {turma_display}")
 
-                    c3.markdown(f"**Data:** {data_formatada}")
+                        data_formatada = plano["data_geracao"][:10]
+                        if len(data_formatada) == 10:
+                            ano, mes, dia = data_formatada.split("-")
+                            data_formatada = f"{dia}/{mes}/{ano}"
 
-                    with c4:
-                        nome_arq, bytes_arq = obter_arquivo_historico(plano["id"])
-                        if bytes_arq:
+                        c3.markdown(f"**Data:** {data_formatada}")
+
+                        with c4:
                             st.download_button(
                                 label="Baixar Plano",
-                                data=bytes_arq,
-                                file_name=nome_arq or f"plano_{plano['id']}.docx",
+                                data=plano["_bytes_arq"],
+                                file_name=plano["_nome_arq"] or f"plano_{plano['id']}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 key=f"dl_historico_{plano['id']}",
                                 use_container_width=True,
                             )
-                        else:
-                            st.button(
-                                "Indisponivel",
-                                disabled=True,
-                                key=f"dl_historico_nd_{plano['id']}",
-                                use_container_width=True,
-                            )
-                    st.divider()
+                        st.divider()
     else:
         st.info("Selecione um professor acima para carregar o historico de planos.")
