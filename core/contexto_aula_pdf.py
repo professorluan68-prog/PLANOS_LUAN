@@ -137,17 +137,17 @@ def _ajustar_contexto_por_perfil(
     escopo_pv: dict,
     dependencias: DependenciasContextoAulaPDF,
 ) -> tuple[str, str, str, list[str], str]:
-    if perfil == "ingles":
-        referencia_docx_ingles = dependencias.referencia_docx_por_perfil_fn(
+    if perfil in {"ingles", "lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
+        referencia_docx_perfil = dependencias.referencia_docx_por_perfil_fn(
             caminho_pdf,
             numero_aula,
             tema,
             perfil,
         )
-        titulo_referencia = str((referencia_docx_ingles or {}).get("titulo") or "").strip()
+        titulo_referencia = str((referencia_docx_perfil or {}).get("titulo") or "").strip()
         if titulo_referencia:
-            if not numero_aula and (referencia_docx_ingles or {}).get("numero"):
-                numero_aula = str(referencia_docx_ingles.get("numero"))
+            if not numero_aula and (referencia_docx_perfil or {}).get("numero"):
+                numero_aula = str(referencia_docx_perfil.get("numero"))
             tema = titulo_referencia
             material_digital = dependencias.material_aula_com_titulo_fn(numero_aula, tema)
 

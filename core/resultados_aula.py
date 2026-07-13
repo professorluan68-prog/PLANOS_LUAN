@@ -71,11 +71,14 @@ def _extrair_base_pedagogica(
     )
     habilidade = extracao.get("habilidade", "")
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
-        habilidade = dependencias.resolver_habilidade_portugues_fn(
-            habilidade,
-            caminho_pdf,
-            numero_aula,
-        )
+        if habilidade_referencia:
+            habilidade = habilidade_referencia
+        else:
+            habilidade = dependencias.resolver_habilidade_portugues_fn(
+                habilidade,
+                caminho_pdf,
+                numero_aula,
+            )
     return {
         "referencia_docx": referencia_docx,
         "habilidade_referencia": habilidade_referencia,
