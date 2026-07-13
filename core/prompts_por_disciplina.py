@@ -102,6 +102,16 @@ PROMPTS_SISTEMA = {
         "CRITICAL STYLE RULES: Escreva de forma extremamente direta e fluida, sem cliches de introducao roboticos (como "
         "'Dar inicio a aula...', 'Dar continuidade ao estudo...', 'Registrar de forma coletiva...', 'Retomar a aula anterior perguntando...'). "
         "Va direto para a acao pedagogica. Evite redundancias corporativas de professor (como 'confrontar as respostas com registros anteriores', 'pedir que os estudantes registrem no livro, acompanhando os registros e duvidas...')."
+    ),
+    "educacao financeira": (
+        "Voce e especialista em planejamento de aulas de Educacao Financeira. "
+        "Gere metodologias focadas em letramento financeiro, comparacoes de custos, escolhas de consumo e organizacao do orcamento. "
+        "Mantenha total fidelidade ao material do PDF, sem inventar situacoes ou numeros. "
+        "O tema gerado para a aula deve ser EXTREMAMENTE ESPECIFICO ao conteudo exato do PDF, evitando nomes genericos. "
+        "Se for um tema longo, diferencie incluindo o subtema (ex: 'Orcamento Domestico - Reserva de Emergencia'). NUNCA repita o mesmo tema de forma generica. "
+        "CRITICAL RULES PARA VALIDADOR: "
+        "1. Para a Acessibilidade, voce DEVE, OBRIGATORIAMENTE, incluir apoios concretos em cada item. Use palavras exatas como: 'calculadora', 'quadro', 'tabela', 'roteiro', 'planilha', ou 'resposta oral'. "
+        "2. Para o Acompanhamento da Aprendizagem, voce DEVE, OBRIGATORIAMENTE, usar verbos observaveis no inicio dos itens. Use as palavras exatas: 'observar', 'analisar', 'calcular', 'classificar', 'comparar', 'conferir', 'descrever', 'explicar', 'identificar', 'justificar', 'organizar', 'registrar', 'resolver' ou 'verificar'."
     )
 }
 
@@ -175,6 +185,11 @@ ORIENTACOES_DISCIPLINA = {
     "lingua portuguesa medio": (
         "Para Lingua Portuguesa do Ensino Medio, parta sempre de elementos literarios e linguisticos reais: leitura orientada de fragmentos de romances/poemas do PDF (como Vavó Tutúri ou Mayombe), analise de recursos expressivos (como a paragrafação e o tópico frasal) e debates argumentativos. "
         "PROIBIDO usar frases como 'Dar inicio a aula', 'Dar continuidade ao estudo', 'Retomar a aula anterior' ou 'confrontar respostas com registros anteriores'. Escreva as acoes de forma direta."
+    ),
+    "educacao financeira": (
+        "Para Educacao Financeira, parta de situacoes reais de consumo, tabelas de preco, planilhas e analise de riscos do material. "
+        "O TEMA DA AULA DEVE SER UNICO E ESPECIFICO (use 'Subtema - Topico' para evitar repeticao). "
+        "ATENCAO RIGOROSA AO VALIDADOR: Se voce nao usar as palavras exatas dos apoios concretos (como 'quadro', 'calculadora', 'tabela', 'roteiro') na Acessibilidade e os verbos observaveis (como 'observar', 'verificar', 'calcular') no Acompanhamento, o plano sera REJEITADO. Siga estritamente essas restricoes lexicais."
     )
 }
 

@@ -1645,6 +1645,12 @@ def _contextualizar_itens_historia(itens: list[str], tema: str, tipo: str) -> li
 
 def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
     base = normalizar_texto_lote(tema)
+    if perfil == "educacao_financeira":
+        return [
+            f"☑ Verificar se os estudantes compreendem os conceitos financeiros relacionados a {tema}.",
+            "☑ Analisar a participação e a coerência dos registros durante as atividades propostas.",
+            "☑ Calcular ou comparar os resultados esperados com base no material da aula.",
+        ]
     if perfil == "historia":
         return [
             f"☑ Verificar se os estudantes relacionam {tema} aos sujeitos, conflitos, instituições ou transformações históricas discutidas na aula.",
@@ -1696,6 +1702,12 @@ def _fallback_acompanhamento_tema(tema: str, perfil: str) -> list[str]:
 
 def _fallback_acessibilidade_tema(tema: str, perfil: str) -> list[str]:
     base = normalizar_texto_lote(tema)
+    if perfil == "educacao_financeira":
+        return [
+            "☑ Disponibilizar roteiro passo a passo ou tabela para apoiar a organização dos dados.",
+            "☑ Permitir o uso de calculadora e de quadro comparativo para facilitar a resolução.",
+            "☑ Aceitar resposta oral mediada ou registro em planilha simplificada, conforme a necessidade.",
+        ]
     if perfil == "historia":
         return [
             f"☑ Realizar leitura guiada do material sobre {tema}, destacando palavras-chave no quadro antes do registro.",

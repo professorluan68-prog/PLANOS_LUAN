@@ -92,37 +92,7 @@ def _contem_termo(texto: str, termos: tuple[str, ...]) -> bool:
 
 
 def validar_requisitos_educacao_financeira(aula: dict) -> list[str]:
-    """Retorna problemas que devem impedir a geração do Word em Educação Financeira."""
-    disciplina = _normalizar(aula.get("disciplina", ""))
-    if "educacao financeira" not in disciplina:
-        return []
-
-    problemas: list[str] = []
-    acompanhamento = _itens(aula.get("acompanhamento"))
-    acessibilidade = _itens(aula.get("acessibilidade"))
-
-    if len(acompanhamento) != 3:
-        problemas.append("Acompanhamento deve ter exatamente 3 itens.")
-    else:
-        for indice, item in enumerate(acompanhamento, start=1):
-            if not item.startswith("☑"):
-                problemas.append(f"Acompanhamento: item {indice} deve iniciar com ☑.")
-            if not _contem_termo(item, _VERBOS_OBSERVAVEIS):
-                problemas.append(
-                    f"Acompanhamento: item {indice} precisa conter verbo observável "
-                    "(ex.: observar, verificar, conferir ou identificar)."
-                )
-
-    if len(acessibilidade) != 3:
-        problemas.append("Acessibilidade deve ter exatamente 3 itens.")
-    else:
-        for indice, item in enumerate(acessibilidade, start=1):
-            if not item.startswith("☑"):
-                problemas.append(f"Acessibilidade: item {indice} deve iniciar com ☑.")
-            if not _contem_termo(item, _APOIOS_CONCRETOS):
-                problemas.append(
-                    f"Acessibilidade: item {indice} precisa indicar apoio concreto "
-                    "(ex.: quadro, tabela, roteiro, planilha, calculadora ou resposta oral)."
-                )
-
-    return problemas
+    """Retorna problemas que devem impedir a geração do Word em Educação Financeira.
+    (Desativado a pedido do usuário para evitar bloqueios).
+    """
+    return []
