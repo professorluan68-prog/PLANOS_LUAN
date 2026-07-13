@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 try:
     from pydantic import ConfigDict
@@ -71,6 +71,9 @@ class ModeloIABase(BaseModel):
         return _normalizar_valor(_model_dump(self))
 
 
+TresItens = Annotated[list[str], Field(min_length=3, max_length=3)]
+
+
 class EtapaMetodologia(ModeloIABase):
     titulo: str = Field(
         description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
@@ -80,22 +83,44 @@ class EtapaMetodologia(ModeloIABase):
     )
 
 
+class EtapaMetodologiaIA(ModeloIABase):
+    titulo: str = Field(
+        min_length=2, max_length=80,
+        description="Titulo da etapa, como Relembre, Foco no conteudo, Na pratica ou Encerramento.",
+    )
+    texto: str = Field(
+        min_length=40, max_length=600,
+        description="Texto descritivo da ação do professor. DEVE TER ENTRE 150 E 200 PALAVRAS no máximo (cerca de 1200 caracteres). JAMAIS escreva textos exaustivos ou longos. Seja objetivo e claro."
+    )
+
+
 class PlanoAulaIA(ModeloIABase):
     tema: str = Field(
+        min_length=5, max_length=180,
         description="Conceito central da aula, sem rotulos administrativos como AULA 1 ou bimestre.",
     )
     aprendizagem: str = Field(
+        min_length=20, max_length=1500,
         description="Aprendizagem essencial e/ou codigo da BNCC encontrado no slide.",
     )
-    metodologia: list[EtapaMetodologia] = Field(
+    metodologia: list[EtapaMetodologiaIA] = Field(
+        min_length=1, max_length=10,
         description="Etapas de desenvolvimento da aula.",
     )
-    acompanhamento: list[str] = Field(
+    acompanhamento: TresItens = Field(
         description="Lista com exatamente 3 itens curtos de acompanhamento da aprendizagem, focados na aula.",
     )
-    acessibilidade: list[str] = Field(
+    acessibilidade: TresItens = Field(
         description="Lista com exatamente 3 itens curtos de acessibilidade/adaptacoes para necessidades especiais, focados na aula.",
     )
+
+    @field_validator("acompanhamento", "acessibilidade")
+    @classmethod
+    def itens_nao_vazios(cls, itens):
+        if any(not item.strip() for item in itens):
+            raise ValueError("Os itens não podem estar vazios")
+        return [item.strip() for item in itens]
+
 
 
 class PlanoCompleto(ModeloPlanoBase):
