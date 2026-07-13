@@ -2975,7 +2975,8 @@ def _aula_por_pdf(
                         bimestre=bimestre,
                     )
                 except Exception as e:
-                    raise RuntimeError(f"Falha na IA ({provedor_ia}): {str(e)[:250]}. Operação cancelada.")
+                    ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:250]}"
+                    logger.warning(ia_erro + " Usando fallback heurístico local.")
             
             if resultado_candidato is None:
                 resultado_candidato = dict(rascunho_local)

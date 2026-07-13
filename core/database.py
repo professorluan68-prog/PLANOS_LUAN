@@ -329,11 +329,12 @@ def _aplicar_migracoes(cursor):
     for i, sql in enumerate(MIGRACOES[versao_atual:], start=versao_atual + 1):
         try:
             cursor.execute(sql)
-        except Exception:
-            pass  # Coluna já existe — seguro ignorar em ALTER TABLE ADD COLUMN
-        cursor.execute(
-            "INSERT OR IGNORE INTO schema_version VALUES (?)", (i,)
-        )
+            cursor.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (i,))
+        except Exception as e:
+            if "duplicate column name" in str(e).lower():
+                cursor.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (i,))
+            else:
+                raise RuntimeError(f"Falha na migração {i}: {e}") from e
 
 
 def _migrar_blob_para_path(conn) -> None:
@@ -394,6 +395,7 @@ def _migrar_blob_para_path(conn) -> None:
                 filepath.write_bytes(blob)
             except Exception as e:
                 logger.error(f"Erro ao salvar arquivo fisico na migracao: {e}")
+                raise RuntimeError(f"Abortando migração: erro ao gravar arquivo {filepath}") from e
 
         cursor.execute(
             """
@@ -440,7 +442,7 @@ def init_db():
             """
         )
         
-        _aplicar_migracoes(cursor)
+        
 
         cursor.execute(
             """
@@ -467,6 +469,7 @@ def init_db():
             """
         )
         _criar_indices_banco(cursor)
+        _aplicar_migracoes(cursor)
         _limpar_historico_planos_incompletos(cursor)
         conn.commit()
 
@@ -863,11 +866,11 @@ def salvar_historico_plano(
 
     # Gera um nome físico único para salvar no disco
     from core.lib.classificador import normalizar_texto
-    import time
+    import uuid
     prof_clean = normalizar_texto(professor_nome).replace(" ", "_")
     disc_clean = normalizar_texto(disciplina).replace(" ", "_")
     turma_clean = normalizar_texto(turma).replace(" ", "_")
-    ts = int(time.time())
+    ts = uuid.uuid4().hex[:8]
     
     unique_filename = f"{prof_clean}_{disc_clean}_{turma_clean}_{ts}_{arquivo_nome.strip()}"
     filepath = Path(HISTORICO_DOCX_DIR) / unique_filename

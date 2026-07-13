@@ -1064,6 +1064,16 @@ def _preencher_linha_aula(linha, aula: dict, numero: int, cabecalho=None) -> Non
     if not indices:
         return
 
+    usadas = set()
+    for campo, idx in indices.items():
+        if idx >= len(celulas):
+            continue
+        tc_id = id(celulas[idx]._tc)
+        if tc_id in usadas:
+            raise RuntimeError(f"Colisão de gridSpan detectada: o campo '{campo}' tentou usar a mesma célula de outro campo na tabela.")
+        usadas.add(tc_id)
+
+
     # Col 0: Data/Horário — vermelho, centralizado, Arial 10
     _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
     # Col 1: Título — vermelho + bold, centralizado, Arial 10
