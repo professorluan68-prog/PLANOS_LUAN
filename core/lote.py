@@ -2759,6 +2759,29 @@ def _aula_por_pdf(
     professor: str = "",
     dividir_aula_atual: bool = False,
 ) -> dict:
+    # --- Início Strangler Fig (Auditoria Fase 3) ---
+    try:
+        from core.domain.models import GerarPlanoCommand
+        from core.extraction.context_builder import DefaultContextBuilder
+        from pathlib import Path
+        
+        cmd = GerarPlanoCommand(
+            arquivo=Path(caminho_pdf) if caminho_pdf else Path(""),
+            disciplina=disciplina,
+            turma=turma,
+            bimestre=bimestre,
+            professor=professor,
+            modalidade_eja=modalidade_eja,
+            permitir_ia=usar_ia
+        )
+        if caminho_pdf:
+            ctx = DefaultContextBuilder().build(cmd)
+            logger.info(f"[StranglerFig] Contexto extraído: {ctx.perfil} | Tema: {ctx.tema}")
+    except Exception as e:
+        logger.warning(f"[StranglerFig] Falha silenciosa no novo pipeline: {e}")
+    # --- Fim Strangler Fig ---
+
+
     from core.variacao_metodologica import (
         obter_professor_id_por_nome,
         selecionar_perfil_metodologico,
