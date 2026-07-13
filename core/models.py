@@ -272,7 +272,7 @@ class PlanoCompleto(ModeloPlanoBase):
             "versao_prompt": dados.get("versao_prompt") or "",
             "etapas_detectadas": dados.get("etapas_detectadas") or self.etapas_metodologia(),
             "hash_pdf": hash_pdf,
-            "confidence_score": int(dados.get("confidence_score")) if dados.get("confidence_score") is not None else 100,
+            "confidence_score": int(dados["confidence_score"]) if dados.get("confidence_score") is not None else 100,
             "avisos_validacao": dados.get("avisos_validacao") or [],
             "versao_gerador": dados.get("versao_gerador") or "",
             "perfil": dados.get("perfil") or "",

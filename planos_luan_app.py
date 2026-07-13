@@ -41,8 +41,15 @@ def _monitorar_sessoes_ativas():
             consecutive_zero_sessions = 0
         
         if has_connected and consecutive_zero_sessions >= 5:
-            # Encerra o processo do Streamlit
-            os._exit(0)
+            # Encerramento gracioso: usa SIGTERM para permitir que handlers de
+            # cleanup (finally, atexit, flush de arquivos) rodem antes de sair.
+            # NÃO usar os._exit(0) pois interrompe gravações sem liberar recursos.
+            try:
+                signal.raise_signal(signal.SIGTERM)
+            except (AttributeError, OSError):
+                # Fallback para Python < 3.8 ou plataformas sem raise_signal
+                os.kill(os.getpid(), signal.SIGTERM)
+            return  # Encerra a thread de monitoramento
         time.sleep(1)
 
 _monitor_thread = threading.Thread(target=_monitorar_sessoes_ativas, daemon=True)
@@ -2538,18 +2545,31 @@ if bool(professor and disciplina and turma and not disciplina_cdp and not modelo
         modelo_file = st.file_uploader("Novo Modelo", type=["docx"], key="novo_modelo_file")
         if modelo_file:
             modelo_bytes = modelo_file.getvalue()
-            destino_modelo = TEMPLATES_DIR / modelo_file.name
-            modelo_existe = destino_modelo.exists()
-            confirmar_modelo = True
-            if modelo_existe:
-                confirmar_modelo = st.checkbox(
-                    f"Confirmo que desejo substituir o modelo existente '{modelo_file.name}'.",
-                    key="confirmar_substituir_modelo_manual",
-                )
-                st.warning("Ja existe um modelo com esse nome. Marque a confirmacao para substituir.")
-            if st.button("Salvar para futuro", disabled=modelo_existe and not confirmar_modelo):
-                destino_modelo.write_bytes(modelo_bytes)
-                st.rerun()
+            # --- P1: Contenção de caminho (path traversal) ---
+            # Garantir que o nome do arquivo não contenha diretórios
+            safe_name = Path(modelo_file.name).name  # descarta qualquer prefixo de caminho
+            if Path(safe_name).suffix.lower() != ".docx":
+                st.error("Apenas arquivos .docx são permitidos como modelo.")
+                modelo_bytes = None
+            else:
+                destino_modelo = (TEMPLATES_DIR / safe_name).resolve()
+                templates_dir_resolvido = Path(TEMPLATES_DIR).resolve()
+                # Bloquear acesso fora da pasta de templates
+                if not str(destino_modelo).startswith(str(templates_dir_resolvido)):
+                    st.error("Caminho de destino inválido. O arquivo deve ficar dentro da pasta de templates.")
+                    modelo_bytes = None
+                else:
+                    modelo_existe = destino_modelo.exists()
+                    confirmar_modelo = True
+                    if modelo_existe:
+                        confirmar_modelo = st.checkbox(
+                            f"Confirmo que desejo substituir o modelo existente '{safe_name}'.",
+                            key="confirmar_substituir_modelo_manual",
+                        )
+                        st.warning("Ja existe um modelo com esse nome. Marque a confirmacao para substituir.")
+                    if st.button("Salvar para futuro", disabled=modelo_existe and not confirmar_modelo):
+                        destino_modelo.write_bytes(modelo_bytes)
+                        st.rerun()
     else:
         if (TEMPLATES_DIR / escolha_template).exists(): modelo_bytes = (TEMPLATES_DIR / escolha_template).read_bytes()
 

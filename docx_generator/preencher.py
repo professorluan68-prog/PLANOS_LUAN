@@ -1114,6 +1114,11 @@ def _preencher_tabelas_modelo(
             pares.append((tabela, proxima))
 
     if not pares:
+        logger.error(
+            "[DOCX] Nenhuma tabela de plano reconhecida no template. "
+            "Verifique se o modelo contém cabeçalho com 'PLANO DE AULAS' e tabela de aulas "
+            "com 'AULA SEMANAL' e 'APRENDIZAGEM'. O documento não será preenchido."
+        )
         return False
 
     aulas = list(aulas or [])
@@ -1164,6 +1169,16 @@ def _preencher_tabelas_modelo(
             _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
         aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
+        excedentes = len(aulas_por_par[par_indice]) - len(linhas_conteudo)
+        if excedentes > 0:
+            logger.warning(
+                "[DOCX] Par %d: %d aula(s) excedente(s) descartada(s) por falta de linhas no template "
+                "(%d aulas, %d linhas disponíveis). O plano final ficará incompleto.",
+                par_indice + 1,
+                excedentes,
+                len(aulas_por_par[par_indice]),
+                len(linhas_conteudo),
+            )
         quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
         if quantidade_semana > 0:
             aulas_previstas = str(quantidade_semana)

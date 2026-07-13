@@ -319,7 +319,12 @@ MIGRACOES = [
 
 
 def _aplicar_migracoes(cursor):
-    """Aplica migrações pendentes de schema com controle de versão."""
+    """Aplica migrações pendentes de schema com controle de versão.
+
+    Política fail-closed: a versão só é registrada após execução bem-sucedida
+    do SQL da migração. Erros reais abortam o processo sem avançar a versão,
+    impedindo que o banco fique em estado parcialmente migrado.
+    """
     cursor.execute(
         "CREATE TABLE IF NOT EXISTS schema_version (versao INTEGER PRIMARY KEY)"
     )
@@ -329,12 +334,18 @@ def _aplicar_migracoes(cursor):
     for i, sql in enumerate(MIGRACOES[versao_atual:], start=versao_atual + 1):
         try:
             cursor.execute(sql)
-            cursor.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (i,))
         except Exception as e:
             if "duplicate column name" in str(e).lower():
-                cursor.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (i,))
+                # Coluna já existe: migração é idempotente — avançar versão
+                logger.warning(
+                    "Migração %d: coluna já existia (idempotente). Avançando versão.", i
+                )
             else:
+                # Erro real: NÃO registrar versão — manter banco em estado consistente
+                logger.error("Migração %d falhou: %s", i, e)
                 raise RuntimeError(f"Falha na migração {i}: {e}") from e
+        # Registrar versão somente após execução (ou idempotência) confirmada
+        cursor.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (i,))
 
 
 def _migrar_blob_para_path(conn) -> None:
@@ -342,6 +353,12 @@ def _migrar_blob_para_path(conn) -> None:
     Verifica se a tabela historico_planos tem a coluna antiga 'arquivo_docx' (BLOB).
     Se sim, migra os blobs para arquivos físicos em HISTORICO_DOCX_DIR,
     salva a referência do caminho relativo em uma nova tabela e substitui a antiga.
+
+    Estratégia atômica (auditoria P0):
+    - Todos os arquivos físicos são gravados ANTES do DROP TABLE;
+    - Cada arquivo é verificado por tamanho após a escrita;
+    - Qualquer falha aborta TODA a migração, preservando a tabela original;
+    - O DROP TABLE só ocorre após todos os registros confirmados.
     """
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='historico_planos'")
@@ -354,7 +371,10 @@ def _migrar_blob_para_path(conn) -> None:
         return
 
     logger.info("Iniciando migração de BLOBs do SQLite para arquivos físicos...")
-    cursor.execute("SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_docx FROM historico_planos")
+    cursor.execute(
+        "SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_docx "
+        "FROM historico_planos"
+    )
     registros = cursor.fetchall()
 
     cursor.execute(
@@ -375,6 +395,11 @@ def _migrar_blob_para_path(conn) -> None:
     os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
     from core.lib.classificador import normalizar_texto
 
+    # --- Fase 1: gravar todos os arquivos físicos e validar ---
+    # Só avançamos para o DROP TABLE se TODOS os arquivos forem confirmados.
+    arquivos_gravados = []  # lista de (filepath, unique_name, tamanho_esperado)
+    registros_nova = []    # dados para inserção na nova tabela
+
     for reg in registros:
         r_id, prof, disc, turma, bim, data_gen, arq_nome, blob = reg
         if not arq_nome:
@@ -383,31 +408,71 @@ def _migrar_blob_para_path(conn) -> None:
         stem = Path(arq_nome).stem
         ext = Path(arq_nome).suffix or ".docx"
 
-        prof_clean = normalizar_texto(prof).replace(" ", "_")
-        disc_clean = normalizar_texto(disc).replace(" ", "_")
-        turma_clean = normalizar_texto(turma).replace(" ", "_")
+        prof_clean = normalizar_texto(prof or "").replace(" ", "_")
+        disc_clean = normalizar_texto(disc or "").replace(" ", "_")
+        turma_clean = normalizar_texto(turma or "").replace(" ", "_")
 
         unique_name = f"{prof_clean}_{disc_clean}_{turma_clean}_{r_id}_{stem}{ext}"
         filepath = Path(HISTORICO_DOCX_DIR) / unique_name
 
         if blob:
+            tamanho_blob = len(blob)
             try:
                 filepath.write_bytes(blob)
+                # Verificar tamanho após escrita
+                tamanho_gravado = filepath.stat().st_size
+                if tamanho_gravado != tamanho_blob:
+                    raise RuntimeError(
+                        f"Tamanho divergente após gravação: esperado {tamanho_blob}B, "
+                        f"gravado {tamanho_gravado}B em {filepath}"
+                    )
             except Exception as e:
-                logger.error(f"Erro ao salvar arquivo fisico na migracao: {e}")
-                raise RuntimeError(f"Abortando migração: erro ao gravar arquivo {filepath}") from e
+                # Abortar: limpar arquivos já gravados nesta migração
+                logger.error(
+                    "Erro ao gravar arquivo físico na migração (id=%s): %s. "
+                    "Abortando — tabela original preservada.",
+                    r_id, e,
+                )
+                for fp, _, _ in arquivos_gravados:
+                    try:
+                        fp.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                raise RuntimeError(
+                    f"Migração abortada: erro ao gravar arquivo {filepath}"
+                ) from e
+            arquivos_gravados.append((filepath, unique_name, tamanho_blob))
+        else:
+            # Blob nulo: sem arquivo físico
+            arquivos_gravados.append((None, unique_name, 0))
 
-        cursor.execute(
-            """
-            INSERT INTO historico_planos_nova (id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (r_id, prof, disc, turma, bim, data_gen, arq_nome, unique_name),
+        registros_nova.append(
+            (r_id, prof, disc, turma, bim, data_gen, arq_nome, unique_name)
         )
 
+    logger.info(
+        "Fase 1 concluída: %d arquivos físicos gravados e verificados.",
+        sum(1 for fp, _, _ in arquivos_gravados if fp is not None),
+    )
+
+    # --- Fase 2: popular nova tabela e substituir a original ---
+    for reg_nova in registros_nova:
+        cursor.execute(
+            """
+            INSERT INTO historico_planos_nova 
+                (id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            reg_nova,
+        )
+
+    # DROP só ocorre após todos os arquivos e registros confirmados
     cursor.execute("DROP TABLE historico_planos")
     cursor.execute("ALTER TABLE historico_planos_nova RENAME TO historico_planos")
-    logger.info("Migração concluída com sucesso!")
+    logger.info(
+        "Migração de BLOBs concluída com sucesso! %d registros migrados.",
+        len(registros_nova),
+    )
 
 
 def init_db():
