@@ -810,7 +810,7 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
         for segmento in segmentos:
             itens.extend(_compactar_segmento(segmento, limite_etapa))
     else:
-        # Fluxo original para outros perfis — sem alterações
+        # Fluxo para outros perfis — aplicar limite
         vistos: set[str] = set()
         for item in metodologia or []:
             titulo = str(item.get("titulo", "")).strip() or "Etapa"
@@ -821,7 +821,9 @@ def _compactar_metodologia(metodologia: list[dict], texto_pdf: str, perfil: str 
             if norm in vistos:
                 continue
             vistos.add(norm)
-            itens.append({"titulo": titulo, "texto": texto})
+            texto = _cortar_sem_quebrar_frase(texto, limite_etapa)
+            if texto:
+                itens.append({"titulo": titulo, "texto": texto})
 
     if not itens:
         itens = [{"titulo": "Desenvolvimento", "texto": "Iniciar com pergunta disparadora e retomar os conceitos centrais com apoio do material digital."}]

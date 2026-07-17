@@ -150,7 +150,7 @@ def carregar_base_ae_planilha(caminho_planilha: str = "") -> dict:
         df.columns, "título"
     )
 
-    if not col_aula or not col_ae:
+    if not col_aula:
         return {"arquivo_fonte": str(path), "mapa_por_aula": []}
 
     mapa_por_aula: list[dict] = []
@@ -222,7 +222,7 @@ def carregar_base_habilidades_planilha(caminho_planilha: str = "") -> dict:
         df.columns, "título"
     )
 
-    if not col_aula or not col_habilidade:
+    if not col_aula:
         return {"arquivo_fonte": str(path), "mapa_por_aula": []}
 
     mapa_por_aula: list[dict] = []

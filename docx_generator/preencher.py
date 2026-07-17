@@ -640,7 +640,7 @@ def _quebrar_texto_metodologia_em_linhas(texto: str) -> list[str]:
 
 def _texto_ja_comeca_com_etapa(texto: str) -> bool:
     primeira_linha = next((linha for linha in _quebrar_texto_metodologia_em_linhas(texto) if linha.strip()), "")
-    return bool(re.match(r"^[^:]{2,40}:\s*", primeira_linha))
+    return bool(re.match(r"^[^:\"\'\.\?!]{2,40}:\s*", primeira_linha))
 
 
 def _titulo_metodologia_deve_prefixar(titulo: str, texto: str) -> bool:

@@ -87,9 +87,10 @@ PDFs → extrator_pdf.py → lote.py → ia.py (opcional) → preencher.py → .
 - Templates Word: EGLE (padrão), PADRE, CDP — seleção automática em `core/modelos_docx.py`
 - O CSV `mapa_arquivos.csv` tem 6 colunas: origem, destino, professor_inferido, disciplina, turma, aula_detectada
 
-## Pastas Importantes
-| Pasta | Conteúdo |
+## Pastas e Arquivos Importantes
+| Arquivo / Pasta | Conteúdo |
 |---|---|
+| `CHANGELOG.md` | **[MUITO IMPORTANTE]** Histórico de alterações recentes e resoluções de bugs feitas pelos agentes. Leia isso antes de iniciar grandes refatorações para não desfazer correções recentes. |
 | `D:\PLANOS DE JUNHO` | Pasta principal de trabalho dos professores |
 | `D:\PDF novos` | PDFs classificados por disciplina/turma (3978 arquivos, 20 disciplinas) |
 | `D:\PDF novos\mapa_arquivos.csv` | Mapeamento completo de PDFs (origem → destino, disciplina, professor) |

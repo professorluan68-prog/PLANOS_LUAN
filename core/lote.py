@@ -3054,101 +3054,51 @@ def _aula_por_pdf(
 
 
 def _enriquecer_com_planilha(resultado: dict, caminho_pdf: str):
-    import os
-    import pandas as pd
-    import re
-    from pathlib import Path
     try:
-        if not caminho_pdf: return
-        pasta = Path(caminho_pdf).parent
-        candidatos_planilha = [
-            pasta / "GUIA.xlsx",
-            pasta / "planilha.xlsx",
-        ]
-        candidatos_planilha.extend(sorted(pasta.glob("GUIA*.xlsx")))
-        candidatos_planilha.extend(sorted(pasta.glob("*.xlsx")))
-        if pasta.parent.exists():
-            candidatos_planilha.append(pasta.parent / "planilha.xlsx")
-            candidatos_planilha.extend(sorted(pasta.parent.glob("GUIA*.xlsx")))
-            candidatos_planilha.extend(sorted(pasta.parent.glob("*.xlsx")))
+        from core.ae_priorizado import carregar_base_habilidades_planilha
+        from pathlib import Path
+        import re
 
-        caminho_planilha = None
-        for candidato in candidatos_planilha:
-            if not candidato.exists():
-                continue
-            if candidato.name.startswith("~$"):
-                continue
-            caminho_planilha = candidato
-            break
-        if not caminho_planilha:
+        planilha = _localizar_planilha_habilidade_local(caminho_pdf)
+        if not planilha:
             return
-            
-        df = pd.read_excel(caminho_planilha)
+
+        base = carregar_base_habilidades_planilha(str(planilha))
+        itens = base.get("mapa_por_aula", [])
+
         nome_arquivo = Path(caminho_pdf).name.upper()
         match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
         if not match_aula:
             return
             
         numero_aula = int(match_aula.group(1))
-        
-        match_serie = re.search(r'(\d)_ANO', str(pasta.absolute()).upper())
-        serie_num = match_serie.group(1) if match_serie else None
-            
-        for index, row in df.iterrows():
-            aula_planilha = str(row.get('AULA', '')).strip()
-            # Allow "Aula 1", "01", "1", "Aulas 1 e 2", etc.
-            match_p = re.search(r'\b0?' + str(numero_aula) + r'\b', aula_planilha)
-            if not match_p:
-                continue
-            
-            # Checa serie
-            col_serie = [c for c in df.columns if 'ANO' in str(c).upper() or 'RIE' in str(c).upper()]
-            if serie_num and col_serie:
-                val_serie = str(row[col_serie[0]])
-                if serie_num not in val_serie:
-                    continue
-                    
-            # Achou a linha!
-            col_titulo = [c for c in df.columns if 'TULO' in str(c).upper() or ('AULA' in str(c).upper() and c != 'AULA')]
-            col_conteudo = [c for c in df.columns if 'CONTE' in str(c).upper() or 'OBJETO' in str(c).upper()]
-            col_hab = [c for c in df.columns if 'HABILIDADE' in str(c).upper()]
-            col_obj = [c for c in df.columns if 'OBJETIVO' in str(c).upper()]
-            
-            titulo_planilha = ""
-            if col_titulo and pd.notna(row[col_titulo[0]]):
-                titulo_planilha = re.sub(r"\s+", " ", str(row[col_titulo[0]]).strip())
-            elif col_conteudo and pd.notna(row[col_conteudo[0]]):
-                titulo_planilha = re.sub(r"\s+", " ", str(row[col_conteudo[0]]).strip())
 
-            if titulo_planilha:
-                resultado["tema"] = titulo_planilha
-                numero_resultado = str(resultado.get("numero_aula") or numero_aula).strip()
-                match_numero_resultado = re.search(r"\d+", numero_resultado)
-                if match_numero_resultado:
-                    resultado["material"] = f"AULA {int(match_numero_resultado.group(0))} - {titulo_planilha}"
-                else:
-                    resultado["material"] = titulo_planilha
+        for item in itens:
+            if str(item.get("aula_numero")) == str(numero_aula):
+                titulo_planilha = str(item.get("titulo") or "").strip()
+                habilidade_planilha = str(item.get("habilidade_textos") or "").strip()
                 
-            aprendizagem = ""
-            if col_hab and pd.notna(row[col_hab[0]]):
-                aprendizagem += str(row[col_hab[0]]).strip()
-            if col_obj and pd.notna(row[col_obj[0]]):
-                if aprendizagem: aprendizagem += "\n"
-                aprendizagem += "Objetivos: " + str(row[col_obj[0]]).strip()
-                
-            aprendizagem_atual = str(resultado.get("aprendizagem") or "").strip()
-            pode_atualizar_aprendizagem = (
-                not aprendizagem_atual
-                or _texto_habilidade_invalido_ou_truncado(aprendizagem_atual)
-            )
-            if (
-                aprendizagem
-                and not str(resultado.get("fonte_referencia_metodologia") or "").strip()
-                and pode_atualizar_aprendizagem
-            ):
-                resultado["aprendizagem"] = aprendizagem
-                
-            break
+                if titulo_planilha:
+                    resultado["tema"] = titulo_planilha
+                    numero_resultado = str(resultado.get("numero_aula") or numero_aula).strip()
+                    match_numero_resultado = re.search(r"\d+", numero_resultado)
+                    if match_numero_resultado:
+                        resultado["material"] = f"AULA {int(match_numero_resultado.group(0))} - {titulo_planilha}"
+                    else:
+                        resultado["material"] = titulo_planilha
+
+                aprendizagem_atual = str(resultado.get("aprendizagem") or "").strip()
+                pode_atualizar_aprendizagem = (
+                    not aprendizagem_atual
+                    or _texto_habilidade_invalido_ou_truncado(aprendizagem_atual)
+                )
+                if (
+                    habilidade_planilha
+                    and not str(resultado.get("fonte_referencia_metodologia") or "").strip()
+                    and pode_atualizar_aprendizagem
+                ):
+                    resultado["aprendizagem"] = habilidade_planilha
+                break
     except Exception as e:
         import logging
         logging.getLogger("PLANOS_LUAN").warning(f"Erro ao enriquecer com planilha: {e}")
