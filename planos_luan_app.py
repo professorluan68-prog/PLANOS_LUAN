@@ -2904,6 +2904,16 @@ else:
         aulas_oficiais_modelo = datas_horarios_mes or []
         linhas_modelo_pdf = linhas_modelo
 
+    datas_horarios_mes_espelho = None
+    aulas_oficiais_modelo_espelho = []
+    if gerar_turma_espelho and config_turma_espelho and mes:
+        datas_horarios_mes_espelho = _sincronizar_datas_horarios_mes_turma2(
+            config_turma_espelho, mes, professor, disciplina, turma_espelho,
+            extensao=extensao_mes, antecipacao=antecipacao_mes, datas_sem_aula=datas_sem_aula,
+        )
+        if datas_horarios_mes_espelho:
+            aulas_oficiais_modelo_espelho = [d for d in datas_horarios_mes_espelho if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)] if deixar_ant_vazia else datas_horarios_mes_espelho
+
     if bool(len(datas_horarios_mes or [])):
         st.session_state["auto_repetir_semana"] = False
     elif "auto_repetir_semana" not in st.session_state:
@@ -2944,6 +2954,10 @@ else:
         est_necessarios = 0
         if linhas_modelo_pdf > 0:
             est_necessarios = _estimar_pdfs_por_estado(linhas_modelo_pdf, dividir_metodologia, lista_aulas=aulas_oficiais_modelo)
+            
+        if gerar_turma_espelho and len(aulas_oficiais_modelo_espelho) > 0:
+            est_necessarios_espelho = _estimar_pdfs_por_estado(len(aulas_oficiais_modelo_espelho), dividir_metodologia, lista_aulas=aulas_oficiais_modelo_espelho)
+            est_necessarios = max(est_necessarios, est_necessarios_espelho)
 
         if usar_ae_priorizado and sequencia_ae_contexto:
             sequencia_pdf_esperada_ae = _limitar_sequencia_ae(
@@ -3088,7 +3102,7 @@ else:
             selecionados=pdfs_individuais,
         )
     else:
-        pdfs_necessarios = len(_grupos_pdf_por_aula(aulas_para_pdf)) if dividir_metodologia else len(aulas_para_pdf)
+        pdfs_necessarios = est_necessarios if est_necessarios > 0 else (len(_grupos_pdf_por_aula(aulas_para_pdf)) if dividir_metodologia else len(aulas_para_pdf))
 
         if linhas_modelo_pdf > 0:
             pdf_unico_orientacao = bool(orientacao_estudos and qtd_aulas == 1 and pdfs_necessarios >= 1)
@@ -3102,20 +3116,11 @@ else:
     if gerar_turma_espelho:
         # Determine num_rows_espelho based on 2nd class config if month is selected
         num_rows_espelho = num_rows
-        datas_horarios_mes_espelho = None
         
-        if config_turma_espelho and mes:
-            datas_horarios_mes_espelho = _sincronizar_datas_horarios_mes_turma2(
-                config_turma_espelho, mes, professor, disciplina, turma_espelho,
-                extensao=extensao_mes, antecipacao=antecipacao_mes, datas_sem_aula=datas_sem_aula,
-            )
+        if datas_horarios_mes_espelho:
             linhas_modelo_espelho = len(datas_horarios_mes_espelho)
             if linhas_modelo_espelho > 0:
                 num_rows_espelho = linhas_modelo_espelho
-
-        aulas_oficiais_modelo_espelho = []
-        if datas_horarios_mes_espelho:
-            aulas_oficiais_modelo_espelho = [d for d in datas_horarios_mes_espelho if not _eh_data_antecipacao(d["data"], mes, antecipacao_mes)] if deixar_ant_vazia else datas_horarios_mes_espelho
 
         contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
         _sincronizar_divisao_pdf_padrao(num_rows_espelho, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho, lista_aulas=aulas_oficiais_modelo_espelho)

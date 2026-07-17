@@ -13,7 +13,9 @@ class DefaultContextBuilder:
         texto_fonte = extrair_texto_pdf(str(command.arquivo))
         
         # Extrai os metadados do título
-        tema, numero_aula, disciplina_base = _extrair_titulo_multilinha(texto_fonte, command.disciplina)
+        tema = _extrair_titulo_multilinha(texto_fonte, command.disciplina)
+        numero_aula = ""
+        disciplina_base = command.disciplina
         
         # Define o perfil disciplinar
         perfil = perfil_disciplina(disciplina_base)

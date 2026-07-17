@@ -284,6 +284,7 @@ USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
 - Melhore a especificidade, a naturalidade e a clareza de todos os textos, sem inventar conteudos fora do material.
 - Evite placeholders genericos. Se o acompanhamento ou acessibilidade do rascunho forem genericos (ex: "realizar perguntas", "leitura compartilhada"), mude-os para citar elementos e termos especificos do conteudo da aula extraido do PDF.
 - Retorne a metodologia, acompanhamento e acessibilidade refinados nos respectivos campos do JSON.
+- CRÍTICO: Mantenha a concisão e o tamanho do texto do rascunho original. Faça apenas refinamentos cirúrgicos, NÃO expanda nem aumente o tamanho do texto inutilmente.
 """
     bloco_eja = ""
     if modalidade_eja:
@@ -441,7 +442,7 @@ INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
 - Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
 """
 
-    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO: CADA ETAPA deve ter em média 150 a 200 palavras (cerca de 1000 a 1400 caracteres). Seja direto e objetivo, NÃO escreva textos exaustivos (nunca passe de 200 palavras por etapa). Detalhe o suficiente para refletir os recursos do PDF, mas mantendo a concisão e praticidade de um plano de aula real."
+    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO: CADA ETAPA deve ter idealmente entre 50 e 100 palavras. Seja direto e objetivo, NÃO escreva textos exaustivos (nunca passe de 120 palavras por etapa). Detalhe o suficiente para refletir os recursos do PDF, mas mantendo a concisão e praticidade de um plano de aula real. Se houver um rascunho base, NÃO AUMENTE O SEU TAMANHO."
     if perfil == "historia":
         tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (HISTÓRIA): CADA ETAPA deve ser extremamente curta (NO MÁXIMO 900 caracteres no total). Apenas refine o texto base com as palavras-chave do PDF. NÃO AUMENTE O TEXTO INUTILMENTE. Seja cirúrgico, mantendo a metodologia curta e direta."
 
