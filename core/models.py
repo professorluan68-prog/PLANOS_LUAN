@@ -146,6 +146,10 @@ class PlanoCompleto(ModeloPlanoBase):
     cache_reutilizado: bool = False
     origem_metodologia: str = ""
     fonte_referencia_metodologia: str = ""
+    status_referencia_docx: str = ""
+    arquivo_referencia_docx: str = ""
+    motivo_referencia_docx: str = ""
+    texto_central_copiado_literalmente: bool = False
     perfil_metodologico: str = ""
     versao_prompt: str = ""
     etapas_detectadas: list[str] = Field(default_factory=list)
@@ -267,6 +271,14 @@ class PlanoCompleto(ModeloPlanoBase):
             "origem_metodologia": dados.get("origem_metodologia") or "",
             "fonte_referencia_metodologia": normalizar_caminho(
                 dados.get("fonte_referencia_metodologia") or ""
+            ),
+            "status_referencia_docx": dados.get("status_referencia_docx") or "",
+            "arquivo_referencia_docx": normalizar_caminho(
+                dados.get("arquivo_referencia_docx") or ""
+            ),
+            "motivo_referencia_docx": dados.get("motivo_referencia_docx") or "",
+            "texto_central_copiado_literalmente": bool(
+                dados.get("texto_central_copiado_literalmente", False)
             ),
             "perfil_metodologico": dados.get("perfil_metodologico") or "",
             "versao_prompt": dados.get("versao_prompt") or "",

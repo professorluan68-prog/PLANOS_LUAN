@@ -8,6 +8,7 @@ from core.resultados_aula import (
 def _deps_resultados_base() -> DependenciasResultadosAula:
     return DependenciasResultadosAula(
         referencia_docx_por_perfil_fn=lambda *args, **kwargs: None,
+        localizar_docx_referencia_por_perfil_fn=lambda *args, **kwargs: None,
         habilidade_referencia_docx_fn=lambda referencia: "",
         origem_metodologia_por_referencia_fn=lambda perfil: f"docx_referencia_{perfil}",
         deve_aplicar_referencia_docx_no_resultado_ia_fn=lambda perfil, plano_ia: False,
@@ -110,6 +111,59 @@ def test_montar_resultado_aula_local_core_retorna_motor_local():
     assert resultado["origem_metodologia"] == "motor_local"
     assert resultado["ia_usada"] is False
     assert resultado["metodologia"][0]["texto"] == "Etapa local"
+    assert resultado["status_referencia_docx"] == "docx_ausente"
+
+
+def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
+    deps = _deps_resultados_base()
+    referencia = {
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Texto EXATAMENTE como foi escrito."},
+            {"titulo": "Desenvolvimento", "texto": "Segundo trecho literal."},
+            {"titulo": "Encerramento", "texto": "Terceiro trecho literal."},
+        ],
+        "acompanhamento": ["Item literal 1", "Item literal 2", "Item literal 3"],
+        "acessibilidade": ["Apoio literal 1", "Apoio literal 2", "Apoio literal 3"],
+        "fonte": "METODOLOGIA_TESTE.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+    deps.localizar_docx_referencia_por_perfil_fn = (
+        lambda *args, **kwargs: "METODOLOGIA_TESTE.docx"
+    )
+
+    def _nao_deve_ser_chamado(*args, **kwargs):
+        raise AssertionError("texto literal do DOCX nao pode ser reescrito")
+
+    deps.higienizar_plano_fn = _nao_deve_ser_chamado
+    deps.naturalizar_metodologia_professor_fn = _nao_deve_ser_chamado
+
+    resultado = montar_resultado_aula_local(
+        texto="Texto da aula",
+        tema="Tema local",
+        material_digital="AULA 1 - Tema local",
+        numero_aula="1",
+        disciplina_base="Ciências",
+        turma="6º ANO A",
+        provedor_ia="",
+        perfil="ciencias_ef",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"] == referencia["metodologia"]
+    assert resultado["acompanhamento"] == referencia["acompanhamento"]
+    assert resultado["acessibilidade"] == referencia["acessibilidade"]
+    assert resultado["status_referencia_docx"] == "docx_literal"
+    assert resultado["texto_central_copiado_literalmente"] is True
 
 
 def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_refino():
@@ -154,3 +208,4 @@ def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_r
     assert resultado["metodologia"][0]["texto"] == "Texto IA"
     assert resultado["acompanhamento"] == ["IA1", "IA2", "IA3"]
     assert resultado["acessibilidade"] == ["IX1", "IX2", "IX3"]
+    assert resultado["status_referencia_docx"] == "docx_refinado_ia"

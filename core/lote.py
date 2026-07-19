@@ -2448,6 +2448,11 @@ def _montar_resultado_cdp_contextual(
     extracao_pdf: dict,
     caminho_pdf: str = "",
 ) -> dict:
+    arquivo_referencia_docx = _localizar_docx_referencia_por_perfil(
+        caminho_pdf,
+        disciplina_base,
+        "",
+    )
     referencia_docx = referencia_cdp_contextual_por_pdf(caminho_pdf, numero_aula, tema=tema)
     if referencia_docx:
         titulo_referencia = str(referencia_docx.get("titulo") or "").strip()
@@ -2481,6 +2486,10 @@ def _montar_resultado_cdp_contextual(
             "acessibilidade": list(referencia_docx.get("acessibilidade") or [])[:3],
             "origem_metodologia": "docx_referencia_cdp_contextual",
             "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+            "status_referencia_docx": "docx_literal",
+            "arquivo_referencia_docx": referencia_docx.get("fonte", ""),
+            "motivo_referencia_docx": "",
+            "texto_central_copiado_literalmente": True,
             "ia_usada": False,
             "ia_provedor": "",
             "ia_erro": "",
@@ -2504,6 +2513,18 @@ def _montar_resultado_cdp_contextual(
         "acessibilidade": [],
         "origem_metodologia": "referencia_docx_cdp_contextual_ausente",
         "fonte_referencia_metodologia": "",
+        "status_referencia_docx": (
+            "aula_ausente_ou_incompleta"
+            if arquivo_referencia_docx
+            else "docx_ausente"
+        ),
+        "arquivo_referencia_docx": str(arquivo_referencia_docx or ""),
+        "motivo_referencia_docx": (
+            "A aula correspondente nao foi encontrada completa no DOCX externo."
+            if arquivo_referencia_docx
+            else "Nenhum DOCX externo de metodologia foi localizado na pasta do PDF."
+        ),
+        "texto_central_copiado_literalmente": False,
         "ia_usada": False,
         "ia_provedor": "",
         "ia_erro": "",
@@ -2578,6 +2599,7 @@ def _dependencias_resultados_aula() -> DependenciasResultadosAula:
 
     return DependenciasResultadosAula(
         referencia_docx_por_perfil_fn=_referencia_docx_por_perfil,
+        localizar_docx_referencia_por_perfil_fn=_localizar_docx_referencia_por_perfil,
         habilidade_referencia_docx_fn=_habilidade_referencia_docx,
         origem_metodologia_por_referencia_fn=_origem_metodologia_por_referencia,
         deve_aplicar_referencia_docx_no_resultado_ia_fn=_deve_aplicar_referencia_docx_no_resultado_ia,

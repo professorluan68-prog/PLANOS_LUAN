@@ -72,6 +72,12 @@ def _montar_aula_reutilizada(
         "arquivo_fonte": dados_json.get("arquivo_fonte") or arquivo_cache,
         "origem_metodologia": origem_metodologia_cache,
         "fonte_referencia_metodologia": fonte_referencia_cache,
+        "status_referencia_docx": dados_json.get("status_referencia_docx") or "",
+        "arquivo_referencia_docx": dados_json.get("arquivo_referencia_docx") or "",
+        "motivo_referencia_docx": dados_json.get("motivo_referencia_docx") or "",
+        "texto_central_copiado_literalmente": bool(
+            dados_json.get("texto_central_copiado_literalmente", False)
+        ),
         "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
         "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
         "versao_prompt": dados_json.get("versao_prompt") or "",

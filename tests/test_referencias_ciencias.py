@@ -136,7 +136,7 @@ def test_referencia_ciencias_localiza_docx_do_ano(tmp_path):
     assert caminho_localizado.name == "Metodologias_Ciencias_6_Ano.docx"
 
 
-def test_referencia_ciencias_ignora_docx_legado(tmp_path):
+def test_referencia_ciencias_aceita_texto_valido_sem_filtrar_palavras(tmp_path):
     caminho_docx = tmp_path / "Metodologias_Ciencias_6_Ano.docx"
     caminho_pdf = tmp_path / "AULA_01 - A célula.pdf"
     _criar_docx_referencia_ciencias_legada(caminho_docx)
@@ -144,7 +144,9 @@ def test_referencia_ciencias_ignora_docx_legado(tmp_path):
 
     referencia = referencia_ciencias_por_pdf(caminho_pdf, "1", tema="A célula")
 
-    assert referencia is None
+    assert referencia is not None
+    assert referencia["titulo"] == "A célula"
+    assert referencia["metodologia"][0]["texto"].startswith("Aplicar o VIREM E CONVERSEM")
 
 
 def test_ciencias_prioriza_docx_em_vez_do_cache_json(monkeypatch, tmp_path):

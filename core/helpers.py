@@ -379,7 +379,7 @@ def _pasta_aprofundamento_biologia_2ano_a(base_dir: str, bimestre_token: str) ->
 
 
 def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: str, professor: str = "") -> Path:
-    r"""Monta o caminho C:\Users\Luan Dias\Documents\PDF_AULAS\<DISCIPLINA>\<AF|EM>\<N>_BIMESTRE\<N>_ANO"""
+    r"""Monta uma subpasta de PDFs a partir da raiz informada."""
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
     turma_norm = normalizar_para_pasta(turma)
     bimestre_norm = normalizar_para_pasta(bimestre)
@@ -421,3 +421,16 @@ def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: st
         turma_norm=turma_norm,
     )
     return caminho_flexivel or caminho_padrao
+
+
+def garantir_caminho_na_raiz(caminho: str | Path, raiz: str | Path) -> Path:
+    """Resolve ``caminho`` e rejeita qualquer resultado fora de ``raiz``."""
+    raiz_resolvida = Path(raiz).resolve(strict=False)
+    caminho_resolvido = Path(caminho).resolve(strict=False)
+    try:
+        caminho_resolvido.relative_to(raiz_resolvida)
+    except ValueError as exc:
+        raise ValueError(
+            f"Caminho fora da raiz autorizada de PDFs: {caminho_resolvido}"
+        ) from exc
+    return caminho_resolvido

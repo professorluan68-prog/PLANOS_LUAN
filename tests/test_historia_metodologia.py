@@ -65,7 +65,7 @@ def test_historia_geracao_metodologia():
     assert "permanências" in resultado[4]["texto"].lower() or "atualidade" in resultado[4]["texto"].lower()
 
 
-def test_historia_referencia_curta_sem_ia_ganha_etapas_e_score(monkeypatch):
+def test_historia_referencia_curta_sem_ia_permanece_literal(monkeypatch):
     import core.lote as lote
 
     monkeypatch.setattr(
@@ -131,15 +131,25 @@ def test_historia_referencia_curta_sem_ia_ganha_etapas_e_score(monkeypatch):
         caminho_pdf="dummy.pdf",
     )
 
-    assert len(resultado["metodologia"]) >= 4
+    metodologia_docx = [
+        {
+            "titulo": "Para começar",
+            "texto": "Inicie a aula apresentando a expressão patrícia e questione a turma sobre Roma Antiga.",
+        },
+        {
+            "titulo": "Foco no conteúdo",
+            "texto": "Conduza uma breve explicação sobre reis, patrícios e instituições políticas romanas.",
+        },
+    ]
+    assert resultado["metodologia"] == metodologia_docx
     assert len(resultado["acompanhamento"]) == 3
     assert len(resultado["acessibilidade"]) == 3
     assert all(item.startswith("☑") for item in resultado["acompanhamento"])
     assert all(item.startswith("☑") for item in resultado["acessibilidade"])
-    assert any("monarquia romana" in item.lower() for item in resultado["acessibilidade"])
+    assert resultado["texto_central_copiado_literalmente"] is True
 
     revisado = revisar_aula_gerada(resultado, "historia")
-    assert revisado["confidence_score"] >= 70
+    assert revisado["metodologia"] == metodologia_docx
 
 
 def test_historia_ia_curta_preserva_refino_e_completa_etapas(monkeypatch):

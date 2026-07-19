@@ -56,6 +56,10 @@ from core.referencias_projeto_vida import (
     localizar_docx_referencia_projeto_vida,
     referencia_projeto_vida_por_pdf,
 )
+from core.referencias_docx_padrao import (
+    carregar_referencias_docx_padrao,
+    localizar_docx_referencia_padrao,
+)
 
 _LOCALIZADORES_REFERENCIA = {
     "educacao_financeira": localizar_docx_referencia,
@@ -100,6 +104,9 @@ _ORIGENS_METODOLOGIA = {
     "orientacao_estudos": "docx_referencia_orientacao_estudos",
     "projeto_de_vida": "docx_referencia_projeto_de_vida",
     "arte": "docx_referencia_arte",
+    "quimica": "docx_referencia_quimica",
+    "tecnologia_inovacao": "docx_referencia_tecnologia_inovacao",
+    "geral": "docx_referencia_externa",
 }
 
 _PERFIS_PORTUGUES = {
@@ -123,14 +130,62 @@ def localizar_docx_referencia_por_perfil(
     perfil = perfil_disciplina(disciplina, turma=turma)
     if not caminho_pdf:
         return None
+
+    referencia_padrao = localizar_docx_referencia_padrao(caminho_pdf)
+    if referencia_padrao and referencia_padrao.name.casefold().startswith("metodologia_"):
+        return referencia_padrao
+
     if eh_cdp_contextual_disciplina(disciplina):
-        return localizar_docx_referencia_cdp_contextual(caminho_pdf)
+        referencia_especial = localizar_docx_referencia_cdp_contextual(caminho_pdf)
+        return referencia_especial or referencia_padrao
     if perfil in _PERFIS_PORTUGUES:
-        return localizar_docx_referencia_portugues(caminho_pdf)
+        referencia_especial = localizar_docx_referencia_portugues(caminho_pdf)
+        if referencia_especial and _caminho_referencia_aceitavel(referencia_especial):
+            return referencia_especial
+        return referencia_padrao
     localizador = _LOCALIZADORES_REFERENCIA.get(perfil)
     if not localizador:
-        return None
-    return localizador(caminho_pdf)
+        return referencia_padrao
+    referencia_especial = localizador(caminho_pdf)
+    if referencia_especial and _caminho_referencia_aceitavel(referencia_especial):
+        return referencia_especial
+    return referencia_padrao
+
+
+def _caminho_referencia_aceitavel(caminho) -> bool:
+    nome = Path(caminho).name.casefold()
+    return (
+        not nome.startswith("~$")
+        and "backup" not in nome
+        and "metodologia" in nome
+    )
+
+
+def _numero_aula(valor) -> int:
+    match = re.search(r"\d{1,3}", str(valor or ""))
+    return int(match.group(0)) if match else 0
+
+
+def _referencia_padrao_no_arquivo(caminho_docx, numero_aula):
+    numero = _numero_aula(numero_aula)
+    if not caminho_docx or not numero:
+        return None, False
+    referencias = carregar_referencias_docx_padrao(caminho_docx)
+    if not referencias:
+        return None, False
+    referencia = referencias.get(numero)
+    if not referencia:
+        return None, True
+    return {
+        "numero": referencia.get("numero") or numero,
+        "titulo": referencia.get("titulo", ""),
+        "habilidade": referencia.get("habilidade", ""),
+        "metodologia": list(referencia.get("metodologia") or []),
+        "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
+        "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],
+        "fonte": str(caminho_docx),
+        "referencia_pedagogica_aplicada": True,
+    }, True
 
 
 def referencia_docx_por_perfil(
@@ -141,6 +196,23 @@ def referencia_docx_por_perfil(
 ):
     if not caminho_pdf:
         return None
+
+    caminho_docx = localizar_docx_referencia_por_perfil(
+        caminho_pdf,
+        perfil,
+        "",
+    )
+    referencia_padrao, estrutura_padrao_encontrada = _referencia_padrao_no_arquivo(
+        caminho_docx,
+        numero_aula,
+    )
+    if referencia_padrao:
+        return referencia_padrao
+    if estrutura_padrao_encontrada:
+        return None
+    if not caminho_docx:
+        return None
+
     if perfil in _PERFIS_PORTUGUES:
         return referencia_portugues_por_pdf(caminho_pdf, numero_aula, tema=tema)
     resolvedor = _REFERENCIAS_POR_PERFIL.get(perfil)
@@ -152,7 +224,7 @@ def referencia_docx_por_perfil(
 def origem_metodologia_por_referencia(perfil: str) -> str:
     if perfil in _PERFIS_PORTUGUES:
         return "docx_referencia_portugues"
-    return _ORIGENS_METODOLOGIA.get(perfil, "")
+    return _ORIGENS_METODOLOGIA.get(perfil, "docx_referencia_externa")
 
 
 def perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
@@ -160,7 +232,7 @@ def perfil_docx_somente_colunas_pedagogicas(perfil: str) -> bool:
 
 
 def perfil_prioriza_docx_sobre_cache_json(perfil: str) -> bool:
-    return perfil == "fisica" or perfil in _PERFIS_PORTUGUES or perfil in _LOCALIZADORES_REFERENCIA
+    return True
 
 
 def referencia_docx_sobrescreve_metadados(perfil: str) -> bool:

@@ -8,6 +8,7 @@ from typing import Callable
 @dataclass
 class DependenciasResultadosAula:
     referencia_docx_por_perfil_fn: Callable[[str, str, str, str], dict | None]
+    localizar_docx_referencia_por_perfil_fn: Callable[[str, str, str], object | None]
     habilidade_referencia_docx_fn: Callable[[dict | None], str]
     origem_metodologia_por_referencia_fn: Callable[[str], str]
     deve_aplicar_referencia_docx_no_resultado_ia_fn: Callable[[str, dict | None], bool]
@@ -48,6 +49,11 @@ def _extrair_base_pedagogica(
     caminho_pdf: str,
     dependencias: DependenciasResultadosAula,
 ) -> dict:
+    arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
+        caminho_pdf,
+        disciplina_base,
+        turma,
+    )
     referencia_docx = dependencias.referencia_docx_por_perfil_fn(
         caminho_pdf,
         numero_aula,
@@ -71,21 +77,53 @@ def _extrair_base_pedagogica(
     )
     habilidade = extracao.get("habilidade", "")
     if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
-        if habilidade_referencia:
-            habilidade = habilidade_referencia
-        else:
-            habilidade = dependencias.resolver_habilidade_portugues_fn(
-                habilidade,
-                caminho_pdf,
-                numero_aula,
-            )
+        habilidade_pdf_ou_planilha = dependencias.resolver_habilidade_portugues_fn(
+            habilidade,
+            caminho_pdf,
+            numero_aula,
+        )
+        habilidade = habilidade_pdf_ou_planilha or habilidade_referencia
     return {
         "referencia_docx": referencia_docx,
+        "arquivo_referencia_docx": str(arquivo_referencia_docx or ""),
         "habilidade_referencia": habilidade_referencia,
         "extracao": extracao,
         "tipo": tipo,
         "habilidade": habilidade,
     }
+
+
+def _registrar_proveniencia_docx(
+    aula: dict,
+    *,
+    referencia_docx: dict | None,
+    arquivo_referencia_docx: str,
+    status_sucesso: str = "",
+    literal: bool = False,
+) -> dict:
+    fonte = str((referencia_docx or {}).get("fonte") or arquivo_referencia_docx or "").strip()
+    if referencia_docx:
+        aula["status_referencia_docx"] = status_sucesso or "docx_literal"
+        aula["arquivo_referencia_docx"] = fonte
+        aula["motivo_referencia_docx"] = ""
+        aula["texto_central_copiado_literalmente"] = bool(literal)
+        return aula
+
+    aula["arquivo_referencia_docx"] = fonte
+    aula["texto_central_copiado_literalmente"] = False
+    if fonte:
+        aula["status_referencia_docx"] = "aula_ausente_ou_incompleta"
+        aula["motivo_referencia_docx"] = (
+            "A aula correspondente nao foi encontrada completa no DOCX externo. "
+            "Foi utilizado o motor local para esta aula."
+        )
+    else:
+        aula["status_referencia_docx"] = "docx_ausente"
+        aula["motivo_referencia_docx"] = (
+            "Nenhum DOCX externo de metodologia foi localizado na pasta do PDF. "
+            "Foi utilizado o motor local para esta aula."
+        )
+    return aula
 
 
 def _finalizar_resultado(
@@ -202,7 +240,10 @@ def _montar_resultado_referencia_docx_exata(
         "metodologia": metodologia,
         "acompanhamento": acompanhamento,
         "acessibilidade": acessibilidade,
-        "origem_metodologia": dependencias.origem_metodologia_por_referencia_fn(perfil),
+        "origem_metodologia": (
+            dependencias.origem_metodologia_por_referencia_fn(perfil)
+            or "docx_referencia_externa"
+        ),
         "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
         "ia_usada": False,
         "ia_provedor": provedor_ia if usar_ia else "",
@@ -222,7 +263,13 @@ def _montar_resultado_referencia_docx_exata(
         dependencias.validar_aula_final_fn(aula_gerada) or []
     )
     aula_gerada["avisos_validacao"].append(aviso_sucesso)
-    return aula_gerada
+    return _registrar_proveniencia_docx(
+        aula_gerada,
+        referencia_docx=referencia_docx,
+        arquivo_referencia_docx=str(referencia_docx.get("fonte") or ""),
+        status_sucesso="docx_literal",
+        literal=True,
+    )
 
 
 def _montar_resultado_sem_referencia_docx(
@@ -392,6 +439,7 @@ def montar_resultado_aula_ia(
         dependencias=dependencias,
     )
     referencia_docx = base["referencia_docx"]
+    arquivo_referencia_docx = base["arquivo_referencia_docx"]
     habilidade_referencia = base["habilidade_referencia"]
     extracao = base["extracao"]
     tipo = base["tipo"]
@@ -642,7 +690,7 @@ def montar_resultado_aula_ia(
         "metodologia_final": metodologia,
     }
 
-    return _finalizar_resultado(
+    resultado = _finalizar_resultado(
         texto=texto,
         tema=tema,
         material_digital=material_digital,
@@ -665,6 +713,13 @@ def montar_resultado_aula_ia(
         total_aulas=total_aulas,
         diagnostico_geracao=diagnostico_geracao,
         dependencias=dependencias,
+    )
+    return _registrar_proveniencia_docx(
+        resultado,
+        referencia_docx=referencia_docx,
+        arquivo_referencia_docx=arquivo_referencia_docx,
+        status_sucesso="docx_refinado_ia",
+        literal=False,
     )
 
 
@@ -705,6 +760,7 @@ def montar_resultado_aula_local(
         dependencias=dependencias,
     )
     referencia_docx = base["referencia_docx"]
+    arquivo_referencia_docx = base["arquivo_referencia_docx"]
     habilidade_referencia = base["habilidade_referencia"]
     extracao = base["extracao"]
     tipo = base["tipo"]
@@ -743,6 +799,28 @@ def montar_resultado_aula_local(
         aprendizagem = (
             f"Desenvolver estrategias de leitura, interpretacao e registro em {tema}, "
             "com foco em autonomia de estudo e resolucao orientada das atividades."
+        )
+
+    if referencia_docx:
+        return _montar_resultado_referencia_docx_exata(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=referencia_docx,
+            provedor_ia=provedor_ia,
+            usar_ia=usar_ia,
+            ia_erro=ia_erro,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
+            aviso_sucesso=(
+                f"{disciplina_base}: metodologia, acompanhamento da aprendizagem e "
+                "acessibilidade foram copiados literalmente do DOCX externo."
+            ),
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
@@ -886,15 +964,6 @@ def montar_resultado_aula_local(
             perfil,
         )
 
-    aplicar_referencia_docx = bool(referencia_docx)
-    if aplicar_referencia_docx:
-        metodologia = dependencias.naturalizar_metodologia_professor_fn(
-            referencia_docx.get("metodologia") or [],
-            perfil=perfil,
-        )
-        acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
-        acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
-
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,
         "metodologia_ia_crua": [],
@@ -902,7 +971,7 @@ def montar_resultado_aula_local(
         "metodologia_final": metodologia,
     }
 
-    return _finalizar_resultado(
+    resultado = _finalizar_resultado(
         texto=texto,
         tema=tema,
         material_digital=material_digital,
@@ -915,8 +984,8 @@ def montar_resultado_aula_local(
         acompanhamento=acompanhamento,
         acessibilidade=acessibilidade,
         referencia_docx=referencia_docx,
-        aplicar_referencia_docx=aplicar_referencia_docx,
-        marcar_origem_referencia=bool(referencia_docx),
+        aplicar_referencia_docx=False,
+        marcar_origem_referencia=False,
         origem_sem_referencia="motor_local",
         ia_usada=False,
         ia_provedor_registrado=provedor_ia if usar_ia else "",
@@ -925,4 +994,9 @@ def montar_resultado_aula_local(
         total_aulas=total_aulas,
         diagnostico_geracao=diagnostico_geracao,
         dependencias=dependencias,
+    )
+    return _registrar_proveniencia_docx(
+        resultado,
+        referencia_docx=None,
+        arquivo_referencia_docx=arquivo_referencia_docx,
     )

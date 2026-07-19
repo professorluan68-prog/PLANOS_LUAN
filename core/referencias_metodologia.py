@@ -93,6 +93,9 @@ PASTAS_BUSCA = [
 PASTA_REFERENCIAS = PASTAS_BUSCA[0]
 
 def resolver_caminho_referencia(arquivo: str) -> Path | None:
+    arq_path = Path(arquivo)
+    if arq_path.is_absolute() and arq_path.exists():
+        return arq_path
     for pasta in PASTAS_BUSCA:
         caminho = pasta / arquivo
         if caminho.exists():
@@ -383,9 +386,50 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
     return "\n\n".join(partes)
 
 
+def _buscar_metodologia_automatica(disciplina: str, turma: str) -> tuple[str, ...]:
+    try:
+        from config import PDF_AULAS_DIR
+        from core.helpers import normalizar_para_pasta
+        import re
+        
+        disc_norm = normalizar_para_pasta(disciplina)
+        pasta_disc = Path(PDF_AULAS_DIR) / disc_norm
+        
+        if not pasta_disc.exists():
+            # Fallback flexível de nome de disciplina
+            for d in Path(PDF_AULAS_DIR).iterdir():
+                if d.is_dir() and normalizar_para_pasta(d.name) == disc_norm:
+                    pasta_disc = d
+                    break
+                    
+        if not pasta_disc.exists():
+            return ()
+            
+        turma_norm = normalizar_para_pasta(turma)
+        ano_str = ""
+        m = re.search(r"(\d+)_?ANO", turma_norm)
+        if m:
+            ano_str = f"{m.group(1)}_ANO"
+            
+        encontrados = []
+        for ext in ("*.docx", "*.md"):
+            for arquivo in pasta_disc.rglob(f"METODOLOGIA{ext}"):
+                caminho_str = str(arquivo).upper()
+                if ano_str and ano_str in caminho_str:
+                    encontrados.append(str(arquivo))
+                elif not ano_str:
+                    encontrados.append(str(arquivo))
+                    
+        return tuple(encontrados)
+    except Exception as e:
+        import logging
+        logging.getLogger("PLANOS_LUAN").error(f"Erro na busca automatica de metodologia: {e}")
+        return ()
+
 @lru_cache(maxsize=32)
 def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> str:
-    arquivos_novos = _arquivos_novos_para_disciplina(disciplina)
+    arquivos_automaticos = _buscar_metodologia_automatica(disciplina, turma)
+    arquivos_novos = _combinar_arquivos(arquivos_automaticos, _arquivos_novos_para_disciplina(disciplina))
     if _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
         arquivos_padrao = (REFERENCIA_PORTUGUES_FUNDAMENTAL, REFERENCIA_PORTUGUES_GERAL)
     elif _eh_portugues(disciplina):

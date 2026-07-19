@@ -15,7 +15,7 @@ from core.listas_pedagogicas import (
 from core.models import PlanoCompleto
 from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
-VERSAO_GERADOR_ATUAL = "1.2.10"
+VERSAO_GERADOR_ATUAL = "1.2.11"
 
 # CORREÇÃO FALHA #8 — Score mínimo aceitável para entrega sem regeneração
 SCORE_MINIMO_ACEITAVEL = 70
@@ -227,7 +227,11 @@ def revisar_aula_gerada(
         aula["confidence_score"] = min(aula["confidence_score"], 70)
 
     # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
-    if aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL and tentativas_regeneracao < _max_regeneracoes:
+    if (
+        aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL
+        and tentativas_regeneracao < _max_regeneracoes
+        and not aula.get("texto_central_copiado_literalmente", False)
+    ):
         etapas_problematicas = _identificar_etapas_com_aviso(avisos)
         if etapas_problematicas and perfil == "historia":
             aula_corrigida = _regenerar_etapas_historia(aula, etapas_problematicas)

@@ -168,6 +168,7 @@ from docx_generator.preencher_cdp import preencher_documento_cdp, prever_aulas_c
 from core.helpers import (
     LocalFileWrapper,
     filtrar_pdfs_para_aulas,
+    garantir_caminho_na_raiz,
     arquivos_na_ordem_de_envio,
     horario_para_plano,
     listar_falhas_ia,
@@ -180,6 +181,7 @@ from core.helpers import (
     texto_lista as _texto_lista,
     numero_aula_pdf,
 )
+from core.proveniencia_docx import resumir_proveniencia_docx
 from core.turmas import turmas_espelho_mesma_serie
 from core.professores_planos import (
     atualizar_cabecalho_modelo_professor,
@@ -298,11 +300,17 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     partes = []
     for arquivo in ordenar_pdfs_por_numero(arquivos or []):
         caminho = Path(arquivo)
+        caminho_identificador = caminho.resolve(strict=False)
         try:
             stat = caminho.stat()
-            partes.append(f"{caminho.name}|{stat.st_size}|{stat.st_mtime_ns}|{numero_aula_pdf(caminho) or ''}")
+            partes.append(
+                f"{caminho_identificador}|{stat.st_size}|{stat.st_mtime_ns}|"
+                f"{numero_aula_pdf(caminho) or ''}"
+            )
         except OSError:
-            partes.append(f"{caminho.name}|0|0|{numero_aula_pdf(caminho) or ''}")
+            partes.append(
+                f"{caminho_identificador}|0|0|{numero_aula_pdf(caminho) or ''}"
+            )
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
@@ -2590,9 +2598,37 @@ if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
     modalidade_eja = st.selectbox("Modalidade", ["Regular", "EJA"], key="modalidade_eja") == "EJA"
 
 
+def _resolver_pasta_pdfs_oficial(
+    disciplina: str,
+    turma: str,
+    bimestre: str,
+    professor: str = "",
+) -> Path:
+    """Resolve PDFs automaticos sem permitir saida da raiz oficial."""
+    raiz_oficial = Path(PDF_AULAS_DIR).resolve(strict=False)
+    if not raiz_oficial.is_dir():
+        raise FileNotFoundError(
+            f"Pasta oficial de PDFs indisponivel: {raiz_oficial}"
+        )
+
+    pasta = resolver_pasta_pdfs(
+        str(raiz_oficial),
+        disciplina,
+        turma,
+        bimestre,
+        professor=professor,
+    )
+    return garantir_caminho_na_raiz(pasta, raiz_oficial)
+
+
 def _resolver_caminho_ae_priorizado(disciplina: str, turma: str, bimestre: str, professor: str = "") -> str:
     try:
-        pasta = resolver_pasta_pdfs(str(PDF_AULAS_DIR), disciplina, turma, bimestre, professor=professor)
+        pasta = _resolver_pasta_pdfs_oficial(
+            disciplina,
+            turma,
+            bimestre,
+            professor=professor,
+        )
     except Exception:
         return ""
 
@@ -2942,10 +2978,20 @@ else:
     pdfs_aulas_files = []
     qtd_aulas = 0
     pdfs_auto_total = 0
-    try:
-        pasta_pdfs_auto = str(resolver_pasta_pdfs(str(PDF_AULAS_DIR), disciplina, turma, bimestre, professor=professor))
-    except Exception:
-        pasta_pdfs_auto = ""
+    pasta_pdfs_resolvida = None
+    pasta_pdfs_auto = ""
+    erro_pasta_pdfs_auto = ""
+    if modo_upload_automatico:
+        try:
+            pasta_pdfs_resolvida = _resolver_pasta_pdfs_oficial(
+                disciplina,
+                turma,
+                bimestre,
+                professor=professor,
+            )
+            pasta_pdfs_auto = str(pasta_pdfs_resolvida)
+        except (OSError, ValueError) as exc:
+            erro_pasta_pdfs_auto = str(exc)
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
 
@@ -2987,17 +3033,26 @@ else:
             else:
                 qtd_aulas = linhas_modelo_pdf
         elif modo_upload_automatico:
-            base_pdfs_dir = str(PDF_AULAS_DIR)
-            pasta_pdfs = resolver_pasta_pdfs(base_pdfs_dir, disciplina, turma, bimestre, professor=professor)
-            pasta_pdfs_auto = str(pasta_pdfs)
+            pasta_pdfs = pasta_pdfs_resolvida
 
             pdf_files_disponiveis = []
-            if pasta_pdfs.exists():
+            if erro_pasta_pdfs_auto:
+                st.error(erro_pasta_pdfs_auto)
+            elif pasta_pdfs is not None and pasta_pdfs.exists():
+                msg = f"📁 **PASTA LOCALIZADA EM:**\n`{pasta_pdfs}`"
+                if est_necessarios > 0:
+                    msg += f"\n\n📎 **Quantidade de PDFs que o plano precisa:** {est_necessarios}"
+                st.info(msg)
                 pdfs_encontrados = filtrar_pdfs_para_aulas(pasta_pdfs.glob("*.pdf"))
                 pdfs_auto_total = len(pdfs_encontrados)
                 pdfs_com_numero = [pdf for pdf in pdfs_encontrados if numero_aula_pdf(pdf) is not None]
                 pdfs_para_ordenar = pdfs_com_numero or pdfs_encontrados
                 pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_para_ordenar)
+            elif pasta_pdfs is not None:
+                st.warning(
+                    "A pasta esperada para este contexto nao existe dentro da "
+                    f"fonte oficial: {pasta_pdfs}"
+                )
 
             if pdf_files_disponiveis:
                 default_selection = []
@@ -3692,6 +3747,42 @@ if st.session_state.get("planos_gerados"):
     planos_gerados = st.session_state["planos_gerados"]
     dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina) if professor else PLANOS_FINALIZADOS_DIR
     st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{dir_destino}`")
+
+    resumo_docx = resumir_proveniencia_docx(
+        st.session_state.get("turmas_processadas") or []
+    )
+    total_com_docx = (
+        resumo_docx["docx_literal"] + resumo_docx["docx_refinado_ia"]
+    )
+    if total_com_docx:
+        detalhes_origem = []
+        if resumo_docx["docx_literal"]:
+            detalhes_origem.append(
+                f'{resumo_docx["docx_literal"]} aula(s) copiada(s) literalmente'
+            )
+        if resumo_docx["docx_refinado_ia"]:
+            detalhes_origem.append(
+                f'{resumo_docx["docx_refinado_ia"]} aula(s) refinada(s) pela IA a partir do DOCX'
+            )
+        arquivos_origem = ", ".join(resumo_docx["arquivos"])
+        mensagem_origem = (
+            "Fonte dos textos centrais confirmada: " + "; ".join(detalhes_origem) + "."
+        )
+        if arquivos_origem:
+            mensagem_origem += f" Arquivo(s): {arquivos_origem}."
+        st.success(mensagem_origem)
+
+    if resumo_docx["fallback"]:
+        st.warning(
+            f'Atenção: {resumo_docx["fallback"]} aula(s) não puderam usar o '
+            "DOCX externo. O motivo está detalhado abaixo."
+        )
+        with st.expander("Ver aulas que não utilizaram o DOCX externo"):
+            for falha in resumo_docx["falhas"]:
+                identificacao = f'Turma {falha["turma"]} - Aula {falha["numero_aula"]}'
+                if falha["tema"]:
+                    identificacao += f' - {falha["tema"]}'
+                st.write(f'**{identificacao}:** {falha["motivo"]}')
     
     mensagem_historico = str(st.session_state.pop("mensagem_historico_planos", "") or "").strip()
     mensagem_historico_tipo = str(st.session_state.pop("mensagem_historico_planos_tipo", "") or "").strip()

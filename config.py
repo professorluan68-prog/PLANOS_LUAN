@@ -32,18 +32,14 @@ PLANOS_FEITOS_DIR = BASE_DIR / "Planos feitos"
 DB_PATH = BASE_DIR / "planos_luan.db"
 HISTORICO_DOCX_DIR = BASE_DIR / "historico_docx"
 
-_PDF_AULAS_ONEDRIVE_DIR = Path(r"C:\Users\Luan Dias\OneDrive\Documents\PDF_AULAS")
-_PDF_AULAS_LEGACY_DIR = Path(r"C:\Users\Luan Dias\Documents\PDF_AULAS")
-_PDF_AULAS_PADRAO = (
-    _PDF_AULAS_ONEDRIVE_DIR
-    if _PDF_AULAS_ONEDRIVE_DIR.exists()
-    else (
-        _PDF_AULAS_LEGACY_DIR
-        if _PDF_AULAS_LEGACY_DIR.exists()
-        else _PDF_AULAS_ONEDRIVE_DIR
-    )
-)
-PDF_AULAS_DIR = Path(os.getenv("PDF_AULAS_DIR", str(_PDF_AULAS_PADRAO)))
+# 3.1 Fonte pedagogica oficial
+#
+# Os PDFs operacionais ficam fora do repositorio Git, em uma unica raiz
+# controlada. Nao ha fallback automatico para OneDrive, Documents/Documentos
+# ou instalacoes antigas: isso evita que uma pasta legada seja escolhida apenas
+# porque ainda existe no computador.
+PLANOS_LUAN_DADOS_DIR = BASE_DIR.parent / "PLANOS_LUAN_DADOS"
+PDF_AULAS_DIR = PLANOS_LUAN_DADOS_DIR / "PDF_AULAS"
 
 
 # Arquivos de dados especificos

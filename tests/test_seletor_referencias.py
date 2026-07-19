@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from docx import Document
+
 from core import seletor_referencias
 
 
@@ -71,7 +73,7 @@ def test_perfil_prioriza_docx_sobre_cache_json_para_perfis_com_referencia():
     assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("historia")
     assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("arte")
     assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("lingua_portuguesa_ef")
-    assert not seletor_referencias.perfil_prioriza_docx_sobre_cache_json("filosofia")
+    assert seletor_referencias.perfil_prioriza_docx_sobre_cache_json("filosofia")
 
 
 def test_material_aula_com_titulo_monta_rotulo_padrao():
@@ -79,3 +81,35 @@ def test_material_aula_com_titulo_monta_rotulo_padrao():
         seletor_referencias.material_aula_com_titulo("AULA 7", "Equacoes")
         == "AULA 7 - Equacoes"
     )
+
+
+def test_seletor_usa_docx_padronizado_em_perfil_sem_leitor_especifico(tmp_path):
+    pdf = tmp_path / "AULA_001__MATERIA__QUIMICA.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    docx = tmp_path / "METODOLOGIA_QUIMICA_2_ANO_3_B.docx"
+    documento = Document()
+    documento.add_paragraph("AULA 1 - Materia")
+    documento.add_paragraph("METODOLOGIA")
+    documento.add_paragraph("Abertura: Texto literal de Quimica.")
+    documento.add_paragraph("ACOMPANHAMENTO DA APRENDIZAGEM")
+    documento.add_paragraph("Item 1")
+    documento.add_paragraph("Item 2")
+    documento.add_paragraph("Item 3")
+    documento.add_paragraph("ACESSIBILIDADE")
+    documento.add_paragraph("Apoio 1")
+    documento.add_paragraph("Apoio 2")
+    documento.add_paragraph("Apoio 3")
+    documento.save(docx)
+
+    referencia = seletor_referencias.referencia_docx_por_perfil(
+        str(pdf),
+        "1",
+        "Materia",
+        "quimica",
+    )
+
+    assert referencia is not None
+    assert referencia["metodologia"] == [
+        {"titulo": "Abertura", "texto": "Texto literal de Quimica."}
+    ]
+    assert referencia["fonte"] == str(docx)

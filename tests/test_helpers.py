@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from core.helpers import (
     arquivo_parece_id_seduc,
     arquivo_parece_referencia_nao_aula,
     arquivos_na_ordem_de_envio,
     filtrar_pdfs_para_aulas,
+    garantir_caminho_na_raiz,
     listar_falhas_ia,
     montar_relatorio_geracao,
     numero_aula_pdf,
@@ -117,6 +120,32 @@ def test_resolver_pasta_pdfs_usa_alias_portugues_em():
     caminho = resolver_pasta_pdfs(r"D:\PDF novos", "Portugues", "2 ano C", "2 Bimestre")
 
     assert caminho == Path(r"D:\PDF novos") / "LINGUA_PORTUGUESA" / "EM" / "2_BIMESTRE" / "2_ANO"
+
+
+def test_garantir_caminho_na_raiz_aceita_subpasta(tmp_path):
+    raiz = tmp_path / "PDF_AULAS"
+    subpasta = raiz / "HISTORIA" / "AF" / "1_BIMESTRE" / "6_ANO"
+    subpasta.mkdir(parents=True)
+
+    assert garantir_caminho_na_raiz(subpasta, raiz) == subpasta.resolve()
+
+
+def test_garantir_caminho_na_raiz_rejeita_caminho_externo(tmp_path):
+    raiz = tmp_path / "PDF_AULAS"
+    externo = tmp_path / "instalacao_antiga" / "PDF_AULAS"
+    raiz.mkdir()
+    externo.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="fora da raiz autorizada"):
+        garantir_caminho_na_raiz(externo, raiz)
+
+
+def test_garantir_caminho_na_raiz_rejeita_travessia(tmp_path):
+    raiz = tmp_path / "PDF_AULAS"
+    raiz.mkdir()
+
+    with pytest.raises(ValueError, match="fora da raiz autorizada"):
+        garantir_caminho_na_raiz(raiz / ".." / "pasta_antiga", raiz)
 
 
 def test_resolver_pasta_pdfs_silvana_2ano_a_usa_aprofundamento_biologia(tmp_path):
