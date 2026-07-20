@@ -98,11 +98,13 @@ VARIACOES_VERIFICACAO_EF = [
     "Verificar a compreensão sobre {tema} com uma pergunta direta, coletando respostas orais e identificando pontos que precisam de retomada.",
 ]
 
-VARIACOES_RETOMADA_EF = [
+VARIACOES_RETOMADA = [
     "Retomar brevemente os conceitos explorados na aula anterior sobre {tema_anterior} para garantir a base necessária para as atividades de hoje.",
     "Revisitar os registros produzidos na aula anterior sobre {tema_anterior}, conectando-os ao foco prático do dia.",
     "Recuperar as aprendizagens construídas sobre {tema_anterior}, destacando os pontos que serão aplicados na atividade de hoje.",
     "Reativar os conhecimentos sobre {tema_anterior} com uma pergunta rápida de sondagem antes de iniciar a prática.",
+    "Resgatar as ideias centrais discutidas no último encontro sobre {tema_anterior}, preparando a turma para os novos desafios.",
+    "Iniciar relembrando os principais pontos trabalhados anteriormente sobre {tema_anterior}, garantindo a continuidade do raciocínio.",
 ]
 
 
@@ -114,14 +116,15 @@ def ajustar_texto_por_posicao(texto: str, indice_aula: int, total_aulas: int, te
     if total_aulas <= 1:
         return texto
 
+    texto_lower = texto.lower()
+    if any(term in texto_lower for term in ["retomar", "revisitar", "recuperar", "reativar", "para começar", "para comecar"]):
+        idx = (indice_aula + _indice_hash([tema, "retomada"], 4)) % len(VARIACOES_RETOMADA)
+        return VARIACOES_RETOMADA[idx].format(tema_anterior=tema)
+
     tema_lower = (tema or "").lower()
     is_ef = "financeir" in tema_lower or "poupan" in tema_lower or "orcament" in tema_lower or "orçament" in tema_lower or "gasto" in tema_lower or "credito" in tema_lower or "crédito" in tema_lower or "consum" in tema_lower or "investimento" in tema_lower or "cesta basica" in tema_lower or "cesta básica" in tema_lower or "preços" in tema_lower or "precos" in tema_lower
 
     if is_ef:
-        texto_lower = texto.lower()
-        if any(term in texto_lower for term in ["retomar", "revisitar", "recuperar", "reativar", "para começar", "para comecar"]):
-            idx = (indice_aula + _indice_hash([tema, "retomada"], 4)) % len(VARIACOES_RETOMADA_EF)
-            return VARIACOES_RETOMADA_EF[idx].format(tema_anterior=tema)
         if any(term in texto_lower for term in ["pause", "pausa de checagem", "verificação", "verificacao", "conferir a compreensão", "conferir a compreensao"]):
             idx = (indice_aula + _indice_hash([tema, "verificacao"], 4)) % len(VARIACOES_VERIFICACAO_EF)
             return VARIACOES_VERIFICACAO_EF[idx].format(tema=tema)

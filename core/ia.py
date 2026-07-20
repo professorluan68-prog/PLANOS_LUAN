@@ -282,9 +282,10 @@ USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
 - O rascunho local traz a metodologia, o acompanhamento da aprendizagem e a acessibilidade ja cadastrados ou sugeridos.
 - Refine e integre esses 3 componentes com base no conteudo do PDF para garantir que sejam 100% coerentes com o material digital.
 - Melhore a especificidade, a naturalidade e a clareza de todos os textos, sem inventar conteudos fora do material.
-- Evite placeholders genericos. Se o acompanhamento ou acessibilidade do rascunho forem genericos (ex: "realizar perguntas", "leitura compartilhada"), mude-os para citar elementos e termos especificos do conteudo da aula extraido do PDF.
-- Retorne a metodologia, acompanhamento e acessibilidade refinados nos respectivos campos do JSON.
-- CRÍTICO: Mantenha a concisão e o tamanho do texto do rascunho original. Faça apenas refinamentos cirúrgicos, NÃO expanda nem aumente o tamanho do texto inutilmente.
+- Se o acompanhamento ou acessibilidade do rascunho forem genericos, mude-os para citar elementos e termos especificos do conteudo da aula.
+- VARIABILIDADE LEXICAL: Voce DEVE evitar repeticoes de palavras e expressoes ao longo das etapas, especialmente em inicios de frases (ex: nao repita "Retomar brevemente..."). Se o rascunho base possuir frases repetitivas, REESCREVA-AS completamente usando sinonimos e estruturas variadas.
+- Cada aula deve parecer unica. Varie amplamente os verbos nas etapas "Para comecar" e "Encerramento".
+- CRITICO: Mantenha a concisao e o tamanho do texto original. Voce tem total liberdade para reescrever e diversificar as frases para evitar repeticao, desde que mantenha a objetividade e a estrutura curtas. NAO aumente o tamanho do texto inutilmente.
 """
     bloco_eja = ""
     if modalidade_eja:
