@@ -2070,6 +2070,7 @@ def _coletar_aulas_envio(
 
         # Upload individual por aula
         pdf_individual = None
+        pdf_individual_2 = None
         eh_antecipacao_vazia = deixar_antecipacao_vazia and _eh_data_antecipacao(data_aula, mes, antecipacao_mes)
         if modo_upload_individual:
             if eh_antecipacao_vazia:
@@ -2078,14 +2079,39 @@ def _coletar_aulas_envio(
                 st.caption("📎 PDF compartilhado com a aula anterior.")
             else:
                 chave_pdf_ind = f"{key_prefix}pdf_individual_aula_{idx}"
-                uploaded = st.file_uploader(f"PDF da Aula {idx + 1}", type=["pdf"], key=chave_pdf_ind, label_visibility="collapsed")
-                pdf_individual = uploaded
-                if uploaded:
+                aceitar_multiplos = st.session_state.get(chave_tipo, "Simples") == "Dupla"
+                uploaded = st.file_uploader(f"PDF da Aula {idx + 1}", type=["pdf"], accept_multiple_files=aceitar_multiplos, key=chave_pdf_ind, label_visibility="collapsed")
+                
+                if aceitar_multiplos and isinstance(uploaded, list):
+                    if len(uploaded) >= 2:
+                        pdf_individual = uploaded[0]
+                        pdf_individual_2 = uploaded[1]
+                    elif len(uploaded) == 1:
+                        pdf_individual = uploaded[0]
+                else:
+                    pdf_individual = uploaded
+                    
+                if isinstance(uploaded, list) and len(uploaded) > 0:
+                    st.caption(f"✅ {len(uploaded)} arquivo(s)")
+                elif uploaded and not isinstance(uploaded, list):
                     st.caption(f"✅ {uploaded.name}")
                 else:
-                    st.caption("⬆️ Adicione o PDF desta aula")
+                    msg = "⬆️ Adicione até 2 PDFs" if aceitar_multiplos else "⬆️ Adicione o PDF desta aula"
+                    st.caption(msg)
 
-        aulas_envio.append({"data": data_aula, "horario": horario_aula, "pdf": pdf_individual, "dividir_pdf": dividir_pdf})
+        if pdf_individual_2:
+            import re
+            horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
+            match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
+            if match:
+                aula1, aula2 = match.groups()
+                aulas_envio.append({"data": data_aula, "horario": f"{aula1}ª aula", "pdf": pdf_individual, "dividir_pdf": False})
+                aulas_envio.append({"data": data_aula, "horario": f"{aula2}ª aula", "pdf": pdf_individual_2, "dividir_pdf": False})
+            else:
+                aulas_envio.append({"data": data_aula, "horario": f"Aula 1 ({horario_str})", "pdf": pdf_individual, "dividir_pdf": False})
+                aulas_envio.append({"data": data_aula, "horario": f"Aula 2 ({horario_str})", "pdf": pdf_individual_2, "dividir_pdf": False})
+        else:
+            aulas_envio.append({"data": data_aula, "horario": horario_aula, "pdf": pdf_individual, "dividir_pdf": dividir_pdf})
 
     if modo_upload_individual:
         # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
