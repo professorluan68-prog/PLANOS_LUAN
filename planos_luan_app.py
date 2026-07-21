@@ -2083,11 +2083,13 @@ def _coletar_aulas_envio(
                 uploaded = st.file_uploader(f"PDF da Aula {idx + 1}", type=["pdf"], accept_multiple_files=aceitar_multiplos, key=chave_pdf_ind, label_visibility="collapsed")
                 
                 if aceitar_multiplos and isinstance(uploaded, list):
-                    if len(uploaded) >= 2:
-                        pdf_individual = uploaded[0]
-                        pdf_individual_2 = uploaded[1]
-                    elif len(uploaded) == 1:
-                        pdf_individual = uploaded[0]
+                    # Organizar PDFs múltiplos pelo número para evitar inversão por ordem alfabética (ex: AULA 3 antes de Trilha)
+                    uploaded_sorted = ordenar_pdfs_por_numero(uploaded)
+                    if len(uploaded_sorted) >= 2:
+                        pdf_individual = uploaded_sorted[0]
+                        pdf_individual_2 = uploaded_sorted[1]
+                    elif len(uploaded_sorted) == 1:
+                        pdf_individual = uploaded_sorted[0]
                 else:
                     pdf_individual = uploaded
                     
@@ -2123,6 +2125,10 @@ def _coletar_aulas_envio(
                 aulas_envio[i]["grupo_pdf"] = aulas_envio[i - 1].get("grupo_pdf")
                 aulas_envio[i]["dividir_pdf"] = False
     else:
+        # Organizar automaticamente os PDFs do upload em lote pela numeração da aula,
+        # para que arquivos com prefixos como "TRILHA" não fiquem no final devido à ordem alfabética do navegador.
+        pdfs_aulas_files = ordenar_pdfs_por_numero(pdfs_aulas_files)
+        
         if deixar_antecipacao_vazia and antecipacao_mes > 0:
             aulas_antecipacao = [a for a in aulas_envio if _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
             aulas_oficiais = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
