@@ -122,6 +122,42 @@ _PERFIS_DOCX_SOMENTE_COLUNAS = {
     "matematica",
 }
 
+
+def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) -> Path | None:
+    caminho = Path(caminho_pdf)
+    if not (caminho.parent.name.startswith("temp_") or "temp" in caminho.parent.name.lower()):
+        return None
+    
+    try:
+        from config import PDF_AULAS_DIR
+        from core.helpers import normalizar_para_pasta
+        import re
+        
+        disc_norm = normalizar_para_pasta(disciplina)
+        pasta_disc = Path(PDF_AULAS_DIR) / disc_norm
+        if not pasta_disc.exists():
+            for d in Path(PDF_AULAS_DIR).iterdir():
+                if d.is_dir() and normalizar_para_pasta(d.name) == disc_norm:
+                    pasta_disc = d
+                    break
+        if not pasta_disc.exists():
+            return None
+
+        turma_norm = normalizar_para_pasta(turma)
+        ano_str = ""
+        m = re.search(r"(\d+)_?ANO", turma_norm)
+        if m:
+            ano_str = f"{m.group(1)}_ANO"
+        
+        for arquivo in pasta_disc.rglob(caminho.name):
+            if ano_str and ano_str in str(arquivo).upper():
+                return arquivo
+            elif not ano_str:
+                return arquivo
+    except Exception:
+        pass
+    return None
+
 def localizar_docx_referencia_por_perfil(
     caminho_pdf: str,
     disciplina: str,
@@ -130,6 +166,10 @@ def localizar_docx_referencia_por_perfil(
     perfil = perfil_disciplina(disciplina, turma=turma)
     if not caminho_pdf:
         return None
+
+    caminho_oficial = _resolver_caminho_original(caminho_pdf, disciplina, turma)
+    if caminho_oficial:
+        caminho_pdf = str(caminho_oficial)
 
     referencia_padrao = localizar_docx_referencia_padrao(caminho_pdf)
     if referencia_padrao and referencia_padrao.name.casefold().startswith("metodologia_"):

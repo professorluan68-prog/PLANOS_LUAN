@@ -443,7 +443,7 @@ INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
 - Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
 """
 
-    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (MUITO IMPORTANTE): CADA ETAPA deve ser EXTREMAMENTE CURTA, direta e em formato de tópicos ou frases curtas. NÃO AUMENTE O TAMANHO DO TEXTO em relação ao rascunho original. Mantenha entre 20 e 50 palavras por etapa, NUNCA passando disso. NÃO explique detalhadamente como a aula será feita, nem justifique as escolhas pedagógicas. Apenas cite a ação docente principal de forma objetiva (ex: 'Leitura do texto X', 'Resolução da atividade Y'). Seja cirúrgico e telegráfico."
+    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (MUITO IMPORTANTE): CADA ETAPA deve ser EXTREMAMENTE CURTA, direta e em formato de tópicos ou frases curtas. NÃO AUMENTE O TEXTO INUTILMENTE. NO MÁXIMO 2 a 3 linhas por etapa (entre 15 e 40 palavras). NÃO explique de forma detalhada ou teórica como a aula será feita. NÃO justifique suas escolhas. Vá direto ao ponto, citando a ação (ex: 'Leitura do texto X e registro de impressões', 'Resolução das questões 1 a 3 no caderno'). Seja 100% focado na execução objetiva."
     if perfil == "historia":
         tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (HISTÓRIA): CADA ETAPA deve ser extremamente curta (NO MÁXIMO 400 caracteres no total). Apenas refine o texto base com as palavras-chave do PDF. NÃO AUMENTE O TEXTO INUTILMENTE. Seja cirúrgico, mantendo a metodologia curta e direta sem dar explicações extras."
 

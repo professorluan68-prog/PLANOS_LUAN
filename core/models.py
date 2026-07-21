@@ -187,7 +187,14 @@ class PlanoCompleto(ModeloPlanoBase):
             dados["recursos_detectados"] = []
             
         metodologia_bruta = dados.get("metodologia")
-        if isinstance(metodologia_bruta, list):
+        if isinstance(metodologia_bruta, str):
+            metodologia_limpa = []
+            for block in metodologia_bruta.split("\n\n"):
+                texto = block.strip()
+                if texto:
+                    metodologia_limpa.append({"titulo": "Ação do Professor", "texto": texto})
+            dados["metodologia"] = metodologia_limpa
+        elif isinstance(metodologia_bruta, list):
             metodologia_limpa = []
             for item in metodologia_bruta:
                 if isinstance(item, str):
