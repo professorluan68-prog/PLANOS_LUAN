@@ -1,4 +1,5 @@
 import os
+import json
 import re
 import hashlib
 import logging
@@ -199,56 +200,27 @@ def _disciplina_base_cdp_por_cadastro(disciplina: str) -> str:
             return nome
     return ""
 
-_ORIENTACAO_ESTUDOS_TITULOS = {
-    ("missao", 1): "Jogos com palavras e imagens",
-    ("missao", 2): "Para chorar de rir",
-    ("missao", 3): "Da charge à notícia",
-    ("missao", 4): "Que tirada!",
-    ("missao", 5): "Vamos a fundo nos assuntos",
-    ("missao", 6): "Uma palavra puxa a outra",
-    ("missao", 7): "A trama do texto",
-    ("missao", 8): "Por dentro dos verbetes",
-    ("missao", 9): "Narrativas breves",
-    ("missao", 10): "A voz da poesia",
-    ("missao", 11): "Um mergulho no cordel",
-    ("missao", 12): "Poema para mim e para você",
-    ("missao", 13): "Lendas e narrativa",
-    ("missao", 14): "Qual é a moral da história",
-    ("missao", 15): "O texto no teatro",
-    ("missao", 16): "Opinião versus fato",
-    ("trilha", 1): "Crônicas e conectivos",
-    ("trilha", 2): "Romances e conectivos",
-    ("trilha", 3): "Crônicas, tirinhas e conectivos",
-    ("trilha", 4): "Histórias em quadrinhos e humor",
-    ("trilha", 5): "Contos e finalidade do texto",
-    ("trilha", 6): "Causos e variação linguística",
-    ("trilha", 7): "Projetos culturais e coesão textual",
-    ("trilha", 8): "Cartas de leitor e argumento",
-    ("trilha", 9): "Elementos da notícia",
-    ("trilha", 10): "Notícias e opinião",
-    ("trilha", 11): "Notícias, charges e crítica",
-    ("trilha", 12): "Carta aberta e argumentação",
-    ("trilha", 13): "Muito mais informações",
-    ("trilha", 14): "Reportagens e informação",
-    ("trilha", 15): "Campanhas comunitárias e informação",
-    ("trilha", 16): "Textos de divulgação científica",
-    ("jornada", 1): "Nas entrelinhas da notícia",
-    ("jornada", 2): "Repercussão das notícias nos quadrinhos",
-    ("jornada", 3): "Contando o dia a dia",
-    ("jornada", 4): "Diferentes formas de dizer a mesma coisa",
-    ("jornada", 5): "Linguagem poética, versos e rimas",
-    ("jornada", 6): "Lendas e mitos: rever com olhos novos",
-    ("jornada", 7): "Entre manifestos e outras reivindicações",
-    ("jornada", 8): "Das resenhas às videorresenhas",
-    ("jornada", 9): "Informação visual",
-    ("jornada", 10): "Informações em infográficos, gráficos, tabelas e esquemas",
-    ("jornada", 11): "Linguagem poética: poema, slam e canção",
-    ("jornada", 12): "Palavras, ilustrações e paratextos",
-    ("jornada", 13): "Recursos midiáticos",
-    ("jornada", 14): "A língua (a) viva: variedades linguísticas",
-    ("jornada", 15): "Gêneros científicos e refutação de teses",
-    ("jornada", 16): "Anúncios para você",
-}
+_ORIENTACAO_ESTUDOS_TITULOS_CACHE = None
+
+def _get_orientacao_estudos_titulos():
+    global _ORIENTACAO_ESTUDOS_TITULOS_CACHE
+    if _ORIENTACAO_ESTUDOS_TITULOS_CACHE is None:
+        from config import BASE_DIR
+        caminho_json = BASE_DIR / "data" / "catalogos" / "orientacao_estudos_titulos.json"
+        try:
+            with open(caminho_json, "r", encoding="utf-8") as f:
+                dados_json = json.load(f)
+            _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
+            for k, v in dados_json.items():
+                if "_" in k:
+                    familia, num = k.split("_", 1)
+                    _ORIENTACAO_ESTUDOS_TITULOS_CACHE[(familia, int(num))] = v
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error("Erro ao carregar catalogo orientacao_estudos: %s", e)
+            _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
+    return _ORIENTACAO_ESTUDOS_TITULOS_CACHE
+
 
 
 def _familia_numero_orientacao_estudos(caminho_pdf: str) -> tuple[str, int]:
@@ -263,12 +235,12 @@ def _familia_numero_orientacao_estudos(caminho_pdf: str) -> tuple[str, int]:
 def _titulo_catalogado_orientacao_estudos(caminho_pdf: str, texto: str = "") -> str:
     familia, numero = _familia_numero_orientacao_estudos(caminho_pdf)
     if familia and numero:
-        titulo = _ORIENTACAO_ESTUDOS_TITULOS.get((familia, numero))
+        titulo = _get_orientacao_estudos_titulos().get((familia, numero))
         if titulo:
             return f"{familia.upper()} {numero} - {titulo}"
 
     base_texto = normalizar_texto_lote(texto)
-    for (familia_catalogo, numero_catalogo), titulo_catalogado in _ORIENTACAO_ESTUDOS_TITULOS.items():
+    for (familia_catalogo, numero_catalogo), titulo_catalogado in _get_orientacao_estudos_titulos().items():
         if normalizar_texto_lote(titulo_catalogado) in base_texto:
             return f"{familia_catalogo.upper()} {numero_catalogo} - {titulo_catalogado}"
     return ""
@@ -3059,6 +3031,47 @@ def _aula_por_pdf(
 
         if resultado_final is None:
             resultado_final = resultado_candidato
+
+    if disciplina.lower() == "matemática" and ("6º/7º" in turma.lower() or "8º/9º" in turma.lower() or "1º/2º/3º e.m" in turma.lower() or "multisseriado 1º" in turma.lower()):
+        from core.leitor_docx_cdp import extrair_aulas_docx
+        from config import TEMPLATES_DOCX_DIR
+        import re
+        from pathlib import Path
+        
+        if "6º/7º" in turma.lower():
+            doc_name = "METODOLOGIA_MATEMATICA_6_7_ANO_CDP_3_B.docx"
+        elif "8º/9º" in turma.lower():
+            doc_name = "METODOLOGIA_MATEMATICA_8_E_9_ANO_3_B.docx"
+        else:
+            doc_name = "METODOLOGIA_MATEMATICA_1_2_E_3_ANO_CDP_3_B.docx"
+            
+        doc_matematica = TEMPLATES_DOCX_DIR / doc_name
+        if doc_matematica.exists():
+            aulas_docx = extrair_aulas_docx(str(doc_matematica))
+            
+            nome_arquivo = Path(caminho_pdf).name.upper()
+            match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
+            num_aula = str(int(match_aula.group(1))) if match_aula else str(indice_aula + 1)
+            
+            if num_aula in aulas_docx:
+                dados_aula = aulas_docx[num_aula]
+                resultado_final["tema"] = dados_aula.get("tema", "")
+                resultado_final["material"] = ""
+                resultado_final["titulo_material"] = ""
+                resultado_final["habilidade"] = dados_aula.get("habilidade", "")
+                resultado_final["metodologia"] = dados_aula.get("metodologia", "")
+                
+                acompanhamento = dados_aula.get("acompanhamento", [])
+                if isinstance(acompanhamento, list):
+                    resultado_final["acompanhamento_aprendizagem"] = "\n".join(f"• {a}" for a in acompanhamento)
+                else:
+                    resultado_final["acompanhamento_aprendizagem"] = acompanhamento
+                    
+                acessibilidade = dados_aula.get("acessibilidade", [])
+                if isinstance(acessibilidade, list):
+                    resultado_final["acessibilidade"] = "\n".join(f"• {a}" for a in acessibilidade)
+                else:
+                    resultado_final["acessibilidade"] = acessibilidade
 
     return finalizar_plano_aula(
         resultado_final,

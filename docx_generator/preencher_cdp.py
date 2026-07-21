@@ -167,6 +167,7 @@ def prever_aulas_cdp(
     serie_cdp: str = "",
     componente_cdp: str = "",
     bimestre: str = "",
+    turma: str = "",
 ) -> list[Dict[str, str]]:
     doc = Document(modelo_docx)
     contadores: Dict[str, int] = {}
@@ -180,7 +181,7 @@ def prever_aulas_cdp(
             idxs = _indices_cdp(row)
             material_modelo = (row.cells[idxs["material"]].text or "").strip()
             disciplina = disciplina_da_linha(material_modelo)
-            turma_selecao = serie_cdp or ""
+            turma_selecao = serie_cdp or turma
             contador = contadores.get(disciplina, 0)
             item = selecionar_item(
                 disciplina,

@@ -727,12 +727,28 @@ def selecionar_item(
         disciplina: str,
         contador: int,
         turma: str = "",
-        bimestre: str = "1°",
+        bimestre: str = "1º",
         aula_inicial: int = 1,
         fundamental: bool = False,
         multisseriada: bool = False,
         componente_cdp: str = "",
 ) -> Dict[str, str]:
+    if disciplina.lower() in ["matemática", "matematica"] and "6º/7º" in turma.lower():
+        from core.leitor_docx_cdp import extrair_aulas_docx
+        aulas_docx = extrair_aulas_docx(r"C:\Users\Luan Dias\PLANOS_LUAN\templates\METODOLOGIA_MATEMATICA_6_7_ANO_CDP_3_B.docx")
+        numero_aula = aula_inicial + contador
+        if numero_aula in aulas_docx:
+            aula_dados = aulas_docx[numero_aula]
+            return {
+                "AULA": str(numero_aula),
+                "TEMA": aula_dados["tema"],
+                "HABILIDADES": aula_dados["habilidade"],
+                "METODOLOGIA": aula_dados["metodologia"],
+                "ACOMPANHAMENTO": "\n".join(aula_dados["acompanhamento"]),
+                "ACESSIBILIDADE": "\n".join(aula_dados["acessibilidade"])
+            }
+        return {}
+
     if fundamental:
         linhas = _filtrar_linhas_cdp(_linhas_cdp_por_disciplina(disciplina), turma, bimestre)
         if linhas:

@@ -177,6 +177,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
     if not pasta_planos.exists():
         return 0
 
+    # Fase 1: I/O de disco
     arquivos_docx = [
         caminho
         for caminho in pasta_planos.rglob("*.docx")
@@ -185,58 +186,76 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
     if not arquivos_docx:
         return 0
 
+    # Fase 2: Carregar dados em memória
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT nome FROM professores ORDER BY nome")
         nomes_professores = [row[0] for row in cursor.fetchall()]
 
-        inseridos = 0
-        for caminho in arquivos_docx:
-            try:
-                relativo = caminho.relative_to(pasta_planos)
-            except ValueError:
-                continue
-            partes = relativo.parts
-            if len(partes) < 3:
+        cursor.execute("SELECT arquivo_path FROM historico_planos WHERE arquivo_path IS NOT NULL")
+        paths_banco = cursor.fetchall()
+
+    paths_existentes = set()
+    for row in paths_banco:
+        chave = _chave_caminho_historico(row[0])
+        if chave:
+            paths_existentes.add(chave)
+
+    # Fase 3: Processamento em memória
+    dados_para_inserir = []
+    for caminho in arquivos_docx:
+        caminho_str = str(caminho.resolve())
+        chave = _chave_caminho_historico(caminho_str)
+        if chave in paths_existentes:
+            continue
+
+        try:
+            relativo = caminho.relative_to(pasta_planos)
+        except ValueError:
+            continue
+        partes = relativo.parts
+        if len(partes) < 3:
+            continue
+
+        professor_nome = _resolver_nome_professor_por_pasta(partes[0], nomes_professores)
+        disciplina = str(partes[1] or "").replace("_", " ").strip()
+        arquivo_nome = caminho.name
+        turma = _inferir_turma_por_nome_arquivo(arquivo_nome, disciplina)
+        if not professor_nome or not disciplina or not turma:
+            continue
+
+        data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        dados_para_inserir.append((
+            professor_nome,
+            disciplina,
+            turma,
+            "",
+            data_geracao,
+            arquivo_nome,
+            caminho_str,
+        ))
+
+    if not dados_para_inserir:
+        return 0
+
+    # Fase 4: Transação de Inserção curta
+    inseridos = 0
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        for dados in dados_para_inserir:
+            prof, disc, turma, bim, dt, arq, path = dados
+            if _existe_historico_mesmo_contexto_arquivo(cursor, prof, disc, turma, arq):
                 continue
 
-            professor_nome = _resolver_nome_professor_por_pasta(partes[0], nomes_professores)
-            disciplina = str(partes[1] or "").replace("_", " ").strip()
-            arquivo_nome = caminho.name
-            turma = _inferir_turma_por_nome_arquivo(arquivo_nome, disciplina)
-            if not professor_nome or not disciplina or not turma:
-                continue
-
-            caminho_str = str(caminho.resolve())
-            if _buscar_id_historico_por_caminho(cursor, caminho_str) is not None:
-                continue
-            if _existe_historico_mesmo_contexto_arquivo(
-                cursor,
-                professor_nome,
-                disciplina,
-                turma,
-                arquivo_nome,
-            ):
-                continue
-
-            data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
             cursor.execute(
                 """
                 INSERT INTO historico_planos
                 (professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    professor_nome,
-                    disciplina,
-                    turma,
-                    "",
-                    data_geracao,
-                    arquivo_nome,
-                    caminho_str,
-                ),
+                dados,
             )
             inseridos += 1
 

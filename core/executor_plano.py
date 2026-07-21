@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import json
+import hashlib
+from pathlib import Path
 from typing import Callable, Sequence
 
 from core.models import PlanoCompleto
@@ -56,6 +59,11 @@ def finalizar_plano_aula(
     return plano.to_dict()
 
 
+def _obter_checkpoint_path() -> Path:
+    from config import BASE_DIR
+    return BASE_DIR / ".checkpoint.json"
+
+
 def processar_lote_pdfs(
     caminhos_pdf: Sequence[str] | None,
     *,
@@ -69,6 +77,16 @@ def processar_lote_pdfs(
 ) -> list[dict]:
     aulas = []
     total_aulas = len(caminhos_pdf or [])
+    
+    checkpoint_path = _obter_checkpoint_path()
+    checkpoint_data = {}
+    if checkpoint_path.exists():
+        try:
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                checkpoint_data = json.load(f)
+        except Exception:
+            checkpoint_data = {}
+
     for idx, caminho in enumerate(caminhos_pdf or []):
         if progress_callback:
             try:
@@ -76,13 +94,25 @@ def processar_lote_pdfs(
             except Exception:
                 pass
 
+        hash_caminho = hashlib.md5(str(caminho).encode("utf-8")).hexdigest()
         dividir_aula_atual = (
             bool(dividir_por_pdf[idx])
             if dividir_por_pdf and idx < len(dividir_por_pdf)
             else dividir_metodologia
         )
+
+        if hash_caminho in checkpoint_data and checkpoint_data[hash_caminho].get("dividir") == dividir_aula_atual:
+            logger.info("Restaurando aula do checkpoint para: %s", caminho)
+            aula_restaurada = checkpoint_data[hash_caminho]["aula"]
+            if dividir_aula_atual:
+                aulas.extend(aula_restaurada)
+            else:
+                aulas.append(aula_restaurada)
+            continue
+
         aula = gerar_aula_callback(caminho, idx, total_aulas, dividir_aula_atual)
 
+        resultado_salvar = None
         if dividir_aula_atual:
             if not (
                 texto_metodologia_fn
@@ -101,7 +131,27 @@ def processar_lote_pdfs(
             aula_segundo["tema"] = f"{aula['tema']} - continuidade"
             aula_segundo["metodologia"] = metodologia_por_texto_fn(parte2)
 
-            aulas.extend([aula_primeiro, aula_segundo])
+            resultado_salvar = [aula_primeiro, aula_segundo]
+            aulas.extend(resultado_salvar)
         else:
+            resultado_salvar = aula
             aulas.append(aula)
+            
+        checkpoint_data[hash_caminho] = {
+            "caminho": str(caminho),
+            "dividir": dividir_aula_atual,
+            "aula": resultado_salvar
+        }
+        try:
+            with open(checkpoint_path, "w", encoding="utf-8") as f:
+                json.dump(checkpoint_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning("Falha ao salvar checkpoint: %s", e)
+
+    if checkpoint_path.exists():
+        try:
+            checkpoint_path.unlink()
+        except Exception:
+            pass
+
     return aulas

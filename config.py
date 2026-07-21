@@ -60,6 +60,7 @@ HABILITAR_REVISAO_POS_GERACAO = False
 # 5. Limites e regras de leitura
 PDF_TEXTO_LIMITE_CHARS = 100000
 MAX_CHARS_WORD = 15000
+HABILITAR_PDF2DOCX = False
 
 # 6. Criacao automatica de pastas
 def inicializar_pastas():

@@ -2014,14 +2014,14 @@ def _coletar_aulas_envio(
         if not dividir_metodologia and sequencia_pdf_esperada and idx < len(sequencia_pdf_esperada):
             numero_pdf_esperado = sequencia_pdf_esperada[idx]
 
-        with st.container():
+        with st.container(border=True):
             st.markdown(
-                f"""
+                """
                 <div class="{card_class}">
-                    <div class="lesson-header">
+                    <div class="lesson-header" style="margin-bottom: 5px;">
                         <div>
-                            <div class="lesson-title">{status_titulo}</div>
-                            <div class="lesson-subtitle">{status_texto}</div>
+                            <div class="lesson-title" style="font-size: 1.1em; font-weight: bold;">{status_titulo}</div>
+                            <div class="lesson-subtitle" style="font-size: 0.9em; opacity: 0.8;">{status_texto}</div>
                         </div>
                         <div class="lesson-badges">{badges_html}</div>
                     </div>
@@ -2059,6 +2059,7 @@ def _coletar_aulas_envio(
                     st.session_state[chave_horario] = opcoes_horario[0]
                 horario_aula = st.selectbox("Horário", opcoes_horario, format_func=_rotulo_horario, key=chave_horario, disabled=bloqueado)
 
+        st.divider()
         dividir_pdf = False
         if dividir_metodologia:
             sugestao_dividir = _divisao_pdf_padrao(idx, num_rows)
@@ -2217,7 +2218,10 @@ def _extrair_aulas_dos_pdfs(
             dividir_por_pdf.append(bool(grupo["dividir"]))
             
         for aula_envio in aulas_processamento:
-            dados_aulas.append({"data": aula_envio["data"].strftime("%d/%m"), "horario": horario_para_plano(aula_envio["horario"])})
+            if disciplina and turma_atual and disciplina.lower() == "matemática" and ("6º/7º" in turma_atual.lower() or "8º/9º" in turma_atual.lower() or "1º/2º/3º e.m" in turma_atual.lower() or "multisseriado 1º" in turma_atual.lower()):
+                dados_aulas.append({"data": aula_envio["data"].strftime("%d/%m"), "horario": ""})
+            else:
+                dados_aulas.append({"data": aula_envio["data"].strftime("%d/%m"), "horario": horario_para_plano(aula_envio["horario"])})
 
         aulas = []
         avisos_ae = []
@@ -2267,7 +2271,7 @@ def _extrair_aulas_dos_pdfs(
                 "acessibilidade": [],
                 "ia_usada": False,
                 "data": aula_envio["data"].strftime("%d/%m"),
-                "horario": horario_para_plano(aula_envio["horario"]),
+                "horario": "" if (disciplina and turma_atual and disciplina.lower() == "matemática" and ("6º/7º" in turma_atual.lower() or "8º/9º" in turma_atual.lower() or "1º/2º/3º e.m" in turma_atual.lower() or "multisseriado 1º" in turma_atual.lower())) else horario_para_plano(aula_envio["horario"]),
                 "aula_vazia": True,
             })
             
@@ -2485,6 +2489,8 @@ with col_turma:
 with col_bimestre: bimestre = st.selectbox("Bimestre", BIMESTRES, key="bimestre")
 with col_mes: mes = _selecionar_mes()
 with col_previstas: aulas_previstas_manual = _selecionar_aulas_semana("Aulas", "aulas_previstas_manual_select", "aulas_previstas_manual")
+
+
 
 resumo_grade_cadastrada = _resumo_grade_cadastrada(config_turma_selecionada)
 if resumo_grade_cadastrada:
@@ -2955,6 +2961,7 @@ if disciplina_cdp:
                 multisseriada=eh_cdp_multisseriada(disciplina),
                 serie_cdp=turma_cdp if eh_cdp_multisseriada(disciplina) else "",
                 bimestre=bimestre,
+                turma=turma,
             )
             _render_previa_aulas_cdp(previa_cdp)
         except Exception:
@@ -3263,7 +3270,8 @@ rotulo_botao_geracao = "GERAR PLANO" if disciplina_cdp else ("PROCESSAR AULAS" i
 if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
-    pdfs_enviados_val = sum(1 for a in aulas_envio if a.get("pdf") is not None) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
+    aulas_para_pdf_temp = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else aulas_envio
+    pdfs_enviados_val = len([g for g in _grupos_pdf_por_aula(aulas_para_pdf_temp) if aulas_para_pdf_temp[g["indices"][0]].get("pdf") is not None]) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
     erro = validar_entrada(
         modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma,

@@ -443,9 +443,9 @@ INSTRUÇÃO CRÍTICA DE FIDELIDADE AO PDF:
 - Ignore secoes "PAUSE E RESPONDA" do esboco; nao gere etapa com esse titulo.
 """
 
-    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO: CADA ETAPA deve ter idealmente entre 50 e 100 palavras. Seja direto e objetivo, NÃO escreva textos exaustivos (nunca passe de 120 palavras por etapa). Detalhe o suficiente para refletir os recursos do PDF, mas mantendo a concisão e praticidade de um plano de aula real. Se houver um rascunho base, NÃO AUMENTE O SEU TAMANHO."
+    tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (MUITO IMPORTANTE): CADA ETAPA deve ser EXTREMAMENTE CURTA, direta e em formato de tópicos ou frases curtas. NÃO AUMENTE O TAMANHO DO TEXTO em relação ao rascunho original. Mantenha entre 20 e 50 palavras por etapa, NUNCA passando disso. NÃO explique detalhadamente como a aula será feita, nem justifique as escolhas pedagógicas. Apenas cite a ação docente principal de forma objetiva (ex: 'Leitura do texto X', 'Resolução da atividade Y'). Seja cirúrgico e telegráfico."
     if perfil == "historia":
-        tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (HISTÓRIA): CADA ETAPA deve ser extremamente curta (NO MÁXIMO 900 caracteres no total). Apenas refine o texto base com as palavras-chave do PDF. NÃO AUMENTE O TEXTO INUTILMENTE. Seja cirúrgico, mantendo a metodologia curta e direta."
+        tamanho_etapa_regras = "3.2. PADRONIZAÇÃO DE TAMANHO (HISTÓRIA): CADA ETAPA deve ser extremamente curta (NO MÁXIMO 400 caracteres no total). Apenas refine o texto base com as palavras-chave do PDF. NÃO AUMENTE O TEXTO INUTILMENTE. Seja cirúrgico, mantendo a metodologia curta e direta sem dar explicações extras."
 
     return f"""Voce e um especialista em planejamento pedagogico. Extraia as informacoes do slide abaixo.
 DISCIPLINA: {disciplina}

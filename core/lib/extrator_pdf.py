@@ -11,7 +11,7 @@ import pdfplumber
 import logging
 import os
 
-from config import PDF_TEXTO_LIMITE_CHARS
+from config import PDF_TEXTO_LIMITE_CHARS, HABILITAR_PDF2DOCX
 from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
 
 logger = logging.getLogger(__name__)
@@ -141,17 +141,16 @@ def _avaliar_qualidade_docx_texto(texto: str, paragraphs: list[str]) -> bool:
 
 def extrair_texto_pdf(caminho_pdf: str, limite_chars: int = PDF_TEXTO_LIMITE_CHARS, permitir_fallback_teste: bool = None) -> str:
     """Extrai texto de um PDF usando pdf2docx estruturado com fallback para pdfplumber e OCR."""
-    try:
-        # Pula pdf2docx (lento) a pedido do usuário
-        raise Exception("pdf2docx desativado")
-        # texto_docx, paragrafos = _extrair_texto_via_pdf2docx(caminho_pdf, limite_chars)
-        if _avaliar_qualidade_docx_texto(texto_docx, paragrafos):
-            logger.info("Extração via pdf2docx bem-sucedida e com boa qualidade para: %s", caminho_pdf)
-            return texto_docx
-        else:
-            logger.warning("Qualidade do texto do pdf2docx insuficiente para: %s. Usando fallback pdfplumber.", caminho_pdf)
-    except Exception as exc:
-        logger.warning("Falha na extração por pdf2docx para %s: %s. Usando fallback pdfplumber.", caminho_pdf, exc)
+    if HABILITAR_PDF2DOCX:
+        try:
+            texto_docx, paragrafos = _extrair_texto_via_pdf2docx(caminho_pdf, limite_chars)
+            if _avaliar_qualidade_docx_texto(texto_docx, paragrafos):
+                logger.info("Extração via pdf2docx bem-sucedida e com boa qualidade para: %s", caminho_pdf)
+                return texto_docx
+            else:
+                logger.warning("Qualidade do texto do pdf2docx insuficiente para: %s. Usando fallback pdfplumber.", caminho_pdf)
+        except Exception as exc:
+            logger.warning("Falha na extração por pdf2docx para %s: %s. Usando fallback pdfplumber.", caminho_pdf, exc)
 
     try:
         with pdfplumber.open(caminho_pdf) as pdf:
