@@ -2831,7 +2831,9 @@ def _aula_por_pdf(
         and _perfil_prioriza_docx_sobre_cache_json(perfil_disciplina_cache)
     )
     assinatura_planilha = _assinatura_planilha_local(caminho_pdf)
-    hash_contexto_fingerprint = hash_atual
+    hash_contexto_fingerprint = (
+        f"{hash_atual}|modalidade:{'eja' if modalidade_eja else 'regular'}"
+    )
     if assinatura_referencia_docx:
         hash_contexto_fingerprint = f"{hash_contexto_fingerprint}|ref:{assinatura_referencia_docx}"
     if assinatura_planilha:
@@ -2983,6 +2985,7 @@ def _aula_por_pdf(
                         provedor_ia,
                         modelo_ia,
                         modalidade_eja=modalidade_eja_ativa,
+                        permitir_tecnicas_explicitamente=not modalidade_eja_ativa,
                         rascunho_base=rascunho_local,
                         contexto_geracao=contexto_geracao,
                         palavras_chave_esperadas=palavras_chave_esperadas,
