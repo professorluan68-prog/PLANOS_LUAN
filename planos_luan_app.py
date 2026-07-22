@@ -940,8 +940,16 @@ def _normalizar_texto_simples(texto: str) -> str:
     return texto.upper()
 
 def _disciplina_suporta_modalidade_eja(disciplina: str) -> bool:
-    texto = _normalizar_texto_simples(disciplina)
-    return "BIOLOGIA" in texto or "INGLES" in texto
+    texto = _normalizar_texto_simples(disciplina).replace("-", " ")
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto in {
+        "BIOLOGIA",
+        "BIOLOGIA EJA",
+        "INGLES",
+        "LINGUA INGLESA",
+        "LIDERANCA E ORATORIA",
+        "LIDERANCA ORATORIA",
+    }
 
 def _horarios_padronizados_de_texto(texto: str, contexto: str = "") -> list[tuple[str, str]]:
     horarios = []
@@ -2338,7 +2346,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "Reescrita CDP", "Cadastro", "Diagnóstico", "Histórico"]
+modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -2351,7 +2359,7 @@ idx_default = modos_disponiveis.index(default_modo)
 modo_tela = option_menu(
     menu_title=None,
     options=modos_disponiveis,
-    icons=["file-earmark-text", "file-earmark-spreadsheet", "pencil-square", "person-badge", "tools", "clock-history"],
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history"],
     menu_icon="cast",
     default_index=idx_default,
     orientation="horizontal",
@@ -2360,14 +2368,13 @@ modo_tela = option_menu(
 st.session_state["modo_tela"] = modo_tela
 
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
-modo_reescrita_cdp_em = modo_tela == "Reescrita CDP"
+modo_eja = modo_tela == "EJA"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
 modo_historico = modo_tela == "Histórico"
 
 if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
-if modo_reescrita_cdp_em: _renderizar_reescrita_cdp_em(); st.stop()
 if modo_historico: _renderizar_historico(PROFESSORES_DB); st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
@@ -2380,6 +2387,13 @@ modelo_automatico_arquivo = ""
 modelo_automatico_template_id = ""
 escolha_template = "MODELOCDP.docx" if modo_cdp_dedicado else OPCAO_MODELO_AUTOMATICO
 pdfs_aulas_files = []
+
+if modo_eja:
+    st.info(
+        "Modalidade EJA: escolha Língua Inglesa, Biologia ou Liderança e Oratória. "
+        "A geração usará linguagem adulta, direta e ligada ao mundo do trabalho.",
+        icon="👥",
+    )
 
 st.markdown('<div class="section-title">🧠 Configuração de Inteligência</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-subtitle">Defina se o processamento será manual ou apoiado por IA.</div>', unsafe_allow_html=True)
@@ -2409,7 +2423,19 @@ with col_prof:
 with col_disciplina:
     dados_prof = PROFESSORES_DB.get(professor, {})
     disciplinas_cadastradas = [] if modo_cdp_dedicado else dados_prof.get("disciplinas", [])
-    disciplinas_gerais = [d for d in nomes_disciplinas() if not eh_cdp(d)]
+    if modo_eja:
+        disciplinas_cadastradas = [
+            item
+            for item in disciplinas_cadastradas
+            if _disciplina_suporta_modalidade_eja(item.get("disciplina", ""))
+        ]
+        disciplinas_gerais = [
+            item
+            for item in nomes_disciplinas()
+            if not eh_cdp(item) and _disciplina_suporta_modalidade_eja(item)
+        ]
+    else:
+        disciplinas_gerais = [item for item in nomes_disciplinas() if not eh_cdp(item)]
     
     if disciplinas_cadastradas:
         disciplinas_unicas_prof = list(dict.fromkeys(d["disciplina"] for d in disciplinas_cadastradas))
@@ -2433,6 +2459,7 @@ disciplina_config = obter_config(disciplina)
 disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
 orientacao_estudos = "orienta" in disciplina_norm and "estudo" in disciplina_norm
 disciplina_cdp = eh_cdp(disciplina)
+disciplina_saida = f"{disciplina} - EJA" if modo_eja and disciplina else disciplina
 
 # Verificar disponibilidade das planilhas CDP (desativado temporariamente)
 from core.cdp_legacy import PLANILHA_CDP, PLANILHA_CDP_MULTISSERIADA
@@ -2500,7 +2527,7 @@ if resumo_grade_cadastrada:
 if professor and disciplina and turma:
     outros = verificar_plano_gerado_por_outro_professor(
         professor,
-        disciplina,
+        disciplina_saida,
         turma,
         bimestre=bimestre,
     )
@@ -2519,7 +2546,7 @@ if professor and disciplina and turma:
             data_amigavel = str(data_recente)
             
         st.warning(
-            f"⚠️ **ATENÇÃO:** O plano de **{disciplina} — {turma}** já foi gerado anteriormente neste **{bimestre}** para {nomes_formatados} (última geração em {data_amigavel}). Certifique-se de que é isso mesmo que deseja antes de prosseguir.",
+            f"⚠️ **ATENÇÃO:** O plano de **{disciplina_saida} — {turma}** já foi gerado anteriormente neste **{bimestre}** para {nomes_formatados} (última geração em {data_amigavel}). Certifique-se de que é isso mesmo que deseja antes de prosseguir.",
             icon="⚠️"
         )
 
@@ -2631,9 +2658,7 @@ col_escola, col_comp = st.columns([1, 1])
 with col_escola: escola = st.selectbox("Escola", ["EE PROFª. EGLE LUPORINI COSTA", "PADRE GERALDO LOURENÇO"], key="escola")
 with col_comp: componente_curricular = st.text_input("Componente curricular", key="componente_curricular")
 
-modalidade_eja = False
-if not disciplina_cdp and _disciplina_suporta_modalidade_eja(disciplina):
-    modalidade_eja = st.selectbox("Modalidade", ["Regular", "EJA"], key="modalidade_eja") == "EJA"
+modalidade_eja = bool(modo_eja)
 
 
 def _resolver_pasta_pdfs_oficial(
@@ -2649,14 +2674,21 @@ def _resolver_pasta_pdfs_oficial(
             f"Pasta oficial de PDFs indisponivel: {raiz_oficial}"
         )
 
-    pasta = resolver_pasta_pdfs(
-        str(raiz_oficial),
-        disciplina,
-        turma,
-        bimestre,
-        professor=professor,
-    )
-    return garantir_caminho_na_raiz(pasta, raiz_oficial)
+    disciplinas_busca = [f"{disciplina}-EJA", disciplina] if modo_eja else [disciplina]
+    candidatos = []
+    for disciplina_busca in disciplinas_busca:
+        pasta = resolver_pasta_pdfs(
+            str(raiz_oficial),
+            disciplina_busca,
+            turma,
+            bimestre,
+            professor=professor,
+        )
+        pasta_segura = garantir_caminho_na_raiz(pasta, raiz_oficial)
+        candidatos.append(pasta_segura)
+        if pasta_segura.is_dir():
+            return pasta_segura
+    return candidatos[0]
 
 
 def _resolver_caminho_ae_priorizado(disciplina: str, turma: str, bimestre: str, professor: str = "") -> str:
@@ -3297,7 +3329,7 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
             salvou_historico = _salvar_planos_gerados_se_configurado(
                 planos_gerados,
                 professor,
-                disciplina,
+                disciplina_saida,
                 bimestre,
             )
             _registrar_mensagem_memoria_plano(salvou_historico)
@@ -3379,11 +3411,11 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                     st.session_state["avisos_processamento"] = avisos
                     st.session_state.pop("revisao_token", None)
                     _limpar_revisao_aulas()
-                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
                     salvou_historico = _salvar_planos_gerados_se_configurado(
                         planos_gerados,
                         professor,
-                        disciplina,
+                        disciplina_saida,
                         bimestre,
                     )
                     _registrar_mensagem_memoria_plano(salvou_historico)
@@ -3751,12 +3783,12 @@ if st.session_state.get("turmas_processadas"):
         st.session_state["planos_gerados"] = planos_gerados
         
         # Salva fisicamente na pasta do professor/disciplina
-        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
         
         salvou_historico = _salvar_planos_gerados_se_configurado(
             planos_gerados,
             professor,
-            disciplina,
+            disciplina_saida,
             bimestre,
         )
         _registrar_mensagem_memoria_plano(salvou_historico)
@@ -3778,14 +3810,14 @@ if st.session_state.get("planos_gerados"):
             st.session_state["planos_gerados"] = planos_gerados
             
             # Salva localmente e no histórico
-            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina, professor)
+            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
             if st.session_state.get("salvar_historico_geracao", False):
-                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina, bimestre)
+                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina_saida, bimestre)
             st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
             st.rerun()
 
     planos_gerados = st.session_state["planos_gerados"]
-    dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina) if professor else PLANOS_FINALIZADOS_DIR
+    dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina_saida) if professor else PLANOS_FINALIZADOS_DIR
     st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{dir_destino}`")
 
     resumo_docx = resumir_proveniencia_docx(
@@ -3848,8 +3880,8 @@ if st.session_state.get("planos_gerados"):
         unsafe_allow_html=True,
     )
     if len(planos_gerados) == 1:
-        st.download_button("Baixar DOCX", data=planos_gerados[0]["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(planos_gerados[0]["turma"], disciplina, ia_usada=planos_gerados[0].get("ia_usada", False)), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        st.download_button("Baixar DOCX", data=planos_gerados[0]["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(planos_gerados[0]["turma"], disciplina_saida, ia_usada=planos_gerados[0].get("ia_usada", False)), mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     else:
-        st.download_button("📦 Baixar ZIP", data=_montar_zip_planos(planos_gerados, disciplina), file_name="planos.zip", mime="application/zip")
+        st.download_button("📦 Baixar ZIP", data=_montar_zip_planos(planos_gerados, disciplina_saida), file_name="planos.zip", mime="application/zip")
         for p in planos_gerados:
-            st.download_button(f"Baixar DOCX - {p['turma']}", data=p["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(p["turma"], disciplina, ia_usada=p.get("ia_usada", False)), key=f"dl_{p['turma']}")
+            st.download_button(f"Baixar DOCX - {p['turma']}", data=p["docx_bytes"].getvalue(), file_name=nome_arquivo_plano(p["turma"], disciplina_saida, ia_usada=p.get("ia_usada", False)), key=f"dl_{p['turma']}")
