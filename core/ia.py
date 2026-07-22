@@ -292,12 +292,15 @@ USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
         bloco_eja = """
 
 MODALIDADE EJA:
-- Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, objetiva e respeitosa.
-- Contextualize os conceitos em situacoes de vida, trabalho, saude, tecnologia, comunidade e cotidiano.
+- Escreva para Educacao de Jovens e Adultos, com linguagem acessivel, adulta, simples, objetiva e respeitosa.
+- Priorize a relacao do conteudo com o mundo do trabalho, sem deixar de considerar vida cotidiana, saude, tecnologia e comunidade.
 - Explique de forma pausada e dialogada, retomando vocabulario essencial sem infantilizar os estudantes.
-- Em Biologia e Inglês (APENAS), mantenha os blocos "Para começar", "Foco no conteúdo", "Pause e responda" e "Encerramento" sempre que o material permitir.
-- ATENÇÃO: Para História, 'Pause e responda' é SEMPRE PROIBIDO mesmo em EJA.
-- Preserve tecnicas explicitas do PDF quando isso fizer parte do modelo da disciplina.
+- Refine a metodologia, o acompanhamento da aprendizagem e a acessibilidade do DOCX com base no PDF, preservando o sentido e a ordem das atividades.
+- Em Biologia e Ingles, mantenha os blocos "Para comecar", "Foco no conteudo", "Pause e responda" e "Encerramento" quando o material trouxer essa organizacao.
+- Em Lideranca e Oratoria, preserve as etapas do DOCX/PDF, inclusive mais de um bloco "Na pratica" quando houver.
+- Nao cite Lemov nem nomes de tecnicas como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO ou UM PASSO DE CADA VEZ. Descreva apenas a acao pedagogica de forma natural.
+- No acompanhamento, observe a compreensao, a participacao e a aplicacao do conteudo em situacoes reais.
+- Na acessibilidade, valorize experiencias de vida e profissionais, registros simplificados, apoio visual e diferentes ritmos de aprendizagem.
 """
 
     bloco_leitura_redacao = ""
@@ -386,7 +389,9 @@ EXEMPLO POSITIVO — O QUE FAZER (saída ACEITA):
 """
 
     regra_tecnicas = ""
-    if perfil in {"projeto_de_vida", "lideranca_oratoria"}:
+    if modalidade_eja:
+        regra_tecnicas = "5. No EJA, nao cite tecnicas LEMOV nem seus nomes. Converta qualquer marcador do PDF em uma descricao pedagogica natural, simples e direta."
+    elif perfil in {"projeto_de_vida", "lideranca_oratoria"}:
         regra_tecnicas = "5. Nao cite tecnicas LEMOV nem nomes como VIREM E CONVERSEM, TODO MUNDO ESCREVE, COM SUAS PALAVRAS, HORA DA LEITURA, DE OLHO NO MODELO, PAUSE E RESPONDA ou UM PASSO DE CADA VEZ. Substitua por descricoes pedagogicas naturais, acolhedoras e coerentes com Projeto de Vida."
     elif permitir_tecnicas_explicitamente:
         regra_tecnicas = '5. Se o slide trouxer tecnicas pedagogicas explicitas, especialmente tecnicas LEMOV como "VIREM E CONVERSEM", "TODO MUNDO ESCREVE", "COM SUAS PALAVRAS", "HORA DA LEITURA", "DE OLHO NO MODELO", "PAUSE E RESPONDA" ou "UM PASSO DE CADA VEZ", cite o nome da tecnica em maiusculas dentro da acao docente de forma direta e natural, SEM usar a palavra "tecnica" ou "a tecnica" para nao soar repetitivo. Ex.: "Aplicar o VIREM E CONVERSEM para que os estudantes levantem hipoteses iniciais" e "Utilizar o TODO MUNDO ESCREVE para garantir o registro individual".'
