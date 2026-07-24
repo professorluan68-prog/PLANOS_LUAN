@@ -3,21 +3,8 @@ import re
 from core.lib.extrator_pdf import normalizar_texto
 
 
-PERFIS_EJA = frozenset({"biologia", "ingles", "lideranca_oratoria"})
-
-_SUBSTITUICOES_LEMOV = {
-    "virem e conversem": "uma conversa em duplas",
-    "todo mundo escreve": "um registro individual",
-    "com suas palavras": "uma explicacao com linguagem propria",
-    "hora da leitura": "uma leitura orientada",
-    "de olho no modelo": "a analise de um exemplo",
-    "pause e responda": "uma breve verificacao de compreensao",
-    "um passo de cada vez": "uma explicacao em etapas",
-}
-
-
 def perfil_suporta_eja(perfil: str) -> bool:
-    return normalizar_texto(perfil) in PERFIS_EJA
+    return perfil in {"biologia", "ingles", "lideranca_oratoria"}
 
 
 def _anexar_orientacao_unica(texto: str, orientacao: str) -> str:
@@ -32,109 +19,83 @@ def _anexar_orientacao_unica(texto: str, orientacao: str) -> str:
     return f"{texto} {orientacao}".strip() if texto else orientacao
 
 
-def _remover_nomes_lemov(texto: str) -> str:
-    resultado = re.sub(r"\s+", " ", str(texto or "")).strip()
-    for nome, substituicao in _SUBSTITUICOES_LEMOV.items():
-        resultado = re.sub(
-            rf"\b(?:a\s+tecnica\s+|o\s+momento\s+)?{re.escape(nome)}\b",
-            substituicao,
-            resultado,
-            flags=re.I,
-        )
-    resultado = re.sub(r"\btecnicas?\s+lemov\b", "estrategias pedagogicas", resultado, flags=re.I)
+_SUBSTITUICOES_TECNICAS_EJA = {
+    "VIREM E CONVERSEM": "conversa breve em duplas",
+    "TODO MUNDO ESCREVE": "registro individual",
+    "COM SUAS PALAVRAS": "explicacao com linguagem propria",
+    "HORA DA LEITURA": "leitura orientada",
+    "DE OLHO NO MODELO": "exemplo comentado",
+    "PAUSE E RESPONDA": "verificacao da aprendizagem",
+    "UM PASSO DE CADA VEZ": "explicacao em etapas",
+    "LISTEN AND REPEAT": "repeticao orientada",
+    "WRITE AND SHARE": "registro e compartilhamento",
+    "SAY IT IN ENGLISH": "producao oral em ingles",
+}
+
+_TITULOS_TECNICAS_EJA = {
+    normalizado: substituto.capitalize()
+    for normalizado, substituto in (
+        (normalizar_texto(nome), valor)
+        for nome, valor in _SUBSTITUICOES_TECNICAS_EJA.items()
+    )
+}
+
+
+def _remover_nomes_tecnicas_eja(texto: str) -> str:
+    resultado = str(texto or "")
+    for nome, substituto in sorted(
+        _SUBSTITUICOES_TECNICAS_EJA.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    ):
+        resultado = re.sub(rf"\b{re.escape(nome)}\b", substituto, resultado, flags=re.I)
+    resultado = re.sub(
+        r"\btecnicas?\s+(?=(?:conversa breve em duplas|registro individual|explicacao com linguagem propria|leitura orientada|exemplo comentado|verificacao da aprendizagem|explicacao em etapas|repeticao orientada|registro e compartilhamento|producao oral em ingles)\b)",
+        "",
+        resultado,
+        flags=re.I,
+    )
     return re.sub(r"\s+", " ", resultado).strip()
 
 
 def texto_tecnica_eja(tecnica: str, perfil: str, destino: str = "") -> str:
-    """Traduz marcadores do material em uma acao natural, sem citar Lemov."""
     tecnica_norm = normalizar_texto(tecnica)
     if "virem e conversem" in tecnica_norm:
-        return "Promover uma conversa em duplas sobre experiencias ligadas ao tema."
+        return "Promover uma conversa breve em duplas, incentivando os estudantes da EJA a compartilhar ideias, experiencias e hipoteses relacionadas ao tema."
     if "todo mundo escreve" in tecnica_norm:
-        return "Solicitar um registro individual curto e retomar as respostas na correcao."
+        return "Solicitar um registro individual no caderno, garantindo a participacao de todos e a retomada das respostas durante a correcao."
     if "pause e responda" in tecnica_norm:
-        return "Fazer uma breve verificacao de compreensao e retomar as duvidas."
+        return "Realizar perguntas rapidas para verificar a compreensao e retomar os pontos que apresentarem maior dificuldade."
     if "com suas palavras" in tecnica_norm:
-        return "Pedir que os estudantes expliquem a ideia com linguagem propria e exemplos reais."
+        return "Solicitar que os estudantes expliquem o conceito com linguagem propria e exemplos do cotidiano."
     if "de olho no modelo" in tecnica_norm:
-        return "Apresentar um exemplo comentado antes da atividade."
+        return "Apresentar um exemplo comentado antes da atividade individual."
     if "hora da leitura" in tecnica_norm:
-        return "Conduzir uma leitura orientada com pausas para vocabulario e compreensao."
-    if "um passo de cada vez" in tecnica_norm:
-        return "Organizar a explicacao em etapas curtas e claras."
-    if perfil == "ingles" and any(
-        marcador in tecnica_norm
-        for marcador in ("listen and repeat", "write and share", "say it in english")
-    ):
-        return "Trabalhar comandos curtos, repeticao orientada e uso funcional do ingles."
-    return "Aplicar uma estrategia breve de participacao e verificacao da aprendizagem."
+        return "Conduzir uma leitura orientada com pausas para vocabulario, compreensao e relacao com situacoes cotidianas."
+    if perfil == "ingles" and ("listen and repeat" in tecnica_norm or "write and share" in tecnica_norm or "say it in english" in tecnica_norm):
+        return "Trabalhar a pronuncia e a producao oral com comandos curtos, repeticao orientada e participacao segura dos estudantes da EJA."
+    return "Incorporar essa acao de forma contextualizada e acessivel para a turma da EJA."
 
 
-def consolidar_blocos_eja(metodologia, perfil: str = ""):
-    if normalizar_texto(perfil) == "lideranca_oratoria":
-        return [
-            {
-                **item,
-                "texto": _remover_nomes_lemov(item.get("texto", "")),
-            }
-            if isinstance(item, dict)
-            else _remover_nomes_lemov(item)
-            for item in metodologia or []
-        ]
+def consolidar_blocos_eja(metodologia):
+    """Limpa blocos EJA sem impor uma quantidade fixa de etapas.
 
-    grupos = [
-        ("Para comecar", {"para comecar", "relembre", "abertura", "contextualizacao"}),
-        (
-            "Foco no conteudo",
-            {
-                "foco no conteudo",
-                "leitura",
-                "leitura e construcao do conteudo",
-                "conceituacao",
-                "desenvolvimento",
-            },
-        ),
-        (
-            "Pause e responda",
-            {
-                "pause e responda",
-                "na pratica",
-                "atividade",
-                "atividade principal",
-                "socializacao",
-                "socializacao e correcao",
-            },
-        ),
-        ("Encerramento", {"encerramento", "fechamento", "sistematizacao"}),
-    ]
-    saida = {titulo: [] for titulo, _ in grupos}
-    extras = []
-
+    A ordem e os titulos do PDF/DOCX devem ser preservados. Apenas nomes de
+    tecnicas pedagogicas sao convertidos para descricoes de acoes.
+    """
+    resultado = []
     for item in metodologia or []:
-        if not isinstance(item, dict):
-            extras.append(_remover_nomes_lemov(item))
-            continue
-        titulo_norm = normalizar_texto(item.get("titulo", ""))
-        texto = _remover_nomes_lemov(item.get("texto", ""))
-        if not texto:
-            continue
-        encaixado = False
-        for titulo, aliases in grupos:
-            if titulo_norm in aliases:
-                saida[titulo].append(texto)
-                encaixado = True
-                break
-        if not encaixado:
-            extras.append(texto)
-
-    if extras:
-        saida["Foco no conteudo"].extend(extras)
-
-    return [
-        {"titulo": titulo, "texto": " ".join(saida[titulo])}
-        for titulo, _ in grupos
-        if saida[titulo]
-    ]
+        if isinstance(item, dict):
+            titulo_original = str(item.get("titulo", "") or "").strip()
+            titulo_norm = normalizar_texto(titulo_original)
+            titulo = _TITULOS_TECNICAS_EJA.get(titulo_norm, titulo_original)
+            texto = _remover_nomes_tecnicas_eja(item.get("texto", ""))
+        else:
+            titulo = "Desenvolvimento"
+            texto = _remover_nomes_tecnicas_eja(item)
+        if texto:
+            resultado.append({"titulo": titulo or "Desenvolvimento", "texto": texto})
+    return resultado
 
 
 def adaptar_metodologia_eja(
@@ -148,72 +109,111 @@ def adaptar_metodologia_eja(
     if not perfil_suporta_eja(perfil):
         return metodologia
 
-    perfil = normalizar_texto(perfil)
+    tecnicas_pdf = [tecnica for tecnica in list(tecnicas_pdf or []) if normalizar_texto(tecnica) != "relembre"]
     tem_video = "video" in normalizar_texto(texto_pdf)
     adaptada = []
-
+    usados = set()
     for item in metodologia or []:
         if not isinstance(item, dict):
-            adaptada.append(_remover_nomes_lemov(item))
+            adaptada.append(item)
             continue
 
         novo = dict(item)
         titulo = normalizar_texto(novo.get("titulo", ""))
-        texto = _remover_nomes_lemov(novo.get("texto", ""))
+        texto = re.sub(r"\s+", " ", str(novo.get("texto", "") or "")).strip()
 
         if titulo in {"para comecar", "relembre", "abertura", "contextualizacao"}:
-            texto = _anexar_orientacao_unica(
-                texto,
-                f"Relacionar {tema} a experiencias dos estudantes, incluindo situacoes do cotidiano e do trabalho.",
+            complemento = (
+                f" Retomar conhecimentos previos sobre {tema} por meio de perguntas simples e contextualizadas, "
+                "valorizando experiencias de vida e de trabalho dos estudantes jovens e adultos sem infantilizar a abordagem."
             )
+            texto = _anexar_orientacao_unica(texto, complemento)
 
-        elif titulo in {
-            "foco no conteudo",
-            "conceituacao",
-            "desenvolvimento",
-            "leitura e construcao do conteudo",
-            "leitura",
-        }:
+        elif titulo in {"foco no conteudo", "conceituacao", "desenvolvimento", "leitura e construcao do conteudo", "leitura"}:
             if perfil == "ingles":
                 complemento = (
-                    "Explorar vocabulario e estruturas com exemplos de comunicacao no trabalho, "
-                    "em servicos e em outras situacoes reais."
-                )
-            elif perfil == "lideranca_oratoria":
-                complemento = (
-                    "Relacionar o conteudo a comunicacao profissional, trabalho em equipe, "
-                    "resolucao de conflitos e tomada de decisao."
+                    " Explorar vocabulario e estruturas em ingles com exemplos funcionais do cotidiano, "
+                    "pronuncia orientada e apoio visual, respeitando diferentes ritmos de leitura e fala da EJA, "
+                    "com aplicacoes em comunicacao profissional e servicos."
                 )
             else:
                 complemento = (
-                    "Explicar o conceito com linguagem acessivel e adulta, relacionando-o a saude, "
-                    "ambiente, tecnologia, comunidade e mundo do trabalho."
+                    " Explicar o conceito com linguagem acessivel e adulta, de forma pausada e dialogada, "
+                    "relacionando o conteudo a situacoes praticas do cotidiano e do mundo do trabalho, "
+                    "quando essa relacao for pertinente."
                 )
             if tem_video:
-                complemento += " Retomar de forma breve as informacoes centrais do video indicado."
+                complemento += " Exibir o video indicado no material e orientar o registro das principais informacoes observadas."
             texto = _anexar_orientacao_unica(texto, complemento)
 
-        elif titulo in {
-            "pause e responda",
-            "na pratica",
-            "atividade",
-            "atividade principal",
-            "socializacao",
-        }:
-            texto = _anexar_orientacao_unica(
-                texto,
-                "Propor uma situacao pratica ligada ao cotidiano ou ao trabalho e orientar um registro curto.",
+        elif titulo in {"pause e responda", "na pratica", "atividade", "atividade principal"}:
+            complemento = (
+                " Realizar perguntas rapidas para verificar a compreensao, promover correcao coletiva e retomar os pontos "
+                "que apresentarem maior dificuldade. Aplicar o que foi estudado a uma situacao concreta da vida ou do trabalho, quando possivel."
             )
+            texto = _anexar_orientacao_unica(texto, complemento)
 
         elif titulo in {"encerramento", "fechamento", "sistematizacao"}:
-            texto = _anexar_orientacao_unica(
-                texto,
-                f"Retomar a utilidade de {tema} para a vida cotidiana, a participacao social e o trabalho.",
-            )
+            if perfil == "ingles":
+                complemento = (
+                    " Encerrar retomando expressoes essenciais em ingles e relacionando o uso da lingua a situacoes reais "
+                    "de comunicacao, trabalho, servicos, tecnologia ou convivio social."
+                )
+            else:
+                complemento = (
+                    f" Encerrar relacionando {tema} a aplicacoes praticas da vida adulta e do trabalho, "
+                    "reforcando sua relevancia para a participacao social."
+                )
+            texto = _anexar_orientacao_unica(texto, complemento)
 
-        novo["texto"] = _remover_nomes_lemov(texto)
+        novo["texto"] = texto
         adaptada.append(novo)
 
-    # O parametro garantir_tecnicas_fn permanece por compatibilidade, mas nao e
-    # executado no EJA: os nomes das tecnicas nao devem aparecer no plano.
-    return consolidar_blocos_eja(adaptada, perfil=perfil)
+    return consolidar_blocos_eja(adaptada)
+
+
+def adaptar_listas_eja(
+    acompanhamento,
+    acessibilidade,
+    tema: str,
+    perfil: str,
+):
+    """Adapta e fecha as duas listas pedagógicas no contrato de três itens."""
+    tema_limpo = re.sub(r"\s+", " ", str(tema or "conteudo da aula")).strip()
+
+    acompanhamento_fallback = [
+        f"Verificar se os estudantes compreendem os pontos principais de {tema_limpo}.",
+        f"Observar se relacionam {tema_limpo} a uma situacao do cotidiano ou do trabalho, quando pertinente.",
+        f"Analisar os registros e as explicacoes produzidas sobre {tema_limpo}, retomando duvidas individualmente.",
+    ]
+    acessibilidade_fallback = [
+        "Usar linguagem simples, exemplos adultos e explicacao dos termos essenciais.",
+        "Relacionar o conteudo a experiencias de vida e de trabalho dos estudantes, sem infantilizar a abordagem.",
+        "Permitir resposta oral, escrita ou em topicos, com tempo ampliado e apoio individual quando necessario.",
+    ]
+
+    def preparar(itens, fallback):
+        saida = []
+        for item in list(itens or []):
+            texto = _remover_nomes_tecnicas_eja(item)
+            if not texto:
+                continue
+            if not any(
+                termo in normalizar_texto(texto)
+                for termo in ("trabalho", "profissional", "cotidiano", "vida adulta")
+            ):
+                texto = _anexar_orientacao_unica(
+                    texto,
+                    " Relacionar a observacao a situacoes da vida adulta e do trabalho, quando pertinente.",
+                )
+            saida.append(texto)
+        for item in fallback:
+            if len(saida) >= 3:
+                break
+            saida.append(item)
+        return saida[:3]
+
+    return (
+        preparar(acompanhamento, acompanhamento_fallback),
+        preparar(acessibilidade, acessibilidade_fallback),
+    )
