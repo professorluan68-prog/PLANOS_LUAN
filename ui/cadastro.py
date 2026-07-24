@@ -31,8 +31,13 @@ from ui.shared import (
     _serializar_horarios_padronizados,
     _turno_e_aulas_de_horario,
     _montar_horario_flexivel,
+    _aulas_disponiveis_turno,
+    _numeros_aulas_de_texto,
     DIAS_SEMANA_CADASTRO,
     TURNOS_HORARIOS,
+    TURNOS_AULAS_ESPECIAIS,
+    TURNO_HORARIO_PERSONALIZADO,
+    PREFIXO_HORARIO_PERSONALIZADO,
     _defaults_grade_horarios,
 )
 
@@ -194,14 +199,20 @@ def _salvar_cadastro_gerenciado(
 def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> tuple[str, str, int]:
     st.markdown("**Grade semanal de horários**")
     st.caption("Selecione o turno e as aulas de cada dia. Deixe vazio o dia em que não há aula.")
+    st.caption("Para corrigir ou incluir outro horário, selecione Personalizado. Para remover, desmarque as aulas ou apague o texto.")
     defaults = _defaults_grade_horarios(dia_texto, horario_texto, contexto)
     selecionados = []
-    turnos = list(TURNOS_HORARIOS.keys())
+    turnos = (
+        list(TURNOS_HORARIOS.keys())
+        + list(TURNOS_AULAS_ESPECIAIS.keys())
+        + [TURNO_HORARIO_PERSONALIZADO]
+    )
 
     for indice, dia in enumerate(DIAS_SEMANA_CADASTRO):
         default_dia = defaults.get(dia, {})
         turno_default = str(default_dia.get("turno") or "Manhã")
-        aulas_opcoes_default = [f"{numero}ª" for numero in range(1, len(TURNOS_HORARIOS.get(turno_default, TURNOS_HORARIOS["Manhã"])))]
+        horario_personalizado_default = str(default_dia.get("horario_personalizado") or "")
+        aulas_opcoes_default = [f"{numero}ª" for numero in _aulas_disponiveis_turno(turno_default)]
         aulas_default = [aula for aula in default_dia.get("aulas", []) if aula in aulas_opcoes_default]
 
         col_dia, col_turno, col_aulas, col_previa = st.columns([1.1, 1.1, 2.2, 2.1])
@@ -215,19 +226,41 @@ def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto:
                 key=f"{prefixo}_turno_{indice}",
                 label_visibility="collapsed",
             )
-        aulas_opcoes = [f"{numero}ª" for numero in range(1, len(TURNOS_HORARIOS[turno]))]
-        aulas_default = [aula for aula in aulas_default if aula in aulas_opcoes]
-        with col_aulas:
-            aulas = st.multiselect(
-                "Aulas",
-                aulas_opcoes,
-                default=aulas_default,
-                key=f"{prefixo}_aulas_{indice}",
-                label_visibility="collapsed",
+        if turno == TURNO_HORARIO_PERSONALIZADO:
+            with col_aulas:
+                horario_personalizado = st.text_input(
+                    "Horário personalizado",
+                    value=horario_personalizado_default,
+                    key=f"{prefixo}_horario_personalizado_{indice}",
+                    placeholder="Ex.: 6ª aula - 12:25 a 13:15",
+                    label_visibility="collapsed",
+                ).strip()
+            numeros_aulas = _numeros_aulas_de_texto(horario_personalizado)
+            aulas = [f"{numero}ª" for numero in numeros_aulas]
+            if horario_personalizado and not aulas:
+                aulas = ["Personalizada"]
+            horario = (
+                f"{PREFIXO_HORARIO_PERSONALIZADO} {horario_personalizado}"
+                if horario_personalizado
+                else None
             )
-        horario = _montar_horario_flexivel(turno, aulas)
+        else:
+            aulas_opcoes = [f"{numero}ª" for numero in _aulas_disponiveis_turno(turno)]
+            aulas_default = [aula for aula in aulas_default if aula in aulas_opcoes]
+            with col_aulas:
+                aulas = st.multiselect(
+                    "Aulas",
+                    aulas_opcoes,
+                    default=aulas_default,
+                    key=f"{prefixo}_aulas_{indice}",
+                    label_visibility="collapsed",
+                )
+            horario = _montar_horario_flexivel(turno, aulas)
         with col_previa:
-            st.caption(_rotulo_horario(horario) if horario else "Sem aula neste dia")
+            if turno == TURNO_HORARIO_PERSONALIZADO and horario_personalizado:
+                st.caption(horario_personalizado)
+            else:
+                st.caption(_rotulo_horario(horario) if horario else "Sem aula neste dia")
         if horario:
             selecionados.append({"dia": dia, "horario": horario, "aulas": aulas})
 

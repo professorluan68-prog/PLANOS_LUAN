@@ -4,6 +4,7 @@ from core.helpers import resolver_pasta_pdfs
 from core.lote import _montar_resultado_cdp_contextual
 from core.referencias_cdp_contextual import (
     localizar_docx_referencia_cdp_contextual,
+    referencia_cdp_compativel,
     referencia_cdp_contextual_por_pdf,
     titulos_referencia_cdp_contextual_por_docx,
 )
@@ -26,7 +27,7 @@ def _criar_docx_referencia_cdp(caminho):
     doc.add_paragraph("METODOLOGIA")
     doc.add_paragraph("Para começar: Levantar exemplos de trocas culturais presentes no cotidiano.")
     doc.add_paragraph("Foco no conteúdo: Discutir globalizacao, circulacao cultural e identidades.")
-    doc.add_paragraph("Pause e responda: Orientar resposta breve sobre influencias culturais.")
+    doc.add_paragraph("Verificacao: Orientar resposta breve sobre influencias culturais.")
     doc.add_paragraph("Na prática: Comparar exemplos de fluxos culturais em diferentes escalas.")
     doc.add_paragraph("Encerramento: Socializar conclusoes e registrar uma ideia central.")
     doc.add_paragraph("ACOMPANHAMENTO DA APRENDIZAGEM")
@@ -50,7 +51,7 @@ def test_referencia_cdp_contextual_le_aula_decimal_e_bullets_no_mesmo_paragrafo(
     assert [etapa["titulo"] for etapa in referencia["metodologia"]] == [
         "Para começar",
         "Foco no conteúdo",
-        "Pause e responda",
+        "Verificacao",
         "Na prática",
         "Encerramento",
     ]
@@ -110,6 +111,36 @@ def test_referencia_cdp_contextual_preserva_numeros_repetidos_por_titulo(tmp_pat
 
     assert referencia["titulo"] == "Fluxos de capitais e investimentos internacionais"
     assert "investimentos internacionais" in referencia["metodologia"][1]["texto"]
+
+
+def test_referencia_cdp_compativel_rejeita_lemov_e_agrupamentos():
+    assert not referencia_cdp_compativel(
+        {
+            "metodologia": [
+                {"titulo": "Etapa", "texto": "Usar a tecnica LEMOV Virem e conversem."}
+            ],
+            "acompanhamento": [],
+            "acessibilidade": [],
+        }
+    )
+    assert not referencia_cdp_compativel(
+        {
+            "metodologia": [
+                {"titulo": "Etapa", "texto": "Realizar atividade em grupos."}
+            ],
+            "acompanhamento": [],
+            "acessibilidade": [],
+        }
+    )
+    assert referencia_cdp_compativel(
+        {
+            "metodologia": [
+                {"titulo": "Etapa", "texto": "Orientar registro individual no caderno."}
+            ],
+            "acompanhamento": ["Verificar a compreensão."],
+            "acessibilidade": ["Usar palavras-chave no quadro."],
+        }
+    )
 
 
 def test_resolver_pasta_pdfs_cdp_ensino_medio_multisseriado(tmp_path):
@@ -172,7 +203,7 @@ def test_resultado_cdp_contextual_usa_docx_referencia(tmp_path):
     )
 
 
-def test_resultado_cdp_contextual_sem_docx_retorna_colunas_vazias(tmp_path):
+def test_resultado_cdp_contextual_sem_docx_usa_gerador_local(tmp_path):
     caminho_pdf = tmp_path / "2_ano_AULA_09 - Tema sem referencia.pdf"
     caminho_pdf.write_bytes(b"%PDF-1.4\n")
 
@@ -188,10 +219,14 @@ def test_resultado_cdp_contextual_sem_docx_retorna_colunas_vazias(tmp_path):
         caminho_pdf=str(caminho_pdf),
     )
 
-    assert resultado["origem_metodologia"] == "referencia_docx_cdp_contextual_ausente"
-    assert resultado["metodologia"] == []
-    assert resultado["acompanhamento"] == []
-    assert resultado["acessibilidade"] == []
+    assert resultado["origem_metodologia"] == "fallback_cdp_contextual"
+    assert resultado["metodologia"]
+    assert all(
+        isinstance(etapa, dict) and etapa.get("titulo") and etapa.get("texto")
+        for etapa in resultado["metodologia"]
+    )
+    assert len(resultado["acompanhamento"]) == 3
+    assert len(resultado["acessibilidade"]) == 3
     assert any(
         "nao encontrei o arquivo .docx de referencia" in aviso.lower()
         for aviso in resultado["avisos_validacao"]

@@ -388,6 +388,14 @@ _REGRAS_COMPILADAS: dict[str, list[tuple[re.Pattern, str]]] = {
     for perfil, regras in REGRAS_SUBSTITUICAO.items()
 }
 
+_REGRAS_RECURSOS_COMPILADAS: dict[str, list[tuple[re.Pattern, str]]] = {
+    recurso: [
+        (re.compile(padrao, re.I), substituicao)
+        for padrao, substituicao in regras
+    ]
+    for recurso, regras in REGRAS_RECURSOS.items()
+}
+
 
 def normalizar_para_busca(texto: str) -> str:
     if not texto:
@@ -688,12 +696,12 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
     }
 
     # 3. Higienizar recursos ausentes (tabela, gráfico, mapa, experimento)
-    for recurso, regras in REGRAS_RECURSOS.items():
+    for recurso, regras in _REGRAS_RECURSOS_COMPILADAS.items():
         if preservar_recursos_cientificos and recurso in {"tabela", "grafico", "mapa"}:
             continue
         # Se o recurso foi marcado como ausente (ou não declarado presente)
         if not recursos_reais.get(recurso, False):
-            for padrao, subst in regras:
+            for padrao_compilado, subst in regras:
                 def substituir(match):
                     match_text = match.group(0)
                     if match_text.isupper():
@@ -701,7 +709,7 @@ def higienizar_string(texto: str, perfil_pedagogico: str, recursos_reais: dict) 
                     if match_text[0].isupper():
                         return subst[0].upper() + subst[1:]
                     return subst
-                texto_final = re.sub(padrao, substituir, texto_final, flags=re.I)
+                texto_final = padrao_compilado.sub(substituir, texto_final)
 
     ajustes_redacao = [
         (r"\bpara que os alunos discuta\b", "para que os estudantes discutam"),

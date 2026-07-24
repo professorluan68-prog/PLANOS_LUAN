@@ -289,3 +289,28 @@ def referencia_cdp_contextual_por_pdf(caminho_pdf: str | Path, numero_aula: Any,
         "fonte": str(docx),
         "referencia_pedagogica_aplicada": True,
     }
+
+
+_PADRAO_REFERENCIA_CDP_INCOMPATIVEL = re.compile(
+    r"\b(?:LEMOV|VIREM\s+E\s+CONVERSEM|TODO\s+MUNDO\s+ESCREVE|"
+    r"COM\s+SUAS\s+PALAVRAS|HORA\s+DA\s+LEITURA|DE\s+OLHO\s+NO\s+MODELO|"
+    r"PAUSE\s+E\s+RESPONDA|UM\s+PASSO\s+DE\s+CADA\s+VEZ|"
+    r"em\s+(?:duplas?|grupos?|equipes?)|trabalho\s+em\s+grupo|"
+    r"(?:internet|celular|computador|aplicativo|plataforma\s+digital|vídeo\s+online))\b",
+    flags=re.I,
+)
+
+
+def referencia_cdp_compativel(referencia: dict[str, Any] | None) -> bool:
+    """Verifica se um DOCX contextual respeita as regras restritivas do CDP."""
+    if not referencia:
+        return False
+    partes: list[str] = []
+    partes.extend(
+        str(item.get("texto") or "")
+        for item in list(referencia.get("metodologia") or [])
+        if isinstance(item, dict)
+    )
+    partes.extend(str(item or "") for item in referencia.get("acompanhamento") or [])
+    partes.extend(str(item or "") for item in referencia.get("acessibilidade") or [])
+    return not _PADRAO_REFERENCIA_CDP_INCOMPATIVEL.search(" ".join(partes))

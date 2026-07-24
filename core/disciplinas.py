@@ -46,6 +46,7 @@ _DISCIPLINAS = [
     "Projeto de Vida",
     "Química",
     "Redação e Leitura",
+    "Robótica",
     "Sociologia",
     "Tecnologia e Inovação",
     "Outra",
@@ -107,8 +108,11 @@ def eh_cdp_contextual(nome: str) -> bool:
         and (
             "ENSINOMEDIO" in chave_compacta
             or "ENSINOFUNDAMENTAL" in chave_compacta
+            or "CDP_EJA" in chave
+            or "CDPEJA" in chave_compacta
             or chave_compacta.endswith("CDPEM")
             or chave_compacta.endswith("CDPEF")
+            or chave_compacta.endswith("CDPEJA")
             or chave_compacta.endswith("_CDP")
         )
     )

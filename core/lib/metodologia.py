@@ -6,6 +6,7 @@ pelo motor sofisticado que já existia no lote.py (etapas variáveis por perfil)
 integrando as novas bibliotecas de técnicas e progressão.
 """
 
+import logging
 import re
 from core.lib.classificador import perfil_disciplina, detectar_tipo_aula, normalizar_texto, contem_termos
 from core.lib.tecnicas import SeletorTecnicas
@@ -25,6 +26,7 @@ from core.qualidade_metodologica import (
 
 _seletor_tecnicas = SeletorTecnicas()
 _extrator = ExtratorPDF()
+logger = logging.getLogger(__name__)
 
 
 def _normalizar_termos_internos(texto: str) -> str:
@@ -1962,6 +1964,16 @@ class MotorMetodologico:
             extracao = self.extrator.extrair(texto_pdf, tema)
             texto_para_classificacao = extracao.get("texto_prioritario") or texto_pdf
             tipo = detectar_tipo_aula(texto_para_classificacao, tema, disciplina, turma=turma)
+            logger.info(
+                "motor_metodologico_classificado",
+                extra={
+                    "evento": "motor_metodologico_classificado",
+                    "perfil": perfil,
+                    "tipo_aula": tipo,
+                    "indice_aula": indice_aula,
+                    "total_aulas": total_aulas,
+                },
+            )
 
             # 2. Extrair conceito
             conceito = extracao["conceito_extraido"]
@@ -1983,7 +1995,17 @@ class MotorMetodologico:
                     if texto_etapa:
                         texto_etapa = ajustar_texto_por_posicao(texto_etapa, indice_aula, total_aulas, tema)
                         metodologia.append({"titulo": etapa.get("titulo", ""), "texto": texto_etapa})
-                return self.validador.refinar(metodologia, perfil=perfil)
+                resultado = self.validador.refinar(metodologia, perfil=perfil)
+                logger.info(
+                    "motor_metodologico_finalizado",
+                    extra={
+                        "evento": "motor_metodologico_finalizado",
+                        "perfil": perfil,
+                        "tipo_aula": tipo,
+                        "etapas": len(resultado),
+                    },
+                )
+                return resultado
             frases = _frases_por_contexto(
                 perfil,
                 tipo,
@@ -2012,7 +2034,17 @@ class MotorMetodologico:
                     metodologia.append({"titulo": titulo, "texto": texto_etapa})
 
             # 6. Validar
-            return self.validador.refinar(metodologia, perfil=perfil)
+            resultado = self.validador.refinar(metodologia, perfil=perfil)
+            logger.info(
+                "motor_metodologico_finalizado",
+                extra={
+                    "evento": "motor_metodologico_finalizado",
+                    "perfil": perfil,
+                    "tipo_aula": tipo,
+                    "etapas": len(resultado),
+                },
+            )
+            return resultado
 
     def extrair_dados(self, texto_pdf: str, tema: str) -> dict:
             """Expõe a extração de dados para uso por outros módulos."""

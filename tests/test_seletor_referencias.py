@@ -54,6 +54,77 @@ def test_assinatura_docx_referencia_usa_docx_localizado(monkeypatch, tmp_path):
     assert assinatura.startswith("referencia.docx|")
 
 
+def test_resolver_caminho_original_reconhece_nome_temporario_reversivel(
+    monkeypatch, tmp_path
+):
+    import config
+
+    raiz_pdf = tmp_path / "PDF_AULAS"
+    original = (
+        raiz_pdf
+        / "ORIENTACAO_DE_ESTUDOS"
+        / "EM"
+        / "3_ANO"
+        / "1_Jornada_07_Etapa1.pdf"
+    )
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"%PDF-1.4")
+
+    temporario = (
+        tmp_path
+        / "temp_upload"
+        / "planos_luan_upload_AbC1__1_Jornada_07_Etapa1.pdf"
+    )
+    temporario.parent.mkdir()
+    monkeypatch.setattr(config, "PDF_AULAS_DIR", raiz_pdf)
+
+    resolvido = seletor_referencias._resolver_caminho_original(
+        str(temporario), "orientacao_estudos", "3º ANO A"
+    )
+
+    assert resolvido == original
+
+
+def test_upload_cdp_nao_usa_docx_regular_da_pasta_pai(monkeypatch, tmp_path):
+    import config
+
+    raiz_pdf = tmp_path / "PDF_AULAS"
+    original = (
+        raiz_pdf
+        / "HISTORIA"
+        / "EM"
+        / "3_BIMESTRE"
+        / "CDP_EM"
+        / "01 - ATIVIDADE 1 - Fontes.pdf"
+    )
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"%PDF-1.4")
+    docx_regular = original.parent.parent / "Metodologias_Historia_Ensino_Regular.docx"
+    docx_regular.write_bytes(b"not a parsed docx")
+
+    temporario = (
+        tmp_path
+        / "temp_upload"
+        / "planos_luan_upload_AbC1__01 - ATIVIDADE 1 - Fontes.pdf"
+    )
+    temporario.parent.mkdir()
+    temporario.write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(config, "PDF_AULAS_DIR", raiz_pdf)
+
+    assert (
+        seletor_referencias.localizar_docx_referencia_por_perfil(
+            str(temporario), "historia", ""
+        )
+        is None
+    )
+    assert (
+        seletor_referencias.referencia_docx_por_perfil(
+            str(temporario), "1", "Fontes", "historia"
+        )
+        is None
+    )
+
+
 def test_deve_aplicar_referencia_docx_no_resultado_ia_respeita_perfil():
     assert seletor_referencias.deve_aplicar_referencia_docx_no_resultado_ia(
         "lingua_portuguesa_ef",

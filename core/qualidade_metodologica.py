@@ -400,9 +400,12 @@ def regras_consolidadas_para_prompt(perfil: str, contexto: str = "regular", nive
         "- Evite frases genericas como 'retomar conhecimentos previos da turma sobre', 'promover discussao sobre' e 'orientar a resolucao de atividades'.",
         f"- Para este perfil, prefira verbos de acao como: {verbos}.",
         "- A metodologia precisa ter progressao: abertura/contextualizacao, desenvolvimento guiado, pratica/aplicacao e fechamento/verificacao.",
-        "- Cite tecnicas LEMOV apenas quando elas aparecerem explicitamente no material.",
         "- Nao invente recursos, tempo de aula, etapas ou habilidades que nao estejam sustentados pelo PDF.",
     ]
+    if contexto == "cdp_eja":
+        regras.append("- Em contexto CDP, nao cite tecnicas LEMOV nem seus nomes, mesmo que aparecam no material de referencia.")
+    else:
+        regras.append("- Cite tecnicas LEMOV apenas quando elas aparecerem explicitamente no material.")
     if nivel == "ensino_medio":
         regras.append("- Para Ensino Medio, mantenha maior densidade conceitual e linguagem analitica.")
     elif nivel == "ensino_fundamental":

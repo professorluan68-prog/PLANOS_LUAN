@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Callable, Annotated
 
@@ -39,6 +40,93 @@ def _normalizar_valor(valor: Any) -> Any:
     if isinstance(valor, dict):
         return {chave: _normalizar_valor(item) for chave, item in valor.items()}
     return valor
+
+
+_MARCADOR_LISTA_RE = re.compile(r"^\s*(?:[•▪◦*-]|\d+[.)])\s*")
+_SEPARADOR_ITENS_RE = re.compile(r"(?:\r?\n)+|(?=[•▪◦]\s+)|(?=☑\s+)")
+_TITULO_ETAPA_RE = re.compile(
+    r"(?m)^\s*(?:[•▪◦*-]\s*)?(?P<titulo>[^:\r\n]{2,80})\s*:\s*"
+)
+
+
+def _normalizar_lista_textual(valor: Any) -> list[str]:
+    if valor is None:
+        return []
+    if isinstance(valor, str):
+        itens_brutos = _SEPARADOR_ITENS_RE.split(valor)
+    elif isinstance(valor, (list, tuple, set)):
+        itens_brutos = list(valor)
+    else:
+        itens_brutos = [valor]
+
+    itens: list[str] = []
+    for item in itens_brutos:
+        texto = str(item or "").strip()
+        if not texto:
+            continue
+        texto = _MARCADOR_LISTA_RE.sub("", texto).strip()
+        if texto:
+            itens.append(texto)
+    return itens
+
+
+def _etapas_de_texto(texto_bruto: Any) -> list[dict[str, str]]:
+    texto = str(texto_bruto or "").strip()
+    if not texto:
+        return []
+
+    marcadores = list(_TITULO_ETAPA_RE.finditer(texto))
+    if not marcadores:
+        return [
+            {"titulo": "Ação do Professor", "texto": bloco.strip()}
+            for bloco in re.split(r"\r?\n\s*\r?\n", texto)
+            if bloco.strip()
+        ]
+
+    etapas: list[dict[str, str]] = []
+    introducao = texto[: marcadores[0].start()].strip()
+    if introducao:
+        etapas.append({"titulo": "Ação do Professor", "texto": introducao})
+
+    for indice, marcador in enumerate(marcadores):
+        inicio = marcador.end()
+        fim = marcadores[indice + 1].start() if indice + 1 < len(marcadores) else len(texto)
+        titulo = _MARCADOR_LISTA_RE.sub("", marcador.group("titulo")).strip()
+        conteudo = texto[inicio:fim].strip()
+        if conteudo:
+            etapas.append(
+                {
+                    "titulo": titulo or "Ação do Professor",
+                    "texto": conteudo,
+                }
+            )
+    return etapas
+
+
+def _normalizar_metodologia(valor: Any) -> list[dict[str, str]]:
+    if valor is None:
+        return []
+    itens = valor if isinstance(valor, (list, tuple)) else [valor]
+    etapas: list[dict[str, str]] = []
+    for item in itens:
+        if isinstance(item, str):
+            etapas.extend(_etapas_de_texto(item))
+            continue
+        if isinstance(item, BaseModel):
+            item = _model_dump(item)
+        if not isinstance(item, dict):
+            etapas.extend(_etapas_de_texto(item))
+            continue
+        titulo = str(item.get("titulo") or "Ação do Professor").strip()
+        texto = str(item.get("texto") or "").strip()
+        if texto:
+            etapas.append(
+                {
+                    "titulo": titulo or "Ação do Professor",
+                    "texto": texto,
+                }
+            )
+    return etapas
 
 
 class ModeloPlanoBase(BaseModel):
@@ -164,10 +252,34 @@ class PlanoCompleto(ModeloPlanoBase):
     diagnostico_geracao: dict[str, Any] = Field(default_factory=dict)
     palavras_chave_esperadas: list[str] = Field(default_factory=list)
     caminho_docx_auxiliar: str | None = None
+    extracao_palavras_chave_ok: bool = True
     valido_palavras_chave: bool | None = None
     cobertura_palavras_chave: float = 100.0
     palavras_chave_encontradas: list[str] = Field(default_factory=list)
     palavras_chave_ausentes: list[str] = Field(default_factory=list)
+
+    @field_validator("metodologia", mode="before")
+    @classmethod
+    def normalizar_metodologia_no_modelo(cls, valor: Any) -> list[dict[str, str]]:
+        """Mantém o contrato list[dict] mesmo na construção direta do modelo."""
+        return _normalizar_metodologia(valor)
+
+    @field_validator("acompanhamento", "acessibilidade", mode="before")
+    @classmethod
+    def normalizar_listas_textuais_no_modelo(cls, valor: Any) -> list[str]:
+        """Aceita texto ou listas legadas sem deixar strings soltas no plano."""
+        return _normalizar_lista_textual(valor)
+
+    @field_validator("recursos_detectados", mode="before")
+    @classmethod
+    def normalizar_recursos_no_modelo(cls, valor: Any) -> list[str]:
+        if isinstance(valor, dict):
+            return [
+                str(nome).strip()
+                for nome, presente in valor.items()
+                if presente and str(nome).strip()
+            ]
+        return [str(item).strip() for item in (valor or []) if str(item).strip()]
 
     @classmethod
     def from_any(cls, dados: Any):
@@ -186,28 +298,16 @@ class PlanoCompleto(ModeloPlanoBase):
         elif recursos is None:
             dados["recursos_detectados"] = []
             
-        metodologia_bruta = dados.get("metodologia")
-        if isinstance(metodologia_bruta, str):
-            metodologia_limpa = []
-            for block in metodologia_bruta.split("\n\n"):
-                texto = block.strip()
-                if texto:
-                    metodologia_limpa.append({"titulo": "Ação do Professor", "texto": texto})
-            dados["metodologia"] = metodologia_limpa
-        elif isinstance(metodologia_bruta, list):
-            metodologia_limpa = []
-            for item in metodologia_bruta:
-                if isinstance(item, str):
-                    texto = item.strip()
-                    if texto:
-                        metodologia_limpa.append({"titulo": "Ação do Professor", "texto": texto})
-                elif hasattr(item, "model_dump"):
-                    metodologia_limpa.append(item.model_dump())
-                elif hasattr(item, "dict"):
-                    metodologia_limpa.append(item.dict())
-                elif isinstance(item, dict):
-                    metodologia_limpa.append(item)
-            dados["metodologia"] = metodologia_limpa
+        dados["metodologia"] = _normalizar_metodologia(dados.get("metodologia"))
+
+        if not dados.get("acompanhamento") and dados.get("acompanhamento_aprendizagem"):
+            dados["acompanhamento"] = dados.get("acompanhamento_aprendizagem")
+        dados["acompanhamento"] = _normalizar_lista_textual(
+            dados.get("acompanhamento")
+        )
+        dados["acessibilidade"] = _normalizar_lista_textual(
+            dados.get("acessibilidade")
+        )
             
         return _model_validate(cls, dados)
 
@@ -301,6 +401,9 @@ class PlanoCompleto(ModeloPlanoBase):
             "diagnostico_geracao": dados.get("diagnostico_geracao") or {},
             "palavras_chave_esperadas": dados.get("palavras_chave_esperadas") or [],
             "caminho_docx_auxiliar": dados.get("caminho_docx_auxiliar"),
+            "extracao_palavras_chave_ok": bool(
+                dados.get("extracao_palavras_chave_ok", True)
+            ),
             "valido_palavras_chave": bool(dados.get("valido_palavras_chave", True)),
             "cobertura_palavras_chave": float(dados.get("cobertura_palavras_chave", 100.0)),
             "palavras_chave_encontradas": dados.get("palavras_chave_encontradas") or [],

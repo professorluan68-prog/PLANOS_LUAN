@@ -209,3 +209,82 @@ def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_r
     assert resultado["acompanhamento"] == ["IA1", "IA2", "IA3"]
     assert resultado["acessibilidade"] == ["IX1", "IX2", "IX3"]
     assert resultado["status_referencia_docx"] == "docx_refinado_ia"
+
+
+def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
+    deps = _deps_resultados_base()
+
+    resultado = montar_resultado_aula_ia(
+        texto="Texto do PDF de Redacao e Leitura",
+        tema="Leitura e producao textual",
+        material_digital="AULA 1 - Leitura e producao textual",
+        numero_aula="1",
+        disciplina_base="Redacao e Leitura",
+        turma="6o ano A",
+        provedor_ia="openai",
+        perfil="leitura_redacao",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        plano_ia={
+            "tema": "Leitura e producao textual",
+            "aprendizagem": "Compreender a proposta de leitura e escrita da aula.",
+            "metodologia": [
+                {"titulo": "Leitura compartilhada", "texto": "Metodologia IA especifica ao PDF."}
+            ],
+            "acompanhamento": ["IA1", "IA2", "IA3"],
+            "acessibilidade": ["IAA1", "IAA2", "IAA3"],
+        },
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"][0]["texto"] == "Metodologia IA especifica ao PDF."
+    assert resultado["metodologia"][0]["texto"] != "Modelo leitura"
+    assert resultado["acompanhamento"] == ["IA1", "IA2", "IA3"]
+    assert resultado["acessibilidade"] == ["IAA1", "IAA2", "IAA3"]
+
+
+def test_montar_resultado_aula_ia_sociologia_nao_injeta_tecnicas_lemov():
+    deps = _deps_resultados_base()
+    deps.detectar_tecnicas_lemov_fn = lambda texto, tema: ["VIREM E CONVERSEM"]
+
+    def nao_deve_injetar(*args, **kwargs):
+        raise AssertionError("Sociologia nao deve receber injecao automatica de Lemov")
+
+    deps.garantir_tecnicas_lemov_na_metodologia_fn = nao_deve_injetar
+
+    resultado = montar_resultado_aula_ia(
+        texto="Texto do PDF de Sociologia",
+        tema="Industria cultural",
+        material_digital="AULA 1 - Industria cultural",
+        numero_aula="1",
+        disciplina_base="Sociologia",
+        turma="1º/2º/3º E.M",
+        provedor_ia="openai",
+        perfil="sociologia",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        plano_ia={
+            "tema": "Industria cultural",
+            "aprendizagem": "Analisar o conceito de industria cultural.",
+            "metodologia": [
+                {"titulo": "Leitura orientada", "texto": "Analisar o texto do material."}
+            ],
+            "acompanhamento": ["IA1", "IA2", "IA3"],
+            "acessibilidade": ["IAA1", "IAA2", "IAA3"],
+        },
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        dependencias=deps,
+    )
+
+    assert "VIREM E CONVERSEM" not in resultado["metodologia"][0]["texto"]

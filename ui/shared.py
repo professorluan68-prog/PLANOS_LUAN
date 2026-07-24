@@ -11,7 +11,9 @@ from core.constantes import (
     HORARIOS_AULA,
     HORARIOS_SIMPLES,
     HORARIOS_DUPLAS,
+    HORARIOS_INTEGRAIS,
     TURNOS_HORARIOS,
+    TURNOS_AULAS_ESPECIAIS,
     MESES,
     DIAS_SEMANA_CADASTRO,
     AULAS_SEMANA_OPCOES,
@@ -29,6 +31,9 @@ from core.professores_planos import (
 # CONSTANTES DE INTERFACE COMPARTILHADAS
 # ==========================================
 HORARIOS_LABELS = {item: f"{item[0]} - {item[1]}" for item in HORARIOS_AULA}
+TURNO_HORARIO_PERSONALIZADO = "Personalizado"
+PREFIXO_HORARIO_PERSONALIZADO = "Personalizado:"
+ROTULO_HORARIO_PERSONALIZADO = "Horário personalizado"
 
 DIAS_SEMANA_COMPLETOS = [
     "Segunda-feira",
@@ -226,20 +231,40 @@ def _rotulo_cadastro(cadastro: dict) -> str:
         ]
     )
 
-def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
+def _aulas_disponiveis_turno(turno: str) -> list[int]:
+    if turno == TURNO_HORARIO_PERSONALIZADO:
+        return []
+    aulas_especiais = TURNOS_AULAS_ESPECIAIS.get(turno)
+    if aulas_especiais:
+        return sorted(aulas_especiais)
     slots = TURNOS_HORARIOS.get(turno) or TURNOS_HORARIOS["Manhã"]
-    max_aulas = len(slots) - 1
+    return list(range(1, len(slots)))
+
+def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
+    aulas_disponiveis = _aulas_disponiveis_turno(turno)
     numeros = []
     for aula in aulas or []:
         match = re.search(r"\d+", str(aula))
         if match:
             numero = int(match.group(0))
-            if 1 <= numero <= max_aulas:
+            if numero in aulas_disponiveis:
                 numeros.append(numero)
     numeros = sorted(set(numeros))
     if not numeros:
         return None
 
+    aulas_especiais = TURNOS_AULAS_ESPECIAIS.get(turno)
+    if aulas_especiais:
+        if len(numeros) == 1:
+            return aulas_especiais[numeros[0]]
+        if numeros == [6, 7]:
+            return HORARIOS_INTEGRAIS[7]
+        if numeros == [8, 9]:
+            return HORARIOS_INTEGRAIS[8]
+        intervalos = [aulas_especiais[numero][0] for numero in numeros]
+        return (" | ".join(intervalos), _formatar_label_aulas(numeros))
+
+    slots = TURNOS_HORARIOS.get(turno) or TURNOS_HORARIOS["Manhã"]
     primeira = numeros[0]
     ultima = numeros[-1]
     consecutivas = numeros == list(range(primeira, ultima + 1))
@@ -251,7 +276,19 @@ def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
 def _turno_e_aulas_de_horario(horario, contexto: str = "") -> tuple[str, list[str]]:
     if not horario:
         return ("Manhã", [])
+    if (
+        isinstance(horario, tuple)
+        and len(horario) >= 2
+        and horario[1] == ROTULO_HORARIO_PERSONALIZADO
+    ):
+        numeros = _numeros_aulas_de_texto(horario[0])
+        return TURNO_HORARIO_PERSONALIZADO, [f"{numero}ª" for numero in numeros]
     texto = _rotulo_horario(horario)
+    horario_integral = _horario_integral_por_texto(texto)
+    if horario_integral:
+        turno_integral = next(iter(TURNOS_AULAS_ESPECIAIS))
+        numeros = _numeros_aulas_de_texto(texto)
+        return turno_integral, [f"{numero}ª" for numero in numeros]
     horarios_texto = _horarios_extraidos_texto(texto)
     turno = _turno_por_horario_inicio(horarios_texto[0], contexto) if horarios_texto else _turno_por_horario_inicio("", contexto)
     numeros = _numeros_aulas_de_texto(texto)
@@ -354,6 +391,14 @@ def _partes_horario_config(texto: str) -> list[str]:
 def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
     trecho_norm = _normalizar_label_aula(trecho)
     horarios_no_texto = _horarios_extraidos_texto(trecho)
+
+    horario_personalizado = _horario_personalizado_por_texto(trecho)
+    if horario_personalizado:
+        return horario_personalizado
+
+    horario_integral = _horario_integral_por_texto(trecho)
+    if horario_integral:
+        return horario_integral
     
     # Horário Flexível
     numeros_a = []
@@ -437,7 +482,7 @@ def _turno_por_horario_inicio(horario: str, contexto: str = "") -> str:
 def _numeros_aulas_de_texto(texto: str) -> list[int]:
     base = re.sub(r"\b\d{1,2}h\d*\b", " ", str(texto or "").lower())
     numeros = []
-    for numero in range(1, 7):
+    for numero in range(1, 10):
         if re.search(rf"\b{numero}\s*(?:ª|º|a|o)?\b", base):
             numeros.append(numero)
     return numeros
@@ -451,6 +496,47 @@ def _formatar_label_aulas(numeros: list[int]) -> str:
     if len(partes) == 2:
         return f"{partes[0]} e {partes[1]} aula"
     return f"{', '.join(partes[:-1])} e {partes[-1]} aula"
+
+def _horario_personalizado_por_texto(trecho: str):
+    texto = str(trecho or "").strip()
+    if not texto.lower().startswith(PREFIXO_HORARIO_PERSONALIZADO.lower()):
+        return None
+    valor = texto[len(PREFIXO_HORARIO_PERSONALIZADO):].strip()
+    if not valor:
+        return None
+    return (valor, ROTULO_HORARIO_PERSONALIZADO)
+
+def _horario_integral_por_texto(trecho: str):
+    horarios_texto = _horarios_extraidos_texto(trecho)
+    if not horarios_texto:
+        return None
+    numeros = _numeros_aulas_de_texto(trecho)
+    inicios_padrao = {
+        horarios[0]
+        for candidato_padrao in HORARIOS_SIMPLES
+        if candidato_padrao not in HORARIOS_INTEGRAIS
+        for horarios in [_horarios_extraidos_texto(candidato_padrao[0])]
+        if horarios
+    }
+    for candidato in HORARIOS_INTEGRAIS:
+        numeros_candidato = _numeros_aulas_de_texto(candidato[1])
+        if numeros and numeros_candidato != numeros:
+            continue
+        horarios_candidato = _horarios_extraidos_texto(candidato[0])
+        if not horarios_candidato:
+            continue
+        if (
+            len(horarios_texto) == 1
+            and horarios_texto[0] == horarios_candidato[0]
+            and horarios_texto[0] not in inicios_padrao
+        ):
+            return candidato
+        if (
+            horarios_texto[0] == horarios_candidato[0]
+            and horarios_texto[-1] == horarios_candidato[-1]
+        ):
+            return candidato
+    return None
 
 def _indice_horario(horario) -> int:
     if horario in HORARIOS_AULA:
@@ -481,22 +567,31 @@ def _horarios_padronizados_de_texto(texto: str, contexto: str = "") -> list[tupl
 def _defaults_grade_horarios(dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> dict[str, dict[str, object]]:
     defaults: dict[str, dict[str, object]] = {}
     dias = _partes_dia_config(dia_texto)
-    horarios = _horarios_padronizados_de_texto(horario_texto, contexto)
+    partes_horario = _partes_horario_config(horario_texto)
     for idx, dia in enumerate(dias):
         dia_num = _dia_semana_numero(dia)
         if dia_num is None or dia_num >= len(DIAS_SEMANA_CADASTRO):
             continue
-        horario = horarios[idx] if idx < len(horarios) else (horarios[0] if horarios else None)
-        # obter turno e aulas de horário
-        if not horario:
-            turno, aulas = "Manhã", []
+        trecho_horario = (
+            partes_horario[idx]
+            if idx < len(partes_horario)
+            else (partes_horario[0] if partes_horario else "")
+        )
+        horario = _sugerir_horario_cadastrado(trecho_horario, contexto)
+        if horario:
+            turno, aulas = _turno_e_aulas_de_horario(horario, contexto)
+            valor = {"turno": turno, "aulas": aulas}
+            if turno == TURNO_HORARIO_PERSONALIZADO:
+                valor["horario_personalizado"] = str(horario[0])
+        elif trecho_horario:
+            valor = {
+                "turno": TURNO_HORARIO_PERSONALIZADO,
+                "aulas": [f"{numero}ª" for numero in _numeros_aulas_de_texto(trecho_horario)],
+                "horario_personalizado": trecho_horario,
+            }
         else:
-            texto_h = _rotulo_horario(horario)
-            horarios_texto = _horarios_extraidos_texto(texto_h)
-            turno = _turno_por_horario_inicio(horarios_texto[0], contexto) if horarios_texto else _turno_por_horario_inicio("", contexto)
-            numeros = _numeros_aulas_de_texto(texto_h)
-            aulas = [f"{n}ª" for n in numeros]
-        defaults[DIAS_SEMANA_CADASTRO[dia_num]] = {"turno": turno, "aulas": aulas}
+            valor = {"turno": "Manhã", "aulas": []}
+        defaults[DIAS_SEMANA_CADASTRO[dia_num]] = valor
     return defaults
 
 def _asset_data_uri(nome_arquivo: str, mime_type: str = "image/svg+xml") -> str:

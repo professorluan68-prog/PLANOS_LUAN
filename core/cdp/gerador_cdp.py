@@ -16,6 +16,11 @@ from core.lib.classificador import normalizar_texto as _normalizar
 
 def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
     base = _normalizar(disciplina).replace(" ", "")
+    # O cadastro pode permanecer como a disciplina comum e indicar o contexto
+    # apenas no caminho do PDF (por exemplo, ``.../CDP_EM/...``).
+    base_com_espacos = _normalizar(disciplina)
+    if re.search(r"\bcdp(?:[_\s-]+)(?:em|ef|eja)\b", base_com_espacos, flags=re.I):
+        return True
     return base in {
         "cdp-ensinofundamental",
         "cdpensinofundamental",
@@ -28,6 +33,7 @@ def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
             or "ensinofundamental" in base
             or base.endswith("cdpem")
             or base.endswith("cdpef")
+            or base.endswith("cdpeja")
         )
     )
 
@@ -100,6 +106,25 @@ def _formatar_material_cdp_contextual(tema: str, disciplina_base: str = "") -> s
     titulo = _limpar_tema_cdp_contextual(tema, disciplina_base).strip()
     titulo = re.sub(r"\s+", " ", titulo).strip(" -:.")
     return f"TEMA:\n{titulo}" if titulo else "TEMA:\nConteúdo da aula"
+
+
+def _titulo_cdp_por_caminho(caminho_pdf: str) -> str:
+    """Extrai um titulo limpo dos nomes padronizados dos PDFs CDP."""
+    stem = Path(str(caminho_pdf or "")).stem
+    if not stem:
+        return ""
+    if re.fullmatch(r"(?i)\s*geografia\s+em\s+vol(?:ume)?\s*\d+\s*", stem):
+        return ""
+    titulo = re.sub(r"^\s*\d{1,3}\s*[-_.]\s*", "", stem)
+    titulo = re.sub(
+        r"^\s*(?:AULA|ATIVIDADE|ATIVIDADES)\s*\d+(?:\.\d+)?\s*[-:–—.]?\s*",
+        "",
+        titulo,
+        flags=re.I,
+    )
+    titulo = re.sub(r"^\s*(?:UNIDADE|TEMA)\s*\d+\s*[-:–—.]?\s*", "", titulo, flags=re.I)
+    titulo = re.sub(r"[_\s]+", " ", titulo).strip(" -:.;")
+    return titulo if len(titulo) >= 3 else ""
 
 
 def _acompanhamento_cdp_contextual(perfil: str, tema: str) -> list[str]:
@@ -2234,6 +2259,7 @@ def _acessibilidade_cdp_contextual(perfil: str, tema: str, conceito: str = "", i
 
 eh_cdp_contextual_disciplina = _eh_cdp_contextual_disciplina
 disciplina_base_cdp_contextual = _disciplina_base_cdp_contextual
+titulo_cdp_por_caminho = _titulo_cdp_por_caminho
 limpar_tema_cdp_contextual = _limpar_tema_cdp_contextual
 formatar_material_cdp_contextual = _formatar_material_cdp_contextual
 metodologia_cdp_contextual = _metodologia_cdp_contextual
@@ -2247,6 +2273,7 @@ conceito_cdp_contextual = _conceito_cdp_contextual
 __all__ = [
     "eh_cdp_contextual_disciplina",
     "disciplina_base_cdp_contextual",
+    "titulo_cdp_por_caminho",
     "limpar_tema_cdp_contextual",
     "formatar_material_cdp_contextual",
     "metodologia_cdp_contextual",

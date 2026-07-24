@@ -51,14 +51,42 @@ HORARIOS_AULA = [
     ("19h45 - 22h15", "2ª e 5ª aula"),
 ]
 
-HORARIOS_SIMPLES = HORARIOS_AULA[:17]
-HORARIOS_DUPLAS = HORARIOS_AULA[17:]
+HORARIOS_INTEGRAIS = [
+    ("08h40 - 09h30", "3ª aula"),
+    ("09h45 - 10h35", "4ª aula"),
+    ("10h35 - 11h25", "5ª aula"),
+    ("12h25 - 13h15", "6ª aula"),
+    ("13h15 - 14h05", "7ª aula"),
+    ("14h20 - 15h10", "8ª aula"),
+    ("15h10 - 16h", "9ª aula"),
+    ("12h25 - 14h05", "6ª e 7ª aula"),
+    ("14h20 - 16h", "8ª e 9ª aula"),
+]
+
+HORARIOS_SIMPLES = HORARIOS_AULA[:17] + HORARIOS_INTEGRAIS[:7]
+HORARIOS_DUPLAS = HORARIOS_AULA[17:] + HORARIOS_INTEGRAIS[7:]
+HORARIOS_AULA = HORARIOS_AULA + HORARIOS_INTEGRAIS
 
 TURNOS_HORARIOS = {
-    "Manhã": ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20"],
-    "Tarde": ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
+    "Manhã": ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20", "13h10", "14h00", "14h50"],
+    "Tarde": ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20", "19h10", "20h00", "20h50"],
     "Noite": ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
+    "Integral": ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20", "13h10", "14h00", "14h50"],
 }
+
+TURNOS_AULAS_ESPECIAIS = {
+    "Integral - José Theodoro": {
+        numero: horario
+        for numero, horario in zip(range(3, 10), HORARIOS_INTEGRAIS[:7])
+    },
+}
+
+ESCOLAS = [
+    "EE PROFª. EGLE LUPORINI COSTA",
+    "PADRE GERALDO LOURENÇO",
+    "E.E. JOSÉ THEODORO DE MORAES",
+]
+ESCOLA_PERSONALIZADA = "Outra escola (digitar)"
 
 MESES = [
     "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",

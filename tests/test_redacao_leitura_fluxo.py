@@ -1,5 +1,6 @@
 from core.lote import _eh_producao_final_redacao, _metodologia_em_blocos_por_texto
 from core.divisor_metodologia import processar_pdf_e_dividir_metodologia
+from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
 
 
 def test_pratica_de_linguagem_leitura_nao_ativa_fluxo_de_producao_final():
@@ -35,3 +36,11 @@ def test_divisao_de_metodologia_preserva_blocos_de_redacao_leitura():
         "Producao textual",
         "Revisao e fechamento",
     ]
+
+
+def test_redacao_leitura_recebe_prompt_especifico_e_flexivel():
+    prompt_sistema = get_system_prompt("Redacao e Leitura", "6o ano A")
+    orientacao = get_orientacao_disciplina("Redacao e Leitura", turma="6o ano A")
+
+    assert "Redacao e Leitura" in prompt_sistema
+    assert "ordem e o produto real" in orientacao

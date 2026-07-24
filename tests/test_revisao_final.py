@@ -133,3 +133,78 @@ def test_lote_cache_validation_by_hash(tmp_path):
     # retornará um plano com o tema inferido do PDF ou tema genérico, mas definitivamente
     # NÃO o tema "Revolução Francesa" do cache invalidado.
     assert aula_regenerada["tema"] != "Revolução Francesa"
+
+
+def _aula_base_para_score() -> dict:
+    return {
+        "tema": "Grandezas Proporcionais",
+        "aprendizagem": "Resolver problemas envolvendo grandezas diretamente proporcionais.",
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Retomar o tema e registrar hipóteses no caderno."},
+            {"titulo": "Foco no conteúdo", "texto": "Explicar as relações entre as grandezas e comparar exemplos."},
+            {"titulo": "Na prática", "texto": "Resolver situações-problema em duplas e conferir os registros."},
+            {"titulo": "Encerramento", "texto": "Sintetizar as estratégias e compartilhar as conclusões."},
+        ],
+        "acompanhamento": [
+            "☑ Observar a participação.",
+            "☑ Verificar os registros.",
+            "☑ Conferir as respostas.",
+        ],
+        "acessibilidade": [
+            "☑ Disponibilizar apoio visual.",
+            "☑ Oferecer leitura guiada.",
+            "☑ Permitir resposta oral mediada.",
+        ],
+    }
+
+
+def test_aderencia_pdf_aplica_penalidade_proporcional(monkeypatch):
+    monkeypatch.setattr(
+        "core.revisao_final.calcular_aderencia_pdf",
+        lambda aula: (75.0, ["Aderência baixa"]),
+    )
+    monkeypatch.setattr("core.revisao_final.validar_aula_final", lambda aula: [])
+
+    resultado = revisar_aula_gerada(_aula_base_para_score(), "matematica")
+
+    assert resultado["confidence_score"] == 95
+
+
+def test_palavras_chave_nao_aplica_teto_apos_penalidade(monkeypatch):
+    monkeypatch.setattr("core.revisao_final.validar_aula_final", lambda aula: [])
+    monkeypatch.setattr(
+        "core.validador_plano.validar_aderencia_palavras_chave",
+        lambda aula, esperadas: {
+            "valido": False,
+            "cobertura": 80.0,
+            "palavras_encontradas": ["tema"],
+            "palavras_ausentes": ["conceito"],
+        },
+    )
+    aula = _aula_base_para_score()
+    aula["palavras_chave_esperadas"] = ["tema", "conceito"]
+
+    resultado = revisar_aula_gerada(aula, "matematica")
+
+    assert resultado["confidence_score"] == 80
+    assert resultado["confidence_score"] != 70
+
+
+def test_contador_de_regeneracao_e_respeitado_sem_pop_no_inicio(monkeypatch):
+    monkeypatch.setattr("core.revisao_final.validar_aula_final", lambda aula: [])
+    monkeypatch.setattr(
+        "core.revisao_final._identificar_etapas_com_aviso",
+        lambda avisos: ["Na prática"],
+    )
+    regeneracoes = []
+    monkeypatch.setattr(
+        "core.revisao_final._regenerar_etapas_historia",
+        lambda aula, etapas: regeneracoes.append(etapas) or aula,
+    )
+    aula = _aula_base_para_score()
+    aula["_tentativas_regeneracao"] = 1
+
+    resultado = revisar_aula_gerada(aula, "historia", _max_regeneracoes=1)
+
+    assert regeneracoes == []
+    assert "_tentativas_regeneracao" not in resultado

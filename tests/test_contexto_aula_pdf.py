@@ -113,3 +113,136 @@ def test_preparar_contexto_aula_pdf_ajusta_orientacao_estudos_com_referencia():
     assert contexto["material_digital"] == "AULA 1 - Tema revisado"
     assert contexto["objetivos_orientacao"] == []
     assert contexto["aprendizagem_orientacao"] == "Habilidade DOCX"
+
+
+def test_preparar_contexto_aula_pdf_preserva_palavras_chave_e_flag_de_extracao():
+    deps = _deps_base()
+    deps.extracao_pdf_fn = lambda *args, **kwargs: {
+        "texto_prioritario": "Texto prioritario",
+        "palavras_chave": ["  Termo central ", "Fonte histórica", "termo central"],
+    }
+
+    contexto = preparar_contexto_aula_pdf(
+        caminho_pdf="AULA_1.pdf",
+        disciplina="História",
+        turma="8 ANO A",
+        bimestre="3o Bimestre",
+        indice_aula=0,
+        modalidade_eja=False,
+        dependencias=deps,
+    )
+
+    assert contexto["palavras_chave_esperadas"] == [
+        "Termo central",
+        "Fonte histórica",
+    ]
+    assert contexto["extracao_palavras_chave_ok"] is True
+
+
+def test_preparar_contexto_aula_pdf_limpa_titulo_de_arquivo_cdp():
+    deps = _deps_base()
+    deps.eh_cdp_contextual_disciplina_fn = lambda valor: "CDP_EM" in str(valor)
+    deps.perfil_disciplina_fn = lambda disciplina, turma="": "geografia"
+
+    contexto = preparar_contexto_aula_pdf(
+        caminho_pdf=r"C:\PDF_AULAS\GEOGRAFIA\CDP_EM\02 - ATIVIDADE 2 - Construção de mapas a legenda.pdf",
+        disciplina="Geografia",
+        turma="1 ANO J",
+        bimestre="3o Bimestre",
+        indice_aula=1,
+        modalidade_eja=False,
+        dependencias=deps,
+    )
+
+    assert contexto["tema"] == "Construção de mapas a legenda"
+    assert contexto["material_digital"] == "Construção de mapas a legenda"
+    assert contexto["cdp_contextual"] is True
+
+
+def test_preparar_contexto_recupera_contexto_cdp_de_upload_temporario(
+    monkeypatch, tmp_path
+):
+    import config
+    from core.cdp.gerador_cdp import eh_cdp_contextual_disciplina
+
+    raiz_pdf = tmp_path / "PDF_AULAS"
+    original = (
+        raiz_pdf
+        / "HISTORIA"
+        / "EM"
+        / "3_BIMESTRE"
+        / "CDP_EM"
+        / "01 - ATIVIDADE 1 - Fontes.pdf"
+    )
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"%PDF-1.4")
+    temporario = (
+        tmp_path
+        / "temp_upload"
+        / "planos_luan_upload_AbC1__01 - ATIVIDADE 1 - Fontes.pdf"
+    )
+    temporario.parent.mkdir()
+    temporario.write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(config, "PDF_AULAS_DIR", raiz_pdf)
+
+    deps = _deps_base()
+    deps.eh_cdp_contextual_disciplina_fn = eh_cdp_contextual_disciplina
+    deps.perfil_disciplina_fn = lambda disciplina, turma="": "historia"
+
+    contexto = preparar_contexto_aula_pdf(
+        caminho_pdf=str(temporario),
+        disciplina="Historia",
+        turma="",
+        bimestre="3o Bimestre",
+        indice_aula=0,
+        modalidade_eja=False,
+        dependencias=deps,
+    )
+
+    assert contexto["cdp_contextual"] is True
+    assert contexto["caminho_pdf_contextual"] == str(original)
+    assert contexto["contexto_metodologico"] == "cdp_eja"
+
+
+def test_preparar_contexto_recupera_cdp_eja_de_sociologia_em_upload_temporario(
+    monkeypatch, tmp_path
+):
+    import config
+    from core.cdp.gerador_cdp import eh_cdp_contextual_disciplina
+
+    raiz_pdf = tmp_path / "PDF_AULAS"
+    original = (
+        raiz_pdf
+        / "SOCIOLOGIA"
+        / "CDP_EJA"
+        / "2_ANO"
+        / "01 - ATIVIDADE 1 - Compreensão de texto.pdf"
+    )
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"%PDF-1.4")
+    temporario = (
+        tmp_path
+        / "temp_upload"
+        / "planos_luan_upload_Soc1__01 - ATIVIDADE 1 - Compreensão de texto.pdf"
+    )
+    temporario.parent.mkdir()
+    temporario.write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(config, "PDF_AULAS_DIR", raiz_pdf)
+
+    deps = _deps_base()
+    deps.eh_cdp_contextual_disciplina_fn = eh_cdp_contextual_disciplina
+    deps.perfil_disciplina_fn = lambda disciplina, turma="": "sociologia"
+
+    contexto = preparar_contexto_aula_pdf(
+        caminho_pdf=str(temporario),
+        disciplina="Sociologia",
+        turma="1º/2º/3º E.M",
+        bimestre="3º Bimestre",
+        indice_aula=0,
+        modalidade_eja=False,
+        dependencias=deps,
+    )
+
+    assert contexto["cdp_contextual"] is True
+    assert contexto["caminho_pdf_contextual"] == str(original)
+    assert contexto["contexto_metodologico"] == "cdp_eja"

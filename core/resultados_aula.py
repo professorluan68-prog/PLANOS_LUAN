@@ -35,6 +35,143 @@ class DependenciasResultadosAula:
     detectar_recursos_reais_fn: Callable[[str], list[str]]
     higienizar_plano_fn: Callable[[list[dict], list[str], list[str], str, str, str, list[str]], tuple[list[dict], list[str], list[str]]]
     validar_aula_final_fn: Callable[[dict], list[str]]
+    adaptar_listas_eja_fn: Callable[[list[str], list[str], str, str], tuple[list[str], list[str]]] | None = None
+
+
+_CDP_MAX_DESENVOLVIMENTO_CHARS = 1200
+_CDP_MAX_ETAPA_CHARS = 330
+_CDP_MAX_ITEM_CHARS = 180
+
+
+def _encurtar_texto_cdp(texto: str, limite: int) -> str:
+    """Mantem frases completas e evita colunas longas no modelo Word."""
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip(" ,;:-")
+    if len(texto) <= limite:
+        return texto
+    frases = re.split(r"(?<=[.!?])\s+", texto)
+    acumulado = ""
+    for frase in frases:
+        candidato = f"{acumulado} {frase}".strip()
+        if len(candidato) > limite:
+            break
+        acumulado = candidato
+    if acumulado:
+        return acumulado.rstrip(" ,;:-")
+    corte = texto[: max(1, limite - 1)].rsplit(" ", 1)[0].strip(" ,;:-")
+    return corte or texto[:limite].rstrip(" ,;:-")
+
+
+def _sanitizar_agrupamento_cdp(texto: str) -> str:
+    texto = re.sub(
+        r"\b(?:debate|debates|discussao|discussao|conversa)\s+(?:entre|com)\s+(?:colegas?|estudantes?)\b",
+        "reflexao individual",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:em|nas?|nos?)\s+(?:duplas?|pares?|grupos?|equipes?)(?:\s+de\s+\w+)?",
+        "individualmente",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(
+        r"\b(?:grupos?|equipes?|duplas?|pares?)\s+(?:de|para)\s+\w+",
+        "atividade individual",
+        texto,
+        flags=re.I,
+    )
+    texto = re.sub(r"\b(?:com|entre)\s+colegas?\b", "individualmente", texto, flags=re.I)
+    texto = re.sub(r"\b(?:colaborativa(?:mente)?|cooperativa(?:mente)?)\b", "individual", texto, flags=re.I)
+    return re.sub(r"\s+", " ", texto).strip()
+
+
+def _normalizar_colunas_cdp(
+    acompanhamento: list[str],
+    acessibilidade: list[str],
+    *,
+    perfil: str,
+    tema: str,
+) -> tuple[list[str], list[str]]:
+    """Aplica as restricoes institucionais do CDP nas duas listas finais.
+
+    A IA deve escrever as listas, mas esta ultima camada garante que uma
+    resposta que mencione tecnologia, Lemov ou agrupamentos nao chegue ao
+    documento final e que o contrato de tres itens seja mantido.
+    """
+    from core.cdp.gerador_cdp import (
+        acompanhamento_cdp_contextual,
+        acessibilidade_cdp_contextual,
+    )
+    from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
+
+    def preparar(itens: list[str], fallback: list[str]) -> list[str]:
+        saida: list[str] = []
+        vistos: set[str] = set()
+        for item in list(itens or []):
+            texto = _sanitizar_agrupamento_cdp(
+                sanitizar_texto_cdp_estrito(str(item or ""))
+            )
+            texto = _encurtar_texto_cdp(texto, _CDP_MAX_ITEM_CHARS)
+            if texto and not texto.endswith((".", "!", "?")):
+                texto += "."
+            chave = re.sub(r"\s+", " ", texto).strip().casefold()
+            if texto and chave not in vistos:
+                vistos.add(chave)
+                saida.append(texto)
+        for item in fallback:
+            texto = _encurtar_texto_cdp(
+                _sanitizar_agrupamento_cdp(sanitizar_texto_cdp_estrito(str(item or ""))),
+                _CDP_MAX_ITEM_CHARS,
+            )
+            if texto and not texto.endswith((".", "!", "?")):
+                texto += "."
+            chave = re.sub(r"\s+", " ", texto).strip().casefold()
+            if texto and chave not in vistos:
+                vistos.add(chave)
+                saida.append(texto)
+            if len(saida) >= 3:
+                break
+        return saida[:3]
+
+    fallback_acompanhamento = acompanhamento_cdp_contextual(perfil, tema, tema, 0)
+    fallback_acessibilidade = acessibilidade_cdp_contextual(perfil, tema, tema, 0)
+    return (
+        preparar(acompanhamento, fallback_acompanhamento),
+        preparar(acessibilidade, fallback_acessibilidade),
+    )
+
+
+def _normalizar_metodologia_cdp(metodologia: list[dict]) -> list[dict]:
+    """Limpa sobras deixadas ao retirar recursos proibidos no CDP."""
+    from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
+
+    saida: list[dict] = []
+    caracteres_restantes = _CDP_MAX_DESENVOLVIMENTO_CHARS
+    for item in list(metodologia or []):
+        if not isinstance(item, dict):
+            continue
+        texto = _sanitizar_agrupamento_cdp(
+            sanitizar_texto_cdp_estrito(str(item.get("texto", "")))
+        )
+        # Retirar finais como "e fazer" quando a ação seguinte era um nome
+        # de técnica que acabou de ser removido.
+        texto = re.sub(
+            r"\s+(?:e|ou|para)\s+(?:fazer|realizar|discutir|compartilhar)\s*[.!?]?$",
+            ".",
+            texto,
+            flags=re.I,
+        )
+        texto = re.sub(r"\s+([.,;:?])", r"\1", texto).strip(" ,;:-")
+        limite_etapa = min(_CDP_MAX_ETAPA_CHARS, caracteres_restantes)
+        texto = _encurtar_texto_cdp(texto, limite_etapa)
+        if texto and not texto.endswith((".", "!", "?")):
+            texto += "."
+        if texto:
+            saida.append({"titulo": str(item.get("titulo") or "Desenvolvimento").strip(), "texto": texto})
+            caracteres_restantes -= len(texto)
+            if caracteres_restantes <= 0:
+                break
+    return saida
 
 
 def _extrair_base_pedagogica(
@@ -150,6 +287,7 @@ def _finalizar_resultado(
     total_aulas: int,
     diagnostico_geracao: dict,
     dependencias: DependenciasResultadosAula,
+    modalidade_eja_ativa: bool = False,
 ) -> dict:
     recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
     metodologia, acompanhamento, acessibilidade = dependencias.higienizar_plano_fn(
@@ -168,6 +306,14 @@ def _finalizar_resultado(
                 acompanhamento,
                 acessibilidade,
             )
+        )
+
+    if modalidade_eja_ativa and dependencias.adaptar_listas_eja_fn:
+        acompanhamento, acessibilidade = dependencias.adaptar_listas_eja_fn(
+            acompanhamento,
+            acessibilidade,
+            tema,
+            perfil,
         )
 
     if perfil == "historia":
@@ -226,10 +372,27 @@ def _montar_resultado_referencia_docx_exata(
     total_aulas: int,
     dependencias: DependenciasResultadosAula,
     aviso_sucesso: str,
+    modalidade_eja_ativa: bool = False,
 ) -> dict:
     metodologia = list(referencia_docx.get("metodologia") or [])
     acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
     acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+    literal = not modalidade_eja_ativa
+    if modalidade_eja_ativa and dependencias.adaptar_listas_eja_fn:
+        metodologia = dependencias.adaptar_metodologia_eja_fn(
+            metodologia,
+            perfil,
+            tema,
+            texto,
+            dependencias.detectar_tecnicas_lemov_fn(texto, tema),
+            dependencias.garantir_tecnicas_lemov_na_metodologia_fn,
+        )
+        acompanhamento, acessibilidade = dependencias.adaptar_listas_eja_fn(
+            acompanhamento,
+            acessibilidade,
+            tema,
+            perfil,
+        )
     recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
     aula_gerada = {
         "disciplina": disciplina_base,
@@ -262,13 +425,17 @@ def _montar_resultado_referencia_docx_exata(
     aula_gerada["avisos_validacao"] = list(
         dependencias.validar_aula_final_fn(aula_gerada) or []
     )
-    aula_gerada["avisos_validacao"].append(aviso_sucesso)
+    aula_gerada["avisos_validacao"].append(
+        "Metodologia, acompanhamento e acessibilidade do DOCX foram refinados para EJA."
+        if modalidade_eja_ativa
+        else aviso_sucesso
+    )
     return _registrar_proveniencia_docx(
         aula_gerada,
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=str(referencia_docx.get("fonte") or ""),
-        status_sucesso="docx_literal",
-        literal=True,
+        status_sucesso="docx_refinado_eja" if modalidade_eja_ativa else "docx_literal",
+        literal=literal,
     )
 
 
@@ -486,15 +653,12 @@ def montar_resultado_aula_ia(
     metodologia_higienizada_temp = []
 
     metodologia_ia = plano_ia.get("metodologia", [])
-    if perfil == "leitura_redacao":
-        metodologia_ia = dependencias.metodologia_leitura_redacao_modelo_fn(
-            texto,
-            tema,
-            turma=turma,
-        )
     if metodologia_ia:
         tecnicas_lemov_pdf = dependencias.detectar_tecnicas_lemov_fn(texto, tema)
-        if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+        if (
+            perfil not in {"projeto_de_vida", "lideranca_oratoria", "sociologia"}
+            and contexto_metodologico != "cdp_eja"
+        ):
             metodologia_ia = dependencias.garantir_tecnicas_lemov_na_metodologia_fn(
                 metodologia_ia,
                 tecnicas_lemov_pdf,
@@ -517,7 +681,13 @@ def montar_resultado_aula_ia(
             perfil=perfil,
             tema=tema,
             contexto=contexto_metodologico,
+            consolidar=(
+                perfil != "leitura_redacao"
+                and not modalidade_eja_ativa
+                and contexto_metodologico != "cdp_eja"
+            ),
         )
+
         metodologia_higienizada_temp = list(metodologia_ia)
         metodologia_ia = dependencias.naturalizar_metodologia_professor_fn(
             metodologia_ia,
@@ -535,6 +705,15 @@ def montar_resultado_aula_ia(
 
     if metodologia_fixa_pdf:
         metodologia = metodologia_fixa_pdf
+        if modalidade_eja_ativa:
+            metodologia = dependencias.adaptar_metodologia_eja_fn(
+                metodologia,
+                perfil,
+                tema,
+                texto,
+                dependencias.detectar_tecnicas_lemov_fn(texto, tema),
+                dependencias.garantir_tecnicas_lemov_na_metodologia_fn,
+            )
         desenvolvimento = dependencias.texto_metodologia_fn(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
         acompanhamento = dependencias.gerar_acompanhamento_aprimorado_fn(
@@ -681,6 +860,15 @@ def montar_resultado_aula_ia(
         if not acessibilidade:
             acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
 
+    if contexto_metodologico == "cdp_eja":
+        metodologia = _normalizar_metodologia_cdp(metodologia)
+        acompanhamento, acessibilidade = _normalizar_colunas_cdp(
+            acompanhamento,
+            acessibilidade,
+            perfil=perfil,
+            tema=tema,
+        )
+
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,
         "metodologia_ia_crua": metodologia_ia_crua,
@@ -713,6 +901,7 @@ def montar_resultado_aula_ia(
         total_aulas=total_aulas,
         diagnostico_geracao=diagnostico_geracao,
         dependencias=dependencias,
+        modalidade_eja_ativa=modalidade_eja_ativa,
     )
     return _registrar_proveniencia_docx(
         resultado,
@@ -821,6 +1010,7 @@ def montar_resultado_aula_local(
                 f"{disciplina_base}: metodologia, acompanhamento da aprendizagem e "
                 "acessibilidade foram copiados literalmente do DOCX externo."
             ),
+            modalidade_eja_ativa=modalidade_eja_ativa,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
@@ -842,6 +1032,15 @@ def montar_resultado_aula_local(
     if metodologia_fixa_pdf:
         metodologia_local = list(metodologia_fixa_pdf)
         metodologia = metodologia_fixa_pdf
+        if modalidade_eja_ativa:
+            metodologia = dependencias.adaptar_metodologia_eja_fn(
+                metodologia,
+                perfil,
+                tema,
+                texto,
+                dependencias.detectar_tecnicas_lemov_fn(texto, tema),
+                dependencias.garantir_tecnicas_lemov_na_metodologia_fn,
+            )
         desenvolvimento = dependencias.texto_metodologia_fn(metodologia)
         etapas_titulos = [m.get("titulo", "") for m in metodologia if isinstance(m, dict)]
         acompanhamento = dependencias.gerar_acompanhamento_aprimorado_fn(
@@ -904,7 +1103,10 @@ def montar_resultado_aula_local(
         )
         metodologia_local = list(metodologia)
         tecnicas_lemov_pdf = dependencias.detectar_tecnicas_lemov_fn(texto, tema)
-        if perfil not in {"projeto_de_vida", "lideranca_oratoria"}:
+        if (
+            perfil not in {"projeto_de_vida", "lideranca_oratoria", "sociologia"}
+            and contexto_metodologico != "cdp_eja"
+        ):
             metodologia = dependencias.garantir_tecnicas_lemov_na_metodologia_fn(
                 metodologia,
                 tecnicas_lemov_pdf,
@@ -920,6 +1122,10 @@ def montar_resultado_aula_local(
             perfil=perfil,
             tema=tema,
             contexto=contexto_metodologico,
+            consolidar=(
+                not modalidade_eja_ativa
+                and contexto_metodologico != "cdp_eja"
+            ),
         )
         metodologia_higienizada_temp = list(metodologia)
         metodologia = dependencias.naturalizar_metodologia_professor_fn(
@@ -964,6 +1170,15 @@ def montar_resultado_aula_local(
             perfil,
         )
 
+    if contexto_metodologico == "cdp_eja":
+        metodologia = _normalizar_metodologia_cdp(metodologia)
+        acompanhamento, acessibilidade = _normalizar_colunas_cdp(
+            acompanhamento,
+            acessibilidade,
+            perfil=perfil,
+            tema=tema,
+        )
+
     diagnostico_geracao = {
         "metodologia_local": metodologia_local,
         "metodologia_ia_crua": [],
@@ -994,6 +1209,7 @@ def montar_resultado_aula_local(
         total_aulas=total_aulas,
         diagnostico_geracao=diagnostico_geracao,
         dependencias=dependencias,
+        modalidade_eja_ativa=modalidade_eja_ativa,
     )
     return _registrar_proveniencia_docx(
         resultado,

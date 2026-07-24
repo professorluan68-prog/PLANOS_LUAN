@@ -122,6 +122,36 @@ def test_resolver_pasta_pdfs_usa_alias_portugues_em():
     assert caminho == Path(r"D:\PDF novos") / "LINGUA_PORTUGUESA" / "EM" / "2_BIMESTRE" / "2_ANO"
 
 
+def test_resolver_pasta_pdfs_encontra_subpasta_cdp_em_para_turma_multisseriada(tmp_path):
+    cdp = tmp_path / "GEOGRAFIA" / "EM" / "3_BIMESTRE" / "CDP_EM"
+    cdp.mkdir(parents=True)
+    (cdp / "01 - ATIVIDADE 1 - Mapa.pdf").write_bytes(b"%PDF-1.4\n")
+
+    caminho = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Geografia",
+        "1º/2º/3º E.M",
+        "3º Bimestre",
+    )
+
+    assert caminho == cdp
+
+
+def test_resolver_pasta_pdfs_encontra_cdp_ef_com_hifen_e_subpasta_de_turma(tmp_path):
+    cdp = tmp_path / "HISTORIA" / "AF" / "3_BIMESTRE" / "CDP-EF" / "6_ANO_7_ANO"
+    cdp.mkdir(parents=True)
+    (cdp / "01 - ATIVIDADE 1 - Historia.pdf").write_bytes(b"%PDF-1.4\n")
+
+    caminho = resolver_pasta_pdfs(
+        str(tmp_path),
+        "História",
+        "6º/7º E.F",
+        "3º Bimestre",
+    )
+
+    assert caminho == cdp
+
+
 def test_garantir_caminho_na_raiz_aceita_subpasta(tmp_path):
     raiz = tmp_path / "PDF_AULAS"
     subpasta = raiz / "HISTORIA" / "AF" / "1_BIMESTRE" / "6_ANO"

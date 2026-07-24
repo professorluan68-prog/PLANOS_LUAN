@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import re
 from typing import Any, Callable
 
 
@@ -223,13 +225,49 @@ def preparar_contexto_aula_pdf(
     arquivo_fonte_extracao = metadados_fonte["arquivo_fonte_extracao"]
     blocos_pptx = metadados_fonte["blocos_pptx"]
 
-    cdp_contextual = dependencias.eh_cdp_contextual_disciplina_fn(disciplina)
+    # Algumas turmas CDP usam o cadastro disciplinar comum (por exemplo,
+    # ``Geografia``) e se diferenciam apenas pela pasta dos PDFs (``CDP_EM``
+    # ou ``CDP_EF``).  O caminho faz parte do contexto da aula e precisa
+    # ativar as mesmas regras do cadastro explícito de CDP, sem contaminar as
+    # pastas regulares da disciplina.
+    cdp_disciplina_cadastrada = dependencias.eh_cdp_contextual_disciplina_fn(disciplina)
+    caminho_pdf_contextual = caminho_pdf
+    cdp_caminho_pdf = dependencias.eh_cdp_contextual_disciplina_fn(caminho_pdf)
+    if not cdp_caminho_pdf:
+        # Uploads manuais recebem um caminho temporario e, so pelo nome, nao
+        # revelam se vieram de ``CDP_EM``/``CDP_EF``. Recuperamos o PDF oficial
+        # pelo nome antes de decidir qual pipeline e qual referencia usar.
+        try:
+            from core.seletor_referencias import resolver_caminho_pdf_original
+
+            caminho_resolvido = resolver_caminho_pdf_original(
+                caminho_pdf,
+                disciplina,
+                turma,
+            )
+        except Exception:
+            caminho_resolvido = None
+        if caminho_resolvido:
+            caminho_pdf_contextual = str(caminho_resolvido)
+            cdp_caminho_pdf = dependencias.eh_cdp_contextual_disciplina_fn(
+                caminho_pdf_contextual
+            )
+    cdp_contextual = cdp_disciplina_cadastrada or cdp_caminho_pdf
     disciplina_base_cadastro = dependencias.disciplina_base_cdp_por_cadastro_fn(disciplina)
-    disciplina_base = disciplina_base_cadastro or (
-        dependencias.disciplina_base_cdp_contextual_fn(texto, tema, caminho_pdf)
-        if cdp_contextual
-        else disciplina
-    )
+    if disciplina_base_cadastro:
+        disciplina_base = disciplina_base_cadastro
+    elif cdp_caminho_pdf and not cdp_disciplina_cadastrada:
+        # Quando o cadastro usa o nome comum ("Geografia", "História" etc.),
+        # ele é a fonte confiável da disciplina; o caminho só acrescenta o
+        # contexto CDP. Isso evita que palavras do texto do livro mudem o
+        # componente curricular.
+        disciplina_base = disciplina
+    else:
+        disciplina_base = (
+            dependencias.disciplina_base_cdp_contextual_fn(texto, tema, caminho_pdf)
+            if cdp_contextual
+            else disciplina
+        )
     perfil = dependencias.perfil_disciplina_fn(disciplina_base, turma=turma)
 
     dados_plan = dependencias.obter_dados_aprofundamento_fn(
@@ -241,6 +279,16 @@ def preparar_contexto_aula_pdf(
     if dados_plan and dados_plan.get("titulo"):
         tema = dados_plan["titulo"]
         material_digital = f"AULA {numero_aula} - {tema}"
+
+    # Nos PDFs CDP, o nome do arquivo e a fonte mais confiavel para o titulo:
+    # o texto interno pode misturar unidade, pagina e cabecalhos do livro.
+    if cdp_contextual and cdp_caminho_pdf:
+        from core.cdp.gerador_cdp import titulo_cdp_por_caminho
+
+        titulo_arquivo_cdp = titulo_cdp_por_caminho(caminho_pdf)
+        if titulo_arquivo_cdp:
+            tema = titulo_arquivo_cdp
+            material_digital = titulo_arquivo_cdp
 
     if perfil == "orientacao_estudos":
         texto, tema, material_digital = dependencias.resolver_contexto_orientacao_estudos_fn(
@@ -271,6 +319,13 @@ def preparar_contexto_aula_pdf(
         bimestre=bimestre,
     )
     texto_prioritario_pdf = extracao_pdf.get("texto_prioritario") or texto
+    if not str(numero_aula or "").strip():
+        # Os PDFs CDP de Geografia usam nomes como ``01 - ATIVIDADE ...`` em
+        # vez de ``AULA_01``. Preserve a ordem no plano final usando esse
+        # prefixo numérico quando o conteúdo não traz um rótulo próprio.
+        match_numero = re.match(r"^\s*(\d{1,3})(?:\s*[-_.])", Path(caminho_pdf).stem)
+        if match_numero:
+            numero_aula = str(int(match_numero.group(1)))
     tipo = dependencias.detectar_tipo_aula_fn(
         texto_prioritario_pdf,
         tema,
@@ -290,17 +345,7 @@ def preparar_contexto_aula_pdf(
     modalidade_eja_ativa = bool(
         modalidade_eja and dependencias.perfil_suporta_eja_fn(perfil)
     )
-    eh_cdp_real = (
-        dependencias.eh_cdp_contextual_disciplina_fn(disciplina)
-        or dependencias.eh_cdp_fn(disciplina)
-        or dependencias.detectar_contexto_metodologico_fn(
-            texto,
-            caminho_pdf,
-            disciplina_base,
-            turma,
-        )
-        == "cdp_eja"
-    )
+    eh_cdp_real = cdp_contextual or dependencias.eh_cdp_fn(disciplina)
     if eh_cdp_real:
         contexto_metodologico = "cdp_eja"
     elif modalidade_eja_ativa:
@@ -337,14 +382,22 @@ def preparar_contexto_aula_pdf(
         dependencias=dependencias,
     )
 
-    # Novo fluxo: Conversão de PDF para DOCX, extração de palavras-chave e esboço estrutural
-    palavras_chave_esperadas = []
+    # O extrator principal já entrega as palavras-chave candidatas do PDF.
+    # A flag precisa indicar explicitamente quando a extração não produziu dados.
+    palavras_chave_brutas = extracao_pdf.get("palavras_chave")
+    palavras_chave_esperadas: list[str] = []
+    if isinstance(palavras_chave_brutas, (list, tuple, set)):
+        vistos_palavras_chave: set[str] = set()
+        for palavra in palavras_chave_brutas:
+            texto_palavra = str(palavra or "").strip()
+            chave_palavra = texto_palavra.casefold()
+            if texto_palavra and chave_palavra not in vistos_palavras_chave:
+                vistos_palavras_chave.add(chave_palavra)
+                palavras_chave_esperadas.append(texto_palavra)
     esboco_pdf: list[str] = []
     ancoras_pdf: list[str] = []
     caminho_docx_aux = None
-    extracao_palavras_chave_ok = True
-    # Extração de palavras-chave desativada a pedido do usuário
-    pass
+    extracao_palavras_chave_ok = bool(palavras_chave_esperadas)
 
     return {
         "texto": texto,
@@ -352,6 +405,7 @@ def preparar_contexto_aula_pdf(
         "material_digital": material_digital,
         "numero_aula": numero_aula,
         "cdp_contextual": cdp_contextual,
+        "caminho_pdf_contextual": caminho_pdf_contextual,
         "disciplina_base": disciplina_base,
         "perfil": perfil,
         "objetivos_orientacao": objetivos_orientacao,

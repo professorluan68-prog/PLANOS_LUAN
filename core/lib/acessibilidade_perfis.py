@@ -741,6 +741,14 @@ def _acessibilidade_ingles(tema: str, aprendizagem: str, desenvolvimento: str) -
     ]
 
 
+def _acessibilidade_lideranca_oratoria(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    return [
+        "☑ Apresentar exemplos curtos e concretos de comunicacao profissional, negociacao ou tomada de decisao, conforme o tema.",
+        "☑ Disponibilizar roteiro, palavras-chave e modelo de fala ou registro para apoiar a organizacao das ideias.",
+        "☑ Permitir participacao oral, escrita ou em topicos, com ensaio individual e mediacao do professor antes da apresentacao.",
+    ]
+
+
 def _acessibilidade_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
     base_aula = normalizar_texto(" ".join([tema, desenvolvimento]))
 
@@ -940,6 +948,7 @@ GERADORES_ACESSIBILIDADE_POR_PERFIL: dict[str, GeradorAcessibilidade] = {
     "matematica": _acessibilidade_matematica,
     "ciencias_ef": _acessibilidade_ciencias_reforcada,
     "biologia": _acessibilidade_biologia,
+    "lideranca_oratoria": _acessibilidade_lideranca_oratoria,
     "projeto_de_vida": _acessibilidade_projeto_vida,
 }
 

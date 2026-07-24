@@ -308,7 +308,7 @@ def _reforcar_regras_do_sistema(texto: str) -> str:
         "- Priorize textos completos; não use reticências para encurtar frases em desenvolvimento, acompanhamento ou acessibilidade.\\n"
         "- Se precisar reduzir, reescreva a frase de forma mais curta e completa.\\n"
         "- Não invente técnicas pedagógicas; só cite técnicas quando estiverem explicitamente presentes nos slides.\\n"
-        "- Exceção APENAS para Biologia, Inglês e EJA: 'Pause e responda' é verificação da aprendizagem com correção mediada.\\n"
+        "- Em modalidade EJA, não cite nomes de técnicas pedagógicas; descreva as ações diretamente.\\n"
         "- Para HISTÓRIA: 'Pause e responda' é SEMPRE PROIBIDO, sem exceção.\\n"
         "- Respeite a ordem real dos slides enviados.\\n"
         "- Mantenha metodologia fluida, objetiva e adequada ao conteúdo da aula.\\n\\n"

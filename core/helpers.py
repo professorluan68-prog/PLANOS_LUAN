@@ -24,6 +24,17 @@ DISCIPLINA_PASTA_ALIASES = {
     "BIOLOGIA_EJA": "BIOLOGIA_EJA",
 }
 
+# Subpastas usadas quando a modalidade EJA é selecionada na interface.
+# Mantemos a resolução por modalidade separada do nome da disciplina para
+# evitar que a seleção EJA continue lendo silenciosamente os PDFs regulares.
+PASTAS_EJA_POR_DISCIPLINA = {
+    "BIOLOGIA": "EJA_BIOLOGIA",
+    "BIOLOGIA_EJA": "EJA_BIOLOGIA",
+    "LINGUA_INGLESA": "EJA_EM",
+    "INGLES": "EJA_EM",
+    "LIDERANCA_E_ORATORIA": "EJA_EM",
+}
+
 
 def horario_para_plano(horario) -> str:
     if isinstance(horario, tuple) and len(horario) >= 2:
@@ -163,6 +174,41 @@ def _pasta_tem_pdfs(caminho: Path) -> bool:
         return any(arquivo.is_file() and arquivo.suffix.lower() == ".pdf" for arquivo in caminho.iterdir())
     except OSError:
         return False
+
+
+def _localizar_subpasta_cdp(caminho_bimestre: Path, nivel: str) -> Path | None:
+    """Localiza CDP_EM/CDP_EF mesmo quando a pasta usa hifen ou subpasta de turma."""
+    nome_esperado = "CDPEM" if nivel == "EM" else "CDPEF"
+    try:
+        candidatos = sorted(
+            (
+                caminho
+                for caminho in caminho_bimestre.iterdir()
+                if caminho.is_dir()
+                and _nome_pasta_normalizado(caminho).replace("_", "") == nome_esperado
+            ),
+            key=lambda caminho: str(caminho).casefold(),
+        )
+    except OSError:
+        return None
+
+    for candidato in candidatos:
+        if _pasta_tem_pdfs(candidato):
+            return candidato
+        try:
+            descendentes = sorted(
+                (
+                    caminho
+                    for caminho in candidato.rglob("*")
+                    if caminho.is_dir() and _pasta_tem_pdfs(caminho)
+                ),
+                key=lambda caminho: str(caminho).casefold(),
+            )
+        except OSError:
+            descendentes = []
+        if descendentes:
+            return descendentes[0]
+    return None
 
 
 def _tokens_serie_turma(turma_norm: str) -> list[str]:
@@ -378,9 +424,54 @@ def _pasta_aprofundamento_biologia_2ano_a(base_dir: str, bimestre_token: str) ->
     return candidatos[0] if candidatos else None
 
 
-def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: str, professor: str = "") -> Path:
+def resolver_pasta_pdfs(
+    base_dir: str,
+    disciplina: str,
+    turma: str,
+    bimestre: str,
+    professor: str = "",
+    modalidade_eja: bool = False,
+) -> Path:
     r"""Monta uma subpasta de PDFs a partir da raiz informada."""
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
+
+    eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
+    if eja_solicitado:
+        disciplina_base_eja = (
+            "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
+        )
+        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja)
+        if subpasta_eja:
+            raiz_eja = Path(base_dir) / disciplina_base_eja / subpasta_eja
+            if raiz_eja.exists():
+                if _pasta_tem_pdfs(raiz_eja):
+                    return raiz_eja
+
+                nivel_eja = _nivel_preferido_para_turma(normalizar_para_pasta(turma))
+                turma_eja = normalizar_para_pasta(turma)
+                bim_eja_match = re.search(r"(\d)_BIMESTRE", normalizar_para_pasta(bimestre))
+                bim_eja = bim_eja_match.group(1) + "_BIMESTRE" if bim_eja_match else ""
+                serie_eja = _tokens_serie_turma(turma_eja)
+                pasta_flexivel_eja = _buscar_pasta_pdf_flexivel(
+                    raiz_eja,
+                    nivel_preferido=nivel_eja,
+                    bimestre_token=bim_eja,
+                    serie_tokens=serie_eja,
+                    turma_norm=turma_eja,
+                )
+                if pasta_flexivel_eja:
+                    return pasta_flexivel_eja
+
+                # As pastas EJA tambem podem receber os PDFs diretamente em
+                # um subdiretorio sem a hierarquia regular de nivel/bimestre.
+                for candidata in sorted(raiz_eja.rglob("*"), key=lambda item: str(item).casefold()):
+                    if candidata.is_dir() and _pasta_tem_pdfs(candidata):
+                        return candidata
+
+                # Se a pasta foi criada, mas ainda está vazia, mantemos sua
+                # resolução para não cair silenciosamente nos PDFs regulares.
+                return raiz_eja
+
     turma_norm = normalizar_para_pasta(turma)
     bimestre_norm = normalizar_para_pasta(bimestre)
     match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
@@ -411,6 +502,17 @@ def resolver_pasta_pdfs(base_dir: str, disciplina: str, turma: str, bimestre: st
 
     caminho_padrao = Path(base_dir) / disc_folder / nivel / bim / serie
     if caminho_padrao.exists():
+        if _pasta_tem_pdfs(caminho_padrao):
+            return caminho_padrao
+
+        # Algumas disciplinas comuns (por exemplo, Geografia) usam uma
+        # subpasta CDP_EM/CDP_EF dentro do mesmo bimestre. Quando a pasta do
+        # bimestre não tem PDFs diretamente, essa subpasta é a fonte concreta
+        # dos arquivos e deve ser priorizada pela busca automática.
+        subpasta_cdp = _localizar_subpasta_cdp(caminho_padrao, nivel)
+        if subpasta_cdp:
+            return subpasta_cdp
+
         return caminho_padrao
 
     caminho_flexivel = _buscar_pasta_pdf_flexivel(

@@ -1,4 +1,6 @@
 from core import lote
+from core.cdp.gerador_cdp import titulo_cdp_por_caminho
+from core.resultados_aula import _normalizar_metodologia_cdp
 
 
 def _texto_geografia(tema: str, conceito: str = "", indice: int = 0) -> str:
@@ -96,3 +98,20 @@ def test_geografia_cdp_limpa_expressoes_inadequadas():
     assert "virem e conversem" not in texto
     assert "estimule a análise crítica" not in texto
     assert "encontre um colega" not in texto
+
+
+def test_geografia_cdp_titulo_usa_nome_limpo_do_pdf():
+    assert titulo_cdp_por_caminho(
+        r"C:\pdf\02 - ATIVIDADE 2 - Construção de mapas a legenda.pdf"
+    ) == "Construção de mapas a legenda"
+    assert titulo_cdp_por_caminho(r"C:\pdf\GEOGRAFIA EM VOL 1.pdf") == ""
+
+
+def test_geografia_cdp_metodologia_e_encurtada_e_sem_agrupamentos():
+    metodologia = _normalizar_metodologia_cdp([
+        {"titulo": "Na prática", "texto": "Analisar o mapa em duplas. " + "Explicar a legenda. " * 80},
+        {"titulo": "Encerramento", "texto": "Registrar a síntese no caderno."},
+    ])
+    assert sum(len(item["texto"]) for item in metodologia) <= 1200
+    texto = " ".join(item["texto"] for item in metodologia).lower()
+    assert "duplas" not in texto

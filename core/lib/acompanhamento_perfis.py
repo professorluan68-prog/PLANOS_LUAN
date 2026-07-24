@@ -1009,6 +1009,14 @@ def _acompanhamento_lingua_portuguesa_em(tema: str, aprendizagem: str, desenvolv
         ]
 
 
+def _acompanhamento_lideranca_oratoria(tema: str, aprendizagem: str, desenvolvimento: str) -> list[str]:
+    return [
+        f"☑ Verificar se os estudantes compreendem os elementos centrais de {tema} e os explicam com clareza.",
+        f"☑ Observar se aplicam {tema} em uma situacao de comunicacao, negociacao ou trabalho apresentada no material.",
+        "☑ Acompanhar os registros e as falas, considerando escuta, respeito, justificativa das ideias e capacidade de revisar a propria comunicacao.",
+    ]
+
+
 GeradorAcompanhamento = Callable[[str, str, str], list[str]]
 
 GERADORES_ACOMPANHAMENTO_POR_PERFIL: dict[str, GeradorAcompanhamento] = {
@@ -1019,6 +1027,7 @@ GERADORES_ACOMPANHAMENTO_POR_PERFIL: dict[str, GeradorAcompanhamento] = {
     "matematica": _acompanhamento_matematica,
     "ciencias_ef": _acompanhamento_ciencias_reforcado,
     "biologia": _acompanhamento_biologia,
+    "lideranca_oratoria": _acompanhamento_lideranca_oratoria,
     "projeto_de_vida": _acompanhamento_projeto_vida,
 }
 

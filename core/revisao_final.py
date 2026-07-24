@@ -15,7 +15,7 @@ from core.listas_pedagogicas import (
 from core.models import PlanoCompleto
 from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
-VERSAO_GERADOR_ATUAL = "1.2.11"
+VERSAO_GERADOR_ATUAL = "1.2.13"
 
 # CORREÇÃO FALHA #8 — Score mínimo aceitável para entrega sem regeneração
 SCORE_MINIMO_ACEITAVEL = 70
@@ -119,7 +119,7 @@ def revisar_aula_gerada(
     Executa a auditoria pedagógica final e atribui um score de qualidade (confidence_score).
     """
     aula = PlanoCompleto.from_any(aula).to_dict()
-    tentativas_regeneracao = aula.pop("_tentativas_regeneracao", 0)
+    tentativas_regeneracao = aula.get("_tentativas_regeneracao", 0)
     avisos = []
     deducoes = 0
 
@@ -189,7 +189,7 @@ def revisar_aula_gerada(
     # 6. Calcular aderência lexical ao PDF (Alerte e puna se < 80%)
     aderencia, avisos_aderencia = calcular_aderencia_pdf(aula)
     if aderencia < 80:
-        penalidade = max(10, int(80 - aderencia))
+        penalidade = max(1, int(80 - aderencia))
         deducoes += penalidade
         if avisos_aderencia:
             avisos.extend(avisos_aderencia)
@@ -209,7 +209,7 @@ def revisar_aula_gerada(
         
         if not resultado_pc["valido"]:
             taxa = resultado_pc["cobertura"]
-            penalidade_pc = 15 + (85 - taxa)
+            penalidade_pc = max(1, int(100 - taxa))
             deducoes += penalidade_pc
             avisos.append(
                 f"Aderência de palavras-chave baixa ({taxa:.1f}%). "
@@ -222,10 +222,6 @@ def revisar_aula_gerada(
     # 7. Atualizar dicionário
     aula["confidence_score"] = int(max(0, 100 - deducoes))
     
-    # Travar máximo em 70% caso tenha falhado fortemente na aderência de palavras-chave
-    if palavras_chave_esperadas and not aula.get("valido_palavras_chave", True):
-        aula["confidence_score"] = min(aula["confidence_score"], 70)
-
     # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
     if (
         aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL

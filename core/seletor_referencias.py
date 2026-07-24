@@ -56,6 +56,7 @@ from core.referencias_projeto_vida import (
     localizar_docx_referencia_projeto_vida,
     referencia_projeto_vida_por_pdf,
 )
+from core.seguranca_upload import nomes_pdf_original_possiveis
 from core.referencias_docx_padrao import (
     carregar_referencias_docx_padrao,
     localizar_docx_referencia_padrao,
@@ -136,6 +137,15 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
         disc_norm = normalizar_para_pasta(disciplina)
         pasta_disc = Path(PDF_AULAS_DIR) / disc_norm
         if not pasta_disc.exists():
+            aliases_disciplina = {
+                "ORIENTACAO_ESTUDOS": "ORIENTACAO_DE_ESTUDOS",
+            }
+            pasta_alias = aliases_disciplina.get(disc_norm)
+            if pasta_alias:
+                candidata = Path(PDF_AULAS_DIR) / pasta_alias
+                if candidata.exists():
+                    pasta_disc = candidata
+        if not pasta_disc.exists():
             for d in Path(PDF_AULAS_DIR).iterdir():
                 if d.is_dir() and normalizar_para_pasta(d.name) == disc_norm:
                     pasta_disc = d
@@ -149,14 +159,40 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
         if m:
             ano_str = f"{m.group(1)}_ANO"
         
-        for arquivo in pasta_disc.rglob(caminho.name):
+        nomes_originais = {
+            nome.casefold() for nome in nomes_pdf_original_possiveis(caminho.name)
+        }
+        candidatos = [
+            arquivo
+            for arquivo in pasta_disc.rglob("*")
+            if arquivo.is_file() and arquivo.name.casefold() in nomes_originais
+        ]
+
+        candidatos_unicos = sorted(
+            {arquivo.resolve(): arquivo for arquivo in candidatos}.values(),
+            key=lambda arquivo: str(arquivo).casefold(),
+        )
+        for arquivo in candidatos_unicos:
             if ano_str and ano_str in str(arquivo).upper():
                 return arquivo
-            elif not ano_str:
+            if not ano_str:
                 return arquivo
     except Exception:
         pass
     return None
+
+
+def resolver_caminho_pdf_original(
+    caminho_pdf: str,
+    disciplina: str,
+    turma: str = "",
+) -> Path | None:
+    """Retorna o PDF oficial correspondente a um upload temporario, quando houver.
+
+    A funcao e publica para que o pipeline possa recuperar o contexto da pasta
+    (por exemplo, ``CDP_EM``) antes de selecionar referencias pedagogicas.
+    """
+    return _resolver_caminho_original(caminho_pdf, disciplina, turma)
 
 def localizar_docx_referencia_por_perfil(
     caminho_pdf: str,
@@ -167,9 +203,16 @@ def localizar_docx_referencia_por_perfil(
     if not caminho_pdf:
         return None
 
-    caminho_oficial = _resolver_caminho_original(caminho_pdf, disciplina, turma)
+    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina, turma)
+    caminho_contexto = str(caminho_oficial or caminho_pdf)
     if caminho_oficial:
-        caminho_pdf = str(caminho_oficial)
+        caminho_pdf = caminho_contexto
+
+    # Um PDF em CDP nunca pode herdar a metodologia regular encontrada na
+    # pasta-pai. Quando o upload e temporario, ``caminho_oficial`` recupera a
+    # pasta real e permite manter a mesma protecao.
+    if eh_cdp_contextual_disciplina(caminho_contexto):
+        return localizar_docx_referencia_cdp_contextual(caminho_contexto)
 
     referencia_padrao = localizar_docx_referencia_padrao(caminho_pdf)
     if referencia_padrao and referencia_padrao.name.casefold().startswith("metodologia_"):
@@ -242,6 +285,21 @@ def referencia_docx_por_perfil(
         perfil,
         "",
     )
+
+    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, perfil, "")
+    caminho_contexto = str(caminho_oficial or caminho_pdf)
+    if eh_cdp_contextual_disciplina(caminho_contexto):
+        # No contexto CDP, somente a referencia CDP pode ser usada. Se ela
+        # nao existir, o chamador seguira para o gerador contextual local/IA;
+        # jamais fazemos fallback para o DOCX regular.
+        from core.referencias_cdp_contextual import referencia_cdp_contextual_por_pdf
+
+        return referencia_cdp_contextual_por_pdf(
+            caminho_contexto,
+            numero_aula,
+            tema=tema,
+        )
+
     referencia_padrao, estrutura_padrao_encontrada = _referencia_padrao_no_arquivo(
         caminho_docx,
         numero_aula,

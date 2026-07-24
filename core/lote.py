@@ -10,7 +10,10 @@ from core.avaliacao import gerar_acessibilidade_dinamica, gerar_acompanhamento_d
 from core.listas_pedagogicas import normalizar_lista_exatamente_tres
 from core.metodologia_texto import ajustar_verbos_para_infinitivo
 from core.projeto_vida_escopo import buscar_item_projeto_vida, montar_aprendizagem_projeto_vida
-from core.referencias_cdp_contextual import referencia_cdp_contextual_por_pdf
+from core.referencias_cdp_contextual import (
+    referencia_cdp_compativel,
+    referencia_cdp_contextual_por_pdf,
+)
 from core.redacao_leitura_metodologia import gerar_metodologia_redacao_leitura
 from core.orientacao_estudos_objetivos import (
     buscar_objetivos_orientacao_estudos,
@@ -37,7 +40,10 @@ from core.lib.extrator_titulo import (
     _titulo_deve_juntar_continuacao,
     _titulo_em_linha_aula,
 )
-from core.eja.adaptador_eja import perfil_suporta_eja as _perfil_suporta_eja
+from core.eja.adaptador_eja import (
+    adaptar_listas_eja as _adaptar_listas_eja,
+    perfil_suporta_eja as _perfil_suporta_eja,
+)
 from core.lib.modalidades import adaptar_metodologia_eja as _adaptar_metodologia_eja, garantir_tecnicas_lemov_na_metodologia as _garantir_tecnicas_lemov_na_metodologia
 from core.orientacao_estudos_metodologia import extrair_etapas_orientacao_estudos as _extrair_etapas_orientacao_estudos
 from core.cdp.gerador_cdp import (
@@ -2419,13 +2425,23 @@ def _montar_resultado_cdp_contextual(
     tipo: str,
     extracao_pdf: dict,
     caminho_pdf: str = "",
+    usar_ia: bool = False,
+    provedor_ia: str = "",
+    modelo_ia: str = "",
+    turma: str = "",
+    bimestre: str = "",
 ) -> dict:
-    arquivo_referencia_docx = _localizar_docx_referencia_por_perfil(
-        caminho_pdf,
-        disciplina_base,
-        "",
-    )
     referencia_docx = referencia_cdp_contextual_por_pdf(caminho_pdf, numero_aula, tema=tema)
+    if referencia_docx and not referencia_cdp_compativel(referencia_docx):
+        logger.warning(
+            "Referencia DOCX CDP incompatível com as regras restritivas; "
+            "seguindo para o gerador contextual."
+        )
+        referencia_docx = None
+    # Em CDP, a ausencia de um DOCX especifico nao autoriza fallback para a
+    # metodologia regular. O caminho sera usado apenas para provenance quando
+    # a referencia contextual existir.
+    arquivo_referencia_docx = referencia_docx.get("fonte", "") if referencia_docx else ""
     if referencia_docx:
         titulo_referencia = str(referencia_docx.get("titulo") or "").strip()
         numero_referencia = str(referencia_docx.get("numero") or "").strip()
@@ -2474,6 +2490,70 @@ def _montar_resultado_cdp_contextual(
         ]
         return resultado
 
+    if usar_ia:
+        try:
+            from core.ia import processar_plano_ia
+
+            plano_ia = processar_plano_ia(
+                texto,
+                disciplina_base,
+                turma,
+                provedor_ia,
+                modelo_ia,
+                permitir_tecnicas_explicitamente=False,
+                contexto_cdp=True,
+            )
+            resultado = _montar_resultado_aula_ia(
+                texto=texto,
+                tema=tema,
+                material_digital=formatar_material_cdp_contextual(tema, disciplina_base),
+                numero_aula=numero_aula,
+                disciplina_base=disciplina_base,
+                turma=turma,
+                provedor_ia=provedor_ia,
+                perfil=perfil,
+                contexto_metodologico="cdp_eja",
+                indice_aula=indice_aula,
+                total_aulas=1,
+                modalidade_eja_ativa=False,
+                plano_ia=plano_ia,
+                metodologia_fixa_pdf=[],
+                aprendizagem_pv="",
+                objetivos_orientacao=[],
+                aprendizagem_orientacao="",
+                caminho_pdf=caminho_pdf,
+                bimestre=bimestre,
+            )
+            resultado.update(
+                {
+                    "origem_metodologia": "ia_cdp_contextual",
+                    "status_referencia_docx": "docx_ausente",
+                    "fonte_referencia_metodologia": "",
+                    "arquivo_referencia_docx": "",
+                    "motivo_referencia_docx": (
+                        "Nenhum DOCX externo foi localizado; a metodologia, o "
+                        "acompanhamento e a acessibilidade foram gerados pela IA "
+                        "com as regras do contexto CDP."
+                    ),
+                    "texto_central_copiado_literalmente": False,
+                    "ia_usada": True,
+                    "ia_provedor": provedor_ia,
+                    "ia_erro": "",
+                }
+            )
+            resultado["avisos_validacao"] = [
+                (
+                    f"{disciplina_base}: plano gerado pela IA em contexto CDP, "
+                    "sem DOCX auxiliar, com linguagem cotidiana, sem tecnologia, "
+                    "Lemov ou agrupamentos."
+                )
+            ]
+            return resultado
+        except Exception as exc:
+            erro_ia = f"Falha na IA CDP: {str(exc)[:250]}"
+    else:
+        erro_ia = ""
+
     resultado = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -2483,7 +2563,7 @@ def _montar_resultado_cdp_contextual(
         "metodologia": [],
         "acompanhamento": [],
         "acessibilidade": [],
-        "origem_metodologia": "referencia_docx_cdp_contextual_ausente",
+        "origem_metodologia": "fallback_cdp_contextual",
         "fonte_referencia_metodologia": "",
         "status_referencia_docx": (
             "aula_ausente_ou_incompleta"
@@ -2499,14 +2579,44 @@ def _montar_resultado_cdp_contextual(
         "texto_central_copiado_literalmente": False,
         "ia_usada": False,
         "ia_provedor": "",
-        "ia_erro": "",
+        "ia_erro": erro_ia,
     }
     resultado["avisos_validacao"] = [
         (
             f"{disciplina_base}: nao encontrei o arquivo .docx de referencia na pasta do PDF. "
-            "Sem essa referencia, a disciplina nao gera metodologia interna."
+            "Foi usado o gerador contextual CDP local, sem tecnologia, Lemov ou agrupamentos."
         )
     ]
+    metodologia_cdp = metodologia_cdp_contextual(
+        perfil,
+        tipo,
+        tema,
+        conceito_cdp,
+        indice_aula=indice_aula,
+        texto_pdf=texto,
+        extracao_pdf=extracao_pdf,
+        disciplina_base=disciplina_base,
+    )
+    resultado["metodologia"] = [
+        item
+        if isinstance(item, dict)
+        else {"titulo": "Desenvolvimento", "texto": str(item or "")}
+        for item in metodologia_cdp
+        if (isinstance(item, dict) and str(item.get("texto") or "").strip())
+        or (not isinstance(item, dict) and str(item or "").strip())
+    ]
+    resultado["acompanhamento"] = acompanhamento_cdp_contextual(
+        perfil,
+        tema,
+        conceito_cdp,
+        indice_aula,
+    )
+    resultado["acessibilidade"] = acessibilidade_cdp_contextual(
+        perfil,
+        tema,
+        conceito_cdp,
+        indice_aula,
+    )
     return resultado
 
 
@@ -2589,6 +2699,7 @@ def _dependencias_resultados_aula() -> DependenciasResultadosAula:
         revisar_metodologia_fn=revisar_metodologia,
         naturalizar_metodologia_professor_fn=naturalizar_metodologia_professor,
         adaptar_metodologia_eja_fn=_adaptar_metodologia_eja,
+        adaptar_listas_eja_fn=_adaptar_listas_eja,
         texto_metodologia_fn=_texto_metodologia,
         gerar_acompanhamento_aprimorado_fn=gerar_acompanhamento_aprimorado,
         gerar_acessibilidade_aprimorada_fn=gerar_acessibilidade_aprimorada,
@@ -2765,36 +2876,6 @@ def _aula_por_pdf(
     professor: str = "",
     dividir_aula_atual: bool = False,
 ) -> dict:
-    # --- Início Strangler Fig (Auditoria Fase 3) ---
-    try:
-        from core.domain.models import GerarPlanoCommand
-        from core.extraction.context_builder import DefaultContextBuilder
-        from core.generation.local import LocalPlanGenerator
-        from core.application.gerar_plano import GerarPlanoService
-        from pathlib import Path
-        
-        cmd = GerarPlanoCommand(
-            arquivo=Path(caminho_pdf) if caminho_pdf else Path(""),
-            disciplina=disciplina,
-            turma=turma,
-            bimestre=bimestre,
-            professor=professor,
-            modalidade_eja=modalidade_eja,
-            permitir_ia=usar_ia
-        )
-        if caminho_pdf and not usar_ia:
-            # Por enquanto, rodando Strangler Fig apenas para fallback local para evitar duplo-faturamento na API da IA
-            servico = GerarPlanoService(
-                context_builder=DefaultContextBuilder(),
-                generator=LocalPlanGenerator()
-            )
-            plano_strangler = servico.execute(cmd)
-            logger.info(f"[StranglerFig] Geração paralela obteve plano para: {plano_strangler.get('tema', 'Sem tema')}")
-    except Exception as e:
-        logger.warning(f"[StranglerFig] Falha silenciosa no novo pipeline: {e}")
-    # --- Fim Strangler Fig ---
-
-
     from core.variacao_metodologica import (
         obter_professor_id_por_nome,
         selecionar_perfil_metodologico,
@@ -2907,6 +2988,7 @@ def _aula_por_pdf(
     palavras_chave_esperadas = contexto.get("palavras_chave_esperadas") or []
     caminho_docx_auxiliar = contexto.get("caminho_docx_auxiliar")
     esboco_pdf = contexto.get("esboco_pdf") or []
+    caminho_pdf_contextual = contexto.get("caminho_pdf_contextual", caminho_pdf)
 
     contexto_geracao = {
         "professor": professor,
@@ -2934,7 +3016,12 @@ def _aula_por_pdf(
             perfil=perfil,
             tipo=tipo,
             extracao_pdf=extracao_pdf,
-            caminho_pdf=caminho_pdf,
+            caminho_pdf=caminho_pdf_contextual,
+            usar_ia=usar_ia,
+            provedor_ia=provedor_ia,
+            modelo_ia=modelo_ia,
+            turma=turma,
+            bimestre=bimestre,
         )
     else:
         metodologia_anterior = dados_json_antigos.get("metodologia") if dados_json_antigos else None
@@ -2970,6 +3057,43 @@ def _aula_por_pdf(
                 caminho_pdf=caminho_pdf,
                 bimestre=bimestre,
             )
+
+
+            if disciplina.lower() == "matemática" and ("6º/7º" in turma.lower() or "8º/9º" in turma.lower() or "1º/2º/3º e.m" in turma.lower() or "multisseriado 1º" in turma.lower()):
+                from core.leitor_docx_cdp import extrair_aulas_docx
+                from config import TEMPLATES_DOCX_DIR
+                import re
+                from pathlib import Path
+                
+                if "6º/7º" in turma.lower():
+                    doc_name = "METODOLOGIA_MATEMATICA_6_7_ANO_CDP_3_B.docx"
+                elif "8º/9º" in turma.lower():
+                    doc_name = "METODOLOGIA_MATEMATICA_8_E_9_ANO_3_B.docx"
+                else:
+                    doc_name = "METODOLOGIA_MATEMATICA_1_2_E_3_ANO_CDP_3_B.docx"
+                    
+                doc_matematica = TEMPLATES_DOCX_DIR / doc_name
+                if doc_matematica.exists():
+                    aulas_docx = extrair_aulas_docx(str(doc_matematica))
+                    
+                    nome_arquivo = Path(caminho_pdf).name.upper()
+                    match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
+                    num_aula = int(match_aula.group(1)) if match_aula else (indice_aula + 1)
+                    
+                    if num_aula in aulas_docx:
+                        dados_aula = aulas_docx[num_aula]
+                        rascunho_local["tema"] = dados_aula.get("tema", "")
+                        rascunho_local["material"] = ""
+                        rascunho_local["titulo_material"] = ""
+                        rascunho_local["habilidade"] = dados_aula.get("habilidade", "")
+                        met = dados_aula.get("metodologia", "")
+                        if isinstance(met, str):
+                            rascunho_local["metodologia"] = [{"titulo": "Etapa", "texto": block.strip()} for block in met.split("\n\n") if block.strip()]
+                        else:
+                            rascunho_local["metodologia"] = met
+                        
+                        rascunho_local["acompanhamento_aprendizagem"] = dados_aula.get("acompanhamento", [])
+                        rascunho_local["acessibilidade"] = dados_aula.get("acessibilidade", [])
 
             ia_erro = ""
             resultado_candidato = None
@@ -3034,47 +3158,6 @@ def _aula_por_pdf(
 
         if resultado_final is None:
             resultado_final = resultado_candidato
-
-    if disciplina.lower() == "matemática" and ("6º/7º" in turma.lower() or "8º/9º" in turma.lower() or "1º/2º/3º e.m" in turma.lower() or "multisseriado 1º" in turma.lower()):
-        from core.leitor_docx_cdp import extrair_aulas_docx
-        from config import TEMPLATES_DOCX_DIR
-        import re
-        from pathlib import Path
-        
-        if "6º/7º" in turma.lower():
-            doc_name = "METODOLOGIA_MATEMATICA_6_7_ANO_CDP_3_B.docx"
-        elif "8º/9º" in turma.lower():
-            doc_name = "METODOLOGIA_MATEMATICA_8_E_9_ANO_3_B.docx"
-        else:
-            doc_name = "METODOLOGIA_MATEMATICA_1_2_E_3_ANO_CDP_3_B.docx"
-            
-        doc_matematica = TEMPLATES_DOCX_DIR / doc_name
-        if doc_matematica.exists():
-            aulas_docx = extrair_aulas_docx(str(doc_matematica))
-            
-            nome_arquivo = Path(caminho_pdf).name.upper()
-            match_aula = re.search(r'AULA[_\s]*(\d+)', nome_arquivo)
-            num_aula = str(int(match_aula.group(1))) if match_aula else str(indice_aula + 1)
-            
-            if num_aula in aulas_docx:
-                dados_aula = aulas_docx[num_aula]
-                resultado_final["tema"] = dados_aula.get("tema", "")
-                resultado_final["material"] = ""
-                resultado_final["titulo_material"] = ""
-                resultado_final["habilidade"] = dados_aula.get("habilidade", "")
-                resultado_final["metodologia"] = dados_aula.get("metodologia", "")
-                
-                acompanhamento = dados_aula.get("acompanhamento", [])
-                if isinstance(acompanhamento, list):
-                    resultado_final["acompanhamento_aprendizagem"] = "\n".join(f"• {a}" for a in acompanhamento)
-                else:
-                    resultado_final["acompanhamento_aprendizagem"] = acompanhamento
-                    
-                acessibilidade = dados_aula.get("acessibilidade", [])
-                if isinstance(acessibilidade, list):
-                    resultado_final["acessibilidade"] = "\n".join(f"• {a}" for a in acessibilidade)
-                else:
-                    resultado_final["acessibilidade"] = acessibilidade
 
     return finalizar_plano_aula(
         resultado_final,
