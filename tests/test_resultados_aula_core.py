@@ -166,6 +166,43 @@ def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
     assert resultado["texto_central_copiado_literalmente"] is True
 
 
+def test_montar_resultado_aula_local_bloqueia_docx_com_mais_de_350_caracteres():
+    deps = _deps_resultados_base()
+    referencia = {
+        "metodologia": [{"titulo": "Para começar", "texto": "A" * 351}],
+        "acompanhamento": ["R1", "R2", "R3"],
+        "acessibilidade": ["A1", "A2", "A3"],
+        "fonte": "referencia_longa.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+
+    import pytest
+    with pytest.raises(ValueError) as excinfo:
+        montar_resultado_aula_local(
+            texto="Texto da aula",
+            tema="Tema",
+            material_digital="AULA 1 - Tema",
+            numero_aula="1",
+            disciplina_base="História",
+            turma="6º ANO A",
+            provedor_ia="openai",
+            perfil="historia",
+            contexto_metodologico="regular",
+            indice_aula=0,
+            total_aulas=1,
+            modalidade_eja_ativa=False,
+            metodologia_fixa_pdf=[],
+            aprendizagem_pv="",
+            objetivos_orientacao=[],
+            aprendizagem_orientacao="",
+            usar_ia=False,
+            ia_erro="",
+            dependencias=deps,
+        )
+    assert "excede(m) o limite máximo de 350 caracteres" in str(excinfo.value)
+    assert "Com IA" in str(excinfo.value)
+
+
 def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_refino():
     deps = _deps_resultados_base()
     referencia = {

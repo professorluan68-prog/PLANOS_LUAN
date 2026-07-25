@@ -375,6 +375,23 @@ def _montar_resultado_referencia_docx_exata(
     modalidade_eja_ativa: bool = False,
 ) -> dict:
     metodologia = list(referencia_docx.get("metodologia") or [])
+    if not usar_ia:
+        etapas_excedentes = []
+        for item in metodologia:
+            if isinstance(item, dict):
+                txt = str(item.get("texto", "")).strip()
+                if len(txt) > 350:
+                    tit = str(item.get("titulo", "Etapa")).strip()
+                    etapas_excedentes.append(f"'{tit}' ({len(txt)} caracteres)")
+        if etapas_excedentes:
+            fonte = str(referencia_docx.get("fonte") or "DOCX de referência").strip()
+            detalhes = ", ".join(etapas_excedentes)
+            raise ValueError(
+                f"O arquivo .docx de referência ({fonte}) contém etapa(s) da metodologia "
+                f"que excede(m) o limite máximo de 350 caracteres: {detalhes}. "
+                f"Para prosseguir, selecione a opção 'Com IA' para que o sistema refine a metodologia "
+                f"automaticamente até 350 caracteres, ou edite o arquivo .docx ajustando o tamanho do texto."
+            )
     acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
     acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
     literal = not modalidade_eja_ativa
