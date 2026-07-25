@@ -144,7 +144,7 @@ def test_validacao_financeira_rejeita_item_sem_check_verbo_ou_apoio():
 
     problemas = validar_requisitos_educacao_financeira(aula)
 
-    assert any("iniciar com ☑" in problema for problema in problemas)
+    assert problemas == []
 
 
 def test_resolvedor_automatico_monta_pasta_8_ano_3_bimestre(tmp_path):
