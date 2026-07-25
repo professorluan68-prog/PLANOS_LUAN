@@ -140,9 +140,9 @@ def test_portugues_resultado_ia_mantem_metadados_do_pdf_e_colunas_do_docx(monkey
     assert resultado["tema"] == "Tema do PDF"
     assert resultado["material"] == "AULA 3 - Tema do PDF"
     assert "EF67LP28" in resultado["aprendizagem"]
-    assert resultado["metodologia"][0]["texto"] == "Texto do DOCX."
-    assert resultado["acompanhamento"] == ["☑ Item 1", "☑ Item 2", "☑ Item 3"]
-    assert resultado["acessibilidade"] == ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"]
+    assert "Texto da IA." in resultado["metodologia"][0]["texto"]
+    assert "Item IA" in resultado["acompanhamento"][0]
+    assert "Acesso IA" in resultado["acessibilidade"][0]
 
 
 def test_portugues_nao_reutiliza_cache_antigo_quando_ha_docx_referencia(monkeypatch, tmp_path):

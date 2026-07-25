@@ -116,12 +116,7 @@ _PERFIS_PORTUGUES = {
     "leitura_redacao",
 }
 
-_PERFIS_DOCX_SOMENTE_COLUNAS = {
-    "lingua_portuguesa_ef",
-    "lingua_portuguesa_em",
-    "leitura_redacao",
-    "matematica",
-}
+_PERFIS_DOCX_SOMENTE_COLUNAS = set()
 
 
 def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) -> Path | None:

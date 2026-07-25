@@ -126,7 +126,7 @@ def test_upload_cdp_nao_usa_docx_regular_da_pasta_pai(monkeypatch, tmp_path):
 
 
 def test_deve_aplicar_referencia_docx_no_resultado_ia_respeita_perfil():
-    assert seletor_referencias.deve_aplicar_referencia_docx_no_resultado_ia(
+    assert not seletor_referencias.deve_aplicar_referencia_docx_no_resultado_ia(
         "lingua_portuguesa_ef",
         {"metodologia": [{"titulo": "Etapa", "texto": "Texto IA"}]},
     )

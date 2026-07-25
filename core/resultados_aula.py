@@ -844,12 +844,7 @@ def montar_resultado_aula_ia(
         )
     )
     if aplicar_referencia_docx:
-        sobrescrever_metodologia = perfil in {
-            "lingua_portuguesa_ef",
-            "lingua_portuguesa_em",
-            "leitura_redacao",
-            "matematica",
-        }
+        sobrescrever_metodologia = False
         if sobrescrever_metodologia or not metodologia:
             metodologia = dependencias.naturalizar_metodologia_professor_fn(
                 referencia_docx.get("metodologia") or [],

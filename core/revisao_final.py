@@ -23,15 +23,15 @@ SCORE_MINIMO_ACEITAVEL = 70
 logger = logging.getLogger(__name__)
 
 _LIMITES_CHARS_POR_ETAPA = {
-    "historia": 300,
-    "geografia": 300,
-    "lingua_portuguesa": 300,
-    "lingua_portuguesa_ef": 300,
-    "lingua_portuguesa_em": 300,
-    "leitura_redacao": 300,
-    "redacao": 300,
+    "historia": 350,
+    "geografia": 350,
+    "lingua_portuguesa": 350,
+    "lingua_portuguesa_ef": 350,
+    "lingua_portuguesa_em": 350,
+    "leitura_redacao": 350,
+    "redacao": 350,
 }
-_LIMITE_CHARS_DEFAULT = 300
+_LIMITE_CHARS_DEFAULT = 350
 
 
 def _limpar_tema_final(tema: str) -> str:
