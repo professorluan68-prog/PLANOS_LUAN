@@ -55,9 +55,9 @@ REGRA 6 [ENCERRAMENTO OBRIGATÓRIO]: O "Encerramento" DEVE sempre aparecer ao fi
   incluindo obrigatoriamente a técnica "COM SUAS PALAVRAS" e as perguntas finais do PDF.
 
 REGRA 7 [LIMITE DE TAMANHO — CRÍTICO]: Cada etapa da metodologia de História deve ter
-  NO MÁXIMO 900 caracteres. Conte os caracteres antes de finalizar cada etapa.
-  Se ultrapassar 900 caracteres, corte na última frase completa antes do limite.
-  Uma etapa com mais de 900 caracteres será truncada automaticamente pelo sistema.
+  NO MÁXIMO 300 caracteres. Conte os caracteres antes de finalizar cada etapa.
+  Se ultrapassar 300 caracteres, corte na última frase completa antes do limite.
+  Uma etapa com mais de 300 caracteres será truncada automaticamente pelo sistema.
 """
 
 REGRAS_TECNICAS_HISTORIA = """\

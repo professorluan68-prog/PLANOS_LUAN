@@ -336,7 +336,7 @@ O campo "metodologia" deve ser uma lista de objetos com esta estrutura exata:
 
   {{
     "titulo": <string — APENAS um dos valores permitidos abaixo>,
-    "texto":  <string — MÁXIMO 900 CARACTERES. Conte antes de escrever.>
+    "texto":  <string — MÁXIMO 300 CARACTERES. Conte antes de escrever.>
   }}
 
 VALORES PERMITIDOS para o campo "titulo" (enum estrito):
@@ -353,10 +353,10 @@ VALORES PROIBIDOS para o campo "titulo" (nunca use):
   ❌ Qualquer variação de "Pause e responda"
 
 LIMITE DE CARACTERES — REGRA CRÍTICA:
-  - Cada "texto" de etapa: MÁXIMO 900 CARACTERES
-  - Antes de finalizar cada etapa, conte: len(texto) <= 900
+  - Cada "texto" de etapa: MÁXIMO 300 CARACTERES
+  - Antes de finalizar cada etapa, conte: len(texto) <= 300
   - Se ultrapassar: corte na última frase completa antes do limite
-  - Uma etapa com mais de 900 chars será TRUNCADA pelo sistema
+  - Uma etapa com mais de 300 chars será TRUNCADA pelo sistema
 
 ================================================================================
 EXEMPLO NEGATIVO — O QUE NÃO FAZER (saída REJEITADA):
@@ -371,7 +371,7 @@ EXEMPLO NEGATIVO — O QUE NÃO FAZER (saída REJEITADA):
   ]
 }}
 ⛔ REJEITADO porque contém "Pause e responda" (proibido em História)
-⛔ REJEITADO se qualquer "texto" tiver mais de 900 caracteres
+⛔ REJEITADO se qualquer "texto" tiver mais de 300 caracteres
 
 ================================================================================
 EXEMPLO POSITIVO — O QUE FAZER (saída ACEITA):
@@ -379,10 +379,10 @@ EXEMPLO POSITIVO — O QUE FAZER (saída ACEITA):
 ✅ CORRETO:
 {{
   "metodologia": [
-    {{"titulo": "Para começar",    "texto": "Iniciar com VIREM E CONVERSEM: o que os alunos sabem sobre cidades-estado gregas? Registrar hipóteses no quadro. (máx 900 chars ✅)"}},
-    {{"titulo": "Foco no conteúdo","texto": "Conduzir leitura do mapa das polis gregas, destacando Atenas e Esparta. Solicitar registro no caderno dos conceitos: polis, cidadão, ágora. (máx 900 chars ✅)"}},
-    {{"titulo": "Na prática",      "texto": "Atividade 1: Responder no caderno as questões do material sobre diferenças entre Atenas e Esparta. Atividade 2: Completar o quadro comparativo. (máx 900 chars ✅)"}},
-    {{"titulo": "Encerramento",    "texto": "Aplicar COM SUAS PALAVRAS: cada aluno escreve uma frase respondendo às perguntas finais do PDF sobre permanências e mudanças das polis na atualidade. (máx 900 chars ✅)"}}
+    {{"titulo": "Para começar",    "texto": "Iniciar com VIREM E CONVERSEM: o que os alunos sabem sobre cidades-estado gregas? Registrar hipóteses no quadro. (máx 300 chars ✅)"}},
+    {{"titulo": "Foco no conteúdo","texto": "Conduzir leitura do mapa das polis gregas, destacando Atenas e Esparta. Solicitar registro no caderno dos conceitos: polis, cidadão, ágora. (máx 300 chars ✅)"}},
+    {{"titulo": "Na prática",      "texto": "Atividade 1: Responder no caderno as questões do material sobre diferenças entre Atenas e Esparta. Atividade 2: Completar o quadro comparativo. (máx 300 chars ✅)"}},
+    {{"titulo": "Encerramento",    "texto": "Aplicar COM SUAS PALAVRAS: cada aluno escreve uma frase respondendo às perguntas finais do PDF sobre permanências e mudanças das polis na atualidade. (máx 300 chars ✅)"}}
   ]
 }}
 ================================================================================
@@ -709,17 +709,17 @@ def _posicao_atividade(itens: list, perfil: str) -> int:
     return min(2, len(itens))
 
 
-# CORREÇÃO FALHA #7 — Limite de caracteres variável por perfil
+# Limite de caracteres padronizado por perfil (máximo 300 caracteres por etapa)
 _LIMITE_CHARS_POR_ETAPA = {
-    "historia": 900,
-    "geografia": 800,
-    "lingua_portuguesa": 600,
-    "lingua_portuguesa_ef": 600,
-    "lingua_portuguesa_em": 600,
-    "leitura_redacao": 600,
-    "redacao": 600,
+    "historia": 300,
+    "geografia": 300,
+    "lingua_portuguesa": 300,
+    "lingua_portuguesa_ef": 300,
+    "lingua_portuguesa_em": 300,
+    "leitura_redacao": 300,
+    "redacao": 300,
 }
-_LIMITE_CHARS_DEFAULT = 400
+_LIMITE_CHARS_DEFAULT = 300
 
 
 def _normalizar_titulo_etapa(titulo: str) -> str:
