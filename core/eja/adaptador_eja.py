@@ -98,6 +98,8 @@ def consolidar_blocos_eja(metodologia):
     return resultado
 
 
+from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
+
 def adaptar_metodologia_eja(
     metodologia,
     perfil: str,
@@ -166,6 +168,8 @@ def adaptar_metodologia_eja(
                 )
             texto = _anexar_orientacao_unica(texto, complemento)
 
+        texto = corrigir_mojibake(texto)
+        texto = limitar_texto_natural(texto, limite=350)
         novo["texto"] = texto
         adaptada.append(novo)
 

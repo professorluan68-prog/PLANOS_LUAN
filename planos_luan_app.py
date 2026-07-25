@@ -2683,6 +2683,7 @@ def _resolver_pasta_pdfs_oficial(
             turma,
             bimestre,
             professor=professor,
+            modalidade_eja=modalidade_eja,
         )
         pasta_segura = garantir_caminho_na_raiz(pasta, raiz_oficial)
         candidatos.append(pasta_segura)

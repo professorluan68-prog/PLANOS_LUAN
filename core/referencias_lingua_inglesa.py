@@ -96,6 +96,11 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
             continue
 
         texto_norm = _normalizar_busca(texto)
+        if texto_norm.startswith("habilidade"):
+            match_hab = re.match(r"^habilidade\s*[:\-]?\s*(.+)$", texto, flags=re.I)
+            if match_hab:
+                aula_atual["habilidade"] = _normalizar_espacos(match_hab.group(1))
+            continue
         if texto_norm == "metodologia":
             secao = "metodologia"
             continue
@@ -203,6 +208,7 @@ def referencia_lingua_inglesa_por_pdf(caminho_pdf: str | Path, numero_aula: Any,
     return {
         "numero": int(referencia.get("numero") or numero),
         "titulo": referencia.get("titulo", ""),
+        "habilidade": referencia.get("habilidade", ""),
         "metodologia": list(referencia.get("metodologia") or []),
         "acompanhamento": list(referencia.get("acompanhamento") or [])[:3],
         "acessibilidade": list(referencia.get("acessibilidade") or [])[:3],
