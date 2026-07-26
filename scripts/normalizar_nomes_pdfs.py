@@ -19,7 +19,7 @@ import sys
 import unicodedata
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Iterable
 
 
@@ -129,7 +129,8 @@ def relative_text(path: Path, root: Path) -> str:
 
 def safe_path(root: Path, relative: str) -> Path:
     root_resolved = root.resolve(strict=True)
-    candidate = (root_resolved / Path(relative)).resolve(strict=False)
+    relative_parts = list(PureWindowsPath(str(relative)).parts)
+    candidate = root_resolved.joinpath(*relative_parts).resolve(strict=False)
     try:
         candidate.relative_to(root_resolved)
     except ValueError as exc:
