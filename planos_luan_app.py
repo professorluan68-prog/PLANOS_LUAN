@@ -228,11 +228,13 @@ CAMPOS_TELA = {
     "professor_select",
     "aula_prof_select",
     "last_aula_prof",
+    "disc_prof_select",
     "disciplina_opcao",
     "disciplina_cdp_opcao",
     "disciplina_outra",
     "turma",
     "turma_select",
+    "turma_prof_select",
     "turma_cdp",
     "cdp_aula_inicial",
     "gerar_turma_espelho",
@@ -249,6 +251,12 @@ CAMPOS_TELA = {
     "escola",
     "componente_curricular",
     "last_componente_curricular",
+    "observacao",
+    "last_mes_for_obs",
+    "deixar_antecipacao_vazia",
+    "auto_repetir_semana",
+    "usar_ae_priorizado",
+    "caminho_ae_priorizado",
     "professor_cadastro_select",
     "cadastro_busca",
     "cadastro_filtro_disciplina",
@@ -257,6 +265,15 @@ CAMPOS_TELA = {
     "cadastro_filtro_sem_modelo",
     "cadastro_filtro_turma",
     "cadastro_selecionado",
+    "planos_gerados",
+    "turmas_processadas",
+    "avisos_processamento",
+    "geracao_em_andamento",
+    "revisao_token",
+    "relatorio_conferencia_chave",
+    "relatorio_conferencia_paths",
+    "erro_processamento",
+    "erro_processamento_detalhe",
 }
 
 PREFIXOS_TELA = (
@@ -288,6 +305,7 @@ def limpar_dados_tela() -> None:
     for chave in list(st.session_state.keys()):
         if chave in CAMPOS_TELA or any(str(chave).startswith(prefixo) for prefixo in PREFIXOS_TELA):
             del st.session_state[chave]
+    st.session_state["modo_tela"] = "Planos gerais"
 
 
 def _limpar_erro_processamento() -> None:

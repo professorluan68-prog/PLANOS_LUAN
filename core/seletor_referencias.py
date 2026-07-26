@@ -126,11 +126,15 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
     
     try:
         from config import PDF_AULAS_DIR
-        from core.helpers import normalizar_para_pasta
+        from core.helpers import normalizar_para_pasta, resolver_raiz_disciplina_pdfs
         import re
         
         disc_norm = normalizar_para_pasta(disciplina)
-        pasta_disc = Path(PDF_AULAS_DIR) / disc_norm
+        pasta_disc = resolver_raiz_disciplina_pdfs(
+            PDF_AULAS_DIR,
+            disciplina,
+            modalidade_eja="EJA" in disc_norm,
+        )
         if not pasta_disc.exists():
             aliases_disciplina = {
                 "ORIENTACAO_ESTUDOS": "ORIENTACAO_DE_ESTUDOS",
