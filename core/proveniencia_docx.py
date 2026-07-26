@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 
@@ -33,7 +33,12 @@ def _nome_arquivo_referencia(aula: Mapping[str, Any]) -> str:
     )
     if not caminho:
         return ""
-    return Path(str(caminho)).name
+    texto = str(caminho).strip()
+    if not texto:
+        return ""
+    nome_windows = PureWindowsPath(texto).name
+    nome_local = Path(texto).name
+    return nome_windows if len(nome_windows) <= len(nome_local) else nome_local
 
 
 def resumir_proveniencia_docx(

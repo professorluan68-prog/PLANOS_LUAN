@@ -1,7 +1,7 @@
 import hashlib
 import re
 import unicodedata
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 def _limpar_linhas(texto: str) -> list[str]:
     linhas = []
@@ -108,9 +108,23 @@ def _formatar_material_cdp_contextual(tema: str, disciplina_base: str = "") -> s
     return f"TEMA:\n{titulo}" if titulo else "TEMA:\nConteúdo da aula"
 
 
+def _nome_multi_plataforma(caminho: str) -> str:
+    texto = str(caminho or "").strip()
+    if not texto:
+        return ""
+    nome_windows = PureWindowsPath(texto).name
+    nome_local = Path(texto).name
+    return nome_windows if len(nome_windows) <= len(nome_local) else nome_local
+
+
+def _stem_multi_plataforma(caminho: str) -> str:
+    nome = _nome_multi_plataforma(caminho)
+    return Path(nome).stem if nome else ""
+
+
 def _titulo_cdp_por_caminho(caminho_pdf: str) -> str:
     """Extrai um titulo limpo dos nomes padronizados dos PDFs CDP."""
-    stem = Path(str(caminho_pdf or "")).stem
+    stem = _stem_multi_plataforma(caminho_pdf)
     if not stem:
         return ""
     if re.fullmatch(r"(?i)\s*geografia\s+em\s+vol(?:ume)?\s*\d+\s*", stem):
