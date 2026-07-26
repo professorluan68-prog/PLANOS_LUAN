@@ -81,7 +81,7 @@ def test_ingles_eja_sem_ia_prioriza_uso_funcional(monkeypatch):
         ["para comecar", "foco no conteudo", "na pratica", "encerramento"],
     ]
     assert "comunicacao profissional" in texto or "trabalho" in texto
-    assert "situacoes reais" in texto
+    assert "situacoes reais" in normalizar_texto(texto)
 
 
 def test_lideranca_oratoria_eja_preserva_etapas_do_docx_e_contextualiza_trabalho():

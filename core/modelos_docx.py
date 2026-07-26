@@ -18,13 +18,17 @@ ARQUIVOS_TEMPLATES = {
 }
 
 
+def _eh_contexto_eja(texto: str = "") -> bool:
+    return "eja" in str(texto or "").strip().lower()
+
+
 def normalizar_template_id(template_id: str = "") -> str:
     valor = str(template_id or "").strip().lower()
     if valor in ARQUIVOS_TEMPLATES:
         return valor
     if "padre" in valor:
         return TEMPLATE_PADRE
-    if "cdp" in valor or "eja" in valor:
+    if "cdp" in valor:
         return TEMPLATE_CDP
     return TEMPLATE_PADRAO
 
@@ -47,7 +51,7 @@ def template_id_por_contexto(
         return TEMPLATE_PADRE if "padre" in texto else TEMPLATE_EGLE
     if eh_cdp(disciplina) or "cdp - ciclo i" in texto or "cdp- multisseriada" in texto:
         return TEMPLATE_CDP
-    if "cdp" in texto or "eja" in texto:
+    if "cdp" in texto:
         return TEMPLATE_CDP
     if "padre" in texto:
         return TEMPLATE_PADRE
@@ -62,6 +66,18 @@ def resolver_template_id_geracao(
     arquivo_modelo: str = "",
 ) -> str:
     explicito = str(template_id or "").strip()
+    if (
+        explicito
+        and normalizar_template_id(explicito) == TEMPLATE_CDP
+        and not eh_cdp(disciplina)
+        and not eh_cdp_contextual(disciplina)
+        and (
+            _eh_contexto_eja(disciplina)
+            or _eh_contexto_eja(componente_curricular)
+            or _eh_contexto_eja(arquivo_modelo)
+        )
+    ):
+        explicito = ""
     if eh_cdp_contextual(disciplina):
         if normalizar_template_id(explicito) == TEMPLATE_CDP:
             return template_id_por_contexto(

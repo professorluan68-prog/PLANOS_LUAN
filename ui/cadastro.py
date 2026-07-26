@@ -41,6 +41,34 @@ from ui.shared import (
     _defaults_grade_horarios,
 )
 
+
+def _opcoes_componente_curricular(disciplina_atual: str = "", componente_atual: str = "") -> list[str]:
+    opcoes = [disc for disc in nomes_disciplinas() if disc != "Outra"]
+    extras = []
+    for valor in (disciplina_atual, componente_atual):
+        valor_limpo = str(valor or "").strip()
+        if valor_limpo and valor_limpo not in opcoes and valor_limpo not in extras:
+            extras.append(valor_limpo)
+    return opcoes + extras
+
+
+def _selecionar_componente_curricular(
+    label: str,
+    key: str,
+    disciplina_atual: str = "",
+    componente_atual: str = "",
+) -> str:
+    opcoes = _opcoes_componente_curricular(disciplina_atual, componente_atual)
+    valor_atual = str(componente_atual or disciplina_atual or "").strip()
+    if valor_atual and valor_atual in opcoes:
+        indice = opcoes.index(valor_atual)
+    elif str(disciplina_atual or "").strip() in opcoes:
+        indice = opcoes.index(str(disciplina_atual).strip())
+    else:
+        indice = 0
+    return st.selectbox(label, opcoes, index=indice, key=key)
+
+
 def _cadastros_para_gestao() -> list[dict]:
     cadastros = []
     chaves_banco = {}
@@ -384,10 +412,11 @@ def _renderizar_editor_cadastro(cadastros: list[dict]) -> None:
         with col_aulas:
             aulas_edit = st.text_input("Aulas por semana", value=str(cadastro.get("aulas_semana") or ""), key=f"edit_aulas_{chave_ui}").strip()
 
-        componente_edit = st.text_input(
+        componente_edit = _selecionar_componente_curricular(
             "Componente curricular",
-            value=str(cadastro.get("componente_curricular") or cadastro.get("disciplina") or ""),
             key=f"edit_comp_{chave_ui}",
+            disciplina_atual=str(cadastro.get("disciplina") or ""),
+            componente_atual=str(cadastro.get("componente_curricular") or cadastro.get("disciplina") or ""),
         ).strip()
         arquivo_edit = ""
 
@@ -528,10 +557,11 @@ def _renderizar_novo_cadastro(professores_db) -> None:
                 "novas_aulas_semana",
             )
 
-        novo_componente_curricular = st.text_input(
+        novo_componente_curricular = _selecionar_componente_curricular(
             "Componente curricular (como aparecera no plano)",
-            placeholder="Ex.: CDP-E. F -EJA - MATEMATICA",
             key="novo_componente_curricular",
+            disciplina_atual=nova_disc_outra if nova_disc_op == "Outra" else nova_disc_op,
+            componente_atual=nova_disc_outra if nova_disc_op == "Outra" else nova_disc_op,
         )
         novo_arquivo_modelo = ""
 

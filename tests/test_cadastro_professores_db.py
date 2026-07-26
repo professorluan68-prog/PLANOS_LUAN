@@ -120,3 +120,41 @@ def test_mesclagem_preserva_banco_e_importa_dados_da_pasta():
     assert ana["datas_horarios"] == [{"data": "2026-05-01"}]
     assert ana["componente_curricular"] == "MATEMATICA"
     assert mesclado["BIA"]["disciplinas"][0]["arquivo"] == "historia.docx"
+
+
+def test_mesclagem_unifica_disciplina_por_grafia_sem_duplicar():
+    banco = {
+        "VÂNIA": {
+            "disciplinas": [
+                {
+                    "disciplina": "Arte",
+                    "turma": "6º ANO B",
+                    "horario": "horario do banco",
+                    "arquivo": "",
+                    "datas_horarios": [],
+                    "componente_curricular": "Arte",
+                }
+            ]
+        }
+    }
+    pasta = {
+        "VÂNIA": {
+            "disciplinas": [
+                {
+                    "disciplina": "ARTE",
+                    "turma": "6º ANO B",
+                    "horario": "",
+                    "arquivo": "plano_arte.docx",
+                    "datas_horarios": [],
+                    "componente_curricular": "ARTE",
+                }
+            ]
+        }
+    }
+
+    mesclado = mesclar_professores(banco, pasta)
+
+    disciplinas = mesclado["VÂNIA"]["disciplinas"]
+    assert len(disciplinas) == 1
+    assert disciplinas[0]["disciplina"] == "Arte"
+    assert disciplinas[0]["arquivo"] == "plano_arte.docx"

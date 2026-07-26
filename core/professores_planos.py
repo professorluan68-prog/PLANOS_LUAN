@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import unicodedata
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -30,6 +31,13 @@ DIAS_PT = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado", "Domingo"]
 
 def _norm(texto: str) -> str:
     return re.sub(r"\s+", " ", str(texto or "")).strip()
+
+
+def _norm_chave_mescla(texto: str) -> str:
+    valor = unicodedata.normalize("NFKD", _norm(texto).upper())
+    valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+    valor = re.sub(r"[^A-Z0-9]+", " ", valor)
+    return " ".join(valor.split())
 
 
 def _safe_filename_part(texto: str) -> str:
@@ -477,12 +485,18 @@ def mesclar_professores(base: dict, planos: dict) -> dict:
     for prof, dados in (planos or {}).items():
         mesclado.setdefault(prof, {"disciplinas": []})
         for item in dados.get("disciplinas", []):
-            chave = (item.get("disciplina"), item.get("turma"))
+            chave = (
+                _norm_chave_mescla(item.get("disciplina", "")),
+                _norm_chave_mescla(item.get("turma", "")),
+            )
             existente = next(
                 (
                     d
                     for d in mesclado[prof]["disciplinas"]
-                    if (d.get("disciplina"), d.get("turma")) == chave
+                    if (
+                        _norm_chave_mescla(d.get("disciplina", "")),
+                        _norm_chave_mescla(d.get("turma", "")),
+                    ) == chave
                 ),
                 None,
             )

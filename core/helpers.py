@@ -16,6 +16,10 @@ DISCIPLINA_PASTA_ALIASES = {
     "APROFUNDAMENTO_EM_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
     "LIDERANCA_ORATORIA": "LIDERANCA_E_ORATORIA",
     "LIDERANCA_E_ORATORIA": "LIDERANCA_E_ORATORIA",
+    "LIDERANCA_E_ORATORIAEJA": "LIDERANCA_E_ORATORIA",
+    "LIDERANCA_ORATORIAEJA": "LIDERANCA_E_ORATORIA",
+    "LIDERANA_E_ORATRIA": "LIDERANCA_E_ORATORIA",
+    "LIDERANA_E_ORATRIAEJA": "LIDERANCA_E_ORATORIA",
     "CDPENSINO_MEDIO": "CDP_ENSINO_MEDIO",
     "CDP_ENSINO_MEDIO": "CDP_ENSINO_MEDIO",
     "CDPENSINO_FUNDAMENTAL": "CDP_ENSINO_FUNDAMENTAL",
@@ -33,6 +37,7 @@ PASTAS_EJA_POR_DISCIPLINA = {
     "LINGUA_INGLESA": "EJA_EM",
     "INGLES": "EJA_EM",
     "LIDERANCA_E_ORATORIA": "EJA_EM",
+    "LIDERANA_E_ORATRIA": "EJA_EM",
 }
 
 
@@ -165,6 +170,35 @@ def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
 
 def _nome_pasta_normalizado(valor: str | Path) -> str:
     return normalizar_para_pasta(Path(str(valor)).name)
+
+
+def resolver_raiz_disciplina_pdfs(
+    base_dir: str | Path,
+    disciplina: str,
+    modalidade_eja: bool = False,
+) -> Path:
+    """Resolve a raiz de busca da disciplina dentro de ``PDF_AULAS``."""
+    base_path = Path(base_dir)
+    disc_folder = _normalizar_disciplina_para_pasta(disciplina)
+    eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
+
+    if eja_solicitado:
+        disciplina_base_eja = "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
+        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja)
+        if subpasta_eja:
+            raiz_eja = base_path / disciplina_base_eja / subpasta_eja
+            if raiz_eja.exists():
+                return raiz_eja
+
+    pasta_disc = base_path / disc_folder
+    if pasta_disc.exists():
+        return pasta_disc
+
+    for candidata in base_path.iterdir():
+        if candidata.is_dir() and normalizar_para_pasta(candidata.name) == disc_folder:
+            return candidata
+
+    return pasta_disc
 
 
 def _pasta_tem_pdfs(caminho: Path) -> bool:
@@ -424,6 +458,28 @@ def _pasta_aprofundamento_biologia_2ano_a(base_dir: str, bimestre_token: str) ->
     return candidatos[0] if candidatos else None
 
 
+def _alias_pasta_biologia_eja_mesmo_conteudo(
+    raiz_eja: Path,
+    turma_norm: str,
+    bimestre_token: str,
+) -> Path | None:
+    """Biologia EJA 2º e 3º termo compartilham a mesma pasta de conteúdos."""
+    if "EJA_BIOLOGIA" not in str(raiz_eja).upper():
+        return None
+    if turma_norm not in {"2_TERMO", "3_TERMO"}:
+        return None
+
+    candidatos = []
+    if bimestre_token:
+        candidatos.append(raiz_eja / bimestre_token / "2_TERMO")
+    candidatos.append(raiz_eja / "2_TERMO")
+
+    for caminho in candidatos:
+        if caminho.exists():
+            return caminho
+    return candidatos[0] if candidatos else None
+
+
 def resolver_pasta_pdfs(
     base_dir: str,
     disciplina: str,
@@ -437,6 +493,37 @@ def resolver_pasta_pdfs(
 
     eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
     if eja_solicitado:
+        raiz_eja_resolvida = resolver_raiz_disciplina_pdfs(
+            base_dir,
+            disciplina,
+            modalidade_eja=True,
+        )
+        if raiz_eja_resolvida.exists():
+            if _pasta_tem_pdfs(raiz_eja_resolvida):
+                return raiz_eja_resolvida
+
+            nivel_eja = _nivel_preferido_para_turma(normalizar_para_pasta(turma))
+            turma_eja = normalizar_para_pasta(turma)
+            bim_eja_match = re.search(r"(\d)_BIMESTRE", normalizar_para_pasta(bimestre))
+            bim_eja = bim_eja_match.group(1) + "_BIMESTRE" if bim_eja_match else ""
+            pasta_alias_biologia_eja = _alias_pasta_biologia_eja_mesmo_conteudo(
+                raiz_eja_resolvida,
+                turma_eja,
+                bim_eja,
+            )
+            if pasta_alias_biologia_eja and _pasta_tem_pdfs(pasta_alias_biologia_eja):
+                return pasta_alias_biologia_eja
+            serie_eja = _tokens_serie_turma(turma_eja)
+            pasta_flexivel_eja = _buscar_pasta_pdf_flexivel(
+                raiz_eja_resolvida,
+                nivel_preferido=nivel_eja,
+                bimestre_token=bim_eja,
+                serie_tokens=serie_eja,
+                turma_norm=turma_eja,
+            )
+            if pasta_flexivel_eja:
+                return pasta_flexivel_eja
+
         disciplina_base_eja = (
             "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
         )

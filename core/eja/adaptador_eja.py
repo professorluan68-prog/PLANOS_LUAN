@@ -19,6 +19,18 @@ def _anexar_orientacao_unica(texto: str, orientacao: str) -> str:
     return f"{texto} {orientacao}".strip() if texto else orientacao
 
 
+def _antepor_orientacao_unica(orientacao: str, texto: str) -> str:
+    orientacao = re.sub(r"\s+", " ", str(orientacao or "")).strip()
+    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
+    if not orientacao:
+        return texto
+    if normalizar_texto(orientacao[:80]) in normalizar_texto(texto):
+        return texto
+    if orientacao and not orientacao.endswith((".", "!", "?")):
+        orientacao += "."
+    return f"{orientacao} {texto}".strip() if texto else orientacao
+
+
 _SUBSTITUICOES_TECNICAS_EJA = {
     "VIREM E CONVERSEM": "conversa breve em duplas",
     "TODO MUNDO ESCREVE": "registro individual",
@@ -146,7 +158,7 @@ def adaptar_metodologia_eja(
                 )
             if tem_video:
                 complemento += " Exibir o video indicado no material e orientar o registro das principais informacoes observadas."
-            texto = _anexar_orientacao_unica(texto, complemento)
+            texto = _antepor_orientacao_unica(complemento, texto)
 
         elif titulo in {"pause e responda", "na pratica", "atividade", "atividade principal"}:
             complemento = (

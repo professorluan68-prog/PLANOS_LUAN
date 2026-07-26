@@ -389,11 +389,15 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
 def _buscar_metodologia_automatica(disciplina: str, turma: str) -> tuple[str, ...]:
     try:
         from config import PDF_AULAS_DIR
-        from core.helpers import normalizar_para_pasta
+        from core.helpers import normalizar_para_pasta, resolver_raiz_disciplina_pdfs
         import re
         
         disc_norm = normalizar_para_pasta(disciplina)
-        pasta_disc = Path(PDF_AULAS_DIR) / disc_norm
+        pasta_disc = resolver_raiz_disciplina_pdfs(
+            PDF_AULAS_DIR,
+            disciplina,
+            modalidade_eja="EJA" in disc_norm,
+        )
         
         if not pasta_disc.exists():
             # Fallback flexível de nome de disciplina

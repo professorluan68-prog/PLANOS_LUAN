@@ -76,7 +76,60 @@ def _normalizar_campo(valor):
 
 
 def _normalizar_campo_chave(valor):
-    return _normalizar_campo(valor).upper()
+    texto = _normalizar_campo(valor).replace("_", " ")
+    if not texto:
+        return ""
+    texto = normalizar_texto(texto)
+    texto = re.sub(r"[^a-z0-9]+", " ", texto, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", texto).strip().upper()
+
+
+def _normalizar_chave_vinculo(disciplina: str, turma: str, componente_curricular: str = "") -> tuple[str, str, str]:
+    disciplina_chave = _normalizar_campo_chave(disciplina)
+    turma_chave = _normalizar_campo_chave(turma)
+    componente_base = componente_curricular if _normalizar_campo(componente_curricular) else disciplina
+    componente_chave = _normalizar_campo_chave(componente_base)
+    return disciplina_chave, turma_chave, componente_chave
+
+
+def _buscar_vinculo_existente_equivalente(
+    cursor,
+    professor_id: int,
+    disciplina: str,
+    turma: str,
+    componente_curricular: str = "",
+    ignorar_id: int | None = None,
+) -> int | None:
+    disciplina_chave, turma_chave, componente_chave = _normalizar_chave_vinculo(
+        disciplina,
+        turma,
+        componente_curricular,
+    )
+    cursor.execute(
+        """
+        SELECT id, disciplina, turma, COALESCE(componente_curricular, '')
+        FROM professor_turmas
+        WHERE professor_id = ?
+        ORDER BY id
+        """,
+        (professor_id,),
+    )
+    for row in cursor.fetchall():
+        vinculo_id = int(row[0])
+        if ignorar_id is not None and vinculo_id == ignorar_id:
+            continue
+        atual_disciplina, atual_turma, atual_componente = _normalizar_chave_vinculo(
+            row[1],
+            row[2],
+            row[3],
+        )
+        if (
+            atual_disciplina == disciplina_chave
+            and atual_turma == turma_chave
+            and atual_componente == componente_chave
+        ):
+            return vinculo_id
+    return None
 
 
 def _resolver_caminho_arquivo_historico(arquivo_path: str) -> Path:
@@ -575,15 +628,14 @@ def migrar_json_para_sqlite():
                 prof_id = cursor.fetchone()[0]
 
                 for d in info.get("disciplinas", []):
-                    componente = _normalizar_campo_chave(d.get("componente_curricular"))
-                    cursor.execute(
-                        """
-                        SELECT id FROM professor_turmas
-                        WHERE professor_id = ? AND disciplina = ? AND turma = ? AND UPPER(COALESCE(componente_curricular, '')) = ?
-                        """,
-                        (prof_id, d.get("disciplina"), d.get("turma"), componente),
+                    existente_id = _buscar_vinculo_existente_equivalente(
+                        cursor,
+                        prof_id,
+                        d.get("disciplina"),
+                        d.get("turma"),
+                        d.get("componente_curricular", ""),
                     )
-                    if not cursor.fetchone():
+                    if not existente_id:
                         cursor.execute(
                             """
                             INSERT INTO professor_turmas
@@ -693,27 +745,22 @@ def salvar_professor_turma(
         arquivo_modelo = _normalizar_campo(arquivo_modelo)
         template_id = _normalizar_campo(template_id)
         componente_curricular = _normalizar_campo(componente_curricular)
-        componente_chave = _normalizar_campo_chave(componente_curricular)
-
-        cursor.execute(
-            """
-            SELECT id FROM professor_turmas
-            WHERE professor_id = ? AND disciplina = ? AND turma = ? AND UPPER(COALESCE(componente_curricular, '')) = ?
-            ORDER BY id
-            LIMIT 1
-            """,
-            (prof_id, disciplina, turma, componente_chave),
+        existente_id = _buscar_vinculo_existente_equivalente(
+            cursor,
+            prof_id,
+            disciplina,
+            turma,
+            componente_curricular,
         )
-        existente = cursor.fetchone()
 
-        if existente:
+        if existente_id:
             cursor.execute(
                 """
                 UPDATE professor_turmas
                 SET dia_semana = ?, horario = ?, aulas_semana = ?, arquivo_modelo = ?, template_id = ?, componente_curricular = ?
                 WHERE id = ?
                 """,
-                (dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular, existente[0]),
+                (dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular, existente_id),
             )
         else:
             cursor.execute(
@@ -839,6 +886,41 @@ def atualizar_vinculo_professor(
             raise ValueError("Cadastro nao encontrado.")
         professor_antigo_id = int(row[0])
         professor_id = _obter_ou_criar_professor(cursor, nome)
+        vinculo_equivalente_id = _buscar_vinculo_existente_equivalente(
+            cursor,
+            professor_id,
+            disciplina,
+            turma,
+            componente_curricular,
+            ignorar_id=vinculo_id,
+        )
+        if vinculo_equivalente_id is not None:
+            cursor.execute(
+                """
+                UPDATE professor_turmas
+                SET dia_semana = ?,
+                    horario = ?,
+                    aulas_semana = ?,
+                    arquivo_modelo = ?,
+                    template_id = ?,
+                    componente_curricular = ?
+                WHERE id = ?
+                """,
+                (
+                    _normalizar_campo(dia_semana),
+                    _normalizar_campo(horario),
+                    _normalizar_campo(aulas_semana),
+                    _normalizar_campo(arquivo_modelo),
+                    _normalizar_campo(template_id),
+                    _normalizar_campo(componente_curricular),
+                    vinculo_equivalente_id,
+                ),
+            )
+            cursor.execute("DELETE FROM professor_turmas WHERE id = ?", (vinculo_id,))
+            if professor_antigo_id != professor_id:
+                _remover_professor_sem_turmas(cursor, professor_antigo_id)
+            conn.commit()
+            return obter_vinculo_professor(vinculo_equivalente_id)
         cursor.execute(
             """
             UPDATE professor_turmas
@@ -905,6 +987,22 @@ def duplicar_vinculo_professor(
     with get_connection() as conn:
         cursor = conn.cursor()
         professor_id = _obter_ou_criar_professor(cursor, nome or original["professor"])
+        disciplina_final = _normalizar_campo(disciplina if disciplina is not None else original["disciplina"])
+        turma_final = _normalizar_campo(turma if turma is not None else original["turma"])
+        componente_final = _normalizar_campo(
+            componente_curricular
+            if componente_curricular is not None
+            else original["componente_curricular"]
+        )
+        vinculo_existente_id = _buscar_vinculo_existente_equivalente(
+            cursor,
+            professor_id,
+            disciplina_final,
+            turma_final,
+            componente_final,
+        )
+        if vinculo_existente_id is not None:
+            return vinculo_existente_id
         cursor.execute(
             """
             INSERT INTO professor_turmas
@@ -913,18 +1011,14 @@ def duplicar_vinculo_professor(
             """,
             (
                 professor_id,
-                _normalizar_campo(disciplina if disciplina is not None else original["disciplina"]),
-                _normalizar_campo(turma if turma is not None else original["turma"]),
+                disciplina_final,
+                turma_final,
                 _normalizar_campo(dia_semana if dia_semana is not None else original["dia_semana"]),
                 _normalizar_campo(horario if horario is not None else original["horario"]),
                 _normalizar_campo(aulas_semana if aulas_semana is not None else original["aulas_semana"]),
                 _normalizar_campo(arquivo_modelo if arquivo_modelo is not None else original["arquivo_modelo"]),
                 _normalizar_campo(template_id if template_id is not None else original["template_id"]),
-                _normalizar_campo(
-                    componente_curricular
-                    if componente_curricular is not None
-                    else original["componente_curricular"]
-                ),
+                componente_final,
             ),
         )
         novo_id = int(cursor.lastrowid)
