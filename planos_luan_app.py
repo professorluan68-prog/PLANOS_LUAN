@@ -202,6 +202,7 @@ from core.ae_priorizado import (
     disciplina_ae_priorizado_disponivel,
     sequencia_aulas_ae_priorizado,
 )
+from core.lib.classificador import perfil_disciplina
 
 APP_ICON_PNG = BASE_DIR / "assets" / "planos_luan_icon.png"
 
@@ -1799,6 +1800,53 @@ def _eh_data_antecipacao(data_aula: date, mes: str, antecipacao_mes: int) -> boo
     inicio_mes_oficial = date(ano, mes_num, 1)
     return data_aula < inicio_mes_oficial
 
+
+_PERFIS_PORTUGUES_PERMITEM_SEM_PDF = {
+    "lingua_portuguesa_ef",
+    "lingua_portuguesa_em",
+    "leitura_redacao",
+}
+
+
+def _permite_um_dia_sem_pdf_portugues(disciplina: str, turma: str = "") -> bool:
+    try:
+        return perfil_disciplina(disciplina, turma=turma) in _PERFIS_PORTUGUES_PERMITEM_SEM_PDF
+    except Exception:
+        disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
+        return "portugu" in disciplina_norm or "reda" in disciplina_norm or "leitura" in disciplina_norm
+
+
+def _eh_bloco_sem_pdf(aula: dict) -> bool:
+    return bool((aula or {}).get("bloco_sem_pdf"))
+
+
+def _filtrar_aulas_com_pdf_obrigatorio(
+    aulas_envio: list[dict],
+    mes: str = "",
+    antecipacao_mes: int = 0,
+    deixar_antecipacao_vazia: bool = False,
+) -> list[dict]:
+    aulas_validas = []
+    for aula in aulas_envio or []:
+        if deixar_antecipacao_vazia and _eh_data_antecipacao(aula["data"], mes, antecipacao_mes):
+            continue
+        if _eh_bloco_sem_pdf(aula):
+            continue
+        aulas_validas.append(aula)
+    return aulas_validas
+
+
+def _opcoes_dia_sem_pdf(datas_horarios_mes: list[dict] | None = None) -> list[tuple[int, str]]:
+    dias_presentes = []
+    for entrada in datas_horarios_mes or []:
+        data_atual = entrada.get("data")
+        if isinstance(data_atual, date):
+            dia = data_atual.weekday()
+            if dia not in dias_presentes:
+                dias_presentes.append(dia)
+    base = dias_presentes or list(range(7))
+    return [(dia, DIAS_SEMANA_COMPLETOS[dia]) for dia in base]
+
 def validar_entrada(
     modelo_bytes, disciplina: str, disciplina_config, aulas_envio,
     professor: str, turma: str, bimestre: str, mes: str,
@@ -1822,7 +1870,12 @@ def validar_entrada(
     if disciplina_config.exige_pdf and not aulas_envio:
         return "Envie os PDFs das aulas para gerar o plano."
     
-    aulas_obrigatorias = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_antecipacao_vazia else aulas_envio
+    aulas_obrigatorias = _filtrar_aulas_com_pdf_obrigatorio(
+        aulas_envio,
+        mes=mes,
+        antecipacao_mes=antecipacao_mes,
+        deixar_antecipacao_vazia=deixar_antecipacao_vazia,
+    )
     pdf_unico_orientacao = bool(orientacao_estudos and pdfs_enviados == 1 and pdfs_necessarios >= 1)
     if disciplina_config.exige_pdf and pdfs_necessarios and pdfs_enviados != pdfs_necessarios and not pdf_unico_orientacao:
         return f"Quantidade de PDFs incorreta: foram adicionados {pdfs_enviados}, mas o plano possui {pdfs_necessarios} linha(s)."
@@ -1833,7 +1886,7 @@ def validar_entrada(
 def validar_aulas_secundarias(gerar_turma_espelho: bool, turma_espelho: str, aulas_envio_espelho, exige_pdf: bool) -> str:
     if not gerar_turma_espelho: return ""
     if not (turma_espelho or "").strip(): return "Preencha a 2ª série/turma antes de gerar os planos em conjunto."
-    if exige_pdf and any(not aula["pdf"] for aula in aulas_envio_espelho): return "Preencha data, horário e PDF da 2ª turma."
+    if exige_pdf and any(not aula["pdf"] for aula in aulas_envio_espelho if not _eh_bloco_sem_pdf(aula)): return "Preencha data, horário e PDF da 2ª turma."
     return ""
 
 def _grupos_pdf_por_aula(aulas_envio: list[dict]) -> list[dict]:
@@ -1841,7 +1894,11 @@ def _grupos_pdf_por_aula(aulas_envio: list[dict]) -> list[dict]:
     idx = 0
     while idx < len(aulas_envio):
         aula = aulas_envio[idx]
-        dividir = bool(aula.get("dividir_pdf"))
+        if _eh_bloco_sem_pdf(aula):
+            idx += 1
+            continue
+        proxima_aula_valida = idx + 1 < len(aulas_envio) and not _eh_bloco_sem_pdf(aulas_envio[idx + 1])
+        dividir = bool(aula.get("dividir_pdf")) and proxima_aula_valida
         if dividir and idx + 1 < len(aulas_envio):
             grupos.append({"indices": [idx, idx + 1], "dividir": True})
             idx += 2
@@ -1959,6 +2016,8 @@ def _coletar_aulas_envio(
     deixar_antecipacao_vazia: bool = False,
     mes: str = "",
     antecipacao_mes: int = 0,
+    permitir_um_dia_sem_pdf: bool = False,
+    dia_sem_pdf_semana: int | None = None,
 ):
     aulas_envio = []
     datas_cache = []
@@ -2085,14 +2144,19 @@ def _coletar_aulas_envio(
                     st.session_state[chave_horario] = opcoes_horario[0]
                 horario_aula = st.selectbox("Horário", opcoes_horario, format_func=_rotulo_horario, key=chave_horario, disabled=bloqueado)
 
+        eh_bloco_sem_pdf = bool(
+            permitir_um_dia_sem_pdf
+            and dia_sem_pdf_semana is not None
+            and data_aula.weekday() == dia_sem_pdf_semana
+        )
         st.divider()
         dividir_pdf = False
         if dividir_metodologia:
             sugestao_dividir = _divisao_pdf_padrao(idx, num_rows)
             if chave_dividir not in st.session_state: st.session_state[chave_dividir] = sugestao_dividir
-            if continuidade_anterior: st.session_state[chave_dividir] = False
+            if continuidade_anterior or eh_bloco_sem_pdf: st.session_state[chave_dividir] = False
             # Corrigido: bloqueado não impede o checkbox quando dividir_metodologia está ativo
-            dividir_pdf = st.checkbox("Usar o mesmo PDF na próxima", key=chave_dividir, disabled=(bloqueado and not dividir_metodologia) or idx == num_rows - 1 or continuidade_anterior)
+            dividir_pdf = st.checkbox("Usar o mesmo PDF na próxima", key=chave_dividir, disabled=(bloqueado and not dividir_metodologia) or idx == num_rows - 1 or continuidade_anterior or eh_bloco_sem_pdf)
             if continuidade_anterior: st.caption("Esta já é continuação da anterior.")
 
         # Upload individual por aula
@@ -2102,6 +2166,8 @@ def _coletar_aulas_envio(
         if modo_upload_individual:
             if eh_antecipacao_vazia:
                 st.caption("ℹ️ Aula na semana extra (bloco configurado para vir vazio).")
+            elif eh_bloco_sem_pdf:
+                st.caption("ℹ️ Este dia da semana foi configurado para ficar sem PDF neste plano.")
             elif continuidade_anterior:
                 st.caption("📎 PDF compartilhado com a aula anterior.")
             else:
@@ -2140,12 +2206,20 @@ def _coletar_aulas_envio(
                 aulas_envio.append({"data": data_aula, "horario": f"Aula 1 ({horario_str})", "pdf": pdf_individual, "dividir_pdf": False})
                 aulas_envio.append({"data": data_aula, "horario": f"Aula 2 ({horario_str})", "pdf": pdf_individual_2, "dividir_pdf": False})
         else:
-            aulas_envio.append({"data": data_aula, "horario": horario_aula, "pdf": pdf_individual, "dividir_pdf": dividir_pdf})
+            aulas_envio.append({
+                "data": data_aula,
+                "horario": horario_aula,
+                "pdf": None if eh_bloco_sem_pdf else pdf_individual,
+                "dividir_pdf": False if eh_bloco_sem_pdf else dividir_pdf,
+                "bloco_sem_pdf": eh_bloco_sem_pdf,
+            })
 
     if modo_upload_individual:
         # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
         for i in range(1, len(aulas_envio)):
             if deixar_antecipacao_vazia and _eh_data_antecipacao(aulas_envio[i]["data"], mes, antecipacao_mes):
+                continue
+            if _eh_bloco_sem_pdf(aulas_envio[i]) or _eh_bloco_sem_pdf(aulas_envio[i - 1]):
                 continue
             if aulas_envio[i - 1].get("dividir_pdf") and aulas_envio[i].get("pdf") is None:
                 aulas_envio[i]["pdf"] = aulas_envio[i - 1]["pdf"]
@@ -2165,6 +2239,8 @@ def _coletar_aulas_envio(
                 a["dividir_pdf"] = False
         else:
             aulas_envio, _ = _aplicar_pdfs_a_grupos(aulas_envio, pdfs_aulas_files, replicar_pdf_unico=replicar_pdf_unico)
+    for ordem_original, aula in enumerate(aulas_envio):
+        aula["ordem_original"] = ordem_original
     return aulas_envio
 
 def _texto_metodologia_app(aula: dict) -> str:
@@ -2228,10 +2304,13 @@ def _extrair_aulas_dos_pdfs(
         eh_ant_vazia = deixar_antecipacao_vazia and antecipacao_mes > 0
         if eh_ant_vazia:
             aulas_antecipacao = [a for a in aulas_envio if _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
-            aulas_processamento = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
+            aulas_base = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)]
         else:
             aulas_antecipacao = []
-            aulas_processamento = aulas_envio
+            aulas_base = aulas_envio
+
+        aulas_sem_pdf = [a for a in aulas_base if _eh_bloco_sem_pdf(a)]
+        aulas_processamento = [a for a in aulas_base if not _eh_bloco_sem_pdf(a)]
 
         grupos = _grupos_pdf_por_aula(aulas_processamento) if dividir_metodologia else [{"indices": [idx], "dividir": False} for idx in range(len(aulas_processamento))]
         dividir_por_pdf = []
@@ -2287,7 +2366,15 @@ def _extrair_aulas_dos_pdfs(
                 else: raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_plano))
 
         aulas_vazias = []
-        for aula_envio in aulas_antecipacao:
+        for aula_envio in aulas_antecipacao + aulas_sem_pdf:
+            horario_vazio = (
+                disciplina and turma_atual and disciplina.lower() == "matemática" and (
+                    "6º/7º" in turma_atual.lower()
+                    or "8º/9º" in turma_atual.lower()
+                    or "1º/2º/3º e.m" in turma_atual.lower()
+                    or "multisseriado 1º" in turma_atual.lower()
+                )
+            )
             aulas_vazias.append({
                 "tema": "",
                 "conteudo": "",
@@ -2297,11 +2384,15 @@ def _extrair_aulas_dos_pdfs(
                 "acessibilidade": [],
                 "ia_usada": False,
                 "data": aula_envio["data"].strftime("%d/%m"),
-                "horario": "" if (disciplina and turma_atual and disciplina.lower() == "matemática" and ("6º/7º" in turma_atual.lower() or "8º/9º" in turma_atual.lower() or "1º/2º/3º e.m" in turma_atual.lower() or "multisseriado 1º" in turma_atual.lower())) else horario_para_plano(aula_envio["horario"]),
+                "horario": "" if horario_vazio else horario_para_plano(aula_envio["horario"]),
                 "aula_vazia": True,
+                "ordem_original": aula_envio.get("ordem_original", 0),
             })
-            
-        aulas_completas = aulas_vazias + aulas
+
+        for aula, aula_envio in zip(aulas, aulas_processamento):
+            aula["ordem_original"] = aula_envio.get("ordem_original", 0)
+
+        aulas_completas = sorted(aulas_vazias + aulas, key=lambda item: item.get("ordem_original", 0))
 
         # Garantir numeração sequencial a partir da primeira aula válida (ignora as vazias do bloco de antecipação)
         contador = 1
@@ -3021,6 +3112,11 @@ else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
     sequencia_pdf_esperada_ae = []
     contexto_divisao_pdf = "|".join(str(valor or "") for valor in [professor, disciplina, turma, mes, bimestre])
+    permitir_dia_sem_pdf_portugues = bool(
+        not disciplina_cdp and _permite_um_dia_sem_pdf_portugues(disciplina, turma=turma)
+    )
+    usar_dia_sem_pdf_portugues = False
+    dia_sem_pdf_portugues = None
 
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
     if deixar_ant_vazia and datas_horarios_mes:
@@ -3046,6 +3142,26 @@ else:
         st.session_state["auto_repetir_semana"] = True
     auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
     dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
+    if permitir_dia_sem_pdf_portugues:
+        st.checkbox(
+            "Permitir 1 dia da semana sem PDF",
+            key="permitir_dia_sem_pdf_portugues",
+            help="Use esta opção para deixar um dos dias semanais de Português em branco no plano, mantendo apenas a data.",
+        )
+        usar_dia_sem_pdf_portugues = bool(st.session_state.get("permitir_dia_sem_pdf_portugues", False))
+        if usar_dia_sem_pdf_portugues:
+            opcoes_dia_sem_pdf = _opcoes_dia_sem_pdf(datas_horarios_mes)
+            valores_dia_sem_pdf = [dia for dia, _ in opcoes_dia_sem_pdf]
+            if valores_dia_sem_pdf:
+                chave_dia_sem_pdf = "dia_sem_pdf_portugues"
+                if st.session_state.get(chave_dia_sem_pdf) not in valores_dia_sem_pdf:
+                    st.session_state[chave_dia_sem_pdf] = valores_dia_sem_pdf[0]
+                dia_sem_pdf_portugues = st.selectbox(
+                    "Dia da semana que ficará sem PDF",
+                    valores_dia_sem_pdf,
+                    key=chave_dia_sem_pdf,
+                    format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
+                )
     _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
@@ -3088,11 +3204,37 @@ else:
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
+        aulas_oficiais_modelo_pdf = [
+            aula for aula in aulas_oficiais_modelo
+            if not (
+                usar_dia_sem_pdf_portugues
+                and dia_sem_pdf_portugues is not None
+                and isinstance(aula.get("data"), date)
+                and aula["data"].weekday() == dia_sem_pdf_portugues
+            )
+        ]
         if linhas_modelo_pdf > 0:
-            est_necessarios = _estimar_pdfs_por_estado(linhas_modelo_pdf, dividir_metodologia, lista_aulas=aulas_oficiais_modelo)
+            est_necessarios = _estimar_pdfs_por_estado(
+                len(aulas_oficiais_modelo_pdf),
+                dividir_metodologia,
+                lista_aulas=aulas_oficiais_modelo_pdf,
+            )
             
         if gerar_turma_espelho and len(aulas_oficiais_modelo_espelho) > 0:
-            est_necessarios_espelho = _estimar_pdfs_por_estado(len(aulas_oficiais_modelo_espelho), dividir_metodologia, lista_aulas=aulas_oficiais_modelo_espelho)
+            aulas_oficiais_modelo_espelho_pdf = [
+                aula for aula in aulas_oficiais_modelo_espelho
+                if not (
+                    usar_dia_sem_pdf_portugues
+                    and dia_sem_pdf_portugues is not None
+                    and isinstance(aula.get("data"), date)
+                    and aula["data"].weekday() == dia_sem_pdf_portugues
+                )
+            ]
+            est_necessarios_espelho = _estimar_pdfs_por_estado(
+                len(aulas_oficiais_modelo_espelho_pdf),
+                dividir_metodologia,
+                lista_aulas=aulas_oficiais_modelo_espelho_pdf,
+            )
             est_necessarios = max(est_necessarios, est_necessarios_espelho)
 
         if usar_ae_priorizado and sequencia_ae_contexto:
@@ -3225,29 +3367,41 @@ else:
         deixar_antecipacao_vazia=deixar_ant_vazia,
         mes=mes,
         antecipacao_mes=antecipacao_mes,
+        permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
+        dia_sem_pdf_semana=dia_sem_pdf_portugues,
     )
 
-    aulas_para_pdf = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else aulas_envio
+    aulas_mes_oficial = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else list(aulas_envio)
+    aulas_para_pdf = _filtrar_aulas_com_pdf_obrigatorio(
+        aulas_envio,
+        mes=mes,
+        antecipacao_mes=antecipacao_mes,
+        deixar_antecipacao_vazia=deixar_ant_vazia,
+    )
 
     if modo_upload_individual:
-        grupos_individuais = _grupos_pdf_por_aula(aulas_para_pdf) if dividir_metodologia else [{"indices": [idx]} for idx in range(len(aulas_para_pdf))]
+        grupos_individuais = (
+            _grupos_pdf_por_aula(aulas_mes_oficial)
+            if dividir_metodologia
+            else [{"indices": [idx]} for idx, aula in enumerate(aulas_mes_oficial) if not _eh_bloco_sem_pdf(aula)]
+        )
         pdfs_individuais = [
-            aulas_para_pdf[grupo["indices"][0]].get("pdf")
+            aulas_mes_oficial[grupo["indices"][0]].get("pdf")
             for grupo in grupos_individuais
-            if aulas_para_pdf[grupo["indices"][0]].get("pdf") is not None
+            if aulas_mes_oficial[grupo["indices"][0]].get("pdf") is not None
         ]
-        pdfs_necessarios = len(grupos_individuais) if dividir_metodologia else len(aulas_para_pdf)
+        pdfs_necessarios = len(grupos_individuais) if dividir_metodologia else len([a for a in aulas_mes_oficial if not _eh_bloco_sem_pdf(a)])
         pdfs_prontos = len(pdfs_individuais)
         _render_painel_pdfs(
             modo=modo_upload_pdf,
             necessarios=pdfs_necessarios,
             carregados=pdfs_prontos,
-            total_aulas=len(aulas_para_pdf),
+            total_aulas=len(aulas_mes_oficial),
             dividir_metodologia=dividir_metodologia,
             selecionados=pdfs_individuais,
         )
     else:
-        pdfs_necessarios = est_necessarios if est_necessarios > 0 else (len(_grupos_pdf_por_aula(aulas_para_pdf)) if dividir_metodologia else len(aulas_para_pdf))
+        pdfs_necessarios = est_necessarios if est_necessarios > 0 else (len(_grupos_pdf_por_aula(aulas_mes_oficial)) if dividir_metodologia else len(aulas_para_pdf))
 
         if linhas_modelo_pdf > 0:
             pdf_unico_orientacao = bool(orientacao_estudos and qtd_aulas == 1 and pdfs_necessarios >= 1)
@@ -3281,6 +3435,8 @@ else:
             modo_upload_individual=modo_upload_individual,
             preservar_datas_sincronizadas=bool(datas_horarios_mes_espelho),
             sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
+            permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
+            dia_sem_pdf_semana=dia_sem_pdf_portugues,
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
@@ -3321,8 +3477,14 @@ rotulo_botao_geracao = "GERAR PLANO" if disciplina_cdp else ("PROCESSAR AULAS" i
 if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"):
     _limpar_erro_processamento()
     st.session_state["geracao_em_andamento"] = True
-    aulas_para_pdf_temp = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else aulas_envio
-    pdfs_enviados_val = len([g for g in _grupos_pdf_por_aula(aulas_para_pdf_temp) if aulas_para_pdf_temp[g["indices"][0]].get("pdf") is not None]) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
+    aulas_mes_oficial_temp = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else list(aulas_envio)
+    aulas_para_pdf_temp = _filtrar_aulas_com_pdf_obrigatorio(
+        aulas_envio,
+        mes=mes,
+        antecipacao_mes=antecipacao_mes,
+        deixar_antecipacao_vazia=deixar_ant_vazia,
+    )
+    pdfs_enviados_val = len([g for g in _grupos_pdf_por_aula(aulas_mes_oficial_temp) if aulas_mes_oficial_temp[g["indices"][0]].get("pdf") is not None]) if (not disciplina_cdp and st.session_state.get("modo_upload_pdf") == "Um por aula") else len(pdfs_aulas_files or [])
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
     erro = validar_entrada(
         modelo_bytes, disciplina, disciplina_config, aulas_envio, professor, turma,

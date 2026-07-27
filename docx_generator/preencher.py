@@ -926,6 +926,33 @@ def _inicio_semana_aula(aula: dict):
     return None
 
 
+def _chave_ordenacao_aula_semana(item: tuple[int, dict]):
+    numero, aula = item
+    data_aula = _data_para_semana((aula or {}).get("data"))
+    horario = str((aula or {}).get("horario") or "").strip()
+    horarios = _extrair_horarios_do_texto(horario)
+
+    hora_inicio = 99
+    minuto_inicio = 99
+    if horarios:
+        match = re.match(r"(\d{1,2})h(\d{2})?", horarios[0], flags=re.I)
+        if match:
+            hora_inicio = int(match.group(1))
+            minuto_inicio = int(match.group(2) or 0)
+
+    ordem_original = (aula or {}).get("ordem_original")
+    if ordem_original is None:
+        ordem_original = numero
+
+    return (
+        data_aula or date.max,
+        hora_inicio,
+        minuto_inicio,
+        int(ordem_original),
+        numero,
+    )
+
+
 def _agrupar_sobras_por_semana(sobras):
     grupos = []
     sem_data = []
@@ -939,6 +966,8 @@ def _agrupar_sobras_por_semana(sobras):
             indices_por_semana[inicio] = len(grupos)
             grupos.append([])
         grupos[indices_por_semana[inicio]].append((numero, aula))
+    for grupo in grupos:
+        grupo.sort(key=_chave_ordenacao_aula_semana)
     return grupos, sem_data
 
 
@@ -1168,7 +1197,8 @@ def _preencher_tabelas_modelo(
         if not is_cdp_ctx:
             _normalizar_layout_tabela_aulas(tabela_aulas)
         linhas_conteudo = list(tabela_aulas.rows[1:])
-        aulas_da_semana = aulas_por_par[par_indice][: len(linhas_conteudo)]
+        aulas_do_par_ordenadas = sorted(aulas_por_par[par_indice], key=_chave_ordenacao_aula_semana)
+        aulas_da_semana = aulas_do_par_ordenadas[: len(linhas_conteudo)]
         excedentes = len(aulas_por_par[par_indice]) - len(linhas_conteudo)
         if excedentes > 0:
             logger.warning(
