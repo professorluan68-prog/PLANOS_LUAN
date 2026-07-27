@@ -2,6 +2,7 @@ import re
 import unicodedata
 from typing import Dict, List, Any
 from core.base_conhecimento import PADROES_DISCIPLINARES, TECNICAS_UNIVERSAIS
+from core.qualidade_metodologica import limitar_texto_natural, obter_limite_caracteres_etapa
 
 # ── Técnicas Lemov completas ─────────────────────────────────────────────────
 TECNICAS_LEMOV = {
@@ -172,7 +173,10 @@ class ExtratorInteligentePDF:
                     if _linha_valida(linhas[j]):
                         bloco.append(linhas[j])
                 if bloco:
-                    conceito = " ".join(bloco)[:300]
+                    conceito = limitar_texto_natural(
+                        " ".join(bloco),
+                        limite=obter_limite_caracteres_etapa(modalidade_eja=False),
+                    )
                 break
 
         # 3. Heurística de prática aprimorada
@@ -189,7 +193,10 @@ class ExtratorInteligentePDF:
                     if _linha_valida(linhas[j]):
                         bloco.append(linhas[j])
                 if bloco:
-                    atividade_pratica = " ".join(bloco)[:300]
+                    atividade_pratica = limitar_texto_natural(
+                        " ".join(bloco),
+                        limite=obter_limite_caracteres_etapa(modalidade_eja=False),
+                    )
                 break
         if not atividade_pratica:
             atividade_pratica = "atividades propostas no material"
@@ -323,6 +330,7 @@ class GeradorMetodologia:
 class ValidadorQualidade:
     def refinar(self, metodologia: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Remove etapas vazias e formata corretamente os blocos de texto."""
+        limite_chars = obter_limite_caracteres_etapa(modalidade_eja=False)
         validada = []
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
@@ -330,6 +338,7 @@ class ValidadorQualidade:
                 texto = etapa["texto"].strip()
                 if not texto.endswith('.'):
                     texto += '.'
+                texto = limitar_texto_natural(texto, limite=limite_chars)
                 etapa["texto"] = texto
                 validada.append(etapa)
         return validada

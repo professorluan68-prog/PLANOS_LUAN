@@ -21,6 +21,7 @@ from core.qualidade_metodologica import (
     extrair_conceito_central,
     limitar_texto_natural,
     naturalizar_texto_metodologico,
+    obter_limite_caracteres_etapa,
 )
 
 
@@ -44,7 +45,13 @@ def _normalizar_termos_internos(texto: str) -> str:
 class ValidadorQualidade:
     """Remove etapas vazias e formata corretamente os blocos de texto."""
 
-    def refinar(self, metodologia: list[dict], perfil: str = "geral") -> list[dict]:
+    def refinar(
+        self,
+        metodologia: list[dict],
+        perfil: str = "geral",
+        limite_chars: int | None = None,
+    ) -> list[dict]:
+        limite_chars = limite_chars or obter_limite_caracteres_etapa(modalidade_eja=False)
         validada = []
         for etapa in metodologia:
             if etapa.get("texto") and len(etapa["texto"].strip()) > 10:
@@ -52,6 +59,7 @@ class ValidadorQualidade:
                 texto = _normalizar_termos_internos(texto)
                 if not texto.endswith('.'):
                     texto += '.'
+                texto = limitar_texto_natural(texto, limite=limite_chars)
                 etapa["texto"] = texto
                 validada.append(etapa)
         return validada
@@ -1995,7 +2003,11 @@ class MotorMetodologico:
                     if texto_etapa:
                         texto_etapa = ajustar_texto_por_posicao(texto_etapa, indice_aula, total_aulas, tema)
                         metodologia.append({"titulo": etapa.get("titulo", ""), "texto": texto_etapa})
-                resultado = self.validador.refinar(metodologia, perfil=perfil)
+                resultado = self.validador.refinar(
+                    metodologia,
+                    perfil=perfil,
+                    limite_chars=obter_limite_caracteres_etapa(modalidade_eja=False),
+                )
                 logger.info(
                     "motor_metodologico_finalizado",
                     extra={
@@ -2034,7 +2046,11 @@ class MotorMetodologico:
                     metodologia.append({"titulo": titulo, "texto": texto_etapa})
 
             # 6. Validar
-            resultado = self.validador.refinar(metodologia, perfil=perfil)
+            resultado = self.validador.refinar(
+                metodologia,
+                perfil=perfil,
+                limite_chars=obter_limite_caracteres_etapa(modalidade_eja=False),
+            )
             logger.info(
                 "motor_metodologico_finalizado",
                 extra={

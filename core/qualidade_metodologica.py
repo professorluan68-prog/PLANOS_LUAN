@@ -260,6 +260,14 @@ def corrigir_mojibake(texto: str) -> str:
     return corrigir_ortografia_basica(melhor)
 
 
+LIMITE_CARACTERES_ETAPA_LOCAL = 300
+LIMITE_CARACTERES_ETAPA_EJA = 350
+
+
+def obter_limite_caracteres_etapa(modalidade_eja: bool = False) -> int:
+    return LIMITE_CARACTERES_ETAPA_EJA if modalidade_eja else LIMITE_CARACTERES_ETAPA_LOCAL
+
+
 def limitar_texto_natural(texto: str, limite: int = 220) -> str:
     texto = corrigir_mojibake(re.sub(r"\s+", " ", str(texto or "")).strip())
     if len(texto) <= limite:

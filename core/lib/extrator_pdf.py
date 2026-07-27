@@ -12,7 +12,11 @@ import logging
 import os
 
 from config import PDF_TEXTO_LIMITE_CHARS, HABILITAR_PDF2DOCX
-from core.qualidade_metodologica import corrigir_mojibake, limitar_texto_natural
+from core.qualidade_metodologica import (
+    corrigir_mojibake,
+    limitar_texto_natural,
+    obter_limite_caracteres_etapa,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -680,7 +684,10 @@ class ExtratorPDF:
                     if self._linha_valida(linhas[j]):
                         bloco.append(linhas[j])
                 if bloco:
-                    return " ".join(bloco)[:300]
+                    return limitar_texto_natural(
+                        " ".join(bloco),
+                        limite=obter_limite_caracteres_etapa(modalidade_eja=False),
+                    )
                 break
         return tema
 
@@ -689,7 +696,10 @@ class ExtratorPDF:
         for nome_secao in _SECOES_PRIORITARIAS_PRATICA:
             bloco = secoes.get(nome_secao) or []
             if bloco:
-                return " ".join(bloco)[:300]
+                return limitar_texto_natural(
+                    " ".join(bloco),
+                    limite=obter_limite_caracteres_etapa(modalidade_eja=False),
+                )
 
         marcadores = [
             "atividade",
@@ -711,7 +721,10 @@ class ExtratorPDF:
                     if self._linha_valida(linhas[j]):
                         bloco.append(linhas[j])
                 if bloco:
-                    return " ".join(bloco)[:300]
+                    return limitar_texto_natural(
+                        " ".join(bloco),
+                        limite=obter_limite_caracteres_etapa(modalidade_eja=False),
+                    )
                 break
         return "atividades propostas no material"
 

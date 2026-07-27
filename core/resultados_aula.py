@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from core.qualidade_metodologica import obter_limite_caracteres_etapa
+
 
 @dataclass
 class DependenciasResultadosAula:
@@ -376,22 +378,24 @@ def _montar_resultado_referencia_docx_exata(
 ) -> dict:
     metodologia = list(referencia_docx.get("metodologia") or [])
     if not usar_ia:
+        limite_metodologia = obter_limite_caracteres_etapa(modalidade_eja=modalidade_eja_ativa)
         etapas_excedentes = []
         for item in metodologia:
             if isinstance(item, dict):
                 txt = str(item.get("texto", "")).strip()
-                if len(txt) > 350:
+                if len(txt) > limite_metodologia:
                     tit = str(item.get("titulo", "Etapa")).strip()
                     etapas_excedentes.append(f"'{tit}' ({len(txt)} caracteres)")
         if etapas_excedentes:
             fonte = str(referencia_docx.get("fonte") or "DOCX de referência").strip()
             detalhes = ", ".join(etapas_excedentes)
-            raise ValueError(
+            mensagem_limite = (
                 f"O arquivo .docx de referência ({fonte}) contém etapa(s) da metodologia "
                 f"que excede(m) o limite máximo de 350 caracteres: {detalhes}. "
                 f"Para prosseguir, selecione a opção 'Com IA' para que o sistema refine a metodologia "
                 f"automaticamente até 350 caracteres, ou edite o arquivo .docx ajustando o tamanho do texto."
             )
+            raise ValueError(mensagem_limite.replace("350 caracteres", f"{limite_metodologia} caracteres"))
     acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
     acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
     literal = not modalidade_eja_ativa
