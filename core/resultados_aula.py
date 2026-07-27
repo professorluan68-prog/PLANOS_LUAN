@@ -265,6 +265,26 @@ def _registrar_proveniencia_docx(
     return aula
 
 
+def _registrar_aviso_referencia_metodologica_ia(aula: dict, plano_ia: dict) -> dict:
+    """Leva para a conferencia o aviso da referencia complementar ausente."""
+    aviso = str((plano_ia or {}).get("_aviso_referencia_metodologica") or "").strip()
+    if not aviso:
+        return aula
+
+    avisos = list(aula.get("avisos_validacao") or [])
+    if aviso not in avisos:
+        avisos.append(aviso)
+    aula["avisos_validacao"] = avisos
+
+    diagnostico = dict(aula.get("diagnostico_geracao") or {})
+    diagnostico["referencia_metodologica"] = {
+        "status": "ausente",
+        "aviso": aviso,
+    }
+    aula["diagnostico_geracao"] = diagnostico
+    return aula
+
+
 def _finalizar_resultado(
     *,
     texto: str,
@@ -919,13 +939,14 @@ def montar_resultado_aula_ia(
         dependencias=dependencias,
         modalidade_eja_ativa=modalidade_eja_ativa,
     )
-    return _registrar_proveniencia_docx(
+    resultado = _registrar_proveniencia_docx(
         resultado,
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=arquivo_referencia_docx,
         status_sucesso="docx_refinado_ia",
         literal=False,
     )
+    return _registrar_aviso_referencia_metodologica_ia(resultado, plano_ia)
 
 
 def montar_resultado_aula_local(

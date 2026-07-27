@@ -1,9 +1,11 @@
-import os
 import re
 import unicodedata
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
+
+from config import PDF_AULAS_DIR, REFERENCIAS_METODOLOGICAS_DIR
 
 REFERENCIA_LEITURA_REDACAO = "🧠🔥 GUIA METODOLÓGICO ESTRUTURADO - LEITURA E REDAÇÃO.md"
 
@@ -78,32 +80,53 @@ def get_regras_estruturais_historia() -> str:
     return REGRAS_ESTRUTURAIS_HISTORIA + "\n" + REGRAS_TECNICAS_HISTORIA
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-PASTA_ANALISES_NOVAS = Path(
-    os.getenv(
-        "PLANOS_ANALISES_METODOLOGICAS_DIR",
-        r"C:\Users\Luan Dias\PDF novos\ANALISES_NOVAS_POR_DISCIPLINA",
-    )
+PASTAS_BUSCA = (
+    REFERENCIAS_METODOLOGICAS_DIR,
+    PDF_AULAS_DIR,
 )
-PASTAS_BUSCA = [
-    PASTA_ANALISES_NOVAS,
-    BASE_DIR / "REFERENCIAS_METODOLOGIA",
-    Path(r"C:\Users\Prof_L\Desktop\desktop\REFERENCIAS_METODOLOGIA"),
-]
-PASTA_REFERENCIAS = PASTAS_BUSCA[0]
 
-def resolver_caminho_referencia(arquivo: str) -> Path | None:
+
+def _caminho_em_pasta_oficial(caminho: Path) -> bool:
+    """Impede que referencias externas ou legadas entrem no prompt da IA."""
+    try:
+        caminho_resolvido = caminho.resolve()
+    except OSError:
+        return False
+
+    for pasta in PASTAS_BUSCA:
+        try:
+            caminho_resolvido.relative_to(pasta.resolve())
+            return True
+        except ValueError:
+            continue
+        except OSError:
+            continue
+    return False
+
+
+def resolver_caminho_referencia(arquivo: str | Path) -> Path | None:
     arq_path = Path(arquivo)
-    if arq_path.is_absolute() and arq_path.exists():
-        return arq_path
+    if arq_path.is_absolute():
+        if arq_path.is_file() and _caminho_em_pasta_oficial(arq_path):
+            return arq_path
+        return None
     for pasta in PASTAS_BUSCA:
         caminho = pasta / arquivo
-        if caminho.exists():
+        if caminho.is_file():
             return caminho
     return None
 
 LIMITE_REFERENCIA_CHARS = 6200
 LIMITE_INTERDISCIPLINAR_CHARS = 1800
+
+
+@dataclass(frozen=True)
+class DiagnosticoReferenciaMetodologica:
+    texto: str
+    arquivos_solicitados: tuple[str, ...]
+    arquivos_encontrados: tuple[str, ...]
+    arquivos_ausentes: tuple[str, ...]
+    aviso: str = ""
 
 REFERENCIA_INTERDISCIPLINAR = "ADAPTAÇÃO METODOLÓGICA INTERDISCIPLINAR.md"
 
@@ -370,7 +393,9 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
         suffix = caminho.suffix.lower()
         if suffix == ".md":
             texto = caminho.read_text(encoding="utf-8", errors="ignore")
-            if caminho.parent == PASTA_ANALISES_NOVAS:
+            if _caminho_em_pasta_oficial(caminho) and caminho.is_relative_to(
+                REFERENCIAS_METODOLOGICAS_DIR.resolve()
+            ):
                 texto = _priorizar_analise_nova_markdown(texto)
             else:
                 texto = _limpar_markdown(texto)
@@ -388,7 +413,6 @@ def _ler_arquivos_referencia(arquivos: Iterable[str]) -> str:
 
 def _buscar_metodologia_automatica(disciplina: str, turma: str) -> tuple[str, ...]:
     try:
-        from config import PDF_AULAS_DIR
         from core.helpers import normalizar_para_pasta, resolver_raiz_disciplina_pdfs
         import re
         
@@ -431,7 +455,9 @@ def _buscar_metodologia_automatica(disciplina: str, turma: str) -> tuple[str, ..
         return ()
 
 @lru_cache(maxsize=32)
-def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> str:
+def diagnosticar_referencia_metodologica(
+    disciplina: str = "", turma: str = ""
+) -> DiagnosticoReferenciaMetodologica:
     arquivos_automaticos = _buscar_metodologia_automatica(disciplina, turma)
     arquivos_novos = _combinar_arquivos(arquivos_automaticos, _arquivos_novos_para_disciplina(disciplina))
     if _eh_portugues(disciplina) and _eh_turma_fundamental(turma):
@@ -463,11 +489,32 @@ def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> s
         arquivos = arquivos_novos if arquivos_novos else arquivos_padrao
         
     if not arquivos:
-        return ""
+        return DiagnosticoReferenciaMetodologica("", (), (), ())
 
-    texto = _ler_arquivos_referencia(arquivos)
+    caminhos_encontrados = []
+    arquivos_ausentes = []
+    for arquivo in arquivos:
+        caminho = resolver_caminho_referencia(arquivo)
+        if caminho:
+            caminhos_encontrados.append(caminho)
+        else:
+            arquivos_ausentes.append(str(arquivo))
+
+    texto = _ler_arquivos_referencia(caminhos_encontrados)
     if not texto:
-        return ""
+        aviso = (
+            "Referência metodológica oficial não encontrada para "
+            f"{disciplina or 'a disciplina selecionada'}"
+            + (f" ({turma})" if turma else "")
+            + ". O plano foi gerado sem essa referência complementar."
+        )
+        return DiagnosticoReferenciaMetodologica(
+            "",
+            tuple(str(arquivo) for arquivo in arquivos),
+            tuple(str(caminho) for caminho in caminhos_encontrados),
+            tuple(arquivos_ausentes),
+            aviso,
+        )
 
     interdisciplinar = _carregar_referencia_interdisciplinar()
     if interdisciplinar:
@@ -478,8 +525,22 @@ def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> s
 
     texto = _reforcar_regras_do_sistema(texto)
     if len(texto) <= LIMITE_REFERENCIA_CHARS:
-        return texto
-    return texto[:LIMITE_REFERENCIA_CHARS].rsplit("\n", 1)[0].strip()
+        texto_final = texto
+    else:
+        texto_final = texto[:LIMITE_REFERENCIA_CHARS].rsplit("\n", 1)[0].strip()
+
+    return DiagnosticoReferenciaMetodologica(
+        texto_final,
+        tuple(str(arquivo) for arquivo in arquivos),
+        tuple(str(caminho) for caminho in caminhos_encontrados),
+        tuple(arquivos_ausentes),
+    )
+
+
+@lru_cache(maxsize=32)
+def carregar_referencia_metodologica(disciplina: str = "", turma: str = "") -> str:
+    """Mantem a API legada que fornece somente o texto da referencia."""
+    return diagnosticar_referencia_metodologica(disciplina, turma).texto
 
 
 def listar_referencias_disponiveis() -> Dict[str, str]:

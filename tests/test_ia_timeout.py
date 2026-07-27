@@ -5,6 +5,17 @@ import core.lote as lote
 import core.revisao_final as revisao_final
 
 
+def test_saida_ia_registra_aviso_de_referencia_metodologica_ausente():
+    saida = ia._registrar_aviso_referencia_metodologica_na_saida(
+        {"tema": "Tema"},
+        "Referência metodológica oficial não encontrada para História.",
+    )
+
+    assert saida["_aviso_referencia_metodologica"] == (
+        "Referência metodológica oficial não encontrada para História."
+    )
+
+
 def test_processar_plano_ia_openai_usa_chat_completions_parse(monkeypatch):
     capturado = {}
 
@@ -32,6 +43,14 @@ def test_processar_plano_ia_openai_usa_chat_completions_parse(monkeypatch):
 
     monkeypatch.setenv("OPENAI_API_KEY", "token-openai")
     monkeypatch.setattr(ia, "OpenAI", DummyClient)
+    monkeypatch.setattr(
+        ia,
+        "diagnosticar_referencia_metodologica",
+        lambda *args, **kwargs: SimpleNamespace(
+            texto="",
+            aviso="Referência metodológica oficial não encontrada para teste.",
+        ),
+    )
     monkeypatch.setattr(ia, "_montar_prompt", lambda *args, **kwargs: "PROMPT")
     monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina, turma="": f"SYSTEM {turma}")
     monkeypatch.setattr(ia, "_normalizar_saida_ia", lambda data, *args, **kwargs: data)
@@ -50,6 +69,9 @@ def test_processar_plano_ia_openai_usa_chat_completions_parse(monkeypatch):
     assert capturado["parse_kwargs"]["model"] == "gpt-4o-mini"
     assert capturado["parse_kwargs"]["response_format"] is ia.PlanoAulaIA
     assert capturado["parse_kwargs"]["messages"][0]["content"] == "SYSTEM 1º ANO A"
+    assert saida["_aviso_referencia_metodologica"] == (
+        "Referência metodológica oficial não encontrada para teste."
+    )
 
 
 def test_processar_plano_ia_gemini_define_timeout_http(monkeypatch):

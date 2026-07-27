@@ -1,5 +1,6 @@
 from core.resultados_aula import (
     DependenciasResultadosAula,
+    _registrar_aviso_referencia_metodologica_ia,
     montar_resultado_aula_ia,
     montar_resultado_aula_local,
 )
@@ -81,6 +82,28 @@ def _deps_resultados_base() -> DependenciasResultadosAula:
         ),
         validar_aula_final_fn=lambda aula: [],
     )
+
+
+def test_aviso_de_referencia_metodologica_ausente_entra_na_conferencia():
+    resultado = {
+        "avisos_validacao": ["Aviso existente"],
+        "diagnostico_geracao": {"metodologia_final": []},
+    }
+
+    retorno = _registrar_aviso_referencia_metodologica_ia(
+        resultado,
+        {
+            "_aviso_referencia_metodologica": (
+                "Referência metodológica oficial não encontrada para História."
+            )
+        },
+    )
+
+    assert retorno["avisos_validacao"] == [
+        "Aviso existente",
+        "Referência metodológica oficial não encontrada para História.",
+    ]
+    assert retorno["diagnostico_geracao"]["referencia_metodologica"]["status"] == "ausente"
 
 
 def test_montar_resultado_aula_local_core_retorna_motor_local():

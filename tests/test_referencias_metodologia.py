@@ -1,8 +1,62 @@
 import pytest
+import core.referencias_metodologia as referencias
 from core.referencias_metodologia import (
     carregar_referencia_metodologica,
+    diagnosticar_referencia_metodologica,
     listar_referencias_disponiveis,
 )
+
+
+def _limpar_cache_referencias():
+    diagnosticar_referencia_metodologica.cache_clear()
+    carregar_referencia_metodologica.cache_clear()
+
+
+def test_referencia_aceita_somente_raizes_oficiais(tmp_path, monkeypatch):
+    raiz_oficial = tmp_path / "PDF_AULAS"
+    raiz_oficial.mkdir()
+    referencia_oficial = raiz_oficial / "guia.md"
+    referencia_oficial.write_text("Conteúdo oficial", encoding="utf-8")
+    referencia_externa = tmp_path / "referencia_antiga.md"
+    referencia_externa.write_text("Conteúdo antigo", encoding="utf-8")
+
+    monkeypatch.setattr(referencias, "PASTAS_BUSCA", (raiz_oficial,))
+
+    assert referencias.resolver_caminho_referencia(referencia_oficial) == referencia_oficial
+    assert referencias.resolver_caminho_referencia(referencia_externa) is None
+
+
+def test_diagnostico_informa_ausencia_de_referencia_oficial(tmp_path, monkeypatch):
+    raiz_oficial = tmp_path / "REFERENCIAS_METODOLOGICAS"
+    raiz_oficial.mkdir()
+    monkeypatch.setattr(referencias, "PASTAS_BUSCA", (raiz_oficial,))
+    monkeypatch.setattr(referencias, "_buscar_metodologia_automatica", lambda *args: ())
+    monkeypatch.setattr(referencias, "_arquivos_novos_para_disciplina", lambda *args: ())
+    monkeypatch.setattr(referencias, "_arquivos_para_disciplina", lambda *args: ("ausente.md",))
+    _limpar_cache_referencias()
+
+    diagnostico = diagnosticar_referencia_metodologica("História", "8º ano A")
+
+    assert diagnostico.texto == ""
+    assert diagnostico.arquivos_ausentes == ("ausente.md",)
+    assert "Referência metodológica oficial não encontrada" in diagnostico.aviso
+
+
+def test_diagnostico_carrega_referencia_oficial(tmp_path, monkeypatch):
+    raiz_oficial = tmp_path / "REFERENCIAS_METODOLOGICAS"
+    raiz_oficial.mkdir()
+    (raiz_oficial / "guia.md").write_text("# Guia\nConteúdo oficial", encoding="utf-8")
+    monkeypatch.setattr(referencias, "PASTAS_BUSCA", (raiz_oficial,))
+    monkeypatch.setattr(referencias, "_buscar_metodologia_automatica", lambda *args: ())
+    monkeypatch.setattr(referencias, "_arquivos_novos_para_disciplina", lambda *args: ())
+    monkeypatch.setattr(referencias, "_arquivos_para_disciplina", lambda *args: ("guia.md",))
+    _limpar_cache_referencias()
+
+    diagnostico = diagnosticar_referencia_metodologica("História", "8º ano A")
+
+    assert "Conteúdo oficial" in diagnostico.texto
+    assert diagnostico.aviso == ""
+    assert diagnostico.arquivos_encontrados == (str(raiz_oficial / "guia.md"),)
 
 
 @pytest.mark.skip(reason="Referencias removidas por solicitacao do usuario")

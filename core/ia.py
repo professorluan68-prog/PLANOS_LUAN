@@ -33,7 +33,11 @@ from core.qualidade_metodologica import (
     revisar_metodologia,
     titulo_esta_truncado,
 )
-from core.referencias_metodologia import carregar_referencia_metodologica, get_regras_estruturais_historia
+from core.referencias_metodologia import (
+    carregar_referencia_metodologica,
+    diagnosticar_referencia_metodologica,
+    get_regras_estruturais_historia,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -263,12 +267,17 @@ def _montar_prompt(
     contexto_geracao: dict | None = None,
     palavras_chave_esperadas: list[str] | None = None,
     esboco_pdf: list[str] | None = None,
+    referencia_metodologica: str | None = None,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
     contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
     nivel = detectar_nivel_ensino(turma=turma, disciplina=disciplina, texto_pdf=texto_pdf)
     orientacao = get_orientacao_disciplina(disciplina, turma=turma)
-    referencia = carregar_referencia_metodologica(disciplina, turma)
+    referencia = (
+        referencia_metodologica
+        if referencia_metodologica is not None
+        else carregar_referencia_metodologica(disciplina, turma)
+    )
     bloco_referencia = f"\n\nREFERENCIA METODOLOGICA DA DISCIPLINA:\n{referencia[:4200]}" if referencia else ""
     bloco_rascunho = ""
     rascunho_serializado = _serializar_rascunho_base(rascunho_base)
@@ -953,6 +962,15 @@ def _normalizar_saida_ia(data: dict, texto_pdf: str, disciplina: str, turma: str
     }
 
 
+def _registrar_aviso_referencia_metodologica_na_saida(
+    saida: dict, aviso: str = ""
+) -> dict:
+    aviso = str(aviso or "").strip()
+    if aviso:
+        saida["_aviso_referencia_metodologica"] = aviso
+    return saida
+
+
 def processar_item_cdp_ia(item: dict, disciplina: str, turma: str, provedor: str, modelo: str) -> dict:
     from core.cdp import habilidade_item_cdp, objeto_item_cdp, titulo_item_cdp
 
@@ -1057,6 +1075,7 @@ def processar_plano_ia(
     palavras_chave_esperadas: list[str] | None = None,
     esboco_pdf: list[str] | None = None,
 ) -> dict:
+    diagnostico_referencia = diagnosticar_referencia_metodologica(disciplina, turma)
     prompt = _montar_prompt(
         texto_pdf,
         disciplina,
@@ -1067,6 +1086,7 @@ def processar_plano_ia(
         contexto_geracao=contexto_geracao,
         palavras_chave_esperadas=palavras_chave_esperadas,
         esboco_pdf=esboco_pdf,
+        referencia_metodologica=diagnostico_referencia.texto,
     )
     system_prompt = get_system_prompt(disciplina, turma)
 
@@ -1087,7 +1107,11 @@ def processar_plano_ia(
             PlanoAulaIA,
         )
         data = _extrair_json_openai(response)
-        return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+        saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+        return _registrar_aviso_referencia_metodologica_na_saida(
+            saida,
+            diagnostico_referencia.aviso,
+        )
 
     if provedor.lower() == "gemini":
         if not genai or not os.getenv("GEMINI_API_KEY"):
@@ -1114,6 +1138,10 @@ def processar_plano_ia(
         text = response.text.strip()
         text = _limpar_json_markdown(text)
         data = json.loads(text or "{}")
-        return _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+        saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+        return _registrar_aviso_referencia_metodologica_na_saida(
+            saida,
+            diagnostico_referencia.aviso,
+        )
 
     raise Exception(f"Provedor {provedor} desconhecido.")

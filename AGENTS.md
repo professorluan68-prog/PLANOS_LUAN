@@ -1,338 +1,469 @@
 # AGENTS.md — Sistema Planos Luan
-> Arquivo de instrução para o agente Codex. Leia este documento integralmente antes de qualquer tarefa.
+
+> Instruções operacionais para agentes que trabalham neste repositório. Leia este arquivo integralmente antes de analisar ou alterar o sistema.
 
 ---
 
-## 🎯 VISÃO GERAL DO PROJETO
+## 1. POSTURA DE TRABALHO COM O USUÁRIO
 
-**Planos Luan** é uma aplicação Python/Streamlit para geração automatizada de planos de aula para professores e coordenadores escolares. O sistema extrai conteúdo de PDFs pedagógicos, classifica o tipo de aula, gera metodologia estruturada (com ou sem IA), preenche documentos Word (.docx) e persiste tudo em SQLite.
-
-- **Versão atual do gerador:** 1.2.10
-- **Stack principal:** Python 3.12, Streamlit, python-docx, pdfplumber, SQLite (WAL), Pydantic v1/v2
-- **Frontend:** `planos_luan_app.py` (Streamlit)
-- **Backend:** módulos em `core/` e `docx_generator/`
+- Converse em português do Brasil, com linguagem simples, amigável e de bom humor.
+- Explique primeiro o resultado prático; detalhe a parte técnica somente quando ela ajudar na decisão.
+- Trabalhe em etapas curtas e verificáveis, preferencialmente com no máximo duas ações por vez.
+- Diferencie claramente: diagnóstico, implementação, teste estrutural e teste visual/funcional.
+- Se o pedido for apenas analisar, diagnosticar ou planejar, não altere arquivos.
+- Quando houver autorização para corrigir ou construir, implemente, teste e informe exatamente o que foi validado.
+- Não amplie o escopo sem necessidade. Preserve alterações locais do usuário e não mexa em arquivos alheios à tarefa.
+- Antes de exclusões de cadastros, documentos ou dados, identifique a origem e confirme o alvo exato. Não apague DOCX apenas porque um cadastro foi removido do banco.
 
 ---
 
-## 🗂️ ARQUITETURA E MÓDULOS PRINCIPAIS
+## 2. VISÃO GERAL ATUAL
 
-### Pipeline de Geração (ordem de execução)
+**Planos Luan** é uma aplicação Python/Streamlit para gerar planos mensais de aula. O sistema organiza o calendário real do professor, localiza PDFs pedagógicos, extrai conteúdo e habilidades, aplica metodologia com ou sem IA, preenche modelos Word e registra os planos no SQLite.
+
+- **Versão atual do gerador:** `1.2.13`, definida em `core/revisao_final.py`.
+- **Stack principal:** Python 3.12, Streamlit, python-docx, pdfplumber, SQLite em WAL e Pydantic compatível com v1/v2.
+- **Frontend principal:** `planos_luan_app.py`.
+- **Backend:** `core/`, com componentes compartilhados principalmente em `core/lib/`.
+- **Geração Word:** `docx_generator/`.
+- **Interface modular:** `ui/`.
+- **Testes:** `tests/`.
+- **Banco local:** `planos_luan.db`, na raiz do repositório.
+
+### Modos disponíveis na interface
+
+1. `Planos gerais`
+2. `CDP - Ciclo I`
+3. `EJA`
+4. `Cadastro`
+5. `Diagnóstico`
+6. `Histórico`
+
+Planos EJA devem ser iniciados na aba **EJA**, não em **Planos gerais**. A aba determina a modalidade, a linguagem pedagógica, os limites de texto e a rota de PDFs.
+
+---
+
+## 3. FONTES DE DADOS E CAMINHOS OFICIAIS
+
+Os arquivos pedagógicos operacionais ficam fora do Git, na raiz definida em `config.py`:
+
+```text
+C:\Users\Luan Dias\PLANOS_LUAN_DADOS\PDF_AULAS
 ```
-PDF/PPTX
-  └─► contexto_aula_pdf.py       → prepara contexto completo da aula
-        └─► extrator_pdf.py      → extrai texto, habilidade BNCC, conceito, recursos
-        └─► classificador.py     → detecta perfil disciplinar e tipo de aula
-  └─► lote.py                    → orquestrador principal (3146 linhas — monolítico)
-        └─► metodologia.py       → MotorMetodologico — gera metodologia SEM IA
-        └─► core/ia.py           → geração COM IA (OpenAI/Gemini)
-        └─► higienizador_pedagogico.py → limpa termos incoerentes na metodologia
-        └─► acompanhamento.py    → gera 3 itens de acompanhamento da aprendizagem
-        └─► acessibilidade.py    → gera 3 itens de acessibilidade
-        └─► qualidade_metodologica.py → sanitiza, naturaliza e consolida etapas
-  └─► revisao_final.py           → auditoria pedagógica + confidence_score
-  └─► validador_plano.py         → validações semânticas e de aderência ao PDF
-  └─► docx_generator/preencher.py     → preenche template Word (modo PDF)
-  └─► docx_generator/preencher_cdp.py → preenche template Word (modo CDP/EJA)
+
+O caminho é calculado por `PLANOS_LUAN_DADOS_DIR` e `PDF_AULAS_DIR`. Não criar fallback para OneDrive, Documents, pastas antigas ou cópias encontradas por acaso. Isso pode fazer o sistema usar um material desatualizado sem avisar.
+
+### Pastas importantes já reconhecidas
+
+- Biologia EJA: `BIOLOGIA\EJA_BIOLOGIA`.
+- Biologia EJA — 2º e 3º Termo: ambos usam os conteúdos de `3_BIMESTRE\2_TERMO` quando esse bimestre é selecionado.
+- Liderança e Oratória EJA: `LIDERANCA_E_ORATORIA\EJA_EM`.
+- Língua Inglesa EJA: `LINGUA_INGLESA\EJA_EM`.
+- Orientação de Estudos: `ORIENTACAO_DE_ESTUDOS\EF\<ANO>`.
+
+As regras de aliases e resolução de pastas ficam em `core/helpers.py`. Ao acrescentar uma nova rota, testar nome da disciplina, modalidade, bimestre e turma separadamente.
+
+### DOCX de referência dentro da pasta dos PDFs
+
+O sistema pode usar um DOCX pedagógico colocado na mesma árvore dos PDFs. O formato reconhecido deve manter, por aula:
+
+```text
+AULA 1 — Título da aula
+HABILIDADE: Texto da habilidade
+
+METODOLOGIA
+Para começar: ...
+Foco no conteúdo: ...
+
+ACOMPANHAMENTO DA APRENDIZAGEM
+Item 1
+Item 2
+Item 3
+
+ACESSIBILIDADE
+Item 1
+Item 2
+Item 3
 ```
 
-### Módulos de Suporte
-| Módulo | Responsabilidade |
-|---|---|
-| `core/models.py` | Modelos Pydantic: `PlanoCompleto`, `PlanoAulaIA`, `EtapaMetodologia` |
-| `core/database.py` | SQLite WAL, migrações versionadas, histórico de planos |
-| `core/disciplinas.py` | Catálogo de disciplinas, modos CDP/PDF, classificação de turmas |
-| `core/tecnicas.py` | Catálogo de técnicas Lemov por momento e perfil disciplinar |
-| `core/progressao.py` | Variação determinística entre aulas sequenciais (blake2b) |
-| `core/qualidade_metodologica.py` | Sanitização, correção de encoding, naturalização de texto |
-| `core/revisao_final.py` | `revisar_aula_gerada()` — scoring e regeneração seletiva |
+- A correspondência é feita pelo número da aula, não apenas pela semelhança do título.
+- Uma aula incompleta no DOCX não deve substituir o conteúdo do PDF silenciosamente.
+- Arquivos temporários `~$*.docx` e cópias com nome de backup devem ser ignorados.
+- Em Orientação de Estudos, a habilidade do DOCX padronizado tem prioridade sobre a habilidade do PDF.
+- O leitor usa no máximo três itens de acompanhamento e três de acessibilidade por aula.
 
 ---
 
-## 📐 CONVENÇÕES DE CÓDIGO OBRIGATÓRIAS
+## 4. PIPELINE ATUAL DE GERAÇÃO
 
-### 1. Estrutura da Metodologia
-A metodologia é **sempre** uma `list[dict]` com as chaves `"titulo"` e `"texto"`:
+```text
+PDF/PPTX ou localização automática
+  └─► core/contexto_aula_pdf.py
+        ├─► core/lib/extrator_pdf.py
+        ├─► core/lib/extrator_pptx.py
+        ├─► core/lib/classificador.py
+        └─► core/extracao_palavras_chave_pdf.py
+  └─► core/lote.py
+        ├─► core/resultados_aula.py
+        ├─► core/lib/metodologia.py           (sem IA)
+        ├─► core/ia.py                        (OpenAI/Gemini)
+        ├─► core/lib/higienizador_pedagogico.py
+        ├─► core/lib/acompanhamento.py
+        ├─► core/lib/acessibilidade.py
+        └─► core/qualidade_metodologica.py
+  └─► core/revisao_final.py
+  └─► core/validador_plano.py
+  └─► docx_generator/preencher.py             (modelo regular)
+  └─► docx_generator/preencher_cdp.py         (CDP/EJA específico)
+```
+
+Não confundir módulos antigos citados em documentação histórica com os arquivos ativos em `core/lib/`. Antes de alterar uma função, localize a definição realmente importada e verifique se há wrappers ou definições duplicadas no Streamlit.
+
+---
+
+## 5. COMPORTAMENTOS FUNCIONAIS CONFIRMADOS
+
+### 5.1 Calendário mensal e aulas previstas
+
+- O plano é mensal e normalmente termina no último dia do mês.
+- A semana extra só entra quando o usuário escolhe a extensão correspondente.
+- `Aulas previstas da semana` deve refletir as ocorrências reais daquela semana no calendário, não o total semanal genérico do cadastro.
+- Horários não consecutivos no mesmo dia contam como aulas separadas.
+- Em uma semana parcial no fim do mês, entram e são contadas apenas as aulas cujas datas pertencem ao plano.
+
+### 5.2 Um dia sem PDF em Português
+
+Somente os perfis de Português habilitados podem usar a opção **Permitir 1 dia da semana sem PDF**.
+
+- O usuário escolhe um dia da semana.
+- Todas as ocorrências desse dia ficam sem PDF no plano.
+- A linha permanece no bloco com data e horário, mas os campos pedagógicos ficam vazios para preenchimento manual.
+- Essa linha conta como aula prevista/dada.
+- Ela não conta como PDF obrigatório.
+- A ordem cronológica deve ser preservada mesmo quando a linha vazia fica entre duas aulas com PDF.
+- Não permitir que `Usar o mesmo PDF na próxima` atravesse uma linha marcada como `bloco_sem_pdf`.
+
+Preservar os campos `bloco_sem_pdf` e `ordem_original` durante todo o fluxo. A ordenação final por data e horário também é reforçada em `docx_generator/preencher.py`.
+
+### 5.3 Limites de metodologia
+
+- Geração local/regular sem IA: até **300 caracteres por etapa**.
+- Modalidade EJA: até **350 caracteres por etapa**.
+- Usar `obter_limite_caracteres_etapa()` e `limitar_texto_natural()` de `core/qualidade_metodologica.py`.
+- Nunca voltar a usar cortes crus como `texto[:300]`, pois eles interrompem palavras e frases.
+
+### 5.4 EJA
+
+A aba EJA está habilitada atualmente para:
+
+- Língua Inglesa
+- Biologia
+- Liderança e Oratória
+
+O texto EJA deve ser adulto, direto e coerente com a vida prática e o mundo do trabalho, sem infantilização. Biologia EJA usa PDFs com estrutura própria; não presumir que todo PDF terá as etapas regulares `Foco no conteúdo` e `Encerramento`. O DOCX de referência pode fornecer a metodologia no formato reconhecido pelo sistema.
+
+### 5.5 Botão “Limpar dados da tela”
+
+O botão deve remover seleções, uploads, revisão, resultados e mensagens da sessão e retornar a interface para `Planos gerais`. Se um novo campo persistente for acrescentado à tela, avaliar se ele também deve entrar em `CAMPOS_TELA` ou em um dos prefixos de limpeza de `planos_luan_app.py`.
+
+---
+
+## 6. CADASTRO: REGRAS E CUIDADOS
+
+### Fonte de cada linha
+
+No diagnóstico/cadastro, um vínculo pode aparecer como:
+
+- `Banco`
+- `Pasta DOCX`
+- `Banco + DOCX`
+
+Excluir uma linha do banco não apaga seu DOCX. Se uma entrada antiga continuar aparecendo com origem `Pasta DOCX`, identificar o arquivo correspondente. Só remover ou mover o documento com autorização explícita do usuário.
+
+### Padronização e duplicidades
+
+- O componente curricular deve ser escolhido pelo catálogo sempre que possível, evitando texto livre, diferenças de maiúsculas/minúsculas, acentos, espaços e sublinhados.
+- A chave equivalente de vínculo considera professor, disciplina, turma e componente curricular normalizados.
+- Salvar um vínculo equivalente deve atualizar o registro existente em vez de criar uma duplicata visual.
+- Não executar limpeza ampla por semelhança de nome. Primeiro mostre quais registros são equivalentes e qual origem cada um possui.
+- O banco em uso é a fonte de verdade para horários atuais. Não recadastre automaticamente vínculos antigos encontrados apenas em documentos.
+
+### Banco de dados
+
+- Sempre usar `connection_scope()` ou `get_connection()` de `core/database.py`.
+- Nunca abrir SQLite diretamente em módulos de aplicação, scripts improvisados ou testes de produção.
+- Preservar `PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON` e o timeout configurado.
+- Alterações de schema devem entrar em `MIGRACOES` e ser idempotentes.
+- Nunca usar `DROP TABLE` para evolução normal do banco.
+- Antes de excluir dados, consultar e contar os registros-alvo; depois, consultar novamente e informar o resultado.
+
+Estrutura principal:
+
+```sql
+professores (
+    id, nome UNIQUE
+)
+
+professor_turmas (
+    id, professor_id FK, disciplina, turma, dia_semana,
+    horario, aulas_semana, arquivo_modelo, template_id,
+    componente_curricular
+)
+
+historico_planos (
+    id, professor_nome, disciplina, turma, bimestre,
+    data_geracao, arquivo_nome, arquivo_path
+)
+
+configuracoes (chave PK, valor)
+schema_version (versao PK)
+```
+
+---
+
+## 7. CONVENÇÕES DE CÓDIGO OBRIGATÓRIAS
+
+### Metodologia
+
+A metodologia deve ser `list[dict]` com as chaves `titulo` e `texto`:
+
 ```python
-# CORRETO
 metodologia = [
     {"titulo": "Para começar", "texto": "Iniciar a aula com..."},
     {"titulo": "Foco no conteúdo", "texto": "Apresentar o conceito..."},
     {"titulo": "Na prática", "texto": "Orientar a resolução..."},
     {"titulo": "Encerramento", "texto": "Finalizar com síntese..."},
 ]
-
-# ERRADO — nunca usar strings soltas
-metodologia = ["Iniciar a aula com...", "Apresentar o conceito..."]
 ```
 
-### 2. Normalização de Texto
-Sempre usar as funções do módulo `core/lib/classificador.py` para normalização:
+Nunca usar lista de strings soltas como formato interno da metodologia.
+
+### Normalização
+
 ```python
 from core.lib.classificador import normalizar_texto
-# Nunca implementar normalização própria inline
 ```
 
-### 3. Correção de Encoding
-Sempre usar `corrigir_mojibake()` antes de processar texto vindo de PDF:
+Não criar normalização própria inline. Para nomes de pasta e aliases, reutilizar as funções de `core/helpers.py`.
+
+### Encoding
+
 ```python
 from core.qualidade_metodologica import corrigir_mojibake
 texto_limpo = corrigir_mojibake(texto_bruto)
 ```
 
-### 4. Banco de Dados
-- **Sempre** usar `connection_scope()` ou `get_connection()` de `core/database.py`
-- **Nunca** criar conexões SQLite diretamente
-- **Sempre** manter `PRAGMA journal_mode=WAL` e `PRAGMA foreign_keys=ON`
+Aplicar a correção antes de processar texto extraído. Alguns padrões de mojibake aparecem intencionalmente nas tabelas de correção; uma busca textual isolada não prova que existe erro visível.
 
-### 5. Modelos Pydantic
-- Usar `PlanoCompleto.from_any(dados)` para converter qualquer entrada em `PlanoCompleto`
-- Usar `.to_dict()` para serializar antes de salvar ou passar para outras funções
-- **Nunca** acessar campos do plano diretamente em dicts sem passar por `PlanoCompleto.from_any()`
+### Modelos Pydantic
 
-### 6. Variação Determinística
-Para qualquer seleção que precise variar entre aulas sem ser aleatória, usar `_indice_hash()` de `core/lib/progressao.py`:
+- Usar `PlanoCompleto.from_any(dados)` para converter entradas heterogêneas.
+- Usar `.to_dict()` para serializar.
+- Não criar uma segunda forma concorrente de representar o plano.
+- Não remover `diagnostico_geracao`, pois a interface usa esse campo nas abas de diagnóstico da metodologia.
+
+### Variação determinística
+
 ```python
 from core.lib.progressao import _indice_hash
 idx = _indice_hash([disciplina, tema, str(indice_aula)], len(opcoes))
 ```
 
----
+Não usar aleatoriedade quando a mesma aula precisa gerar o mesmo resultado.
 
-## 🚫 REGRAS ABSOLUTAS — NUNCA FAÇA ISSO
+### DOCX e tabelas mescladas
 
-### ❌ NÃO altere o campo `_tentativas_regeneracao` sem cuidado
-Em `revisao_final.py`, o campo `_tentativas_regeneracao` controla a proteção contra loop infinito na regeneração recursiva. Ele deve ser:
-1. Lido com `.get("_tentativas_regeneracao", 0)` no início
-2. Incrementado antes da chamada recursiva
-3. Removido com `.pop()` apenas no retorno final (não intermediário)
-
-### ❌ NÃO adicione penalizações duplas no `confidence_score`
-Em `revisao_final.py`, cada critério de qualidade deve penalizar o score **uma única vez**. O padrão correto é:
-```python
-# CORRETO: uma única penalização proporcional
-if aderencia < 80:
-    penalidade = max(10, int(80 - aderencia))
-    deducoes += penalidade
-
-# ERRADO: penalização dupla (dedução + teto fixo)
-deducoes += penalidade
-aula["confidence_score"] = min(aula["confidence_score"], 75)  # NÃO FAZER
-```
-
-### ❌ NÃO use `return "literatura"` como fallback genérico no higienizador
-Em `higienizador_pedagogico.py`, o fallback para Língua Portuguesa deve ser `"geral_nao_jornalistica"`, não `"literatura"`. Usar `"literatura"` como fallback causa substituição incorreta de termos jornalísticos válidos.
-
-### ❌ NÃO consolide etapas de perfis especializados
-A função `consolidar_quatro_etapas()` em `qualidade_metodologica.py` **não deve ser chamada** para os perfis:
-- `"educacao_financeira"` — tem etapas específicas (Análise de caso, Cálculos financeiros, etc.)
-- `"projeto_de_vida"` — tem etapas específicas (Ponto de partida, Compartilhamento, etc.)
-- `"ingles"` — tem etapas específicas (Vocabulário, Listening, etc.)
-
-### ❌ NÃO crie conexões SQLite fora de `core/database.py`
-Toda interação com o banco deve passar pelas funções de `core/database.py`.
-
-### ❌ NÃO use `re.sub()` com padrões não compilados em loops
-Em `higienizador_pedagogico.py`, os padrões de `REGRAS_SUBSTITUICAO` devem ser pré-compilados no nível do módulo, não compilados a cada chamada.
-
-### ❌ NÃO remova o campo `diagnostico_geracao` do `PlanoCompleto`
-Este campo é usado pela UI para exibir o pipeline de transformação da metodologia (tabs: Rascunho Local → Resposta IA → Higienização → Final). Ele deve ser populado pelo `MotorMetodologico`.
+- Células mescladas exigem cuidado com `gridSpan`; nunca faça dois campos ocuparem a mesma célula física.
+- Ao percorrer células mescladas, deduplicar pela identidade `cell._tc` quando necessário.
+- Preservar a ordem cronológica das aulas e o vínculo entre data, horário e conteúdo.
+- Alterações estruturais em `docx_generator/preencher.py` exigem geração de um documento real e inspeção visual.
 
 ---
 
-## ⚠️ BUGS CONHECIDOS — NÃO REINTRODUZA
+## 8. REGRAS PEDAGÓGICAS ESSENCIAIS
 
-Os seguintes bugs foram identificados em auditoria e estão sendo corrigidos. Ao modificar os arquivos relacionados, verifique se as correções já foram aplicadas:
+### Perfis disciplinares
 
-| Bug | Arquivo | Status |
-|---|---|---|
-| Penalização dupla de aderência ao PDF | `revisao_final.py` | 🔧 Pendente correção |
-| Fallback `"literatura"` agressivo no higienizador | `higienizador_pedagogico.py` | 🔧 Pendente correção |
-| Dead code: `elif perfil == "arte"` duplicado | `metodologia.py` (~linha 1670) | 🔧 Pendente remoção |
-| Dead code: `pratica_oral` duplicado em LP EM | `metodologia.py` | 🔧 Pendente remoção |
-| Mojibake em strings hardcoded (tipo `futureme`) | `acompanhamento.py` | 🔧 Pendente correção |
-| `consolidar_quatro_etapas()` sem parâmetro `perfil` | `qualidade_metodologica.py` | 🔧 Pendente correção |
-| Palavras-chave ignoradas silenciosamente | `revisao_final.py` | 🔧 Pendente correção |
-| Falha silenciosa na extração de palavras-chave | `contexto_aula_pdf.py` | 🔧 Pendente correção |
-
----
-
-## 🔑 CONCEITOS PEDAGÓGICOS ESSENCIAIS
-
-Para trabalhar corretamente neste sistema, entenda estes conceitos:
-
-### Perfis Disciplinares
-O sistema classifica cada disciplina em um **perfil** que determina a estrutura da metodologia:
-```
+```text
 matematica | lingua_portuguesa_ef | lingua_portuguesa_em | leitura_redacao
 ciencias_ef | biologia | quimica | fisica | historia | geografia
 ingles | arte | projeto_de_vida | lideranca_oratoria
 educacao_financeira | tecnologia_inovacao | sociologia | orientacao_estudos
 ```
 
-### Tipos de Aula
-Dentro de cada perfil, o sistema detecta o **tipo de aula** para selecionar frases específicas:
-- LP EF: `leitura`, `producao_textual`, `argumentacao_debate`, `gramatica_contextualizada`, etc.
-- Matemática: `algebra`, `geometria`, `funcoes`, `estatistica_probabilidade`, etc.
-- Ciências EF: `analise_dados`, `modelagem_cientifica`, `pratica_experimental`, etc.
+O perfil determina etapas, verbos, técnicas, acompanhamento, acessibilidade, regras de DOCX e tipo de aula. Ao acrescentar um perfil, revisar pelo menos:
 
-### Técnicas Lemov
-O sistema usa técnicas pedagógicas específicas que aparecem em MAIÚSCULAS no texto:
-- `VIREM E CONVERSEM` — discussão em duplas
-- `TODO MUNDO ESCREVE` — registro individual
-- `COM SUAS PALAVRAS` — síntese verbal
-- `HORA DA LEITURA` — leitura orientada
-- `DE OLHO NO MODELO` — exemplo comentado
-- `PAUSE E RESPONDA` — verificação formativa
-- `UM PASSO DE CADA VEZ` — explicação em etapas
+1. `core/disciplinas.py`
+2. `core/lib/classificador.py`
+3. `core/lib/metodologia.py`
+4. `core/lib/tecnicas.py`
+5. `core/lib/acompanhamento.py`
+6. `core/lib/acessibilidade.py`
+7. `core/qualidade_metodologica.py`
+8. `core/lib/higienizador_pedagogico.py`
+9. `core/seletor_referencias.py`
+10. testes específicos do perfil
 
-### Modos CDP/EJA
-Turmas CDP (Centro de Detenção Provisória) e EJA têm restrições especiais:
-- **Proibido:** internet, celular, computador, trabalho em grupo, técnicas Lemov digitais
-- **Obrigatório:** quadro, material impresso, oralidade mediada, registro no caderno
-- A função `sanitizar_texto_cdp_estrito()` aplica essas restrições automaticamente
+### Técnicas pedagógicas
 
-### Confidence Score
-O `confidence_score` (0–100) indica a qualidade do plano gerado:
-- **≥ 70:** Plano aceitável para entrega
-- **< 70:** Aciona regeneração seletiva (apenas perfil `"historia"` atualmente)
-- **Penalizações:** cada problema detectado deduz pontos do score base de 100
+Quando explicitadas, manter em maiúsculas:
+
+- `VIREM E CONVERSEM`
+- `TODO MUNDO ESCREVE`
+- `COM SUAS PALAVRAS`
+- `HORA DA LEITURA`
+- `DE OLHO NO MODELO`
+- `PAUSE E RESPONDA`
+- `UM PASSO DE CADA VEZ`
+
+### Perfis com etapas próprias
+
+`consolidar_quatro_etapas()` recebe `perfil` e não deve destruir estruturas especializadas de:
+
+- `educacao_financeira`
+- `projeto_de_vida`
+- `ingles`
+
+### CDP
+
+No contexto CDP:
+
+- Proibido sugerir internet, celular, computador ou dinâmica dependente de tecnologia.
+- Não propor trabalho em grupos quando isso contrariar a realidade do ambiente.
+- Priorizar quadro, material impresso, oralidade mediada e registro individual no caderno.
+- Manter metodologia curta, simples e direta.
+- A habilidade deve vir do material fornecido ou do DOCX de referência, nunca ser inventada.
+- Aplicar `sanitizar_texto_cdp_estrito()` no fluxo apropriado.
+
+### Higienizador de Língua Portuguesa
+
+- Tema realmente literário pode retornar `literatura`.
+- O fallback genérico deve ser `geral_nao_jornalistica`, nunca `literatura`.
+- Termos jornalísticos válidos não devem ser substituídos em aulas de notícia ou reportagem.
+- As regras de substituição devem permanecer pré-compiladas no nível do módulo.
+
+### Confidence score
+
+- Base: 100 pontos.
+- Aceitável: `confidence_score >= 70`.
+- Cada critério deve penalizar uma única vez.
+- Não combinar dedução e teto fixo para o mesmo problema.
+- A regeneração seletiva continua restrita ao perfil `historia`.
+- `_tentativas_regeneracao` protege contra recursão infinita: ler no início, incrementar antes da chamada recursiva e remover apenas no retorno final.
+- Falha na extração de palavras-chave deve gerar aviso e penalização explícita por meio de `extracao_palavras_chave_ok`; não ignorar silenciosamente.
 
 ---
 
-## 📁 ARQUIVOS SENSÍVEIS — CUIDADO REDOBRADO
+## 9. ARQUIVOS SENSÍVEIS
 
-| Arquivo | Por que é sensível |
+| Arquivo | Cuidado principal |
 |---|---|
-| `core/revisao_final.py` | Controla o scoring final e regeneração recursiva |
-| `core/higienizador_pedagogico.py` | Substituições incorretas contaminam toda a metodologia |
-| `core/qualidade_metodologica.py` | 1225 linhas — mudanças têm efeito cascata em todo o sistema |
-| `core/metodologia.py` | 2034 linhas — motor principal de geração sem IA |
-| `core/lote.py` | 3146 linhas — orquestrador principal, muito acoplado |
-| `core/models.py` | Modelos Pydantic usados em todo o sistema |
-| `core/database.py` | Schema SQLite com migrações versionadas |
-| `docx_generator/preencher.py` | Geração do Word final — bugs aqui afetam o produto entregue |
+| `planos_luan_app.py` | Estado do Streamlit, calendário, upload, EJA e integração geral |
+| `core/lote.py` | Orquestração ampla e compatibilidade entre fluxos |
+| `core/resultados_aula.py` | Prioridade PDF/DOCX, habilidade, IA e proveniência |
+| `core/revisao_final.py` | Score e regeneração recursiva |
+| `core/lib/higienizador_pedagogico.py` | Substituições com impacto em toda a metodologia |
+| `core/qualidade_metodologica.py` | Limites, sanitização e consolidação de etapas |
+| `core/lib/metodologia.py` | Motor principal sem IA e estruturas por perfil |
+| `core/models.py` | Contratos Pydantic usados no sistema inteiro |
+| `core/database.py` | Banco, migrações e normalização de vínculos |
+| `core/helpers.py` | Resolução de pastas, aliases e rotas EJA |
+| `docx_generator/preencher.py` | Word final regular, tabelas e ordem cronológica |
+| `docx_generator/preencher_cdp.py` | Word final CDP/EJA específico |
+
+Antes de editar um arquivo sensível, procurar os testes que o cobrem e ler a função chamadora e a chamada seguinte do pipeline.
 
 ---
 
-## 🧪 COMO TESTAR SUAS ALTERAÇÕES
+## 10. TESTES E VALIDAÇÃO
 
-### Testes Unitários Prioritários
-Antes de qualquer PR, verifique manualmente estas funções críticas:
+Use o Python da `.venv` quando disponível:
 
-```python
-# 1. Higienizador não deve substituir termos jornalísticos válidos
-from core.higienizador_pedagogico import detectar_perfil_pedagogico_real
-assert detectar_perfil_pedagogico_real("Elementos da notícia", "Língua Portuguesa") == "jornalistico_valido"
-assert detectar_perfil_pedagogico_real("Modernismo brasileiro", "Língua Portuguesa") == "literatura"
-
-# 2. Consolidação não deve destruir etapas de Educação Financeira
-from core.qualidade_metodologica import consolidar_quatro_etapas
-met_ef = [
-    {"titulo": "Para começar", "texto": "..."},
-    {"titulo": "Análise de caso", "texto": "..."},
-    {"titulo": "Cálculos financeiros", "texto": "..."},
-    {"titulo": "Encerramento", "texto": "..."},
-]
-resultado = consolidar_quatro_etapas(met_ef, perfil="educacao_financeira")
-assert len(resultado) == 4  # Não deve perder etapas
-
-# 3. Confidence score não deve ser penalizado duas vezes
-from core.revisao_final import revisar_aula_gerada
-# Score com aderência 75% não deve ser menor que 100 - (80-75) = 95
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-### Verificação de Mojibake
-Após qualquer edição em arquivos de `core/`:
-```bash
-grep -rn "â€" core/ --include="*.py"
-grep -rn "Ã" core/ --include="*.py" | grep -v "import\|#"
+### Estratégia mínima
+
+1. Verificar `git status --short` antes de editar.
+2. Executar `py_compile` nos arquivos Python alterados.
+3. Rodar os testes diretamente relacionados à mudança.
+4. Rodar a suíte completa antes de PR ou entrega ampla, quando o ambiente permitir.
+5. Gerar pelo menos um plano real quando a mudança atingir calendário, PDF, metodologia ou DOCX.
+6. Renderizar e inspecionar o DOCX quando a mudança afetar tabelas, mesclagem, paginação ou ordem visual.
+
+Validação estrutural ou textual não equivale a revisão visual. Só afirmar que o documento foi revisado visualmente depois de renderizar todas as páginas com sucesso.
+
+### Snapshot confirmado em 27/07/2026
+
+Uma suíte direcionada aos fluxos de EJA, cadastro, higienização, revisão final, palavras-chave, qualidade metodológica, Orientação de Estudos e limpeza do DOCX terminou com:
+
+```text
+113 passed
 ```
 
-### Verificação de Dead Code
-```bash
-# Verificar se ainda existe o bloco duplicado de arte
-grep -n "elif perfil == \"arte\"" core/metodologia.py
-# Deve retornar apenas UMA ocorrência
-```
+Isso não substitui uma nova execução da suíte completa depois de futuras alterações.
+
+### Testes prioritários por área
+
+- EJA e rotas: `tests/test_eja_rotas.py`, `tests/test_eja_metodologia.py`.
+- Cadastro e banco: `tests/test_cadastro_professores_db.py`, `tests/test_config_database_integracao.py`, `tests/unit/test_database_pragmas.py`.
+- Orientação de Estudos/DOCX: `tests/test_orientacao_estudos_referencias.py`, `tests/test_referencias_docx_padrao.py`.
+- Higienização: `tests/test_higienizador_pedagogico.py`.
+- Revisão e score: `tests/test_revisao_final.py`.
+- Palavras-chave: `tests/test_extracao_palavras_chave_pdf.py`.
+- Word final: `tests/test_docx_final_cleanup.py`.
+- Calendário: `tests/test_calendario_escolar.py`.
 
 ---
 
-## 🏗️ PLANO DE REFATORAÇÃO EM ANDAMENTO
+## 11. ESTADO DAS CORREÇÕES DA AUDITORIA ANTERIOR
 
-O sistema está sendo refatorado em 3 sprints. Ao receber tarefas, verifique em qual sprint ela se encaixa:
+As orientações antigas que ainda marcavam tudo como “pendente” estavam desatualizadas. No código atual foram confirmados:
 
-### Sprint 1 — Correções Imediatas (baixo esforço, alto impacto)
-- [ ] Corrigir fallback `"literatura"` → `"geral_nao_jornalistica"` no higienizador
-- [ ] Remover dead code `elif perfil == "arte"` duplicado em `metodologia.py`
-- [ ] Remover dead code `pratica_oral` duplicado em LP EM em `metodologia.py`
-- [ ] Corrigir mojibake em strings hardcoded em `acompanhamento.py`
-- [ ] Corrigir penalização dupla de aderência em `revisao_final.py`
-- [ ] Adicionar parâmetro `perfil` em `consolidar_quatro_etapas()`
+- fallback genérico de Língua Portuguesa em `geral_nao_jornalistica`;
+- somente um ramo ativo `elif perfil == "arte"` no motor principal;
+- `pratica_oral` separado corretamente entre Português EF e EM;
+- `consolidar_quatro_etapas(..., perfil=...)` implementado;
+- regras regex do higienizador pré-compiladas;
+- penalização de aderência sem teto fixo duplicado;
+- extração de palavras-chave com flag `extracao_palavras_chave_ok` e aviso explícito;
+- chamadas locais de geração usando a assinatura atual de `montar_resultado_aula_local()`;
+- limites naturais de 300/350 caracteres sem corte bruto;
+- aliases de EJA e prevenção de duplicidade de cadastro;
+- limpeza efetiva do estado da tela;
+- ordenação do plano quando existe uma linha de Português sem PDF.
 
-### Sprint 2 — Correções Estruturais (1–2 semanas)
-- [ ] Normalizar campo `metodologia` no Pydantic via `field_validator`
-- [ ] Pré-compilar regras regex do higienizador no nível do módulo
-- [ ] Adicionar flag `extracao_palavras_chave_ok` no retorno de `contexto_aula_pdf.py`
-- [ ] Implementar logging estruturado no `MotorMetodologico`
-- [ ] Adicionar testes unitários para funções críticas
-
-### Sprint 3 — Refatoração Estrutural (2–4 semanas)
-- [ ] Decompor `lote.py` em módulos menores
-- [ ] Decompor `qualidade_metodologica.py` em 4 arquivos especializados
-- [ ] Refatorar `DependenciasContextoAulaPDF` (26 Callables → sub-dataclasses)
-- [ ] Implementar cache de extração de PDF com `lru_cache` por hash SHA-256
-- [ ] Expandir regeneração seletiva para outros perfis além de `"historia"`
+Ao encontrar documentação ou comentário contraditório, trate o código e os testes atuais como fonte técnica de verdade e atualize a documentação junto com a correção.
 
 ---
 
-## 💡 DICAS PARA O AGENTE
+## 12. GIT E ENTREGA
 
-### Ao modificar a metodologia gerada
-1. Sempre verifique o perfil disciplinar antes de alterar frases
-2. Nunca remova etapas sem verificar se o perfil as exige
-3. Mantenha a progressão: abertura → desenvolvimento → prática → encerramento
-4. Técnicas Lemov devem aparecer em MAIÚSCULAS quando explicitadas
-
-### Ao modificar o higienizador
-1. Teste com temas jornalísticos (notícia, reportagem) em LP antes de alterar fallbacks
-2. Cada perfil em `REGRAS_SUBSTITUICAO` tem ~20 padrões — compile-os no módulo
-3. O fallback de LP deve ser `"geral_nao_jornalistica"`, nunca `"literatura"`
-
-### Ao modificar o scoring (`revisao_final.py`)
-1. Cada critério penaliza **uma única vez**
-2. O `SCORE_MINIMO_ACEITAVEL = 70` não deve ser alterado sem discussão
-3. A regeneração recursiva tem limite de 1 tentativa — não aumente sem adicionar proteção
-
-### Ao modificar o banco de dados
-1. Novas colunas devem ser adicionadas via `MIGRACOES` list em `database.py`
-2. Nunca use `DROP TABLE` — sempre use `ALTER TABLE ADD COLUMN`
-3. Mantenha os índices em `_criar_indices_banco()`
-
-### Ao adicionar novos perfis disciplinares
-1. Adicionar em `_DISCIPLINAS` em `disciplinas.py`
-2. Adicionar em `TECNICAS_POR_PERFIL` em `tecnicas.py`
-3. Adicionar em `_ACOMPANHAMENTO_POR_PERFIL_TIPO` em `acompanhamento.py`
-4. Adicionar em `_FALLBACK_POR_PERFIL` em `acessibilidade.py`
-5. Adicionar em `VERBOS_POR_PERFIL` em `qualidade_metodologica.py`
-6. Adicionar em `_etapas_por_perfil()` em `metodologia.py`
-7. Adicionar em `detectar_perfil_pedagogico_real()` em `higienizador_pedagogico.py`
+- Antes de editar: `git status --short` e `git diff`.
+- Não sobrescrever mudanças locais do usuário.
+- Fazer commits pequenos, com mensagem que descreva o resultado.
+- Não fazer push, merge, rebase ou abrir PR sem pedido do usuário.
+- Antes de informar que o GitHub está atualizado, conferir branch, remoto, commits locais e resultado do push.
+- Arquivos pedagógicos de `PLANOS_LUAN_DADOS`, bancos locais e documentos gerados não devem ser adicionados ao Git por acidente.
+- Ao concluir, informar arquivos alterados, testes realizados e o que ainda depende de teste manual.
 
 ---
 
-## 📊 ESTRUTURA DO BANCO DE DADOS
+## 13. CHECKLIST ANTES DE CONCLUIR UMA ALTERAÇÃO
 
-```sql
--- Tabelas principais
-professores (id, nome UNIQUE)
-professor_turmas (id, professor_id FK, disciplina, turma, dia_semana,
-                  horario, aulas_semana, arquivo_modelo, template_id,
-                  componente_curricular)
-historico_planos (id, professor_nome, disciplina, turma, bimestre,
-                  data_geracao, arquivo_nome, arquivo_path)
-configuracoes (chave PK, valor)
-schema_version (versao PK)  -- controle de migrações
-```
+- [ ] O pedido foi atendido sem ampliar o escopo?
+- [ ] O estado local do Git foi preservado?
+- [ ] A definição ativa, e não uma função antiga ou wrapper, foi alterada?
+- [ ] A modalidade e o perfil disciplinar corretos foram considerados?
+- [ ] Rotas externas de PDF/DOCX continuam apontando para `PLANOS_LUAN_DADOS`?
+- [ ] Cadastros equivalentes não foram duplicados?
+- [ ] Data, horário, ordem e aulas previstas continuam coerentes?
+- [ ] Metodologia continua como `list[dict]` com `titulo` e `texto`?
+- [ ] Os testes direcionados passaram?
+- [ ] Se houve mudança visual no Word, todas as páginas foram renderizadas e revisadas?
+- [ ] O usuário recebeu um resumo claro do resultado e das limitações da validação?
 
 ---
 
-*AGENTS.md — Planos Luan v1.2.10 | Atualizado em 2026-07-08*
+*AGENTS.md — Planos Luan v1.2.13 | Atualizado em 27/07/2026*

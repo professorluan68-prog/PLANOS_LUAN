@@ -40,6 +40,11 @@ HISTORICO_DOCX_DIR = BASE_DIR / "historico_docx"
 # porque ainda existe no computador.
 PLANOS_LUAN_DADOS_DIR = BASE_DIR.parent / "PLANOS_LUAN_DADOS"
 PDF_AULAS_DIR = PLANOS_LUAN_DADOS_DIR / "PDF_AULAS"
+# Referencias gerais usadas como apoio pela IA. Quando nao existirem, o
+# gerador continua usando o PDF/DOCX da aula e registra o aviso no plano.
+REFERENCIAS_METODOLOGICAS_DIR = (
+    PLANOS_LUAN_DADOS_DIR / "REFERENCIAS_METODOLOGICAS"
+)
 
 
 # Arquivos de dados especificos
