@@ -1179,16 +1179,15 @@ def _preencher_tabelas_modelo(
                 len(aulas_por_par[par_indice]),
                 len(linhas_conteudo),
             )
-        if aulas_previstas_manual and str(aulas_previstas_manual).strip():
+        quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
+        if quantidade_semana > 0:
+            aulas_previstas = str(quantidade_semana)
+        elif aulas_da_semana:
+            aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
+        elif aulas_previstas_manual and str(aulas_previstas_manual).strip():
             aulas_previstas = str(aulas_previstas_manual).strip()
         else:
-            quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
-            if quantidade_semana > 0:
-                aulas_previstas = str(quantidade_semana)
-            elif aulas_da_semana:
-                aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
-            else:
-                aulas_previstas = "0"
+            aulas_previstas = "0"
         semana_cabecalho = (
             _semana_automatica_por_aulas(aulas_da_semana)
             or _semana_atual_cabecalho(cabecalho)

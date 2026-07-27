@@ -146,7 +146,7 @@ def test_cabecalho_conta_aulas_reais_da_semana_quando_feriado_remove_um_dia():
         )
     )
 
-    assert doc.tables[0].rows[3].cells[3].text == "4"
+    assert doc.tables[0].rows[3].cells[3].text == "2"
     assert doc.tables[2].rows[3].cells[3].text == "4"
 
 
