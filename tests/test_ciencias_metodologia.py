@@ -1,6 +1,6 @@
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
 from core.lib.acompanhamento import gerar_acompanhamento_aprimorado
-from core.lib.classificador import detectar_tipo_aula, perfil_disciplina
+from core.lib.classificador import detectar_tipo_aula, normalizar_texto, perfil_disciplina
 from core.lib.extrator_titulo import _limpar_titulo_material
 from core.lib.higienizador_pedagogico import higienizar_plano
 from core.lib.metodologia import MotorMetodologico, _etapas_por_perfil
@@ -177,10 +177,11 @@ def test_motor_ciencias_leitura_analise_usa_dados_e_evidencias():
 
     titulos = [etapa["titulo"] for etapa in etapas]
     texto = " ".join(etapa["texto"] for etapa in etapas).lower()
+    texto_norm = normalizar_texto(texto)
 
     assert "Hora da leitura" in titulos
     assert "Pause e responda" in titulos
-    assert "evidencias" in texto
+    assert "evidencias" in texto_norm
     assert "saude" in texto or "ambiente" in texto or "sociedade" in texto
 
 
