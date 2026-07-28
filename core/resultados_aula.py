@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from core.qualidade_metodologica import obter_limite_caracteres_etapa
+from core.estrutura_metodologia import validar_etapas_obrigatorias
 from core.refino_referencia_docx import validar_refino_ia_do_docx
 
 
@@ -399,7 +399,7 @@ def _montar_resultado_referencia_docx_exata(
 ) -> dict:
     metodologia = list(referencia_docx.get("metodologia") or [])
     if not usar_ia:
-        limite_metodologia = obter_limite_caracteres_etapa(modalidade_eja=modalidade_eja_ativa)
+        limite_metodologia = 350
         etapas_excedentes = []
         for item in metodologia:
             if isinstance(item, dict):
@@ -417,8 +417,35 @@ def _montar_resultado_referencia_docx_exata(
                 f"automaticamente até 350 caracteres, ou edite o arquivo .docx ajustando o tamanho do texto."
             )
             raise ValueError(mensagem_limite.replace("350 caracteres", f"{limite_metodologia} caracteres"))
+    metodologia_valida, motivo_metodologia = validar_etapas_obrigatorias(metodologia)
+    if not metodologia_valida:
+        raise ValueError(motivo_metodologia)
     acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
     acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+    listas_ausentes = len(acompanhamento) < 3 or len(acessibilidade) < 3
+    if listas_ausentes:
+        desenvolvimento = dependencias.texto_metodologia_fn(metodologia)
+        etapas_titulos = [item.get("titulo", "") for item in metodologia if isinstance(item, dict)]
+        acompanhamento = dependencias.gerar_acompanhamento_aprimorado_fn(
+            tema=tema,
+            aprendizagem=aprendizagem,
+            desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base,
+            perfil=perfil,
+            tipo="regular",
+            habilidade=aprendizagem,
+            etapas_metodologia=etapas_titulos,
+        )
+        acessibilidade = dependencias.gerar_acessibilidade_aprimorada_fn(
+            tema=tema,
+            aprendizagem=aprendizagem,
+            desenvolvimento=desenvolvimento,
+            disciplina=disciplina_base,
+            perfil=perfil,
+            tipo="regular",
+            habilidade=aprendizagem,
+            etapas_metodologia=etapas_titulos,
+        )
     literal = not modalidade_eja_ativa
     if modalidade_eja_ativa and dependencias.adaptar_listas_eja_fn:
         metodologia = dependencias.adaptar_metodologia_eja_fn(
@@ -470,7 +497,11 @@ def _montar_resultado_referencia_docx_exata(
     aula_gerada["avisos_validacao"].append(
         "Metodologia, acompanhamento e acessibilidade do DOCX foram refinados para EJA."
         if modalidade_eja_ativa
-        else aviso_sucesso
+        else (
+            "Metodologia copiada do DOCX; acompanhamento e acessibilidade foram gerados pelo sistema."
+            if listas_ausentes
+            else aviso_sucesso
+        )
     )
     return _registrar_proveniencia_docx(
         aula_gerada,

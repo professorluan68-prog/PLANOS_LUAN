@@ -12,6 +12,9 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from core.estrutura_metodologia import eh_titulo_etapa_obrigatoria
+
+
 
 def normalizar_espacos(texto: str, *, remover_espaco_antes_pontuacao: bool = False) -> str:
     texto_normalizado = re.sub(r"\s+", " ", str(texto or "")).strip()
@@ -99,11 +102,7 @@ def finalizar_aula(
     numero = normalizar_numero_aula(aula.get("numero"), max_digitos=max_digitos_numero)
     if not numero:
         return
-    if (
-        aula.get("metodologia")
-        and len(aula.get("acompanhamento") or []) >= 3
-        and len(aula.get("acessibilidade") or []) >= 3
-    ):
+    if aula.get("metodologia"):
         aulas[numero] = aula
 
 
@@ -121,6 +120,7 @@ def carregar_referencias_docx(
     aulas: dict[int, dict[str, Any]] = {}
     aula_atual: dict[str, Any] | None = None
     secao = ""
+    etapa_pendente = ""
 
     for texto in paragrafos_docx(caminho_docx):
         match_aula = re.match(padrao_aula, texto, flags=re.I)
@@ -137,6 +137,7 @@ def carregar_referencias_docx(
                 "acessibilidade": [],
             }
             secao = ""
+            etapa_pendente = ""
             continue
 
         if not aula_atual:
@@ -153,16 +154,51 @@ def carregar_referencias_docx(
             continue
         if texto_secao == "metodologia":
             secao = "metodologia"
+            etapa_pendente = ""
             continue
         if texto_secao == "acompanhamento da aprendizagem":
             secao = "acompanhamento"
+            etapa_pendente = ""
             continue
         if texto_secao == "acessibilidade":
             secao = "acessibilidade"
+            etapa_pendente = ""
+            continue
+
+        match_etapa = re.match(rf"^([^:]{{2,{limite_titulo_etapa}}}):\s*(.+)$", texto)
+        if match_etapa and (secao == "metodologia" or eh_titulo_etapa_obrigatoria(match_etapa.group(1))):
+            aula_atual["metodologia"].append(
+                {
+                    "titulo": normalizar_espacos(
+                        match_etapa.group(1),
+                        remover_espaco_antes_pontuacao=remover_espaco_antes_pontuacao,
+                    ),
+                    "texto": normalizar_espacos(
+                        match_etapa.group(2),
+                        remover_espaco_antes_pontuacao=remover_espaco_antes_pontuacao,
+                    ),
+                }
+            )
+            etapa_pendente = ""
+            continue
+        if eh_titulo_etapa_obrigatoria(texto):
+            secao = "metodologia"
+            etapa_pendente = texto
+            continue
+        if etapa_pendente:
+            aula_atual["metodologia"].append(
+                {
+                    "titulo": etapa_pendente,
+                    "texto": normalizar_espacos(
+                        texto,
+                        remover_espaco_antes_pontuacao=remover_espaco_antes_pontuacao,
+                    ),
+                }
+            )
+            etapa_pendente = ""
             continue
 
         if secao == "metodologia":
-            match_etapa = re.match(rf"^([^:]{{2,{limite_titulo_etapa}}}):\s*(.+)$", texto)
             if match_etapa:
                 aula_atual["metodologia"].append(
                     {

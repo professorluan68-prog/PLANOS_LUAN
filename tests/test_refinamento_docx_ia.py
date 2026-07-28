@@ -34,9 +34,10 @@ def test_montar_resultado_aula_ia_preserva_refinamento_ia(monkeypatch):
         "tema": "Tema Refinado IA",
         "aprendizagem": "Aprendizagem Refinada IA",
         "metodologia": [
-            {"titulo": "Relembre", "texto": "O professor faz uma introdução com a turma no caderno sobre História."},
-            {"titulo": "Foco no conteudo", "texto": "Os estudantes leem e resolvem no caderno."},
-            {"titulo": "Na pratica", "texto": "Os estudantes resolvem atividades em duplas."}
+                {"titulo": "Relembre", "texto": "O professor faz uma introdução com a turma no caderno sobre História."},
+                {"titulo": "Foco no conteudo", "texto": "Os estudantes leem e resolvem no caderno."},
+                {"titulo": "Na pratica", "texto": "Os estudantes resolvem atividades em duplas."},
+                {"titulo": "Encerramento", "texto": "Os estudantes registram uma síntese final no caderno."},
         ],
         "acompanhamento": [
             "Checar se a turma escreveu no caderno",

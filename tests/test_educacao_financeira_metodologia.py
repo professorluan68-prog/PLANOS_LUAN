@@ -22,6 +22,7 @@ def _criar_docx_referencia_financeira(caminho):
     doc.add_paragraph("AULA 1 - Reserva de emergencia")
     doc.add_paragraph("Metodologia")
     doc.add_paragraph("Para comecar: Retomar uma situacao de imprevisto financeiro e levantar hipoteses da turma.")
+    doc.add_paragraph("Foco no conteudo: Explicar os criterios para organizar uma reserva de emergencia.")
     doc.add_paragraph("Na pratica: Orientar o registro de receitas, gastos e valor destinado a reserva.")
     doc.add_paragraph("Encerramento: Socializar criterios para manter a reserva sem expor dados pessoais.")
     doc.add_paragraph("Acompanhamento da aprendizagem")
@@ -44,7 +45,12 @@ def test_referencia_educacao_financeira_le_docx_da_pasta_do_pdf(tmp_path):
     referencia = referencia_por_pdf(caminho_pdf, "1")
 
     assert referencia["titulo"] == "Reserva de emergencia"
-    assert [etapa["titulo"] for etapa in referencia["metodologia"]] == ["Para comecar", "Na pratica", "Encerramento"]
+    assert [etapa["titulo"] for etapa in referencia["metodologia"]] == [
+        "Para comecar",
+        "Foco no conteudo",
+        "Na pratica",
+        "Encerramento",
+    ]
     assert len(referencia["acompanhamento"]) == 3
     assert len(referencia["acessibilidade"]) == 3
 

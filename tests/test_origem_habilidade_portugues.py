@@ -11,7 +11,12 @@ def _referencia_docx_portugues_fake() -> dict:
         "titulo": "AULA 3 - Titulo revisado",
         "numero": "3",
         "habilidade": "Habilidade: TEXTO VINDO DO DOCX QUE NAO DEVE ENTRAR.",
-        "metodologia": [{"titulo": "Para começar", "texto": "Texto do DOCX."}],
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Texto do DOCX."},
+            {"titulo": "Foco no conteúdo", "texto": "Foco do DOCX."},
+            {"titulo": "Na prática", "texto": "Prática do DOCX."},
+            {"titulo": "Encerramento", "texto": "Encerramento do DOCX."},
+        ],
         "acompanhamento": ["☑ Item 1", "☑ Item 2", "☑ Item 3"],
         "acessibilidade": ["☑ Apoio 1", "☑ Apoio 2", "☑ Apoio 3"],
         "fonte": "referencia_revisada.docx",
@@ -126,7 +131,12 @@ def test_portugues_resultado_ia_mantem_metadados_do_pdf_e_colunas_do_docx(monkey
         plano_ia={
             "tema": "Tema inventado pela IA",
             "aprendizagem": "Aprendizagem da IA",
-            "metodologia": [{"titulo": "Para começar", "texto": "Texto da IA."}],
+            "metodologia": [
+                {"titulo": "Para começar", "texto": "Texto da IA."},
+                {"titulo": "Foco no conteúdo", "texto": "Foco da IA."},
+                {"titulo": "Na prática", "texto": "Prática da IA."},
+                {"titulo": "Encerramento", "texto": "Encerramento da IA."},
+            ],
             "acompanhamento": ["Item IA 1", "Item IA 2", "Item IA 3"],
             "acessibilidade": ["Acesso IA 1", "Acesso IA 2", "Acesso IA 3"],
         },

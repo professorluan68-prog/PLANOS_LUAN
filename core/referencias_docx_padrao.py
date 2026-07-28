@@ -12,6 +12,9 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from core.estrutura_metodologia import eh_titulo_etapa_obrigatoria
+
+
 
 _CABECALHO_AULA = re.compile(
     r"^AULA\s+(\d{1,3})\s*[-\u2013\u2014]\s*(.+)$",
@@ -128,7 +131,7 @@ def _finalizar_aula(
     ]
     acompanhamento = list(aula.get("acompanhamento") or [])
     acessibilidade = list(aula.get("acessibilidade") or [])
-    if not metodologia or len(acompanhamento) < 3 or len(acessibilidade) < 3:
+    if not metodologia:
         return
 
     numero = int(aula["numero"])
@@ -149,6 +152,7 @@ def carregar_referencias_docx_padrao(
     referencias: dict[int, dict[str, Any]] = {}
     aula_atual: dict[str, Any] | None = None
     secao = ""
+    etapa_pendente = ""
 
     for texto in _extrair_paragrafos(caminho_docx):
         cabecalho = _CABECALHO_AULA.match(texto)
@@ -164,6 +168,7 @@ def carregar_referencias_docx_padrao(
                 "acessibilidade": [],
             }
             secao = ""
+            etapa_pendente = ""
             continue
 
         if aula_atual is None:
@@ -176,28 +181,40 @@ def carregar_referencias_docx_padrao(
             continue
         if titulo_secao == "metodologia":
             secao = "metodologia"
+            etapa_pendente = ""
             continue
         if titulo_secao == "acompanhamento da aprendizagem":
             secao = "acompanhamento"
+            etapa_pendente = ""
             continue
         if titulo_secao == "acessibilidade":
             secao = "acessibilidade"
+            etapa_pendente = ""
+            continue
+
+        if ":" in texto:
+            titulo, conteudo = texto.split(":", 1)
+            titulo = _normalizar_espacos_separacao(titulo)
+            conteudo = _normalizar_espacos_separacao(conteudo)
+            if titulo and conteudo and (secao == "metodologia" or eh_titulo_etapa_obrigatoria(titulo)):
+                aula_atual["metodologia"].append({"titulo": titulo, "texto": conteudo})
+                etapa_pendente = ""
+                continue
+        if eh_titulo_etapa_obrigatoria(texto):
+            secao = "metodologia"
+            etapa_pendente = texto
+            continue
+        if etapa_pendente:
+            aula_atual["metodologia"].append(
+                {"titulo": etapa_pendente, "texto": _normalizar_espacos_separacao(texto)}
+            )
+            etapa_pendente = ""
             continue
 
         if secao == "metodologia":
-            if ":" in texto:
-                titulo, conteudo = texto.split(":", 1)
-                titulo = _normalizar_espacos_separacao(titulo)
-                conteudo = _normalizar_espacos_separacao(conteudo)
-                if titulo and conteudo:
-                    aula_atual["metodologia"].append(
-                        {"titulo": titulo, "texto": conteudo}
-                    )
-            elif aula_atual["metodologia"]:
+            if aula_atual["metodologia"]:
                 etapa = aula_atual["metodologia"][-1]
-                etapa["texto"] = _normalizar_espacos_separacao(
-                    f"{etapa['texto']} {texto}"
-                )
+                etapa["texto"] = _normalizar_espacos_separacao(f"{etapa['texto']} {texto}")
         elif secao in {"acompanhamento", "acessibilidade"}:
             aula_atual[secao].append(texto)
 

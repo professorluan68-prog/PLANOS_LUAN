@@ -94,6 +94,14 @@ def test_historia_referencia_curta_sem_ia_permanece_literal(monkeypatch):
                     "titulo": "Foco no conteúdo",
                     "texto": "Conduza uma breve explicação sobre reis, patrícios e instituições políticas romanas.",
                 },
+                {
+                    "titulo": "Na pratica",
+                    "texto": "Orientar o registro de uma caracteristica das instituicoes politicas romanas.",
+                },
+                {
+                    "titulo": "Encerramento",
+                    "texto": "Retomar os conceitos centrais em uma sintese final.",
+                },
             ],
             "acompanhamento": [
                 "☑ Observar participação dos alunos.",
@@ -139,6 +147,14 @@ def test_historia_referencia_curta_sem_ia_permanece_literal(monkeypatch):
         {
             "titulo": "Foco no conteúdo",
             "texto": "Conduza uma breve explicação sobre reis, patrícios e instituições políticas romanas.",
+        },
+        {
+            "titulo": "Na pratica",
+            "texto": "Orientar o registro de uma caracteristica das instituicoes politicas romanas.",
+        },
+        {
+            "titulo": "Encerramento",
+            "texto": "Retomar os conceitos centrais em uma sintese final.",
         },
     ]
     assert resultado["metodologia"] == metodologia_docx

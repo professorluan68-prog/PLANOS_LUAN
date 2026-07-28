@@ -149,6 +149,8 @@ Preservar os campos `bloco_sem_pdf` e `ordem_original` durante todo o fluxo. A o
 
 - Geração local/regular sem IA: até **300 caracteres por etapa**.
 - Modalidade EJA: até **350 caracteres por etapa**.
+- Em DOCX de referência, cada etapa pode ter até **350 caracteres**. A ordem e a repetição das etapas são livres; a metodologia precisa conter `Para começar` ou `Relembre`, `Foco no conteúdo`, `Na prática` e `Encerramento`.
+- Acompanhamento da aprendizagem e acessibilidade são opcionais no DOCX de referência. Quando não houver três itens em cada bloco, o sistema os gera automaticamente.
 - Usar `obter_limite_caracteres_etapa()` e `limitar_texto_natural()` de `core/qualidade_metodologica.py`.
 - Nunca voltar a usar cortes crus como `texto[:300]`, pois eles interrompem palavras e frases.
 

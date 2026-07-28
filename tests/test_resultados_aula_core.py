@@ -143,7 +143,8 @@ def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
     referencia = {
         "metodologia": [
             {"titulo": "Para começar", "texto": "Texto EXATAMENTE como foi escrito."},
-            {"titulo": "Desenvolvimento", "texto": "Segundo trecho literal."},
+            {"titulo": "Foco no conteúdo", "texto": "Segundo trecho literal."},
+            {"titulo": "Na prática", "texto": "Terceiro trecho literal."},
             {"titulo": "Encerramento", "texto": "Terceiro trecho literal."},
         ],
         "acompanhamento": ["Item literal 1", "Item literal 2", "Item literal 3"],
@@ -227,6 +228,49 @@ def test_montar_resultado_aula_local_bloqueia_docx_com_mais_de_350_caracteres():
     assert "Com IA" in str(excinfo.value)
 
 
+def test_montar_resultado_local_gera_listas_quando_docx_nao_as_traz():
+    deps = _deps_resultados_base()
+    referencia = {
+        "metodologia": [
+            {"titulo": "Na prática", "texto": "Resolver as atividades do material."},
+            {"titulo": "Foco no conteúdo", "texto": "Explicar o conceito principal."},
+            {"titulo": "Encerramento", "texto": "Registrar uma síntese final."},
+            {"titulo": "Relembre", "texto": "Retomar a ideia da aula anterior."},
+        ],
+        "acompanhamento": [],
+        "acessibilidade": [],
+        "fonte": "referencia_sem_listas.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+
+    resultado = montar_resultado_aula_local(
+        texto="Texto da aula",
+        tema="Tema",
+        material_digital="AULA 1 - Tema",
+        numero_aula="1",
+        disciplina_base="História",
+        turma="6º ANO A",
+        provedor_ia="",
+        perfil="historia",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"] == referencia["metodologia"]
+    assert resultado["acompanhamento"] == ["☑ A", "☑ B", "☑ C"]
+    assert resultado["acessibilidade"] == ["☑ X", "☑ Y", "☑ Z"]
+    assert "foram gerados pelo sistema" in resultado["avisos_validacao"][-1]
+
+
 def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_refino():
     deps = _deps_resultados_base()
     referencia = {
@@ -254,7 +298,12 @@ def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_r
         total_aulas=1,
         modalidade_eja_ativa=False,
         plano_ia={
-            "metodologia": [{"titulo": "Para começar", "texto": "Texto IA"}],
+            "metodologia": [
+                {"titulo": "Para começar", "texto": "Texto IA"},
+                {"titulo": "Foco no conteúdo", "texto": "Foco IA"},
+                {"titulo": "Na prática", "texto": "Prática IA"},
+                {"titulo": "Encerramento", "texto": "Fechamento IA"},
+            ],
             "acompanhamento": ["IA1", "IA2", "IA3"],
             "acessibilidade": ["IX1", "IX2", "IX3"],
         },

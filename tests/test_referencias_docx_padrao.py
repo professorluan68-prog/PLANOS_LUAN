@@ -120,7 +120,7 @@ def test_referencia_resolve_somente_numero_e_nao_substitui_aula_ausente(
     assert referencia_ausente is None
 
 
-def test_parser_descarta_aula_incompleta(tmp_path):
+def test_parser_mantem_aula_com_metodologia_mesmo_sem_tres_itens(tmp_path):
     caminho_docx = tmp_path / "METODOLOGIA_INCOMPLETA.docx"
     documento = Document()
     documento.add_paragraph("AULA 3 - Aula incompleta")
@@ -135,7 +135,36 @@ def test_parser_descarta_aula_incompleta(tmp_path):
     documento.add_paragraph("Apoio 3")
     documento.save(caminho_docx)
 
-    assert carregar_referencias_docx_padrao(caminho_docx) == {}
+    referencias = carregar_referencias_docx_padrao(caminho_docx)
+    assert list(referencias) == [3]
+    assert referencias[3]["metodologia"][0]["titulo"] == "Abertura"
+    assert len(referencias[3]["acompanhamento"]) == 2
+
+
+def test_parser_aceita_etapas_fora_de_ordem_sem_secao_metodologia(tmp_path):
+    caminho_docx = tmp_path / "METODOLOGIA_LIVRE.docx"
+    documento = Document()
+    documento.add_paragraph("AULA 1 - Aula com estrutura livre")
+    documento.add_paragraph("Na prática")
+    documento.add_paragraph("Resolver a atividade proposta no material.")
+    documento.add_paragraph("Foco no conteúdo: Explicar o conceito central da aula.")
+    documento.add_paragraph("Relembre")
+    documento.add_paragraph("Retomar o conceito estudado anteriormente.")
+    documento.add_paragraph("Foco no conteúdo: Relacionar o conceito a um novo exemplo.")
+    documento.add_paragraph("Encerramento")
+    documento.add_paragraph("Registrar uma síntese final no caderno.")
+    documento.save(caminho_docx)
+
+    referencias = carregar_referencias_docx_padrao(caminho_docx)
+
+    assert list(referencias) == [1]
+    assert [etapa["titulo"] for etapa in referencias[1]["metodologia"]] == [
+        "Na prática",
+        "Foco no conteúdo",
+        "Relembre",
+        "Foco no conteúdo",
+        "Encerramento",
+    ]
 
 
 def test_leitor_padrao_separa_habilidade_escrita_no_cabecalho(tmp_path):
