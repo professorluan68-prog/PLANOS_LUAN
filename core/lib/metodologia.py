@@ -15,6 +15,7 @@ from core.lib.extrator_pdf import ExtratorPDF
 from core.lib.metodologia_lingua_portuguesa import _metodologia_lingua_portuguesa
 from core.lib.metodologia_ciencias import _metodologia_ciencias
 from core.lib.metodologia_biologia import _metodologia_biologia
+from core.lib.etapas_perfis import etapas_educacao_financeira
 from core.orientacao_estudos_metodologia import montar_frases_orientacao_estudos
 from core.qualidade_metodologica import (
     corrigir_mojibake,
@@ -507,30 +508,7 @@ def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = N
         ]
 
     if perfil == "educacao_financeira":
-        if tipo == "aula_pratica_continuidade":
-            return [
-                ("Para começar", "retomada_conceitual"),
-                ("Foco no conteúdo", "contextualizacao_pratica"),
-                ("Na prática", "atividade_central"),
-                ("Encerramento", "encerramento_reflexivo"),
-            ]
-        etapas = [
-            ("Para começar", "para_comecar"),
-            ("Análise de caso", "analise_caso"),
-            ("Foco no conteúdo", "foco"),
-            ("Pause e responda", "pause"),
-        ]
-        if tipo in {"credito_endividamento", "investimento_poupanca", "analise_percentuais_noticias"}:
-            etapas.append(("Cálculos financeiros", "calculos"))
-            etapas.append(("Na prática", "pratica"))
-        elif tipo == "orcamento_planejamento":
-            etapas.append(("Planejamento orçamentário", "planejamento"))
-        elif tipo == "empreendedorismo":
-            etapas.append(("Projeto empreendedor", "projeto"))
-        else:
-            etapas.append(("Na prática", "pratica"))
-        etapas.append(("Encerramento", "encerramento"))
-        return etapas
+        return etapas_educacao_financeira(tipo)
 
     if perfil == "projeto_de_vida":
         if tipo == "futureme":

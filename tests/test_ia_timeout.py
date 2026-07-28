@@ -155,6 +155,7 @@ def test_aula_por_pdf_envia_rascunho_local_para_refinamento_da_ia(monkeypatch):
         "metodologia": [{"titulo": "Para comecar", "texto": "Retomar o consumo de agua em situacoes do cotidiano."}],
         "acompanhamento": ["☑ Observar se identifica formas de uso da agua."],
         "acessibilidade": ["☑ Oferecer palavras-chave para apoiar a leitura."],
+        "fonte_referencia_metodologia": "METODOLOGIA_CIENCIAS.docx",
         "ia_usada": False,
         "ia_provedor": "openai",
         "ia_erro": "",

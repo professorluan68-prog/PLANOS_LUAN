@@ -106,7 +106,7 @@ def test_aviso_de_referencia_metodologica_ausente_entra_na_conferencia():
     assert retorno["diagnostico_geracao"]["referencia_metodologica"]["status"] == "ausente"
 
 
-def test_montar_resultado_aula_local_core_retorna_motor_local():
+def test_montar_resultado_aula_local_exige_referencia_docx():
     deps = _deps_resultados_base()
 
     resultado = montar_resultado_aula_local(
@@ -131,10 +131,11 @@ def test_montar_resultado_aula_local_core_retorna_motor_local():
         dependencias=deps,
     )
 
-    assert resultado["origem_metodologia"] == "motor_local"
+    assert resultado["origem_metodologia"] == "referencia_docx_historia_ausente"
     assert resultado["ia_usada"] is False
-    assert resultado["metodologia"][0]["texto"] == "Etapa local"
+    assert resultado["metodologia"] == []
     assert resultado["status_referencia_docx"] == "docx_ausente"
+    assert "nao gera metodologia interna" in resultado["avisos_validacao"][-1]
 
 
 def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
@@ -273,6 +274,7 @@ def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_r
 
 def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
     deps = _deps_resultados_base()
+    deps.origem_metodologia_por_referencia_fn = lambda perfil: ""
 
     resultado = montar_resultado_aula_ia(
         texto="Texto do PDF de Redacao e Leitura",
@@ -309,8 +311,54 @@ def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
     assert resultado["acessibilidade"] == ["IAA1", "IAA2", "IAA3"]
 
 
+def test_montar_resultado_aula_ia_preserva_docx_quando_ia_altera_estrutura():
+    deps = _deps_resultados_base()
+    referencia = {
+        "metodologia": [
+            {"titulo": "Abertura", "texto": "Texto original da abertura."},
+            {"titulo": "Pratica", "texto": "Texto original da pratica."},
+        ],
+        "acompanhamento": ["R1", "R2", "R3"],
+        "acessibilidade": ["A1", "A2", "A3"],
+        "fonte": "referencia.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+
+    resultado = montar_resultado_aula_ia(
+        texto="Texto da aula",
+        tema="Tema IA",
+        material_digital="AULA 1 - Tema IA",
+        numero_aula="1",
+        disciplina_base="Historia",
+        turma="6 ANO A",
+        provedor_ia="openai",
+        perfil="historia",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        plano_ia={
+            "metodologia": [{"titulo": "Novo titulo", "texto": "Texto alterado."}],
+            "acompanhamento": ["IA1"],
+            "acessibilidade": ["IA2"],
+        },
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"] == referencia["metodologia"]
+    assert resultado["acompanhamento"] == referencia["acompanhamento"]
+    assert resultado["acessibilidade"] == referencia["acessibilidade"]
+    assert resultado["status_referencia_docx"] == "docx_preservado_refino_ia_invalido"
+    assert resultado["diagnostico_geracao"]["refino_referencia_docx"]["valido"] is False
+
+
 def test_montar_resultado_aula_ia_sociologia_nao_injeta_tecnicas_lemov():
     deps = _deps_resultados_base()
+    deps.origem_metodologia_por_referencia_fn = lambda perfil: ""
     deps.detectar_tecnicas_lemov_fn = lambda texto, tema: ["VIREM E CONVERSEM"]
 
     def nao_deve_injetar(*args, **kwargs):

@@ -3097,8 +3097,20 @@ def _aula_por_pdf(
 
             ia_erro = ""
             resultado_candidato = None
+            referencia_docx_disponivel = bool(
+                rascunho_local.get("fonte_referencia_metodologia")
+            )
 
-            if usar_ia:
+            if usar_ia and not referencia_docx_disponivel:
+                ia_erro = (
+                    "A IA nao foi acionada porque a referencia DOCX desta aula nao foi encontrada."
+                )
+                avisos = list(rascunho_local.get("avisos_validacao") or [])
+                if ia_erro not in avisos:
+                    avisos.append(ia_erro)
+                rascunho_local["avisos_validacao"] = avisos
+                rascunho_local["ia_erro"] = ia_erro
+            elif usar_ia:
                 try:
                     from core.ia import processar_plano_ia
 
@@ -3136,6 +3148,7 @@ def _aula_por_pdf(
                         aprendizagem_orientacao=aprendizagem_orientacao,
                         caminho_pdf=caminho_pdf,
                         bimestre=bimestre,
+                        rascunho_base=rascunho_local,
                     )
                 except Exception as e:
                     ia_erro = f"Falha na IA ({provedor_ia}): {str(e)[:250]}"

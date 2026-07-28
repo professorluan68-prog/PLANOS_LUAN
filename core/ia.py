@@ -289,6 +289,7 @@ RASCUNHO LOCAL DO SISTEMA (CONTEUDO JA EXISTENTE NO DOCX OU HEURISTICAS):
 
 USE O RASCUNHO LOCAL COMO BASE DE REFINAMENTO:
 - O rascunho local traz a metodologia, o acompanhamento da aprendizagem e a acessibilidade ja cadastrados ou sugeridos.
+- Se o rascunho vier de um DOCX, preserve rigorosamente a quantidade, os titulos e a ordem das etapas. Preserve tambem todos os itens de acompanhamento e acessibilidade; melhore somente a redacao, sem trocar a acao pedagogica ou inventar atividade.
 - Refine e integre esses 3 componentes com base no conteudo do PDF para garantir que sejam 100% coerentes com o material digital.
 - Melhore a especificidade, a naturalidade e a clareza de todos os textos, sem inventar conteudos fora do material.
 - Se o acompanhamento ou acessibilidade do rascunho forem genericos, mude-os para citar elementos e termos especificos do conteudo da aula.

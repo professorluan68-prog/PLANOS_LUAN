@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from core.qualidade_metodologica import obter_limite_caracteres_etapa
+from core.refino_referencia_docx import validar_refino_ia_do_docx
 
 
 @dataclass
@@ -528,7 +529,11 @@ def _montar_resultado_sem_referencia_docx(
         dependencias.validar_aula_final_fn(aula_gerada) or []
     )
     aula_gerada["avisos_validacao"].append(aviso_ausencia)
-    return aula_gerada
+    return _registrar_proveniencia_docx(
+        aula_gerada,
+        referencia_docx=None,
+        arquivo_referencia_docx="",
+    )
 
 
 def _perfil_referencia_docx_estrita(
@@ -674,6 +679,27 @@ def montar_resultado_aula_ia(
             perfil=perfil,
             objetivos_secao=objetivos_secao,
             conteudos_secao=conteudos_secao,
+        )
+
+    if (
+        _perfil_referencia_docx_estrita(dependencias, perfil)
+        and not referencia_docx
+    ):
+        return _resultado_referencia_docx_estrita(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=None,
+            provedor_ia=provedor_ia,
+            usar_ia=True,
+            ia_erro="",
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
@@ -877,11 +903,23 @@ def montar_resultado_aula_ia(
             perfil,
         )
 
+    refino_docx_valido, motivo_refino_docx = validar_refino_ia_do_docx(
+        referencia_docx,
+        plano_ia,
+    )
+    if referencia_docx and not refino_docx_valido:
+        metodologia = list(referencia_docx.get("metodologia") or [])
+        acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
+        acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+
     aplicar_referencia_docx = bool(
         referencia_docx
-        and dependencias.deve_aplicar_referencia_docx_no_resultado_ia_fn(
-            perfil,
-            plano_ia,
+        and (
+            not refino_docx_valido
+            or dependencias.deve_aplicar_referencia_docx_no_resultado_ia_fn(
+                perfil,
+                plano_ia,
+            )
         )
     )
     if aplicar_referencia_docx:
@@ -912,6 +950,10 @@ def montar_resultado_aula_ia(
             metodologia_higienizada_temp or (metodologia_ia if metodologia_ia else [])
         ),
         "metodologia_final": metodologia,
+        "refino_referencia_docx": {
+            "valido": refino_docx_valido,
+            "motivo": motivo_refino_docx,
+        },
     }
 
     resultado = _finalizar_resultado(
@@ -943,7 +985,11 @@ def montar_resultado_aula_ia(
         resultado,
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=arquivo_referencia_docx,
-        status_sucesso="docx_refinado_ia",
+        status_sucesso=(
+            "docx_refinado_ia"
+            if refino_docx_valido
+            else "docx_preservado_refino_ia_invalido"
+        ),
         literal=False,
     )
     return _registrar_aviso_referencia_metodologica_ia(resultado, plano_ia)
@@ -1025,6 +1071,27 @@ def montar_resultado_aula_local(
         aprendizagem = (
             f"Desenvolver estrategias de leitura, interpretacao e registro em {tema}, "
             "com foco em autonomia de estudo e resolucao orientada das atividades."
+        )
+
+    if (
+        _perfil_referencia_docx_estrita(dependencias, perfil)
+        and not referencia_docx
+    ):
+        return _resultado_referencia_docx_estrita(
+            texto=texto,
+            tema=tema,
+            material_digital=material_digital,
+            numero_aula=numero_aula,
+            disciplina_base=disciplina_base,
+            perfil=perfil,
+            aprendizagem=aprendizagem,
+            referencia_docx=None,
+            provedor_ia=provedor_ia,
+            usar_ia=usar_ia,
+            ia_erro=ia_erro,
+            indice_aula=indice_aula,
+            total_aulas=total_aulas,
+            dependencias=dependencias,
         )
 
     if referencia_docx:

@@ -84,7 +84,7 @@ def test_classificacao_portugues_generico_usa_turma_para_identificar_ensino_medi
     )
 
 
-def test_fluxo_principal_portugues_em_nao_contamina_diario_com_biografia(monkeypatch):
+def test_fluxo_principal_portugues_em_sem_docx_nao_gera_metodologia_interna(monkeypatch):
     monkeypatch.setattr(lote, "_extrair_texto_pdf", lambda caminho: TEXTO_PORTUGUES_EM_DIARIO)
 
     aula = lote._aula_por_pdf(
@@ -96,12 +96,9 @@ def test_fluxo_principal_portugues_em_nao_contamina_diario_com_biografia(monkeyp
         provedor_ia="",
     )
 
-    texto_metodologia = normalizar_texto(" ".join(item["texto"] for item in aula["metodologia"]))
-
     assert normalizar_texto(aula["tema"]).startswith("o genero diario pessoal")
-    assert "biografia" not in texto_metodologia
-    assert "trajetoria da pessoa biografada" not in texto_metodologia
-    assert "diario" in texto_metodologia
+    assert aula["metodologia"] == []
+    assert aula["status_referencia_docx"] == "docx_ausente"
 
     doc = Document(
         preencher_documento(
@@ -129,7 +126,7 @@ def test_fluxo_principal_portugues_em_nao_contamina_diario_com_biografia(monkeyp
     assert "leitura orientada da biografia" not in texto_doc
 
 
-def test_fluxo_principal_matematica_real_mantem_tema_e_sem_fragmentos(monkeypatch):
+def test_fluxo_principal_matematica_sem_docx_nao_gera_metodologia_interna(monkeypatch):
     monkeypatch.setattr(lote, "_extrair_texto_pdf", lambda caminho: TEXTO_MATEMATICA_PARABOLA)
 
     aula = lote._aula_por_pdf(
@@ -141,9 +138,7 @@ def test_fluxo_principal_matematica_real_mantem_tema_e_sem_fragmentos(monkeypatc
         provedor_ia="",
     )
 
-    textos = [normalizar_texto(item["texto"]) for item in aula["metodologia"] if isinstance(item, dict)]
-
     assert "parabola" in normalizar_texto(aula["tema"])
     assert "parte 2" in normalizar_texto(aula["material"])
-    assert any("funcao quadratica" in texto or "parabola" in texto for texto in textos)
-    assert all(not texto.startswith(("que os", "que as", "que cada", "para que")) for texto in textos)
+    assert aula["metodologia"] == []
+    assert aula["status_referencia_docx"] == "docx_ausente"
