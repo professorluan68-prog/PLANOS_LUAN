@@ -1,12 +1,29 @@
 import json
 from pathlib import Path
 from core.lote import _aula_por_pdf
-from core.revisao_final import VERSAO_GERADOR_ATUAL
+from core.revisao_final import VERSAO_GERADOR_ATUAL, calcular_sha256
+from core.variacao_metodologica import montar_fingerprint_contexto, selecionar_perfil_metodologico
 
 def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
     # Setup temporary PDF and JSON file next to it
     pdf_file = tmp_path / "AULA_TESTE.pdf"
     pdf_file.write_bytes(b"%PDF-1.4 dummy contents")
+
+    hash_pdf = calcular_sha256(str(pdf_file))
+    turma = "6\u00ba ANO A"
+    disciplina = "Matem\u00e1tica"
+    bimestre = "2\u00ba Bimestre"
+    perfil_metodologico = selecionar_perfil_metodologico("", turma, disciplina, bimestre)
+    fingerprint_contexto = montar_fingerprint_contexto(
+        hash_pdf=f"{hash_pdf}|modalidade:regular",
+        versao_gerador=VERSAO_GERADOR_ATUAL,
+        professor_nome="",
+        turma=turma,
+        disciplina=disciplina,
+        bimestre=bimestre,
+        tipo_aula="simples",
+        perfil_metodologico=perfil_metodologico,
+    )
 
     json_file = tmp_path / "AULA_TESTE.json"
     json_data = {
@@ -31,7 +48,9 @@ def test_aula_por_pdf_loads_pre_generated_json(tmp_path):
         "ia_usada": True,
         "ia_provedor": "Gemini",
         "ia_erro": "",
+        "hash_pdf": hash_pdf,
         "versao_gerador": VERSAO_GERADOR_ATUAL,
+        "fingerprint_contexto": fingerprint_contexto,
     }
     
     with open(json_file, "w", encoding="utf-8") as f:

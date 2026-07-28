@@ -183,8 +183,8 @@ def test_cache_comportamento(monkeypatch):
             professor="Luis Henrique",
             dividir_aula_atual=False
         )
-        assert res_outro["cache_reutilizado"] is True
-        assert res_outro["fingerprint_contexto"] == fp_antigo
+        assert res_outro.get("cache_reutilizado") is not True
+        assert res_outro["fingerprint_contexto"] != fp_antigo
 
 
 def test_correcoes_ortograficas_naturalizar():

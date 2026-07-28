@@ -183,6 +183,11 @@ def tentar_reutilizar_cache_plano(
             invalida_cache = True
         elif perfil_docx_somente_colunas_pedagogicas_fn(perfil_cache) and referencia_docx_cache:
             invalida_cache = True
+        elif fingerprint_salvo != fingerprint_atual:
+            # O mesmo PDF pode ser usado em mais de uma turma, mas o plano
+            # depende do contexto de geração (professor, turma, bimestre e
+            # perfil metodológico). Nesse caso, a aula é gerada novamente.
+            invalida_cache = True
         if invalida_cache:
             return ResultadoReusoCachePlano(None, dados_json)
 
