@@ -31,9 +31,13 @@ def _montar_aula_reutilizada(
     arquivo_cache: str,
     hash_fonte_salva: str,
     fingerprint_salvo,
+    fingerprint_resultado: str,
+    assinatura_conteudo_cache: str,
     versao_cache: str,
     origem_metodologia_cache: str,
     fonte_referencia_cache: str,
+    perfil_resultado: str,
+    reutilizacao_por_conteudo: bool,
 ) -> dict:
     aula_gerada = {
         "disciplina": dados_json.get("disciplina") or disciplina,
@@ -53,9 +57,11 @@ def _montar_aula_reutilizada(
         "hash_fonte_extracao": hash_fonte_salva,
         "confidence_score": dados_json.get("confidence_score", 100),
         "avisos_validacao": dados_json.get("avisos_validacao") or [],
-        "fingerprint_contexto": fingerprint_salvo,
+        "fingerprint_contexto": fingerprint_resultado,
+        "assinatura_conteudo_cache": assinatura_conteudo_cache,
         "versao_gerador": versao_cache,
         "cache_reutilizado": True,
+        "cache_reutilizado_por_conteudo": reutilizacao_por_conteudo,
         "fonte_principal": dados_json.get("fonte_principal") or fonte_cache,
         "arquivo_fonte": dados_json.get("arquivo_fonte") or arquivo_cache,
         "origem_metodologia": origem_metodologia_cache,
@@ -66,7 +72,7 @@ def _montar_aula_reutilizada(
         "texto_central_copiado_literalmente": bool(
             dados_json.get("texto_central_copiado_literalmente", False)
         ),
-        "perfil_metodologico": dados_json.get("perfil_metodologico") or perfil_metodologico,
+        "perfil_metodologico": perfil_resultado,
         "etapas_detectadas": dados_json.get("etapas_detectadas") or [],
         "versao_prompt": dados_json.get("versao_prompt") or "",
         "recursos_detectados": dados_json.get("recursos_detectados") or [],
@@ -97,6 +103,7 @@ def tentar_reutilizar_cache_plano(
     sobrescrever_listas_pedagogicas_com_referencia_fn: Callable[[dict | None, list[str], list[str]], tuple[list[str], list[str]]],
     origem_metodologia_por_referencia_fn: Callable[[str], str],
     perfil_docx_somente_colunas_pedagogicas_fn: Callable[[str], bool],
+    assinatura_conteudo_atual: str = "",
 ) -> ResultadoReusoCachePlano:
     if not caminho_pdf:
         return ResultadoReusoCachePlano(None, None)
@@ -119,6 +126,9 @@ def tentar_reutilizar_cache_plano(
         fonte_cache = str(dados_json.get("fonte_extracao") or "pdf").lower()
         arquivo_cache = str(dados_json.get("arquivo_fonte_extracao") or caminho_pdf)
         fingerprint_salvo = dados_json.get("fingerprint_contexto")
+        assinatura_conteudo_salva = str(
+            dados_json.get("assinatura_conteudo_cache") or ""
+        )
         metodologia_cache = dados_json["metodologia"]
         acompanhamento_cache = dados_json.get("acompanhamento") or []
         acessibilidade_cache = dados_json.get("acessibilidade") or []
@@ -183,10 +193,12 @@ def tentar_reutilizar_cache_plano(
             invalida_cache = True
         elif perfil_docx_somente_colunas_pedagogicas_fn(perfil_cache) and referencia_docx_cache:
             invalida_cache = True
-        elif fingerprint_salvo != fingerprint_atual:
-            # O mesmo PDF pode ser usado em mais de uma turma, mas o plano
-            # depende do contexto de geração (professor, turma, bimestre e
-            # perfil metodológico). Nesse caso, a aula é gerada novamente.
+        reutilizacao_por_conteudo = bool(
+            assinatura_conteudo_atual
+            and assinatura_conteudo_salva == assinatura_conteudo_atual
+            and fingerprint_salvo != fingerprint_atual
+        )
+        if fingerprint_salvo != fingerprint_atual and not reutilizacao_por_conteudo:
             invalida_cache = True
         if invalida_cache:
             return ResultadoReusoCachePlano(None, dados_json)
@@ -207,9 +219,21 @@ def tentar_reutilizar_cache_plano(
             arquivo_cache=arquivo_cache,
             hash_fonte_salva=hash_fonte_salva,
             fingerprint_salvo=fingerprint_salvo,
+            fingerprint_resultado=(
+                fingerprint_atual if reutilizacao_por_conteudo else fingerprint_salvo
+            ),
+            assinatura_conteudo_cache=(
+                assinatura_conteudo_atual or assinatura_conteudo_salva
+            ),
             versao_cache=versao_cache,
             origem_metodologia_cache=origem_metodologia_cache,
             fonte_referencia_cache=fonte_referencia_cache,
+            perfil_resultado=(
+                perfil_metodologico
+                if reutilizacao_por_conteudo
+                else dados_json.get("perfil_metodologico") or perfil_metodologico
+            ),
+            reutilizacao_por_conteudo=reutilizacao_por_conteudo,
         )
         return ResultadoReusoCachePlano(aula_reutilizada, dados_json)
     except Exception:

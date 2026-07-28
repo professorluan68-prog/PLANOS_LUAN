@@ -1,8 +1,18 @@
 import json
 from pathlib import Path
 import pytest
-from core.revisao_final import calcular_sha256, revisar_aula_gerada, gravar_sidecar_json
+from core.revisao_final import (
+    VERSAO_GERADOR_ATUAL,
+    calcular_sha256,
+    gravar_sidecar_json,
+    revisar_aula_gerada,
+)
 from core.lote import _aula_por_pdf
+from core.variacao_metodologica import (
+    montar_assinatura_conteudo_cache,
+    montar_fingerprint_contexto,
+    selecionar_perfil_metodologico,
+)
 
 def test_calcular_sha256(tmp_path):
     temp_file = tmp_path / "teste.txt"
@@ -65,6 +75,24 @@ def test_lote_cache_validation_by_hash(tmp_path):
     pdf_file = tmp_path / "AULA 1.pdf"
     pdf_file.write_text("PDF Original Content", encoding="utf-8")
     hash_orig = calcular_sha256(pdf_file)
+    disciplina = "Hist\u00f3ria"
+    turma = "8\u00ba ano"
+    bimestre = "2\u00ba Bimestre"
+    perfil_metodologico = selecionar_perfil_metodologico("", turma, disciplina, bimestre)
+    hash_contexto = f"{hash_orig}|modalidade:regular"
+    fingerprint_contexto = montar_fingerprint_contexto(
+        hash_pdf=hash_contexto,
+        versao_gerador=VERSAO_GERADOR_ATUAL,
+        professor_nome="",
+        turma=turma,
+        disciplina=disciplina,
+        bimestre=bimestre,
+        tipo_aula="simples",
+        perfil_metodologico=perfil_metodologico,
+    )
+    assinatura_conteudo_cache = montar_assinatura_conteudo_cache(
+        hash_contexto, disciplina, turma, bimestre, "simples"
+    )
 
     # Criar cache JSON de mentira válido
     json_data = {
@@ -88,6 +116,9 @@ def test_lote_cache_validation_by_hash(tmp_path):
         "versao_prompt": "educacao_financeira_1.0",
         "etapas_detectadas": ["Para começar", "Foco no conteúdo", "Na prática"],
         "hash_pdf": hash_orig,
+        "versao_gerador": VERSAO_GERADOR_ATUAL,
+        "fingerprint_contexto": fingerprint_contexto,
+        "assinatura_conteudo_cache": assinatura_conteudo_cache,
         "confidence_score": 100,
         "avisos_validacao": []
     }

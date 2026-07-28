@@ -6,6 +6,7 @@ from pathlib import Path
 from core.variacao_metodologica import (
     selecionar_perfil_metodologico,
     selecionar_proximo_perfil,
+    montar_assinatura_conteudo_cache,
     montar_fingerprint_contexto,
     detectar_similaridade_excessiva,
 )
@@ -44,6 +45,21 @@ def test_montar_fingerprint_contexto():
 
     f3 = montar_fingerprint_contexto("hash123", "v3", "Luís", "1C", "LP", "3B", "simples", "LEITURA INVESTIGATIVA")
     assert f1 != f3
+
+
+def test_assinatura_conteudo_reaproveita_turmas_paralelas_sem_misturar_anos():
+    assinatura_a = montar_assinatura_conteudo_cache(
+        "hash123", "Matematica", "1\u00ba ano A", "3\u00ba bimestre", "simples"
+    )
+    assinatura_b = montar_assinatura_conteudo_cache(
+        "hash123", "Matematica", "1\u00ba ano B", "3\u00ba bimestre", "simples"
+    )
+    assinatura_outro_ano = montar_assinatura_conteudo_cache(
+        "hash123", "Matematica", "2\u00ba ano A", "3\u00ba bimestre", "simples"
+    )
+
+    assert assinatura_a == assinatura_b
+    assert assinatura_a != assinatura_outro_ano
 
 
 def test_detectar_similaridade_excessiva():
@@ -183,7 +199,8 @@ def test_cache_comportamento(monkeypatch):
             professor="Luis Henrique",
             dividir_aula_atual=False
         )
-        assert res_outro.get("cache_reutilizado") is not True
+        assert res_outro["cache_reutilizado"] is True
+        assert res_outro["cache_reutilizado_por_conteudo"] is True
         assert res_outro["fingerprint_contexto"] != fp_antigo
 
 

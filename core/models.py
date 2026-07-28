@@ -247,6 +247,7 @@ class PlanoCompleto(ModeloPlanoBase):
     versao_gerador: str = ""
     perfil: str = ""
     fingerprint_contexto: str = ""
+    assinatura_conteudo_cache: str = ""
     recursos_detectados: list[str] = Field(default_factory=list)
     texto_fonte: str = ""
     diagnostico_geracao: dict[str, Any] = Field(default_factory=dict)
@@ -396,6 +397,7 @@ class PlanoCompleto(ModeloPlanoBase):
             "versao_gerador": dados.get("versao_gerador") or "",
             "perfil": dados.get("perfil") or "",
             "fingerprint_contexto": dados.get("fingerprint_contexto") or "",
+            "assinatura_conteudo_cache": dados.get("assinatura_conteudo_cache") or "",
             "recursos_detectados": dados.get("recursos_detectados") or [],
             "texto_fonte": dados.get("texto_fonte") or "",
             "diagnostico_geracao": dados.get("diagnostico_geracao") or {},

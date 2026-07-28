@@ -103,6 +103,52 @@ def test_tentar_reutilizar_cache_plano_preserva_cache_antigo_em_outra_turma(tmp_
     assert resultado.dados_json_antigos["tema"] == "Tema antigo"
 
 
+def test_tentar_reutilizar_cache_plano_reusa_conteudo_em_turma_paralela(tmp_path):
+    caminho_pdf = tmp_path / "AULA_03.pdf"
+    caminho_pdf.write_bytes(b"%PDF-1.4")
+    caminho_pdf.with_suffix(".json").write_text(
+        json.dumps(
+            {
+                "disciplina": "Matematica",
+                "tema": "Tema refinado",
+                "material": "AULA 3 - Tema refinado",
+                "numero_aula": "3",
+                "aprendizagem": "Aprendizagem refinada",
+                "metodologia": [{"titulo": "Para comecar", "texto": "Texto refinado"}],
+                "ia_usada": True,
+                "versao_gerador": "1.2.9",
+                "fingerprint_contexto": "fp-turma-a",
+                "assinatura_conteudo_cache": "conteudo-1-ano",
+                "perfil_metodologico": "LEITURA INVESTIGATIVA",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    resultado = tentar_reutilizar_cache_plano(
+        caminho_pdf=str(caminho_pdf),
+        disciplina="Matematica",
+        turma="1\u00ba ANO B",
+        usar_ia=True,
+        caminho_pptx_correspondente=None,
+        hash_atual="hash-ok",
+        hash_fonte_extracao_esperada="",
+        fingerprint_atual="fp-turma-b",
+        versao_gerador_atual="1.2.9",
+        perfil_metodologico="ANALISE MODELADA",
+        assinatura_conteudo_atual="conteudo-1-ano",
+        **_dependencias_padrao(),
+    )
+
+    assert resultado.aula_reutilizada is not None
+    assert resultado.aula_reutilizada["cache_reutilizado"] is True
+    assert resultado.aula_reutilizada["cache_reutilizado_por_conteudo"] is True
+    assert resultado.aula_reutilizada["tema"] == "Tema refinado"
+    assert resultado.aula_reutilizada["fingerprint_contexto"] == "fp-turma-b"
+    assert resultado.aula_reutilizada["perfil_metodologico"] == "ANALISE MODELADA"
+
+
 def test_tentar_reutilizar_cache_plano_reaplica_referencia_sobre_cache_local(tmp_path):
     caminho_pdf = tmp_path / "AULA_01.pdf"
     caminho_pdf.write_bytes(b"%PDF-1.4")

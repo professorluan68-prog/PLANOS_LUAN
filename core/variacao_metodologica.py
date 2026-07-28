@@ -55,6 +55,41 @@ def montar_fingerprint_contexto(
     chave = f"{h_pdf}|{v}|{prof}|{t}|{d}|{b}|{ta}|{pm}"
     return hashlib.sha256(chave.encode('utf-8')).hexdigest()
 
+
+def _identidade_turma_para_cache(turma: str) -> str:
+    """Agrupa turmas paralelas sem misturar anos ou termos diferentes."""
+    turma_normalizada = normalizar_texto(turma)
+    correspondencia = re.search(
+        r"\b(\d+)(?:o)?\s*(ano|serie|termo)\b", turma_normalizada
+    )
+    if correspondencia:
+        return f"{correspondencia.group(1)}_{correspondencia.group(2)}"
+
+    correspondencia = re.search(r"\b(\d+)\s*[a-z]\b$", turma_normalizada)
+    if correspondencia:
+        return f"{correspondencia.group(1)}_ano"
+    return turma_normalizada
+
+
+def montar_assinatura_conteudo_cache(
+    hash_fonte: str,
+    disciplina: str,
+    turma: str,
+    bimestre: str,
+    tipo_aula: str,
+) -> str:
+    """Identifica conteudo comum sem incluir professor ou sala paralela."""
+    chave = "|".join(
+        [
+            str(hash_fonte or "").strip().upper(),
+            normalizar_texto(disciplina),
+            _identidade_turma_para_cache(turma),
+            normalizar_texto(bimestre),
+            normalizar_texto(tipo_aula),
+        ]
+    )
+    return hashlib.sha256(chave.encode("utf-8")).hexdigest()
+
 def extrair_sentencas(texto: str) -> list[str]:
     """Divide o texto em sentenças limpas."""
     sentencas = []

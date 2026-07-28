@@ -21,6 +21,7 @@ def finalizar_plano_aula(
     arquivo_fonte_extracao: str = "",
     hash_fonte_extracao: str = "",
     fingerprint_contexto: str = "",
+    assinatura_conteudo_cache: str = "",
     perfil_metodologico: str = "",
     versao_gerador: str = "",
     hash_pdf: str = "",
@@ -31,6 +32,9 @@ def finalizar_plano_aula(
     plano.arquivo_fonte_extracao = arquivo_fonte_extracao or plano.arquivo_fonte_extracao
     plano.hash_fonte_extracao = hash_fonte_extracao or plano.hash_fonte_extracao or hash_pdf
     plano.fingerprint_contexto = fingerprint_contexto or plano.fingerprint_contexto
+    plano.assinatura_conteudo_cache = (
+        assinatura_conteudo_cache or plano.assinatura_conteudo_cache
+    )
     plano.versao_gerador = versao_gerador or plano.versao_gerador
     plano.cache_reutilizado = False
     plano.fonte_principal = plano.fonte_extracao

@@ -2881,6 +2881,7 @@ def _aula_por_pdf(
         selecionar_perfil_metodologico,
         selecionar_proximo_perfil,
         montar_fingerprint_contexto,
+        montar_assinatura_conteudo_cache,
         detectar_similaridade_excessiva,
     )
 
@@ -2930,6 +2931,13 @@ def _aula_por_pdf(
         tipo_aula=tipo_duracao,
         perfil_metodologico=perfil_metodologico,
     )
+    assinatura_conteudo_cache = montar_assinatura_conteudo_cache(
+        hash_fonte=hash_contexto_fingerprint,
+        disciplina=disciplina,
+        turma=turma,
+        bimestre=bimestre,
+        tipo_aula=tipo_duracao,
+    )
 
     dados_json_antigos = None
 
@@ -2953,6 +2961,7 @@ def _aula_por_pdf(
             sobrescrever_listas_pedagogicas_com_referencia_fn=_sobrescrever_listas_pedagogicas_com_referencia,
             origem_metodologia_por_referencia_fn=_origem_metodologia_por_referencia,
             perfil_docx_somente_colunas_pedagogicas_fn=_perfil_docx_somente_colunas_pedagogicas,
+            assinatura_conteudo_atual=assinatura_conteudo_cache,
         )
         dados_json_antigos = resultado_cache.dados_json_antigos
         if resultado_cache.aula_reutilizada is not None:
@@ -3180,6 +3189,7 @@ def _aula_por_pdf(
         arquivo_fonte_extracao=arquivo_fonte_extracao,
         hash_fonte_extracao=hash_fonte_extracao_esperada or hash_atual,
         fingerprint_contexto=fingerprint_atual,
+        assinatura_conteudo_cache=assinatura_conteudo_cache,
         perfil_metodologico=perfil_metodologico,
         versao_gerador=VERSAO_GERADOR_ATUAL,
         hash_pdf=hash_atual,

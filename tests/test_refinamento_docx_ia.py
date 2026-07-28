@@ -102,11 +102,35 @@ def test_montar_resultado_aula_ia_preserva_refinamento_ia(monkeypatch):
 
 def test_cache_lote_preserva_refinamento_ia_com_docx_presente(tmp_path, monkeypatch):
     import json
-    from core.revisao_final import VERSAO_GERADOR_ATUAL
+    from core.revisao_final import VERSAO_GERADOR_ATUAL, calcular_sha256
+    from core.variacao_metodologica import (
+        montar_assinatura_conteudo_cache,
+        montar_fingerprint_contexto,
+        selecionar_perfil_metodologico,
+    )
     import core.lote as lote
 
     pdf_file = tmp_path / "AULA_TESTE.pdf"
     pdf_file.write_bytes(b"%PDF-1.4 dummy contents")
+    disciplina = "Arte"
+    turma = "6\u00ba ANO A"
+    bimestre = "2\u00ba Bimestre"
+    hash_pdf = calcular_sha256(pdf_file)
+    perfil_metodologico = selecionar_perfil_metodologico("Luan", turma, disciplina, bimestre)
+    hash_contexto = f"{hash_pdf}|modalidade:regular"
+    fingerprint_contexto = montar_fingerprint_contexto(
+        hash_pdf=hash_contexto,
+        versao_gerador=VERSAO_GERADOR_ATUAL,
+        professor_nome="Luan",
+        turma=turma,
+        disciplina=disciplina,
+        bimestre=bimestre,
+        tipo_aula="simples",
+        perfil_metodologico=perfil_metodologico,
+    )
+    assinatura_conteudo_cache = montar_assinatura_conteudo_cache(
+        hash_contexto, disciplina, turma, bimestre, "simples"
+    )
 
     json_file = tmp_path / "AULA_TESTE.json"
     json_data = {
@@ -123,7 +147,10 @@ def test_cache_lote_preserva_refinamento_ia_com_docx_presente(tmp_path, monkeypa
         "ia_usada": True,
         "ia_provedor": "Gemini",
         "ia_erro": "",
+        "hash_pdf": hash_pdf,
         "versao_gerador": VERSAO_GERADOR_ATUAL,
+        "fingerprint_contexto": fingerprint_contexto,
+        "assinatura_conteudo_cache": assinatura_conteudo_cache,
     }
 
     with open(json_file, "w", encoding="utf-8") as f:
