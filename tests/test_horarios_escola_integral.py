@@ -3,12 +3,28 @@ from ui.shared import (
     _aulas_disponiveis_turno,
     _defaults_grade_horarios,
     _montar_horario_flexivel,
+    _resumo_grade_cadastrada,
     _sugerir_horario_cadastrado,
     TURNO_HORARIO_PERSONALIZADO,
 )
 
 
 TURNO_INTEGRAL = "Integral - José Theodoro"
+
+
+def test_resumo_da_grade_e_compartilhado_pela_tela_principal():
+    resumo = _resumo_grade_cadastrada(
+        {
+            "dia_semana": "Segunda - Quarta",
+            "horario": "08h40 - 3ª aula, 12h25 - 6ª aula",
+            "aulas_semana": 2,
+        }
+    )
+
+    assert resumo == (
+        "2 aula(s) na semana • Segunda: 08h40 - 3ª aula • "
+        "Quarta: 12h25 - 6ª aula"
+    )
 
 
 def test_nova_escola_e_horarios_integrais_estao_disponiveis():

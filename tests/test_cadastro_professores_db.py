@@ -1,10 +1,24 @@
 from core import database
 from core.professores_planos import mesclar_professores
+from ui.cadastro import _disciplinas_por_professor
 
 
 def _preparar_banco(monkeypatch, tmp_path):
     monkeypatch.setattr(database, "DB_PATH", tmp_path / "planos_teste.db")
     database.init_db()
+
+
+def test_disciplinas_do_filtro_respeitam_o_professor_selecionado():
+    cadastros = [
+        {"professor": "ANA", "disciplina": "Matemática"},
+        {"professor": "ANA", "disciplina": "História"},
+        {"professor": "BIA", "disciplina": "Ciências"},
+        {"professor": "ANA", "disciplina": "Matemática"},
+    ]
+
+    assert _disciplinas_por_professor(cadastros, "ANA") == ["História", "Matemática"]
+    assert _disciplinas_por_professor(cadastros, "BIA") == ["Ciências"]
+    assert _disciplinas_por_professor(cadastros) == ["Ciências", "História", "Matemática"]
 
 
 def test_edita_duplica_e_exclui_vinculo_sem_apagar_historico(monkeypatch, tmp_path):

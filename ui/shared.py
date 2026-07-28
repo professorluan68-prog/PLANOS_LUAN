@@ -388,6 +388,32 @@ def _partes_horario_config(texto: str) -> list[str]:
         partes = [parte.strip() for parte in re.split(r",\s*(?=\d{1,2}h)", texto, flags=re.I) if parte.strip()]
     return partes
 
+
+def _resumo_grade_cadastrada(config: dict | None) -> str:
+    if not config:
+        return ""
+    dias = _partes_dia_config(str(config.get("dia_semana") or ""))
+    horarios = _partes_horario_config(str(config.get("horario") or ""))
+    aulas_semana = str(config.get("aulas_semana") or "").strip()
+
+    grade = []
+    total = max(len(dias), len(horarios))
+    for indice in range(total):
+        dia = dias[indice] if indice < len(dias) else ""
+        horario = horarios[indice] if indice < len(horarios) else ""
+        if dia and horario:
+            grade.append(f"{dia}: {horario}")
+        elif dia:
+            grade.append(dia)
+        elif horario:
+            grade.append(horario)
+
+    prefixo = f"{aulas_semana} aula(s) na semana" if aulas_semana else "Grade cadastrada"
+    if grade:
+        return f"{prefixo} • " + " • ".join(grade)
+    return prefixo if aulas_semana else ""
+
+
 def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
     trecho_norm = _normalizar_label_aula(trecho)
     horarios_no_texto = _horarios_extraidos_texto(trecho)

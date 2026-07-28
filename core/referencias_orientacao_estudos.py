@@ -8,23 +8,22 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from core.referencias_base import (
+    finalizar_aula as _finalizar_aula,
+    normalizar_busca as _normalizar_busca,
+    normalizar_espacos,
+    normalizar_numero_aula as _normalizar_numero_aula,
+    paragrafos_docx,
+    score_docx_referencia as _score_docx_referencia,
+)
+
 
 def _normalizar_espacos(texto: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    return re.sub(r"\s+([.,;:!?])", r"\1", texto)
+    return normalizar_espacos(texto, remover_espaco_antes_pontuacao=True)
 
 
-def _normalizar_busca(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", str(texto or "").lower())
-    texto = "".join(char for char in texto if unicodedata.category(char) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", texto).strip()
 
 
-def _normalizar_numero_aula(valor: Any) -> int:
-    if isinstance(valor, int):
-        return valor
-    match = re.search(r"\d{1,2}", str(valor or ""))
-    return int(match.group(0)) if match else 0
 
 
 def _normalizar_habilidade(texto: str) -> str:
@@ -45,27 +44,9 @@ def _separar_titulo_habilidade(texto: str) -> tuple[str, str]:
 
 
 def _paragrafos_docx(caminho_docx: str) -> list[str]:
-    try:
-        from docx import Document
-    except Exception:
-        return []
-
-    try:
-        doc = Document(caminho_docx)
-    except Exception:
-        return []
-
-    return [_normalizar_espacos(paragrafo.text) for paragrafo in doc.paragraphs if _normalizar_espacos(paragrafo.text)]
+    return paragrafos_docx(caminho_docx, remover_espaco_antes_pontuacao=True)
 
 
-def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[int, dict[str, Any]]) -> None:
-    if not aula:
-        return
-    numero = _normalizar_numero_aula(aula.get("numero"))
-    if not numero:
-        return
-    if aula.get("metodologia") and len(aula.get("acompanhamento") or []) >= 3 and len(aula.get("acessibilidade") or []) >= 3:
-        aulas[numero] = aula
 
 
 @lru_cache(maxsize=16)
@@ -136,16 +117,6 @@ def _carregar_referencias_docx(caminho_docx: str) -> dict[int, dict[str, Any]]:
     return aulas
 
 
-def _score_docx_referencia(caminho: Path) -> tuple[int, float, str]:
-    nome = _normalizar_busca(caminho.name)
-    prioridade_nome = 0
-    if any(token in nome for token in ("corrigido", "atualizado", "novo", "2026")):
-        prioridade_nome = 1
-    try:
-        modificado = caminho.stat().st_mtime
-    except OSError:
-        modificado = 0.0
-    return prioridade_nome, modificado, caminho.name.lower()
 
 
 def localizar_docx_referencia_orientacao_estudos(caminho_pdf: str | Path) -> Path | None:

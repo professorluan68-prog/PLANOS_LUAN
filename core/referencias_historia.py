@@ -8,29 +8,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from core.referencias_base import (
+    normalizar_busca as _normalizar_busca,
+    normalizar_espacos,
+    paragrafos_docx,
+    tokens_titulo as _tokens_titulo,
+)
+
 
 def _normalizar_espacos(texto: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    return re.sub(r"\s+([.,;:!?])", r"\1", texto)
+    return normalizar_espacos(texto, remover_espaco_antes_pontuacao=True)
 
 
-def _normalizar_busca(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", str(texto or "").lower())
-    texto = "".join(char for char in texto if unicodedata.category(char) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", texto).strip()
 
 
-def _tokens_titulo(texto: str) -> set[str]:
-    ignorar = {
-        "a", "o", "as", "os", "e", "de", "do", "da", "dos", "das",
-        "um", "uma", "para", "por", "que", "em", "no", "na", "nos", "nas",
-        "aula", "parte", "ano",
-    }
-    return {
-        token
-        for token in re.findall(r"[a-z0-9]+", _normalizar_busca(texto))
-        if token not in ignorar and len(token) > 1
-    }
 
 
 def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
@@ -42,22 +33,7 @@ def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
 
 
 def _paragrafos_docx(caminho_docx: str) -> list[str]:
-    try:
-        from docx import Document
-    except ImportError:
-        return []
-
-    try:
-        doc = Document(caminho_docx)
-    except Exception:
-        return []
-
-    paragrafos = []
-    for p in doc.paragraphs:
-        txt = _normalizar_espacos(p.text)
-        if txt:
-            paragrafos.append(txt)
-    return paragrafos
+    return paragrafos_docx(caminho_docx, remover_espaco_antes_pontuacao=True)
 
 
 def _itens_com_check(texto: str) -> list[str]:

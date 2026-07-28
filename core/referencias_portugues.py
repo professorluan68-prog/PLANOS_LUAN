@@ -8,91 +8,33 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-
-def _normalizar_espacos(texto: str) -> str:
-    return re.sub(r"\s+", " ", str(texto or "")).strip()
-
-
-def _normalizar_busca(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", str(texto or "").lower())
-    texto = "".join(char for char in texto if unicodedata.category(char) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", texto).strip()
-
-
-def _tokens_titulo(texto: str) -> set[str]:
-    ignorar = {
-        "a",
-        "o",
-        "as",
-        "os",
-        "e",
-        "de",
-        "do",
-        "da",
-        "dos",
-        "das",
-        "um",
-        "uma",
-        "para",
-        "por",
-        "que",
-        "em",
-        "no",
-        "na",
-        "nos",
-        "nas",
-        "aula",
-        "parte",
-    }
-    return {
-        token
-        for token in re.findall(r"[a-z0-9]+", _normalizar_busca(texto))
-        if token not in ignorar and len(token) > 1
-    }
+from core.referencias_base import (
+    finalizar_aula,
+    normalizar_busca as _normalizar_busca,
+    normalizar_espacos as _normalizar_espacos,
+    normalizar_numero_aula,
+    paragrafos_docx as _paragrafos_docx,
+    parte_titulo as _parte_titulo,
+    pontuar_titulo as _pontuar_titulo,
+    selecionar_referencia as _selecionar_referencia,
+    tokens_titulo as _tokens_titulo,
+)
 
 
-def _parte_titulo(texto: str) -> str:
-    match = re.search(r"\bparte\s*(\d{1,2})\b", _normalizar_busca(texto))
-    return match.group(1) if match else ""
 
 
-def _pontuar_titulo(tema: str, titulo_referencia: str) -> float:
-    tokens_tema = _tokens_titulo(tema)
-    tokens_ref = _tokens_titulo(titulo_referencia)
-    if not tokens_tema or not tokens_ref:
-        return 0.0
 
-    pontuacao = len(tokens_tema & tokens_ref) / len(tokens_tema | tokens_ref)
-    parte_tema = _parte_titulo(tema)
-    parte_ref = _parte_titulo(titulo_referencia)
-    if parte_tema and parte_ref:
-        pontuacao += 0.25 if parte_tema == parte_ref else -0.25
-    return pontuacao
+
+
+
+
+
 
 
 def _normalizar_numero_aula(valor: Any) -> int:
-    if isinstance(valor, int):
-        return valor
-    match = re.search(r"\d{1,3}", str(valor or ""))
-    return int(match.group(0)) if match else 0
+    return normalizar_numero_aula(valor, max_digitos=3)
 
 
-def _paragrafos_docx(caminho_docx: str) -> list[str]:
-    try:
-        from docx import Document
-    except Exception:
-        return []
-
-    try:
-        doc = Document(caminho_docx)
-    except Exception:
-        return []
-
-    return [
-        _normalizar_espacos(paragrafo.text)
-        for paragrafo in doc.paragraphs
-        if _normalizar_espacos(paragrafo.text)
-    ]
 
 
 def _documento_docx(caminho_docx: str):
@@ -108,17 +50,7 @@ def _documento_docx(caminho_docx: str):
 
 
 def _finalizar_aula(aula: dict[str, Any] | None, aulas: dict[int, dict[str, Any]]) -> None:
-    if not aula:
-        return
-    numero = _normalizar_numero_aula(aula.get("numero"))
-    if not numero:
-        return
-    if (
-        aula.get("metodologia")
-        and len(aula.get("acompanhamento") or []) >= 3
-        and len(aula.get("acessibilidade") or []) >= 3
-    ):
-        aulas[numero] = aula
+    finalizar_aula(aula, aulas, max_digitos_numero=3)
 
 
 @lru_cache(maxsize=16)
@@ -334,27 +266,6 @@ def localizar_docx_referencia_portugues(caminho_pdf: str | Path) -> Path | None:
     return max(candidatos_validos, key=_score_docx_referencia)
 
 
-def _selecionar_referencia(
-    referencias: dict[int, dict[str, Any]],
-    numero_aula: int,
-    tema: str = "",
-) -> dict[str, Any] | None:
-    referencia_numerica = referencias.get(numero_aula)
-    if not tema:
-        return referencia_numerica
-
-    melhor_numero = 0
-    melhor_pontuacao = 0.0
-    for numero, referencia in referencias.items():
-        pontuacao = _pontuar_titulo(tema, referencia.get("titulo", ""))
-        if pontuacao > melhor_pontuacao:
-            melhor_numero = numero
-            melhor_pontuacao = pontuacao
-
-    pontuacao_numerica = _pontuar_titulo(tema, (referencia_numerica or {}).get("titulo", ""))
-    if melhor_numero and melhor_pontuacao >= 0.50 and melhor_pontuacao > pontuacao_numerica + 0.15:
-        return referencias.get(melhor_numero)
-    return referencia_numerica or (referencias.get(melhor_numero) if melhor_pontuacao >= 0.70 else None)
 
 
 def referencia_portugues_por_pdf(

@@ -309,15 +309,25 @@ def _renderizar_metricas_cadastro(cadastros: list[dict], diagnostico: dict) -> N
     col_sem_modelo.metric("Sem DOCX", len(sem_modelo))
     col_dup.metric("Duplicidades", len(duplicidades))
 
+
+def _disciplinas_por_professor(cadastros: list[dict], professor: str = "Todos") -> list[str]:
+    """Retorna apenas as disciplinas vinculadas ao professor selecionado."""
+    return sorted(
+        {
+            cadastro.get("disciplina", "")
+            for cadastro in cadastros
+            if cadastro.get("disciplina")
+            and (professor == "Todos" or cadastro.get("professor") == professor)
+        }
+    )
+
+
 def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
     professores = ["Todos"] + sorted({cad.get("professor", "") for cad in cadastros if cad.get("professor")})
-    disciplinas = ["Todas"] + sorted({cad.get("disciplina", "") for cad in cadastros if cad.get("disciplina")})
     turmas = ["Todas"] + sorted({cad.get("turma", "") for cad in cadastros if cad.get("turma")})
     origens = ["Todas"] + sorted({cad.get("origem", "") for cad in cadastros if cad.get("origem")})
     if st.session_state.get("cadastro_filtro_professor") not in professores:
         st.session_state["cadastro_filtro_professor"] = "Todos"
-    if st.session_state.get("cadastro_filtro_disciplina") not in disciplinas:
-        st.session_state["cadastro_filtro_disciplina"] = "Todas"
     if st.session_state.get("cadastro_filtro_turma") not in turmas:
         st.session_state["cadastro_filtro_turma"] = "Todas"
     if st.session_state.get("cadastro_filtro_origem") not in origens:
@@ -327,6 +337,9 @@ def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
     with col_prof:
         filtro_prof = st.selectbox("Professor", professores, key="cadastro_filtro_professor")
     with col_disc:
+        disciplinas = ["Todas"] + _disciplinas_por_professor(cadastros, filtro_prof)
+        if st.session_state.get("cadastro_filtro_disciplina") not in disciplinas:
+            st.session_state["cadastro_filtro_disciplina"] = "Todas"
         filtro_disc = st.selectbox("Disciplina", disciplinas, key="cadastro_filtro_disciplina")
     with col_turma:
         filtro_turma = st.selectbox("Turma", turmas, key="cadastro_filtro_turma")
