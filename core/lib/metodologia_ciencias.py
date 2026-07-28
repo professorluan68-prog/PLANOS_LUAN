@@ -221,11 +221,15 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
         if tecnicas_abertura:
             prefixo_para_comecar = f"Aplicar o {tecnicas_abertura[0]}: "
         topicos_complementares = _topicos_complementares_foco_ciencias(texto_base, tema_base, conceito_seguro)
-        complemento_foco = ""
         if topicos_complementares:
-            complemento_foco = (
-                f" Explicar também, de forma breve, os conteúdos que aparecem na sequência do material, como "
-                f"{_listar_topicos_curta(topicos_complementares).lower()}."
+            foco_campo = (
+                f"Explicar {conceito_seguro}, com destaque para {_listar_topicos_curta(topicos_complementares).lower()}, "
+                "destacando definicoes, principios basicos, vocabulario cientifico e exemplos observados no material."
+            )
+        else:
+            foco_campo = (
+                f"Explicar {conceito_seguro}, destacando definicoes, principios basicos, vocabulario cientifico e exemplos "
+                "observados no material para que a turma compreenda como o conceito aparece nos seres vivos, estruturas ou processos estudados."
             )
         prefixo_pratica = "Atividade 1: "
         if "todo mundo escreve" in base:
@@ -235,11 +239,7 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
                 f"{prefixo_para_comecar}apresentar {disparador_inicial} para mobilizar conhecimentos previos e levantar hipoteses sobre {tema}, "
                 "sem antecipar a resposta antes da observacao e da conversa inicial da turma."
             ),
-            "foco": (
-                f"Explicar {conceito_seguro}, destacando definicoes, principios basicos, vocabulario cientifico e exemplos "
-                "observados no material para que a turma compreenda como o conceito aparece nos seres vivos, estruturas ou processos estudados."
-                f"{complemento_foco}"
-            ),
+            "foco": foco_campo,
             "pause": (
                 "Realizar uma pausa de verificacao com pergunta objetiva ou associacao entre conceito e exemplo, corrigindo "
                 "coletivamente duvidas antes da atividade principal."

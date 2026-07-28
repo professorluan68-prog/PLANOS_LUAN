@@ -567,11 +567,18 @@ def _montar_resultado_sem_referencia_docx(
     )
 
 
+_PERFIS_METODOLOGIA_DOCX_ESTRITA = {
+    "lingua_portuguesa_ef",
+    "lingua_portuguesa_em",
+    "leitura_redacao",
+}
+
+
 def _perfil_referencia_docx_estrita(
     dependencias: DependenciasResultadosAula,
     perfil: str,
 ) -> bool:
-    return bool(dependencias.origem_metodologia_por_referencia_fn(perfil))
+    return perfil in _PERFIS_METODOLOGIA_DOCX_ESTRITA
 
 
 def _origem_sem_referencia_docx(
@@ -715,6 +722,7 @@ def montar_resultado_aula_ia(
     if (
         _perfil_referencia_docx_estrita(dependencias, perfil)
         and not referencia_docx
+        and not metodologia_fixa_pdf
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -1107,6 +1115,7 @@ def montar_resultado_aula_local(
     if (
         _perfil_referencia_docx_estrita(dependencias, perfil)
         and not referencia_docx
+        and not metodologia_fixa_pdf
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,

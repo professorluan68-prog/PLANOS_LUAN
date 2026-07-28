@@ -68,7 +68,11 @@ def _metodologia_matematica(texto_base: str, tema: str, tipo: str, turma: str = 
     if is_new_topic:
         para_comecar_txt += " Propor uma pergunta de sondagem de conhecimentos prévios para levantar as hipóteses iniciais dos estudantes."
     elif is_revision:
-        para_comecar_txt += f" Retomar brevemente o conceito central da aula anterior solicitando que os estudantes o expliquem por meio da técnica {t_sint}."
+        # Aula de continuidade: substituir o texto base por retomada direta com "aula anterior" e "conversa em duplas"
+        para_comecar_txt = (
+            f"Retomar brevemente o conteúdo da aula anterior sobre {tema}, "
+            "propondo conversa em duplas para que os estudantes compartilhem o que lembram."
+        )
 
     if is_algebra:
         para_comecar_txt += f" Solicitar um registro inicial individual por meio da técnica {t_reg}, para que cada estudante anote a hipótese de resolução antes da socialização."
