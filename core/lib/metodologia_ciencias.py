@@ -223,10 +223,7 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
         topicos_complementares = _topicos_complementares_foco_ciencias(texto_base, tema_base, conceito_seguro)
         complemento_foco = ""
         if topicos_complementares:
-            complemento_foco = (
-                f" Explicar também, de forma breve, os conteúdos que aparecem na sequência do material, como "
-                f"{_listar_topicos_curta(topicos_complementares).lower()}."
-            )
+            complemento_foco = f", incluindo {_listar_topicos_curta(topicos_complementares).lower()}"
         prefixo_pratica = "Atividade 1: "
         if "todo mundo escreve" in base:
             prefixo_pratica += f'Aplicando {_tecnica_em_aspas("TODO MUNDO ESCREVE")}, '
@@ -237,8 +234,8 @@ def _metodologia_ciencias(texto_base: str, tema: str, tipo: str, conceito: str =
             ),
             "foco": (
                 f"Explicar {conceito_seguro}, destacando definicoes, principios basicos, vocabulario cientifico e exemplos "
-                "observados no material para que a turma compreenda como o conceito aparece nos seres vivos, estruturas ou processos estudados."
-                f"{complemento_foco}"
+                "observados no material para que a turma compreenda como o conceito aparece nos seres vivos, estruturas ou processos estudados"
+                f"{complemento_foco}."
             ),
             "pause": (
                 "Realizar uma pausa de verificacao com pergunta objetiva ou associacao entre conceito e exemplo, corrigindo "

@@ -1,4 +1,5 @@
 from core.ia import _normalizar_saida_ia
+from core.lib.classificador import normalizar_texto
 from core.lote import _montar_etapas_metodologia, _sanitizar_aprendizagem
 from core.lib.acessibilidade import gerar_acessibilidade_aprimorada
 from core.qualidade_metodologica import sanitizar_texto_metodologico
@@ -34,7 +35,7 @@ def test_projeto_vida_mantem_tom_acolhedor():
     para_comecar = next(etapa["texto"] for etapa in etapas if etapa["titulo"] == "Para comecar")
     pratica = next(etapa["texto"] for etapa in etapas if etapa["titulo"] == "Na pratica")
     assert "sem exigir exposicao pessoal" in para_comecar
-    assert "socializacao seja opcional ou mediada" in pratica
+    assert "socializacao seja opcional ou mediada" in normalizar_texto(pratica)
 
 
 def test_projeto_vida_nao_usa_apoios_matematicos_na_acessibilidade():

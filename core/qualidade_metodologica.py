@@ -260,7 +260,7 @@ def corrigir_mojibake(texto: str) -> str:
     return corrigir_ortografia_basica(melhor)
 
 
-LIMITE_CARACTERES_ETAPA_LOCAL = 300
+LIMITE_CARACTERES_ETAPA_LOCAL = 350
 LIMITE_CARACTERES_ETAPA_EJA = 350
 
 

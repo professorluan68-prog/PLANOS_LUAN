@@ -712,27 +712,6 @@ def montar_resultado_aula_ia(
             conteudos_secao=conteudos_secao,
         )
 
-    if (
-        _perfil_referencia_docx_estrita(dependencias, perfil)
-        and not referencia_docx
-    ):
-        return _resultado_referencia_docx_estrita(
-            texto=texto,
-            tema=tema,
-            material_digital=material_digital,
-            numero_aula=numero_aula,
-            disciplina_base=disciplina_base,
-            perfil=perfil,
-            aprendizagem=aprendizagem,
-            referencia_docx=None,
-            provedor_ia=provedor_ia,
-            usar_ia=True,
-            ia_erro="",
-            indice_aula=indice_aula,
-            total_aulas=total_aulas,
-            dependencias=dependencias,
-        )
-
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
         texto=texto,
         titulo_aula=material_digital or tema,
@@ -1102,27 +1081,6 @@ def montar_resultado_aula_local(
         aprendizagem = (
             f"Desenvolver estrategias de leitura, interpretacao e registro em {tema}, "
             "com foco em autonomia de estudo e resolucao orientada das atividades."
-        )
-
-    if (
-        _perfil_referencia_docx_estrita(dependencias, perfil)
-        and not referencia_docx
-    ):
-        return _resultado_referencia_docx_estrita(
-            texto=texto,
-            tema=tema,
-            material_digital=material_digital,
-            numero_aula=numero_aula,
-            disciplina_base=disciplina_base,
-            perfil=perfil,
-            aprendizagem=aprendizagem,
-            referencia_docx=None,
-            provedor_ia=provedor_ia,
-            usar_ia=usar_ia,
-            ia_erro=ia_erro,
-            indice_aula=indice_aula,
-            total_aulas=total_aulas,
-            dependencias=dependencias,
         )
 
     if referencia_docx:
