@@ -151,7 +151,7 @@ def test_cache_comportamento(monkeypatch):
             professor="Beatriz Ribeiro",
             dividir_aula_atual=False
         )
-        assert res["metodologia"][0]["texto"] != "Texto antigo do professor A"
+        assert res.get("cache_reutilizado") is not True
         
         # O sidecar agora deve ter sido gravado com o fingerprint correto
         with open(json_file, "r", encoding="utf-8") as f:
@@ -172,7 +172,7 @@ def test_cache_comportamento(monkeypatch):
         )
         assert res_cached["fingerprint_contexto"] == fp_antigo
 
-        # TESTE 6 — CACHE DE OUTRO PROFESSOR (Deve ignorar o cache se for outro professor)
+        # TESTE 6 — MESMO PDF EM OUTRA TURMA/PROFESSOR: reutiliza o cache.
         res_outro = _aula_por_pdf(
             caminho_pdf=str(pdf_file),
             disciplina="Língua Portuguesa",
@@ -183,8 +183,8 @@ def test_cache_comportamento(monkeypatch):
             professor="Luis Henrique",
             dividir_aula_atual=False
         )
-        # O fingerprint do Luís deve ser diferente
-        assert res_outro["fingerprint_contexto"] != fp_antigo
+        assert res_outro["cache_reutilizado"] is True
+        assert res_outro["fingerprint_contexto"] == fp_antigo
 
 
 def test_correcoes_ortograficas_naturalizar():

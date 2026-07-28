@@ -63,7 +63,7 @@ def test_tentar_reutilizar_cache_plano_reusa_cache_quando_compativel(tmp_path):
     assert resultado.dados_json_antigos["tema"] == "Tema salvo"
 
 
-def test_tentar_reutilizar_cache_plano_mantem_json_antigo_mesmo_invalido(tmp_path):
+def test_tentar_reutilizar_cache_plano_reusa_mesmo_pdf_em_outra_turma(tmp_path):
     caminho_pdf = tmp_path / "AULA_03.pdf"
     caminho_pdf.write_bytes(b"%PDF-1.4")
     caminho_pdf.with_suffix(".json").write_text(
@@ -98,7 +98,9 @@ def test_tentar_reutilizar_cache_plano_mantem_json_antigo_mesmo_invalido(tmp_pat
         **_dependencias_padrao(),
     )
 
-    assert resultado.aula_reutilizada is None
+    assert resultado.aula_reutilizada is not None
+    assert resultado.aula_reutilizada["cache_reutilizado"] is True
+    assert resultado.aula_reutilizada["tema"] == "Tema antigo"
     assert resultado.dados_json_antigos is not None
     assert resultado.dados_json_antigos["tema"] == "Tema antigo"
 

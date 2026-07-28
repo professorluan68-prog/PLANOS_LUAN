@@ -8,18 +8,6 @@ from typing import Callable
 from core.lib.classificador import perfil_disciplina
 from core.validador_plano import validar_aula_final
 
-_PERFIS_INVALIDAM_CACHE_POR_FINGERPRINT = {
-    "lingua_portuguesa_ef",
-    "lingua_portuguesa_em",
-    "leitura_redacao",
-    "educacao_financeira",
-    "biologia",
-    "geografia",
-    "projeto_de_vida",
-    "ciencias_ef",
-}
-
-
 @dataclass
 class ResultadoReusoCachePlano:
     aula_reutilizada: dict | None
@@ -195,12 +183,6 @@ def tentar_reutilizar_cache_plano(
             invalida_cache = True
         elif perfil_docx_somente_colunas_pedagogicas_fn(perfil_cache) and referencia_docx_cache:
             invalida_cache = True
-        elif (
-            fingerprint_salvo != fingerprint_atual
-            and perfil_cache in _PERFIS_INVALIDAM_CACHE_POR_FINGERPRINT
-        ):
-            invalida_cache = True
-
         if invalida_cache:
             return ResultadoReusoCachePlano(None, dados_json)
 
