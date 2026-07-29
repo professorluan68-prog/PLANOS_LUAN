@@ -2622,6 +2622,28 @@ else:
             erro_pasta_pdfs_auto = str(exc)
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
+    from core.gestao_aulas import obter_referencia_ultima_aula_historico
+
+    referencia_historico = obter_referencia_ultima_aula_historico(
+        professor,
+        disciplina,
+        turma,
+        bimestre,
+    )
+    if referencia_historico and referencia_historico["ultima_aula"] > 0:
+        proxima_aula = referencia_historico["ultima_aula"] + 1
+        st.info(
+            "📚 **Continuidade dos PDFs:** no último plano salvo no histórico "
+            f"para este professor, disciplina, turma e bimestre, a geração foi até a "
+            f"**Aula {referencia_historico['ultima_aula']}**. Para continuar, comece pelo "
+            f"PDF da **Aula {proxima_aula}**."
+        )
+    elif referencia_historico:
+        st.warning(
+            "Há um plano salvo no histórico para este contexto, mas não foi possível "
+            "identificar o número da última aula no arquivo. Confira-o na aba Histórico "
+            "antes de escolher os PDFs."
+        )
 
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader

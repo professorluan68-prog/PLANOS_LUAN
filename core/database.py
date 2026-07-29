@@ -1341,6 +1341,77 @@ def obter_arquivo_historico(plano_id):
 
 
 
+def obter_ultimo_historico_por_contexto(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    bimestre: str = "",
+) -> dict | None:
+    """Retorna o plano recente do contexto, inclusive registros antigos sem bimestre."""
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    bimestre = _normalizar_campo(bimestre)
+
+    if not professor_nome or not disciplina or not turma:
+        return None
+
+    def chave_turma(valor: str) -> str:
+        chave = _normalizar_campo_chave(valor)
+        return re.sub(r"\b([1-9])\s*[oa]\s+(ano|serie|termo)\b", r"\1 \2", chave)
+
+    def chave_bimestre(valor: str) -> str:
+        chave = _normalizar_campo_chave(valor)
+        return re.sub(r"\b([1-4])\s*[oa]?\s*bimestre\b", r"\1 bimestre", chave)
+
+    chave_professor = _normalizar_campo_chave(professor_nome)
+    chave_disciplina = _normalizar_campo_chave(disciplina)
+    chave_turma_esperada = chave_turma(turma)
+    chave_bimestre_esperada = chave_bimestre(bimestre)
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, bimestre, data_geracao, arquivo_nome, professor_nome, disciplina, turma
+            FROM historico_planos
+            ORDER BY data_geracao DESC, id DESC
+            """
+        )
+        registros = cursor.fetchall()
+
+    registros_contexto = [
+        registro
+        for registro in registros
+        if _normalizar_campo_chave(registro[4]) == chave_professor
+        and _normalizar_campo_chave(registro[5]) == chave_disciplina
+        and chave_turma(registro[6]) == chave_turma_esperada
+    ]
+
+    if chave_bimestre_esperada:
+        registros_mesmo_bimestre = [
+            registro
+            for registro in registros_contexto
+            if chave_bimestre(registro[1]) == chave_bimestre_esperada
+        ]
+        registros_sem_bimestre = [
+            registro for registro in registros_contexto if not chave_bimestre(registro[1])
+        ]
+        registros_contexto = registros_mesmo_bimestre or registros_sem_bimestre
+
+    if not registros_contexto:
+        return None
+
+    registro = registros_contexto[0]
+    return {
+        "id": int(registro[0]),
+        "bimestre": registro[1] or "",
+        "data_geracao": registro[2] or "",
+        "arquivo_nome": registro[3] or "",
+    }
+
+
+
 def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) -> bytes | None:
     professor_nome = _normalizar_campo(professor_nome)
     disciplina = _normalizar_campo(disciplina)
