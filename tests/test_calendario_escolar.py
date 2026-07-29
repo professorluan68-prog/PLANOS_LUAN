@@ -68,6 +68,20 @@ def test_datas_feriado_padrao_marca_corpus_christi_no_periodo():
     assert date(2026, 6, 4) in datas_feriado_padrao(datas)
 
 
+def test_datas_feriado_padrao_marca_independencia_do_brasil_em_setembro():
+    datas = datas_do_periodo(date(2026, 9, 1), date(2026, 9, 30))
+    agenda = [
+        {"data": date(2026, 9, 7), "horario": "13h - 14h40"},
+        {"data": date(2026, 9, 14), "horario": "13h - 14h40"},
+    ]
+
+    assert date(2026, 9, 7) in feriados_nacionais_brasil(2026)
+    assert date(2026, 9, 7) in datas_feriado_padrao(datas)
+    assert [item["data"] for item in filtrar_datas_sem_aula(agenda, datas_feriado_padrao(datas))] == [
+        date(2026, 9, 14)
+    ]
+
+
 def test_datas_sem_aula_padrao_inclui_apenas_feriado_escolar_de_06_de_agosto_em_2026():
     datas = datas_do_periodo(date(2026, 8, 1), date(2026, 8, 31))
 
