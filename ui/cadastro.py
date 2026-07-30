@@ -15,7 +15,7 @@ from core.modelos_docx import (
     resolver_template_id_geracao,
     caminho_template_central,
 )
-from core.disciplinas import nomes_disciplinas
+from core.disciplinas import componentes_curriculares_por_disciplina, nomes_disciplinas
 from ui.shared import (
     _chave_cadastro,
     _eh_cadastro_cdp_eja,
@@ -44,6 +44,11 @@ from ui.shared import (
 
 def _opcoes_componente_curricular(disciplina_atual: str = "", componente_atual: str = "") -> list[str]:
     opcoes = [disc for disc in nomes_disciplinas() if disc != "Outra"]
+    opcoes.extend(
+        componente
+        for componente in componentes_curriculares_por_disciplina(disciplina_atual)
+        if componente not in opcoes
+    )
     extras = []
     for valor in (disciplina_atual, componente_atual):
         valor_limpo = str(valor or "").strip()

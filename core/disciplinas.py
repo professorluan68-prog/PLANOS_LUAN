@@ -12,6 +12,10 @@ DISCIPLINA_CDP_CICLO_I = "CDP - Ciclo I"
 DISCIPLINA_CDP_FUNDAMENTAL = "CDP-ENSINO FUNDAMENTAL"
 DISCIPLINA_CDP_MEDIO = "CDP-ENSINO MÉDIO"
 DISCIPLINA_GEOGRAFIA_CDP_MEDIO = "Geografia CDP Ensino Médio"
+COMPONENTES_CURRICULARES_CDP_CICLO_I = [
+    "ANOS INICIAIS 4º e 5º ANO- EJA TURMA D",
+    "ANOS INICIAIS 1º, 2º e 3º ANO- EJA TURMA C",
+]
 
 
 @dataclass(frozen=True)
@@ -49,6 +53,7 @@ _DISCIPLINAS = [
     "Robótica",
     "Sociologia",
     "Tecnologia e Inovação",
+    DISCIPLINA_CDP_CICLO_I,
     "Outra",
 ]
 
@@ -70,6 +75,14 @@ def _normalizar_nome_disciplina(nome: str) -> str:
 
 def nomes_disciplinas() -> list[str]:
     return list(_DISCIPLINAS)
+
+
+def componentes_curriculares_por_disciplina(disciplina: str) -> list[str]:
+    if _normalizar_nome_disciplina(disciplina) == _normalizar_nome_disciplina(
+        DISCIPLINA_CDP_CICLO_I
+    ):
+        return list(COMPONENTES_CURRICULARES_CDP_CICLO_I)
+    return []
 
 
 def obter_config(disciplina: str) -> DisciplinaConfig:

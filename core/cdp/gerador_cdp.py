@@ -141,39 +141,6 @@ def _titulo_cdp_por_caminho(caminho_pdf: str) -> str:
     return titulo if len(titulo) >= 3 else ""
 
 
-def _acompanhamento_cdp_contextual(perfil: str, tema: str) -> list[str]:
-    tema_frase = _limpar_tema_cdp_contextual(tema, "")
-    if perfil == "matematica":
-        return [
-            "☑ Identificar se o aluno compreende os dados e procedimentos envolvidos na situação-problema.",
-            "☑ Observar se utiliza corretamente as operações e registros necessários para resolver a atividade.",
-            "☑ Verificar participação nas resoluções, justificativas e correção coletiva.",
-        ]
-    if perfil in {"lingua_portuguesa_ef", "lingua_portuguesa_em", "lingua_portuguesa", "leitura_redacao", "redacao"}:
-        return [
-            "☑ Identificar se o aluno compreende as informações principais do texto ou comando.",
-            "☑ Observar se organiza respostas orais e escritas de forma coerente.",
-            "☑ Verificar participação durante a leitura, os registros e a correção coletiva.",
-        ]
-    return [
-        f"☑ Identificar se o aluno compreende as ideias principais relacionadas a {tema_frase}.",
-        "☑ Observar participação, registros no caderno e realização das atividades propostas.",
-        "☑ Verificar dúvidas apresentadas e avanços durante a correção coletiva.",
-    ]
-
-def _acessibilidade_cdp_contextual(perfil: str, tema: str) -> list[str]:
-    if perfil == "matematica":
-        return [
-            "☑ Explicação com linguagem simples e exemplos próximos da realidade dos estudantes.",
-            "☑ Resolução gradual das atividades com acompanhamento individual quando necessário.",
-            "☑ Apoio com exemplos adicionais e retomada dos cálculos básicos.",
-        ]
-    return [
-        "☑ Utilização de exemplos concretos e próximos do cotidiano dos estudantes.",
-        "☑ Explicação passo a passo, com registro das ideias principais no quadro.",
-        "☑ Apoio individual, retomada de conceitos e flexibilização dos registros quando necessário.",
-    ]
-
 def _tema_truncado_cdp(texto: str) -> bool:
     normalizado = _normalizar(texto).strip(" .:-")
     if not normalizado or len(normalizado) < 12:
