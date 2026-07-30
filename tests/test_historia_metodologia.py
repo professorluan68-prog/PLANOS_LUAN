@@ -168,7 +168,7 @@ def test_historia_referencia_curta_sem_ia_permanece_literal(monkeypatch):
     assert revisado["metodologia"] == metodologia_docx
 
 
-def test_historia_ia_curta_preserva_refino_e_completa_etapas(monkeypatch):
+def test_historia_ia_curta_preserva_docx_e_rejeita_refino_incompleto(monkeypatch):
     import core.lote as lote
 
     monkeypatch.setattr(
@@ -183,7 +183,34 @@ def test_historia_ia_curta_preserva_refino_e_completa_etapas(monkeypatch):
             "texto_prioritario": "As pólis gregas, Atenas e Esparta, cidades-estado e participação política.",
         },
     )
-    monkeypatch.setattr(lote, "_referencia_docx_por_perfil", lambda *args, **kwargs: None)
+    referencia_docx = {
+        "metodologia": [
+            {
+                "titulo": "Para começar",
+                "texto": "Retomar o que os estudantes já sabem sobre pólis gregas.",
+            },
+            {
+                "titulo": "Foco no conteúdo",
+                "texto": "Explicar Atenas, Esparta e as cidades-estado da Grécia Antiga.",
+            },
+            {
+                "titulo": "Na prática",
+                "texto": "Orientar o registro das diferenças entre Atenas e Esparta no caderno.",
+            },
+            {
+                "titulo": "Encerramento",
+                "texto": "Retomar as relações entre pólis, participação política e cidades-estado.",
+            },
+        ],
+        "acompanhamento": ["☑ A1", "☑ A2", "☑ A3"],
+        "acessibilidade": ["☑ X1", "☑ X2", "☑ X3"],
+        "fonte": "METODOLOGIA_HISTORIA.docx",
+    }
+    monkeypatch.setattr(
+        lote,
+        "_referencia_docx_por_perfil",
+        lambda *args, **kwargs: referencia_docx,
+    )
 
     resultado = lote._montar_resultado_aula_ia(
         texto="As pólis gregas eram cidades-estado como Atenas e Esparta. O material traz mapa, imagem e atividade no caderno.",
@@ -233,6 +260,7 @@ def test_historia_ia_curta_preserva_refino_e_completa_etapas(monkeypatch):
     assert len(resultado["metodologia"]) >= 4
     assert "pólis gregas" in texto_metodologia
     assert "Atenas" in texto_metodologia or "Esparta" in texto_metodologia
+    assert resultado["status_referencia_docx"] == "docx_preservado_refino_ia_invalido"
 
 
 def test_historia_variacao_reduz_frases_longas_repetidas():

@@ -321,9 +321,22 @@ def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_r
     assert resultado["status_referencia_docx"] == "docx_refinado_ia"
 
 
-def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
+def test_montar_resultado_aula_ia_redacao_refina_sem_substituir_texto_da_ia():
     deps = _deps_resultados_base()
     deps.origem_metodologia_por_referencia_fn = lambda perfil: ""
+    referencia = {
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Texto base do DOCX."},
+            {"titulo": "Foco no conteúdo", "texto": "Foco base do DOCX."},
+            {"titulo": "Na prática", "texto": "Prática base do DOCX."},
+            {"titulo": "Encerramento", "texto": "Fechamento base do DOCX."},
+        ],
+        "acompanhamento": ["DOCX 1", "DOCX 2", "DOCX 3"],
+        "acessibilidade": ["Acesso DOCX 1", "Acesso DOCX 2", "Acesso DOCX 3"],
+        "fonte": "METODOLOGIA_REDAÇÃO.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+    deps.localizar_docx_referencia_por_perfil_fn = lambda *args, **kwargs: referencia["fonte"]
 
     resultado = montar_resultado_aula_ia(
         texto="Texto do PDF de Redacao e Leitura",
@@ -342,7 +355,10 @@ def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
             "tema": "Leitura e producao textual",
             "aprendizagem": "Compreender a proposta de leitura e escrita da aula.",
             "metodologia": [
-                {"titulo": "Leitura compartilhada", "texto": "Metodologia IA especifica ao PDF."}
+                {"titulo": "Para começar", "texto": "Metodologia IA específica ao PDF."},
+                {"titulo": "Foco no conteúdo", "texto": "Foco IA específico ao PDF."},
+                {"titulo": "Na prática", "texto": "Prática IA específica ao PDF."},
+                {"titulo": "Encerramento", "texto": "Encerramento IA específico ao PDF."},
             ],
             "acompanhamento": ["IA1", "IA2", "IA3"],
             "acessibilidade": ["IAA1", "IAA2", "IAA3"],
@@ -354,7 +370,7 @@ def test_montar_resultado_aula_ia_redacao_preserva_metodologia_da_ia():
         dependencias=deps,
     )
 
-    assert resultado["metodologia"][0]["texto"] == "Metodologia IA especifica ao PDF."
+    assert resultado["metodologia"][0]["texto"] == "Metodologia IA específica ao PDF."
     assert resultado["metodologia"][0]["texto"] != "Modelo leitura"
     assert resultado["acompanhamento"] == ["IA1", "IA2", "IA3"]
     assert resultado["acessibilidade"] == ["IAA1", "IAA2", "IAA3"]

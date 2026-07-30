@@ -65,7 +65,9 @@ As regras de aliases e resolução de pastas ficam em `core/helpers.py`. Ao acre
 
 ### DOCX de referência dentro da pasta dos PDFs
 
-O sistema pode usar um DOCX pedagógico colocado na mesma árvore dos PDFs. O formato reconhecido deve manter, por aula:
+Nos planos regulares, o DOCX pedagógico colocado na mesma árvore dos PDFs é a fonte obrigatória da metodologia, do acompanhamento da aprendizagem e da acessibilidade. Sem a referência correspondente, o sistema não deve inventar essas colunas internamente. As exceções são EJA, CDP, Orientação de Estudos (etapas extraídas do PDF da missão) e aulas que já tragam metodologia estruturada no próprio material.
+
+O formato reconhecido deve manter, por aula:
 
 ```text
 AULA 1 — Título da aula

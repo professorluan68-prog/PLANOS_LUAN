@@ -567,18 +567,31 @@ def _montar_resultado_sem_referencia_docx(
     )
 
 
-_PERFIS_METODOLOGIA_DOCX_ESTRITA = {
-    "lingua_portuguesa_ef",
-    "lingua_portuguesa_em",
-    "leitura_redacao",
-}
+_PERFIS_COM_FLUXO_PEDAGOGICO_NO_PDF = {"orientacao_estudos"}
 
 
 def _perfil_referencia_docx_estrita(
     dependencias: DependenciasResultadosAula,
     perfil: str,
+    *,
+    contexto_metodologico: str = "",
+    modalidade_eja_ativa: bool = False,
 ) -> bool:
-    return perfil in _PERFIS_METODOLOGIA_DOCX_ESTRITA
+    """Define quando o DOCX e a fonte obrigatoria das colunas pedagogicas.
+
+    Nos planos regulares, metodologia, acompanhamento e acessibilidade devem
+    partir do DOCX da disciplina. EJA, CDP e Orientação de Estudos mantêm
+    fluxos próprios; nesta última, as etapas pedagógicas vêm do PDF da missão.
+    Aulas que já trazem uma metodologia estruturada no material de origem
+    também preservam essa fonte.
+    """
+    if (
+        modalidade_eja_ativa
+        or contexto_metodologico == "cdp_eja"
+        or perfil in _PERFIS_COM_FLUXO_PEDAGOGICO_NO_PDF
+    ):
+        return False
+    return bool(dependencias.origem_metodologia_por_referencia_fn(perfil))
 
 
 def _origem_sem_referencia_docx(
@@ -720,7 +733,12 @@ def montar_resultado_aula_ia(
         )
 
     if (
-        _perfil_referencia_docx_estrita(dependencias, perfil)
+        _perfil_referencia_docx_estrita(
+            dependencias,
+            perfil,
+            contexto_metodologico=contexto_metodologico,
+            modalidade_eja_ativa=modalidade_eja_ativa,
+        )
         and not referencia_docx
         and not metodologia_fixa_pdf
     ):
@@ -1113,7 +1131,12 @@ def montar_resultado_aula_local(
         )
 
     if (
-        _perfil_referencia_docx_estrita(dependencias, perfil)
+        _perfil_referencia_docx_estrita(
+            dependencias,
+            perfil,
+            contexto_metodologico=contexto_metodologico,
+            modalidade_eja_ativa=modalidade_eja_ativa,
+        )
         and not referencia_docx
         and not metodologia_fixa_pdf
     ):
