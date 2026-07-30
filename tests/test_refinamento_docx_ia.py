@@ -53,7 +53,12 @@ def test_montar_resultado_aula_ia_preserva_refinamento_ia(monkeypatch):
 
     referencia_docx = {
         "titulo": "Tema DOCX Cru",
-        "metodologia": [{"titulo": "Etapa 1", "texto": "Texto DOCX antigo."}],
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Texto DOCX antigo."},
+            {"titulo": "Foco no conteúdo", "texto": "Foco DOCX antigo."},
+            {"titulo": "Na prática", "texto": "Prática DOCX antiga."},
+            {"titulo": "Encerramento", "texto": "Encerramento DOCX antigo."},
+        ],
         "acompanhamento": ["Item DOCX Antigo 1", "Item DOCX Antigo 2"],
         "acessibilidade": ["Acesso DOCX Antigo 1", "Acesso DOCX Antigo 2"],
         "fonte": "referencia.docx"

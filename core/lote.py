@@ -2862,6 +2862,31 @@ def _preparar_contexto_aula_pdf(
         dependencias=dependencias,
         caminho_pptx_correspondente=caminho_pptx_correspondente,
     )
+
+
+def _mensagem_ia_referencia_docx_indisponivel(aula: dict) -> str:
+    """Explica por que a IA não pode refinar a aula sem ocultar o diagnóstico."""
+    status = str(aula.get("status_referencia_docx") or "").strip()
+    motivo = str(aula.get("motivo_referencia_docx") or "").strip()
+    arquivo = str(aula.get("arquivo_referencia_docx") or "").strip()
+    numero_aula = str(aula.get("numero_aula") or "selecionada").strip()
+
+    if status == "docx_ausente":
+        return (
+            "A IA não foi acionada porque não existe um DOCX de referência na pasta "
+            f"do PDF da Aula {numero_aula}."
+        )
+
+    nome_arquivo = Path(arquivo).name if arquivo else "DOCX de referência"
+    detalhe = motivo or (
+        f"A Aula {numero_aula} não foi localizada de forma utilizável no DOCX."
+    )
+    return (
+        f"A IA não foi acionada porque o arquivo '{nome_arquivo}' foi encontrado, "
+        f"mas a Aula {numero_aula} precisa de correção: {detalhe}"
+    )
+
+
 def _aula_por_pdf(
     caminho_pdf: str,
     disciplina: str,
@@ -3111,9 +3136,7 @@ def _aula_por_pdf(
             )
 
             if usar_ia and not referencia_docx_disponivel:
-                ia_erro = (
-                    "A IA nao foi acionada porque a referencia DOCX desta aula nao foi encontrada."
-                )
+                ia_erro = _mensagem_ia_referencia_docx_indisponivel(rascunho_local)
                 avisos = list(rascunho_local.get("avisos_validacao") or [])
                 if ia_erro not in avisos:
                     avisos.append(ia_erro)

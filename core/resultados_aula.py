@@ -177,6 +177,84 @@ def _normalizar_metodologia_cdp(metodologia: list[dict]) -> list[dict]:
     return saida
 
 
+def _diagnosticar_referencia_docx(
+    *,
+    referencia_docx: dict | None,
+    arquivo_referencia_docx: str,
+    numero_aula: str,
+) -> dict:
+    """Produz um motivo utilizável pela tela antes de acionar a IA.
+
+    O seletor retorna ``None`` tanto quando o DOCX não existe quanto quando o
+    arquivo existe, mas não consegue entregar uma aula utilizável. Esta função
+    mantém essas duas situações separadas para que o usuário saiba o que deve
+    corrigir.
+    """
+    fonte = str(
+        (referencia_docx or {}).get("fonte") or arquivo_referencia_docx or ""
+    ).strip()
+    numero = str(numero_aula or "").strip() or "selecionada"
+
+    if not fonte:
+        return {
+            "status": "docx_ausente",
+            "arquivo": "",
+            "motivo": (
+                "Nenhum arquivo DOCX de referência foi localizado na pasta do PDF."
+            ),
+            "bloqueia_geracao": True,
+        }
+
+    if not referencia_docx:
+        return {
+            "status": "aula_ausente_ou_incompleta",
+            "arquivo": fonte,
+            "motivo": (
+                f"O arquivo DOCX de referência foi encontrado, mas a Aula {numero} "
+                "não foi localizada de forma utilizável. Verifique o título 'AULA "
+                "N - ...' e as etapas da metodologia dessa aula."
+            ),
+            "bloqueia_geracao": True,
+        }
+
+    metodologia = list(referencia_docx.get("metodologia") or [])
+    etapas_excedentes = []
+    for etapa in metodologia:
+        if not isinstance(etapa, dict):
+            continue
+        texto = str(etapa.get("texto") or "").strip()
+        if len(texto) > 350:
+            titulo = str(etapa.get("titulo") or "Etapa").strip()
+            etapas_excedentes.append(f"{titulo} ({len(texto)} caracteres)")
+    if etapas_excedentes:
+        return {
+            "status": "etapa_acima_do_limite",
+            "arquivo": fonte,
+            "motivo": (
+                f"A Aula {numero} foi encontrada no DOCX, mas a etapa "
+                f"{', '.join(etapas_excedentes)} ultrapassa o limite de 350 caracteres. "
+                "Com IA, o sistema pode refiná-la; sem IA, ajuste o DOCX."
+            ),
+            "bloqueia_geracao": False,
+        }
+
+    metodologia_valida, motivo_metodologia = validar_etapas_obrigatorias(metodologia)
+    if not metodologia_valida:
+        return {
+            "status": "metodologia_incompleta",
+            "arquivo": fonte,
+            "motivo": f"A Aula {numero} foi encontrada no DOCX, mas {motivo_metodologia}",
+            "bloqueia_geracao": True,
+        }
+
+    return {
+        "status": "docx_pronto",
+        "arquivo": fonte,
+        "motivo": "",
+        "bloqueia_geracao": False,
+    }
+
+
 def _extrair_base_pedagogica(
     *,
     texto: str,
@@ -199,6 +277,11 @@ def _extrair_base_pedagogica(
         numero_aula,
         tema,
         perfil,
+    )
+    diagnostico_referencia_docx = _diagnosticar_referencia_docx(
+        referencia_docx=referencia_docx,
+        arquivo_referencia_docx=str(arquivo_referencia_docx or ""),
+        numero_aula=numero_aula,
     )
     habilidade_referencia = dependencias.habilidade_referencia_docx_fn(referencia_docx)
     extracao = dependencias.extracao_pdf_fn(
@@ -226,6 +309,7 @@ def _extrair_base_pedagogica(
     return {
         "referencia_docx": referencia_docx,
         "arquivo_referencia_docx": str(arquivo_referencia_docx or ""),
+        "diagnostico_referencia_docx": diagnostico_referencia_docx,
         "habilidade_referencia": habilidade_referencia,
         "extracao": extracao,
         "tipo": tipo,
@@ -240,6 +324,7 @@ def _registrar_proveniencia_docx(
     arquivo_referencia_docx: str,
     status_sucesso: str = "",
     literal: bool = False,
+    diagnostico_referencia_docx: dict | None = None,
 ) -> dict:
     fonte = str((referencia_docx or {}).get("fonte") or arquivo_referencia_docx or "").strip()
     if referencia_docx:
@@ -247,11 +332,24 @@ def _registrar_proveniencia_docx(
         aula["arquivo_referencia_docx"] = fonte
         aula["motivo_referencia_docx"] = ""
         aula["texto_central_copiado_literalmente"] = bool(literal)
+        aula["diagnostico_referencia_docx"] = diagnostico_referencia_docx or {
+            "status": "docx_pronto",
+            "arquivo": fonte,
+            "motivo": "",
+            "bloqueia_geracao": False,
+        }
         return aula
 
-    aula["arquivo_referencia_docx"] = fonte
+    diagnostico = diagnostico_referencia_docx or {}
+    aula["arquivo_referencia_docx"] = str(diagnostico.get("arquivo") or fonte)
     aula["texto_central_copiado_literalmente"] = False
-    if fonte:
+    if diagnostico:
+        aula["status_referencia_docx"] = str(
+            diagnostico.get("status") or "aula_ausente_ou_incompleta"
+        )
+        aula["motivo_referencia_docx"] = str(diagnostico.get("motivo") or "")
+        aula["diagnostico_referencia_docx"] = diagnostico
+    elif fonte:
         aula["status_referencia_docx"] = "aula_ausente_ou_incompleta"
         aula["motivo_referencia_docx"] = (
             "A aula correspondente nao foi encontrada completa no DOCX externo. "
@@ -263,6 +361,12 @@ def _registrar_proveniencia_docx(
             "Nenhum DOCX externo de metodologia foi localizado na pasta do PDF. "
             "Foi utilizado o motor local para esta aula."
         )
+        aula["diagnostico_referencia_docx"] = {
+            "status": "docx_ausente",
+            "arquivo": "",
+            "motivo": aula["motivo_referencia_docx"],
+            "bloqueia_geracao": False,
+        }
     return aula
 
 
@@ -529,6 +633,8 @@ def _montar_resultado_sem_referencia_docx(
     total_aulas: int,
     dependencias: DependenciasResultadosAula,
     aviso_ausencia: str,
+    arquivo_referencia_docx: str = "",
+    diagnostico_referencia_docx: dict | None = None,
 ) -> dict:
     recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
     aula_gerada = {
@@ -563,7 +669,8 @@ def _montar_resultado_sem_referencia_docx(
     return _registrar_proveniencia_docx(
         aula_gerada,
         referencia_docx=None,
-        arquivo_referencia_docx="",
+        arquivo_referencia_docx=arquivo_referencia_docx,
+        diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
 
 
@@ -622,6 +729,8 @@ def _resultado_referencia_docx_estrita(
     indice_aula: int,
     total_aulas: int,
     dependencias: DependenciasResultadosAula,
+    arquivo_referencia_docx: str = "",
+    diagnostico_referencia_docx: dict | None = None,
 ) -> dict:
     nome_disciplina = str(disciplina_base or perfil or "Disciplina").strip() or "Disciplina"
     if referencia_docx:
@@ -661,9 +770,14 @@ def _resultado_referencia_docx_estrita(
         total_aulas=total_aulas,
         dependencias=dependencias,
         aviso_ausencia=(
-            f"{nome_disciplina}: nao encontrei o arquivo .docx de referencia na pasta do PDF. "
-            "Sem essa referencia, a disciplina nao gera metodologia interna."
+            str((diagnostico_referencia_docx or {}).get("motivo") or "")
+            or (
+                f"{nome_disciplina}: nao encontrei o arquivo .docx de referencia na pasta do PDF. "
+                "Sem essa referencia, a disciplina nao gera metodologia interna."
+            )
         ),
+        arquivo_referencia_docx=arquivo_referencia_docx,
+        diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
 
 
@@ -704,6 +818,7 @@ def montar_resultado_aula_ia(
     )
     referencia_docx = base["referencia_docx"]
     arquivo_referencia_docx = base["arquivo_referencia_docx"]
+    diagnostico_referencia_docx = base["diagnostico_referencia_docx"]
     habilidade_referencia = base["habilidade_referencia"]
     extracao = base["extracao"]
     tipo = base["tipo"]
@@ -732,15 +847,19 @@ def montar_resultado_aula_ia(
             conteudos_secao=conteudos_secao,
         )
 
+    referencia_docx_obrigatoria = _perfil_referencia_docx_estrita(
+        dependencias,
+        perfil,
+        contexto_metodologico=contexto_metodologico,
+        modalidade_eja_ativa=modalidade_eja_ativa,
+    )
     if (
-        _perfil_referencia_docx_estrita(
-            dependencias,
-            perfil,
-            contexto_metodologico=contexto_metodologico,
-            modalidade_eja_ativa=modalidade_eja_ativa,
-        )
-        and not referencia_docx
+        referencia_docx_obrigatoria
         and not metodologia_fixa_pdf
+        and (
+            not referencia_docx
+            or diagnostico_referencia_docx.get("bloqueia_geracao", False)
+        )
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -757,6 +876,8 @@ def montar_resultado_aula_ia(
             indice_aula=indice_aula,
             total_aulas=total_aulas,
             dependencias=dependencias,
+            arquivo_referencia_docx=arquivo_referencia_docx,
+            diagnostico_referencia_docx=diagnostico_referencia_docx,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
@@ -1048,6 +1169,7 @@ def montar_resultado_aula_ia(
             else "docx_preservado_refino_ia_invalido"
         ),
         literal=False,
+        diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
     return _registrar_aviso_referencia_metodologica_ia(resultado, plano_ia)
 
@@ -1090,6 +1212,7 @@ def montar_resultado_aula_local(
     )
     referencia_docx = base["referencia_docx"]
     arquivo_referencia_docx = base["arquivo_referencia_docx"]
+    diagnostico_referencia_docx = base["diagnostico_referencia_docx"]
     habilidade_referencia = base["habilidade_referencia"]
     extracao = base["extracao"]
     tipo = base["tipo"]
@@ -1130,15 +1253,19 @@ def montar_resultado_aula_local(
             "com foco em autonomia de estudo e resolucao orientada das atividades."
         )
 
+    referencia_docx_obrigatoria = _perfil_referencia_docx_estrita(
+        dependencias,
+        perfil,
+        contexto_metodologico=contexto_metodologico,
+        modalidade_eja_ativa=modalidade_eja_ativa,
+    )
     if (
-        _perfil_referencia_docx_estrita(
-            dependencias,
-            perfil,
-            contexto_metodologico=contexto_metodologico,
-            modalidade_eja_ativa=modalidade_eja_ativa,
-        )
-        and not referencia_docx
+        referencia_docx_obrigatoria
         and not metodologia_fixa_pdf
+        and (
+            not referencia_docx
+            or diagnostico_referencia_docx.get("bloqueia_geracao", False)
+        )
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -1155,6 +1282,8 @@ def montar_resultado_aula_local(
             indice_aula=indice_aula,
             total_aulas=total_aulas,
             dependencias=dependencias,
+            arquivo_referencia_docx=arquivo_referencia_docx,
+            diagnostico_referencia_docx=diagnostico_referencia_docx,
         )
 
     if referencia_docx:
@@ -1382,4 +1511,5 @@ def montar_resultado_aula_local(
         resultado,
         referencia_docx=None,
         arquivo_referencia_docx=arquivo_referencia_docx,
+        diagnostico_referencia_docx=diagnostico_referencia_docx,
     )

@@ -135,7 +135,87 @@ def test_montar_resultado_aula_local_exige_referencia_docx():
     assert resultado["ia_usada"] is False
     assert resultado["metodologia"] == []
     assert resultado["status_referencia_docx"] == "docx_ausente"
-    assert "nao gera metodologia interna" in resultado["avisos_validacao"][-1]
+    assert "Nenhum arquivo DOCX" in resultado["avisos_validacao"][-1]
+
+
+def test_montar_resultado_local_distingue_docx_encontrado_de_aula_incompleta():
+    deps = _deps_resultados_base()
+    deps.localizar_docx_referencia_por_perfil_fn = (
+        lambda *args, **kwargs: "METODOLOGIA_HISTORIA.docx"
+    )
+
+    resultado = montar_resultado_aula_local(
+        texto="Texto da aula",
+        tema="Tema local",
+        material_digital="AULA 1 - Tema local",
+        numero_aula="1",
+        disciplina_base="História",
+        turma="6º ANO A",
+        provedor_ia="",
+        perfil="historia",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"] == []
+    assert resultado["status_referencia_docx"] == "aula_ausente_ou_incompleta"
+    assert resultado["arquivo_referencia_docx"] == "METODOLOGIA_HISTORIA.docx"
+    assert "Aula 1" in resultado["motivo_referencia_docx"]
+    assert (
+        resultado["diagnostico_referencia_docx"]["bloqueia_geracao"] is True
+    )
+
+
+def test_montar_resultado_local_indica_etapa_obrigatoria_ausente_no_docx():
+    deps = _deps_resultados_base()
+    referencia = {
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Retomar a aula anterior."},
+            {"titulo": "Foco no conteúdo", "texto": "Explicar o conceito central."},
+            {"titulo": "Encerramento", "texto": "Fazer uma síntese final."},
+        ],
+        "fonte": "METODOLOGIA_HISTORIA.docx",
+    }
+    deps.referencia_docx_por_perfil_fn = lambda *args, **kwargs: referencia
+    deps.localizar_docx_referencia_por_perfil_fn = (
+        lambda *args, **kwargs: referencia["fonte"]
+    )
+
+    resultado = montar_resultado_aula_local(
+        texto="Texto da aula",
+        tema="Tema local",
+        material_digital="AULA 1 - Tema local",
+        numero_aula="1",
+        disciplina_base="História",
+        turma="6º ANO A",
+        provedor_ia="",
+        perfil="historia",
+        contexto_metodologico="regular",
+        indice_aula=0,
+        total_aulas=1,
+        modalidade_eja_ativa=False,
+        metodologia_fixa_pdf=[],
+        aprendizagem_pv="",
+        objetivos_orientacao=[],
+        aprendizagem_orientacao="",
+        usar_ia=False,
+        ia_erro="",
+        dependencias=deps,
+    )
+
+    assert resultado["metodologia"] == []
+    assert resultado["status_referencia_docx"] == "metodologia_incompleta"
+    assert "Na prática" in resultado["motivo_referencia_docx"]
+    assert resultado["arquivo_referencia_docx"] == referencia["fonte"]
 
 
 def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
@@ -194,7 +274,12 @@ def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
 def test_montar_resultado_aula_local_bloqueia_docx_com_mais_de_350_caracteres():
     deps = _deps_resultados_base()
     referencia = {
-        "metodologia": [{"titulo": "Para começar", "texto": "A" * 351}],
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "A" * 351},
+            {"titulo": "Foco no conteúdo", "texto": "Foco da aula."},
+            {"titulo": "Na prática", "texto": "Prática da aula."},
+            {"titulo": "Encerramento", "texto": "Síntese final."},
+        ],
         "acompanhamento": ["R1", "R2", "R3"],
         "acessibilidade": ["A1", "A2", "A3"],
         "fonte": "referencia_longa.docx",
@@ -274,7 +359,12 @@ def test_montar_resultado_local_gera_listas_quando_docx_nao_as_traz():
 def test_montar_resultado_aula_ia_core_usa_referencia_como_fallback_sem_apagar_refino():
     deps = _deps_resultados_base()
     referencia = {
-        "metodologia": [{"titulo": "Para começar", "texto": "Texto DOCX"}],
+        "metodologia": [
+            {"titulo": "Para começar", "texto": "Texto DOCX"},
+            {"titulo": "Foco no conteúdo", "texto": "Foco DOCX"},
+            {"titulo": "Na prática", "texto": "Prática DOCX"},
+            {"titulo": "Encerramento", "texto": "Fechamento DOCX"},
+        ],
         "acompanhamento": ["☑ R1", "☑ R2", "☑ R3"],
         "acessibilidade": ["☑ A1", "☑ A2", "☑ A3"],
         "fonte": "referencia.docx",
@@ -380,8 +470,10 @@ def test_montar_resultado_aula_ia_preserva_docx_quando_ia_altera_estrutura():
     deps = _deps_resultados_base()
     referencia = {
         "metodologia": [
-            {"titulo": "Abertura", "texto": "Texto original da abertura."},
-            {"titulo": "Pratica", "texto": "Texto original da pratica."},
+            {"titulo": "Para começar", "texto": "Texto original da abertura."},
+            {"titulo": "Foco no conteúdo", "texto": "Texto original do foco."},
+            {"titulo": "Na prática", "texto": "Texto original da prática."},
+            {"titulo": "Encerramento", "texto": "Texto original do encerramento."},
         ],
         "acompanhamento": ["R1", "R2", "R3"],
         "acessibilidade": ["A1", "A2", "A3"],

@@ -58,6 +58,31 @@ def test_validador_mantem_bloqueio_quando_ha_mesmo_poucas_etapas():
     assert any("metodologia com poucas etapas" in problema for problema in problemas)
 
 
+def test_validador_mostra_apenas_o_motivo_docx_que_bloqueou_a_aula():
+    motivo = (
+        "A Aula 2 foi encontrada no DOCX, mas Metodologia sem etapa(s) "
+        "obrigatória(s): Na prática."
+    )
+    aulas = [
+        {
+            "numero_aula": "2",
+            "tema": "Tema preservado do PDF",
+            "aprendizagem": "",
+            "metodologia": [],
+            "acompanhamento": [],
+            "acessibilidade": [],
+            "motivo_referencia_docx": motivo,
+            "diagnostico_referencia_docx": {
+                "status": "metodologia_incompleta",
+                "motivo": motivo,
+                "bloqueia_geracao": True,
+            },
+        }
+    ]
+
+    assert validar_aulas_geradas(aulas) == [motivo]
+
+
 def test_validador_aceita_metodologia_curta_quando_modo_simples_esta_liberado():
     aulas = [
         {

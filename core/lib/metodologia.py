@@ -66,6 +66,466 @@ class ValidadorQualidade:
         return validada
 
 
+def _etapas_ingles(tipo: str) -> list[tuple[str, str]]:
+    """Retorna a sequência de etapas própria de cada tipo de aula de Inglês."""
+    if tipo == "leitura_em":
+        return [
+            ("Para começar", "para_comecar_virem_e_conversem"),
+            ("Vocabulário", "vocabulario_pre_leitura"),
+            ("Hora da leitura", "leitura_texto_principal"),
+            ("Foco no conteúdo", "foco_conteudo_estrategia"),
+            ("Pause e responda", "pause_e_responda"),
+            ("Na prática", "questoes_vestibular"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "gramatica":
+        return [
+            ("Relembre", "relembre_ou_para_comecar"),
+            ("Na prática — Vocabulário", "listening_ou_vocabulario"),
+            ("Foco no conteúdo", "foco_conteudo_gramatica"),
+            ("Pause e responda", "pause_e_responda"),
+            ("Na prática — Exercícios", "exercicios_estruturados"),
+            ("Produção oral", "producao_oral_duplas"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "listening":
+        return [
+            ("Para começar", "para_comecar_virem_e_conversem"),
+            ("Vocabulário", "vocabulario_pre_escuta"),
+            ("Na prática", "listening_atividade"),
+            ("Foco no conteúdo", "foco_conteudo"),
+            ("Pause e responda", "pause_e_responda"),
+            ("Na prática", "pratica_adicional"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "producao_oral":
+        return [
+            ("Relembre", "relembre"),
+            ("Vocabulário", "vocabulario_expressoes"),
+            ("De olho no modelo", "modelo_dialogo"),
+            ("Na prática", "pratica_em_duplas"),
+            ("Produção própria", "producao_propria"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "leitura_literaria":
+        return [
+            ("Para começar", "para_comecar_virem_e_conversem"),
+            ("Foco no conteúdo", "foco_conteudo_estrategia_literaria"),
+            ("Pause e responda", "pause_e_responda"),
+            ("Na prática", "atividades_leitura"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "musica":
+        return [
+            ("Relembre", "relembre_ou_para_comecar"),
+            ("Na prática", "listening_musica"),
+            ("De olho no modelo", "analise_letra"),
+            ("Foco no conteúdo", "foco_conteudo_gramatica"),
+            ("Pause e responda", "pause_e_responda"),
+            ("Na prática", "exercicios_pratica"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    if tipo == "revisao":
+        return [
+            ("Relembre", "relembre_sintese"),
+            ("Na prática", "atividades_revisao_multiplas"),
+            ("Encerramento", "encerramento_com_suas_palavras"),
+        ]
+    return [
+        ("Para começar", "para_comecar"),
+        ("Vocabulário", "vocabulario"),
+        ("Foco no conteúdo", "foco"),
+        ("Pause e responda", "pause"),
+        ("Na prática", "pratica"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
+def _etapas_lingua_portuguesa_ef(tipo: str) -> list[tuple[str, str]]:
+    """Retorna as etapas específicas de Língua Portuguesa do Ensino Fundamental."""
+    if tipo == "autoavaliacao":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Socializacao", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "pratica_oral":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco"),
+            ("Planejamento da apresentacao", "planejamento_oral"),
+            ("Na pratica", "pratica"),
+            ("Socializacao", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "leitura_multimodal":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Correcao dialogada", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "resumo_retextualizacao":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("De olho no modelo", "de_olho_modelo"),
+            ("Todo mundo escreve", "todo_mundo_escreve"),
+            ("Na pratica", "pratica"),
+            ("Revisao com colega", "revisao_colega"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "variacao_linguistica":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "argumentacao_debate":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Planejamento do debate", "planejamento_debate"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "texto_digital_blog":
+        return [
+            ("Relembre", "relembre"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Todo mundo escreve", "todo_mundo_escreve"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo in {"analise_linguistica_ortografia", "gramatica_contextualizada"}:
+        return [
+            ("Relembre", "relembre"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("De olho no modelo", "de_olho_modelo"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "leitura_jornalistica":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "hora_leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "producao_textual":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("De olho no modelo", "de_olho_modelo"),
+            ("Todo mundo escreve", "todo_mundo_escreve"),
+            ("Na pratica", "pratica"),
+            ("Revisao com colega", "revisao_colega"),
+            ("Encerramento", "encerramento"),
+        ]
+    return [
+        ("Para comecar", "para_comecar"),
+        ("Hora da leitura", "hora_leitura"),
+        ("Foco no conteudo", "foco"),
+        ("Na pratica", "pratica"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
+def _etapas_lingua_portuguesa_em(tipo: str) -> list[tuple[str, str]]:
+    """Retorna as etapas específicas de Língua Portuguesa do Ensino Médio."""
+    if tipo == "autoavaliacao":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "foco"),
+            ("Na prática", "pratica"),
+            ("Socialização", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "pratica_oral":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "foco"),
+            ("Planejamento da apresentação", "planejamento_oral"),
+            ("Na prática", "pratica"),
+            ("Socialização", "socializacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo in {"literatura", "genero_textual", "producao_textual", "gramatica_integrada"}:
+        return [
+            ("Para começar", "para_comecar"),
+            ("Foco no conteúdo", "foco"),
+            ("Na prática", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "gramatica_contextualizada":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na prática", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "producao_textual_antigo":
+        return [
+            ("Para começar", "para_comecar"),
+            ("Foco no conteúdo", "foco"),
+            ("Na prática", "pratica"),
+            ("Compartilhamento", "compartilhamento"),
+            ("Encerramento", "encerramento"),
+        ]
+    return [
+        ("Para começar", "para_comecar"),
+        ("Foco no conteúdo", "foco"),
+        ("Na prática", "pratica"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
+def _etapas_ciencias_ef(tipo: str) -> list[tuple[str, str]]:
+    """Retorna as etapas específicas de Ciências do Ensino Fundamental."""
+    if tipo == "analise_dados":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Analise de dados", "analise_dados"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Correcao dialogada", "correcao_dialogada"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "modelagem_cientifica":
+        return [
+            ("Relembre", "relembre"),
+            ("Observacao inicial", "observacao_inicial"),
+            ("Mao na massa", "mao_na_massa"),
+            ("Socializacao", "socializacao"),
+            ("Correcao dialogada", "correcao_dialogada"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "situacao_problema":
+        return [
+            ("Relembre", "relembre"),
+            ("Situacao-problema", "situacao_problema"),
+            ("Na pratica", "pratica"),
+            ("Socializacao", "socializacao"),
+            ("Correcao dialogada", "correcao_dialogada"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "pratica_experimental":
+        return [
+            ("Relembre", "relembre"),
+            ("Para comecar", "para_comecar"),
+            ("Mao na massa", "mao_na_massa"),
+            ("Na pratica", "pratica"),
+            ("Correcao dialogada", "correcao_dialogada"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "investigativa":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Observacao inicial", "observacao_inicial"),
+            ("Na pratica", "pratica"),
+            ("Foco no conteudo", "foco"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "impacto_socioambiental":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("Analise de dados", "analise_dados"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "revisao_retomada":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco"),
+            ("Exercicio resolvido", "modelo"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "producao_projeto":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "producao"),
+            ("Compartilhamento", "compartilhamento"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "leitura_analise":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Hora da leitura", "leitura"),
+            ("Foco no conteudo", "foco"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "estudo_caso":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("Estudo de caso", "estudo_caso"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    return [
+        ("Para comecar", "para_comecar"),
+        ("Foco no conteudo", "foco"),
+        ("Pause e responda", "pause"),
+        ("Na pratica", "pratica"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
+def _etapas_biologia(tipo: str) -> list[tuple[str, str]]:
+    """Retorna as etapas específicas de Biologia."""
+    if tipo == "etico_biotecnologico":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco_1"),
+            ("Foco no conteudo", "foco_2"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "molecular_genetico":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco_1"),
+            ("Foco no conteudo", "foco_2"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "debate_critico":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco_1"),
+            ("Na pratica", "pratica"),
+            ("Foco no conteudo", "foco_2"),
+            ("Pause e responda", "pause"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "aplicacao_biotecnologica":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco_1"),
+            ("Foco no conteudo", "foco_2"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "revisao_aprofundamento":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco_1"),
+            ("Pause e responda", "pause"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "aula_desafio":
+        return [
+            ("Desafio da semana", "desafio"),
+            ("Entendendo o problema", "entendendo_problema"),
+            ("Solucao em acao", "solucao_acao"),
+            ("Hora da verdade", "hora_verdade"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "aula_pratica":
+        return [
+            ("Relembre", "relembre"),
+            ("Na pratica", "pratica"),
+            ("Discussao dos resultados", "discussao_resultados"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "revisao_consolidacao":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteudo", "foco"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "impacto_socioambiental":
+        return [
+            ("Para comecar", "para_comecar"),
+            ("Foco no conteudo", "foco"),
+            ("De olho no modelo", "de_olho_modelo"),
+            ("Na pratica", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    return [
+        ("Para comecar", "para_comecar"),
+        ("Foco no conteudo", "foco"),
+        ("Pause e responda", "pause"),
+        ("Na pratica", "pratica"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
+def _etapas_projeto_de_vida(tipo: str) -> list[tuple[str, str]]:
+    """Retorna as etapas específicas de Projeto de Vida."""
+    if tipo == "futureme":
+        return [
+            ("Para começar", "ponto_de_partida"),
+            ("Foco no conteúdo", "construindo_o_conceito"),
+            ("Na prática", "acesso_plataforma"),
+            ("Compartilhamento", "compartilhamento"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "producao_coletiva":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "foco_no_tema"),
+            ("Na prática", "producao_em_grupos"),
+            ("Compartilhamento", "apresentacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "convivencia":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "foco_no_tema"),
+            ("Na prática", "circulo_ou_votacao"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "consciencia_social":
+        return [
+            ("Para começar", "para_comecar"),
+            ("Foco no conteúdo", "foco_no_tema"),
+            ("Na prática", "pratica"),
+            ("Encerramento", "encerramento"),
+        ]
+    if tipo == "encerramento":
+        return [
+            ("Relembre", "relembre"),
+            ("Foco no conteúdo", "sintese_do_percurso"),
+            ("Na prática", "producao_final"),
+            ("Encerramento", "encerramento"),
+        ]
+    return [
+        ("Para começar", "ponto_de_partida"),
+        ("Foco no conteúdo", "construindo_o_conceito"),
+        ("Na prática", "colocando_em_pratica"),
+        ("Compartilhamento", "virem_e_conversem"),
+        ("Encerramento", "encerramento"),
+    ]
+
+
 def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = None) -> list[tuple[str, str]]:
     """Define as etapas metodológicas adequadas ao perfil e tipo de aula."""
     tipo_aula = contexto_geracao.get("tipo_aula", "simples") if contexto_geracao else "simples"
@@ -82,231 +542,13 @@ def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = N
 
 
     if perfil == "ingles":
-        if tipo == "leitura_em":
-            return [
-                ("Para começar", "para_comecar_virem_e_conversem"),
-                ("Vocabulário", "vocabulario_pre_leitura"),
-                ("Hora da leitura", "leitura_texto_principal"),
-                ("Foco no conteúdo", "foco_conteudo_estrategia"),
-                ("Pause e responda", "pause_e_responda"),
-                ("Na prática", "questoes_vestibular"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "gramatica":
-            return [
-                ("Relembre", "relembre_ou_para_comecar"),
-                ("Na prática — Vocabulário", "listening_ou_vocabulario"),
-                ("Foco no conteúdo", "foco_conteudo_gramatica"),
-                ("Pause e responda", "pause_e_responda"),
-                ("Na prática — Exercícios", "exercicios_estruturados"),
-                ("Produção oral", "producao_oral_duplas"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "listening":
-            return [
-                ("Para começar", "para_comecar_virem_e_conversem"),
-                ("Vocabulário", "vocabulario_pre_escuta"),
-                ("Na prática", "listening_atividade"),
-                ("Foco no conteúdo", "foco_conteudo"),
-                ("Pause e responda", "pause_e_responda"),
-                ("Na prática", "pratica_adicional"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "producao_oral":
-            return [
-                ("Relembre", "relembre"),
-                ("Vocabulário", "vocabulario_expressoes"),
-                ("De olho no modelo", "modelo_dialogo"),
-                ("Na prática", "pratica_em_duplas"),
-                ("Produção própria", "producao_propria"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "leitura_literaria":
-            return [
-                ("Para começar", "para_comecar_virem_e_conversem"),
-                ("Foco no conteúdo", "foco_conteudo_estrategia_literaria"),
-                ("Pause e responda", "pause_e_responda"),
-                ("Na prática", "atividades_leitura"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "musica":
-            return [
-                ("Relembre", "relembre_ou_para_comecar"),
-                ("Na prática", "listening_musica"),
-                ("De olho no modelo", "analise_letra"),
-                ("Foco no conteúdo", "foco_conteudo_gramatica"),
-                ("Pause e responda", "pause_e_responda"),
-                ("Na prática", "exercicios_pratica"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        if tipo == "revisao":
-            return [
-                ("Relembre", "relembre_sintese"),
-                ("Na prática", "atividades_revisao_multiplas"),
-                ("Encerramento", "encerramento_com_suas_palavras")
-            ]
-        # vocabulario e fallback geral
-        return [
-            ("Para começar", "para_comecar"),
-            ("Vocabulário", "vocabulario"),
-            ("Foco no conteúdo", "foco"),
-            ("Pause e responda", "pause"),
-            ("Na prática", "pratica"),
-            ("Encerramento", "encerramento")
-        ]
+        return _etapas_ingles(tipo)
 
     if perfil == "lingua_portuguesa_ef":
-        if tipo == "autoavaliacao":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco"),
-                ("Na pratica", "pratica"),
-                ("Socializacao", "socializacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "pratica_oral":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco"),
-                ("Planejamento da apresentacao", "planejamento_oral"),
-                ("Na pratica", "pratica"),
-                ("Socializacao", "socializacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "leitura_multimodal":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("Na pratica", "pratica"),
-                ("Correcao dialogada", "socializacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "resumo_retextualizacao":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Todo mundo escreve", "todo_mundo_escreve"),
-                ("Na pratica", "pratica"),
-                ("Revisao com colega", "revisao_colega"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "variacao_linguistica":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "argumentacao_debate":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco"),
-                ("Pause e responda", "pause"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Planejamento do debate", "planejamento_debate"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "texto_digital_blog":
-            return [
-                ("Relembre", "relembre"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("Todo mundo escreve", "todo_mundo_escreve"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo in {"analise_linguistica_ortografia", "gramatica_contextualizada"}:
-            return [
-                ("Relembre", "relembre"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "leitura_jornalistica":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Hora da leitura", "hora_leitura"),
-                ("Foco no conteudo", "foco"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "producao_textual":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Todo mundo escreve", "todo_mundo_escreve"),
-                ("Na pratica", "pratica"),
-                ("Revisao com colega", "revisao_colega"),
-                ("Encerramento", "encerramento"),
-            ]
-        return [
-            ("Para comecar", "para_comecar"),
-            ("Hora da leitura", "hora_leitura"),
-            ("Foco no conteudo", "foco"),
-            ("Na pratica", "pratica"),
-            ("Encerramento", "encerramento"),
-        ]
+        return _etapas_lingua_portuguesa_ef(tipo)
 
     if perfil == "lingua_portuguesa_em":
-        # Etapas várias por tipo de aula LP Ensino Médio
-        if tipo == "autoavaliacao":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "foco"),
-                ("Na prática", "pratica"),
-                ("Socialização", "socializacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "pratica_oral":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "foco"),
-                ("Planejamento da apresentação", "planejamento_oral"),
-                ("Na prática", "pratica"),
-                ("Socialização", "socializacao"),
-                ("Encerramento", "encerramento"),
-            ]
-
-        if tipo in {"literatura", "genero_textual", "producao_textual", "gramatica_integrada"}:
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        # Fallbacks antigos para compatibilidade
-        if tipo == "gramatica_contextualizada":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "foco"),
-                ("Pause e responda", "pause"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "producao_textual_antigo":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco"),
-                ("Na prática", "pratica"),
-                ("Compartilhamento", "compartilhamento"),
-                ("Encerramento", "encerramento"),
-            ]
-        return [
-            ("Para começar", "para_comecar"),
-            ("Foco no conteúdo", "foco"),
-            ("Na prática", "pratica"),
-            ("Encerramento", "encerramento"),
-        ]
+        return _etapas_lingua_portuguesa_em(tipo)
 
 
     if perfil in {"leitura_redacao"} and tipo == "producao":
@@ -329,233 +571,16 @@ def _etapas_por_perfil(perfil: str, tipo: str, contexto_geracao: dict | None = N
         ]
 
     if perfil == "ciencias_ef":
-        if tipo == "analise_dados":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Analise de dados", "analise_dados"),
-                ("Foco no conteudo", "foco"),
-                ("Na pratica", "pratica"),
-                ("Correcao dialogada", "correcao_dialogada"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "modelagem_cientifica":
-            return [
-                ("Relembre", "relembre"),
-                ("Observacao inicial", "observacao_inicial"),
-                ("Mao na massa", "mao_na_massa"),
-                ("Socializacao", "socializacao"),
-                ("Correcao dialogada", "correcao_dialogada"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "situacao_problema":
-            return [
-                ("Relembre", "relembre"),
-                ("Situacao-problema", "situacao_problema"),
-                ("Na pratica", "pratica"),
-                ("Socializacao", "socializacao"),
-                ("Correcao dialogada", "correcao_dialogada"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "pratica_experimental":
-            return [
-                ("Relembre", "relembre"),
-                ("Para comecar", "para_comecar"),
-                ("Mao na massa", "mao_na_massa"),
-                ("Na pratica", "pratica"),
-                ("Correcao dialogada", "correcao_dialogada"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "investigativa":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Observacao inicial", "observacao_inicial"),
-                ("Na pratica", "pratica"),
-                ("Foco no conteudo", "foco"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "impacto_socioambiental":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco"),
-                ("Analise de dados", "analise_dados"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "revisao_retomada":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco"),
-                ("Exercicio resolvido", "modelo"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "producao_projeto":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco"),
-                ("Na pratica", "producao"),
-                ("Compartilhamento", "compartilhamento"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "leitura_analise":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Hora da leitura", "leitura"),
-                ("Foco no conteudo", "foco"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "estudo_caso":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco"),
-                ("Estudo de caso", "estudo_caso"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        return [
-            ("Para comecar", "para_comecar"),
-            ("Foco no conteudo", "foco"),
-            ("Pause e responda", "pause"),
-            ("Na pratica", "pratica"),
-            ("Encerramento", "encerramento"),
-        ]
+        return _etapas_ciencias_ef(tipo)
 
     if perfil == "biologia":
-        if tipo == "etico_biotecnologico":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco_1"),
-                ("Foco no conteudo", "foco_2"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "molecular_genetico":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco_1"),
-                ("Foco no conteudo", "foco_2"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "debate_critico":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco_1"),
-                ("Na pratica", "pratica"),
-                ("Foco no conteudo", "foco_2"),
-                ("Pause e responda", "pause"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "aplicacao_biotecnologica":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco_1"),
-                ("Foco no conteudo", "foco_2"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "revisao_aprofundamento":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco_1"),
-                ("Pause e responda", "pause"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "aula_desafio":
-            return [
-                ("Desafio da semana", "desafio"),
-                ("Entendendo o problema", "entendendo_problema"),
-                ("Solucao em acao", "solucao_acao"),
-                ("Hora da verdade", "hora_verdade"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "aula_pratica":
-            return [
-                ("Relembre", "relembre"),
-                ("Na pratica", "pratica"),
-                ("Discussao dos resultados", "discussao_resultados"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "revisao_consolidacao":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteudo", "foco"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "impacto_socioambiental":
-            return [
-                ("Para comecar", "para_comecar"),
-                ("Foco no conteudo", "foco"),
-                ("De olho no modelo", "de_olho_modelo"),
-                ("Na pratica", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        return [
-            ("Para comecar", "para_comecar"),
-            ("Foco no conteudo", "foco"),
-            ("Pause e responda", "pause"),
-            ("Na pratica", "pratica"),
-            ("Encerramento", "encerramento"),
-        ]
+        return _etapas_biologia(tipo)
 
     if perfil == "educacao_financeira":
         return etapas_educacao_financeira(tipo)
 
     if perfil == "projeto_de_vida":
-        if tipo == "futureme":
-            return [
-                ("Para começar", "ponto_de_partida"),
-                ("Foco no conteúdo", "construindo_o_conceito"),
-                ("Na prática", "acesso_plataforma"),
-                ("Compartilhamento", "compartilhamento"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "producao_coletiva":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "foco_no_tema"),
-                ("Na prática", "producao_em_grupos"),
-                ("Compartilhamento", "apresentacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "convivencia":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "foco_no_tema"),
-                ("Na prática", "circulo_ou_votacao"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "consciencia_social":
-            return [
-                ("Para começar", "para_comecar"),
-                ("Foco no conteúdo", "foco_no_tema"),
-                ("Na prática", "pratica"),
-                ("Encerramento", "encerramento"),
-            ]
-        if tipo == "encerramento":
-            return [
-                ("Relembre", "relembre"),
-                ("Foco no conteúdo", "sintese_do_percurso"),
-                ("Na prática", "producao_final"),
-                ("Encerramento", "encerramento"),
-            ]
-        # autoconhecimento / default
-        return [
-            ("Para começar", "ponto_de_partida"),
-            ("Foco no conteúdo", "construindo_o_conceito"),
-            ("Na prática", "colocando_em_pratica"),
-            ("Compartilhamento", "virem_e_conversem"),
-            ("Encerramento", "encerramento"),
-        ]
+        return _etapas_projeto_de_vida(tipo)
 
     if perfil == "historia":
         return [

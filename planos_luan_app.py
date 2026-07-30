@@ -3208,6 +3208,14 @@ if st.session_state.get("turmas_processadas"):
                 else:
                     st.info("ℹ️ **Validação de Palavras-Chave**: Desativada no momento.")
 
+                motivo_referencia_docx = str(
+                    aula.get("motivo_referencia_docx") or ""
+                ).strip()
+                if motivo_referencia_docx:
+                    st.warning(
+                        "Referência DOCX desta aula: " + motivo_referencia_docx
+                    )
+
                 col1, col2 = st.columns(2)
                 with col1:
                     t = st.text_input("Tema", value=aula.get("tema",""), key=f"tema_{rev_tok}_{t_idx}_{a_idx}")

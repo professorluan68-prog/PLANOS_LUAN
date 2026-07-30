@@ -73,6 +73,25 @@ def validar_aulas_geradas(
 
     temas_vistos = set()
     for idx, aula in enumerate(aulas, start=1):
+        diagnostico_referencia = aula.get("diagnostico_referencia_docx") or {}
+        if isinstance(diagnostico_referencia, dict) and diagnostico_referencia.get(
+            "bloqueia_geracao"
+        ):
+            motivo = str(
+                aula.get("motivo_referencia_docx")
+                or diagnostico_referencia.get("motivo")
+                or "A referência DOCX desta aula precisa de correção."
+            ).strip()
+            numero_aula = str(aula.get("numero_aula") or idx).strip() or str(idx)
+            if re.search(rf"\baula\s+{re.escape(numero_aula)}\b", motivo, flags=re.I):
+                problemas.append(motivo)
+            else:
+                problemas.append(f"Aula {numero_aula}: {motivo}")
+            # A geração foi interrompida deliberadamente pela referência DOCX.
+            # Os campos pedagógicos vazios abaixo são consequência do bloqueio,
+            # não erros adicionais que o usuário precise corrigir.
+            continue
+
         tema = str(aula.get("tema", "")).strip()
         if not tema:
             problemas.append(f"Aula {idx}: tema nao identificado.")

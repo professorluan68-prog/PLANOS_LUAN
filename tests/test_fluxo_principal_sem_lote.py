@@ -142,3 +142,55 @@ def test_fluxo_principal_matematica_sem_docx_nao_gera_metodologia_interna(monkey
     assert "parte 2" in normalizar_texto(aula["material"])
     assert aula["metodologia"] == []
     assert aula["status_referencia_docx"] == "docx_ausente"
+
+
+def test_mensagem_ia_diz_quando_docx_existe_mas_aula_precisa_correcao():
+    mensagem = lote._mensagem_ia_referencia_docx_indisponivel(
+        {
+            "numero_aula": "5",
+            "status_referencia_docx": "metodologia_incompleta",
+            "arquivo_referencia_docx": r"C:\materiais\METODOLOGIA_HISTORIA.docx",
+            "motivo_referencia_docx": (
+                "A Aula 5 foi encontrada no DOCX, mas falta a etapa Na prática."
+            ),
+        }
+    )
+
+    assert "foi encontrado" in mensagem
+    assert "METODOLOGIA_HISTORIA.docx" in mensagem
+    assert "Aula 5" in mensagem
+    assert "Na prática" in mensagem
+
+
+def test_fluxo_com_ia_informa_etapa_ausente_no_docx_encontrado(monkeypatch, tmp_path):
+    caminho_pdf = tmp_path / "AULA_1.pdf"
+    caminho_pdf.write_bytes(b"%PDF-1.4")
+    caminho_docx = tmp_path / "METODOLOGIA_HISTORIA.docx"
+    documento = Document()
+    documento.add_paragraph("AULA 1 - Pólis gregas")
+    documento.add_paragraph("METODOLOGIA")
+    documento.add_paragraph("Para começar: Retomar conhecimentos prévios.")
+    documento.add_paragraph("Foco no conteúdo: Explicar as cidades-estado gregas.")
+    documento.add_paragraph("Encerramento: Registrar uma síntese final.")
+    documento.save(caminho_docx)
+
+    monkeypatch.setattr(lote, "_extrair_texto_pdf", lambda caminho: TEXTO_MATEMATICA_PARABOLA)
+
+    aula = lote._aula_por_pdf(
+        str(caminho_pdf),
+        disciplina="História",
+        turma="6º ANO A",
+        bimestre="3º Bimestre",
+        usar_ia=True,
+        provedor_ia="openai",
+    )
+
+    assert aula["ia_usada"] is False
+    assert aula["status_referencia_docx"] == "metodologia_incompleta"
+    assert "Na prática" in aula["motivo_referencia_docx"]
+    assert "foi encontrado" in aula["ia_erro"]
+    assert caminho_docx.name in aula["ia_erro"]
+
+    from core.validador_plano import validar_aulas_geradas
+
+    assert validar_aulas_geradas([aula]) == [aula["motivo_referencia_docx"]]

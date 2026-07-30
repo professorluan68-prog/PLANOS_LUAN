@@ -90,6 +90,8 @@ Item 3
 
 - A correspondência é feita pelo número da aula, não apenas pela semelhança do título.
 - Uma aula incompleta no DOCX não deve substituir o conteúdo do PDF silenciosamente.
+- Antes de acionar a IA, diferenciar sempre: DOCX inexistente; DOCX encontrado sem aula utilizável; etapa obrigatória ausente; ou etapa acima de 350 caracteres. Nunca informar que o arquivo “não foi encontrado” quando o problema está no conteúdo da aula.
+- A mensagem ao usuário deve indicar o nome do DOCX, o número da aula e a correção necessária. Acompanhamento e acessibilidade com menos de três itens continuam opcionais, pois o sistema os completa automaticamente.
 - Arquivos temporários `~$*.docx` e cópias com nome de backup devem ser ignorados.
 - Em Orientação de Estudos, a habilidade do DOCX padronizado tem prioridade sobre a habilidade do PDF.
 - O leitor usa no máximo três itens de acompanhamento e três de acessibilidade por aula.
