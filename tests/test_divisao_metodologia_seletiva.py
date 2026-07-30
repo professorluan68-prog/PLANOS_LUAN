@@ -1,4 +1,5 @@
 from core import lote
+from core.divisor_metodologia import processar_pdf_e_dividir_metodologia
 
 
 def test_processar_varios_pdfs_divide_apenas_os_pdfs_marcados(monkeypatch):
@@ -38,3 +39,16 @@ def test_processar_varios_pdfs_divide_apenas_os_pdfs_marcados(monkeypatch):
         "Tema 2 - continuidade",
         "Tema 3",
     ]
+
+
+def test_segunda_parte_do_mesmo_pdf_mantem_retomada_propria():
+    metodologia = (
+        "Para comecar:\nLer a reportagem.\n\n"
+        "Foco no conteudo:\nAnalisar as ideias principais.\n\n"
+        "Na pratica:\nResponder as questoes propostas.\n\n"
+        "Encerramento:\nRegistrar uma sintese."
+    )
+
+    _, segunda_parte = processar_pdf_e_dividir_metodologia(metodologia)
+
+    assert "Retomar brevemente os conceitos explorados na aula anterior" in segunda_parte

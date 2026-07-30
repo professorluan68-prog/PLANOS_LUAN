@@ -467,7 +467,7 @@ def test_metodologia_converte_verbos_para_infinitivo():
     assert "Finalizar a atividade com registro." in texto
 
 
-def test_abertura_de_sequencia_ganha_variacao_controlada():
+def test_aula_de_pdf_novo_nao_recebe_retomada_automatica():
     texto = "Ativar conhecimentos previos sobre o tema."
     ajustado = _ajustar_texto_por_sequencia(
         texto,
@@ -477,14 +477,9 @@ def test_abertura_de_sequencia_ganha_variacao_controlada():
         tema="Crase",
     )
 
-    assert "Ativar conhecimentos previos sobre o tema." in ajustado
-    assert (
-        "Retomar a aula anterior" in ajustado
-        or "Recuperar aprendizagens da aula anterior" in ajustado
-        or "Revisitar os registros da aula anterior" in ajustado
-        or "Dar continuidade ao estudo de" in ajustado
-        or "Reativar os conhecimentos construidos" in ajustado
-    )
+    assert ajustado == texto
+    assert "Retomar a aula anterior" not in ajustado
+    assert "Dar continuidade ao estudo de" not in ajustado
 
 
 def test_detecta_tecnicas_lemov_no_pdf():

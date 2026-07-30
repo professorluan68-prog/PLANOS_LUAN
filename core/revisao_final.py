@@ -15,7 +15,7 @@ from core.listas_pedagogicas import (
 from core.models import PlanoCompleto
 from core.validador_plano import validar_aula_final, calcular_aderencia_pdf
 
-VERSAO_GERADOR_ATUAL = "1.2.13"
+VERSAO_GERADOR_ATUAL = "1.2.14"
 
 # CORREÇÃO FALHA #8 — Score mínimo aceitável para entrega sem regeneração
 SCORE_MINIMO_ACEITAVEL = 70

@@ -134,7 +134,7 @@ def test_visoes_de_mundo_nao_aciona_acessibilidade_de_anatomia_visual():
     assert "retina" not in texto
 
 
-def test_continuidade_metodologica_preserva_acentos():
+def test_pdf_novo_nao_recebe_texto_de_continuidade_automatico():
     texto = _ajustar_texto_por_sequencia(
         "Na prática: orientar a leitura e o registro no caderno.",
         "foco",
@@ -143,8 +143,8 @@ def test_continuidade_metodologica_preserva_acentos():
         tema="Trovadorismo",
     )
 
-    assert "necessário" in texto
-    assert "necessario" not in texto
+    assert texto == "Na prática: orientar a leitura e o registro no caderno."
+    assert "continuidade do estudo" not in texto
 
 
 def test_lp_ef_acompanhamento_e_acessibilidade_especificos_por_conteudo():

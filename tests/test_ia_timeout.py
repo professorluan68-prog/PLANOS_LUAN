@@ -135,6 +135,12 @@ def test_montar_prompt_inclui_rascunho_local_como_base_de_refinamento():
                 {"titulo": "Na pratica", "texto": "Interpretar dados e registrar propostas de economia de agua."},
             ],
         },
+        contexto_geracao={
+            "aberturas_recentes": [
+                "Ler uma reportagem e registrar as ideias principais.",
+                "Observar um video e discutir percepcoes da turma.",
+            ],
+        },
     )
 
     assert "RASCUNHO LOCAL DO SISTEMA" in prompt
@@ -142,6 +148,10 @@ def test_montar_prompt_inclui_rascunho_local_como_base_de_refinamento():
     assert "Aprendizagem base: Analisar o uso consciente da agua no cotidiano." in prompt
     assert "Metodologia base:" in prompt
     assert "- Para comecar: Retomar situacoes de consumo de agua na escola e em casa." in prompt
+    assert "acao concreta de cada etapa do DOCX como obrigatoria" in prompt
+    assert "nao acrescente por conta propria uma retomada generica" in prompt
+    assert "ABERTURAS JA USADAS EM PDFs DIFERENTES" in prompt
+    assert "Ler uma reportagem e registrar as ideias principais." in prompt
 
 
 def test_aula_por_pdf_envia_rascunho_local_para_refinamento_da_ia(monkeypatch):

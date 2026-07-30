@@ -42,3 +42,48 @@ def test_refino_ia_aceita_ordem_e_quantidade_diferentes_do_docx():
     }
 
     assert validar_refino_ia_do_docx(referencia, plano_ia) == (True, "")
+
+
+def test_refino_ia_rejeita_retomada_generica_que_substitui_abertura_do_docx():
+    referencia = {
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Assistir ao video e discutir diferentes percepcoes sobre a escola."},
+            _etapa("Foco no conteudo"),
+            _etapa("Na pratica"),
+            _etapa("Encerramento"),
+        ]
+    }
+    plano_ia = {
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Retomar o percurso das aulas anteriores antes de iniciar o tema."},
+            _etapa("Foco no conteudo"),
+            _etapa("Na pratica"),
+            _etapa("Encerramento"),
+        ]
+    }
+
+    valido, motivo = validar_refino_ia_do_docx(referencia, plano_ia)
+
+    assert valido is False
+    assert "retomada generica" in motivo
+
+
+def test_refino_ia_aceita_retomada_quando_ela_ja_esta_no_docx():
+    referencia = {
+        "metodologia": [
+            {"titulo": "Relembre", "texto": "Retomar a leitura do texto iniciada no encontro anterior."},
+            _etapa("Foco no conteudo"),
+            _etapa("Na pratica"),
+            _etapa("Encerramento"),
+        ]
+    }
+    plano_ia = {
+        "metodologia": [
+            {"titulo": "Para comecar", "texto": "Retomar a leitura do texto e organizar os registros no caderno."},
+            _etapa("Foco no conteudo"),
+            _etapa("Na pratica"),
+            _etapa("Encerramento"),
+        ]
+    }
+
+    assert validar_refino_ia_do_docx(referencia, plano_ia) == (True, "")

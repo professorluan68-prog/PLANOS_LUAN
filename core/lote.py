@@ -634,31 +634,6 @@ def _metodologia_leitura_redacao_modelo(texto_base: str, tema: str, turma: str =
     return gerar_metodologia_redacao_leitura(texto_base, tema, turma=turma)
 
 
-def _remover_abertura_generica(texto: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    padroes = [
-        r"^Retomar conhecimentos previos da turma sobre [^.]+\.?\s*",
-        r"^Retomar conhecimentos pr[eé]vios da turma sobre [^.]+\.?\s*",
-        r"^Promover discuss[aã]o inicial sobre [^.]+\.?\s*",
-        r"^Apresentar [^.]+ e propor [^.]+ para que os estudantes mobilizem conhecimentos previos, levantem hipoteses e identifiquem o que precisa ser descoberto na situacao\.?\s*",
-    ]
-    for padrao in padroes:
-        texto = re.sub(padrao, "", texto, count=1, flags=re.I).strip()
-    return texto
-
-
-def _anexar_orientacao_unica(texto: str, orientacao: str) -> str:
-    texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    orientacao = re.sub(r"\s+", " ", str(orientacao or "")).strip()
-    if not orientacao:
-        return texto
-    if normalizar_texto_lote(orientacao[:80]) in normalizar_texto_lote(texto):
-        return texto
-    if texto and not texto.endswith((".", "!", "?")):
-        texto += "."
-    return f"{texto} {orientacao}".strip() if texto else orientacao
-
-
 def _ajustar_texto_por_sequencia(
     texto: str,
     chave: str,
@@ -666,94 +641,10 @@ def _ajustar_texto_por_sequencia(
     total_aulas: int = 1,
     tema: str = "",
 ) -> str:
-    """Diferencia metodologia quando varios PDFs compoem uma sequencia."""
+    """Nao cria continuidade artificial entre PDFs diferentes do lote."""
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    if total_aulas <= 1 or not texto:
-        return texto
-
-    indice_aula = max(0, min(indice_aula, total_aulas - 1))
-    ultima = indice_aula == total_aulas - 1
-    primeira = indice_aula == 0
-
-    if chave == "para_comecar" and not primeira:
-        resto = _remover_abertura_generica(texto)
-        if ultima:
-            opcoes_abertura = [
-                (
-                    f"Retomar o percurso das aulas anteriores sobre {tema}, destacando os registros, "
-                    "duvidas e estrategias ja construidos pela turma."
-                ),
-                (
-                    f"Revisitar o percurso das aulas anteriores sobre {tema}, retomando os registros, "
-                    "duvidas e estrategias construidos ate aqui."
-                ),
-                (
-                    f"Dar continuidade ao estudo de {tema}, recuperando o percurso das aulas anteriores "
-                    "e os registros produzidos pela turma."
-                ),
-            ]
-        else:
-            opcoes_abertura = [
-                (
-                    f"Retomar a aula anterior sobre {tema} e conectar os registros ja produzidos "
-                    "ao novo foco do dia."
-                ),
-                (
-                    f"Recuperar aprendizagens da aula anterior sobre {tema}, articulando os registros "
-                    "ja produzidos ao novo foco do dia."
-                ),
-                (
-                    f"Revisitar os registros da aula anterior sobre {tema} e relacionar essas anotacoes "
-                    "ao encaminhamento do dia."
-                ),
-                (
-                    f"Dar continuidade ao estudo de {tema}, retomando o que foi registrado anteriormente "
-                    "e conectando ao foco da aula."
-                ),
-                (
-                    f"Reativar os conhecimentos construidos na aula anterior sobre {tema}, conectando "
-                    "os registros ja produzidos ao novo foco do dia."
-                ),
-            ]
-        abertura = _escolher_variacao(opcoes_abertura, [tema, chave, str(indice_aula), str(total_aulas), resto[:120]])
-        return f"{abertura} {resto}".strip()
-
-    if chave in {"leitura", "contextualizacao", "leitura_analitica", "foco"} and not primeira:
-        orientacao = (
-            "Retomar registros anteriores quando necessário, ajudando a turma a perceber a continuidade do estudo."
-        )
-        return _anexar_orientacao_unica(texto, orientacao)
-
-    if chave in {"pratica", "calculos", "planejamento", "projeto"} and not primeira:
-        orientacao = (
-            "Solicitar que os estudantes comparem as respostas de hoje com as estrategias usadas anteriormente, "
-            "identificando avancos, ajustes e duvidas persistentes."
-        )
-        return _anexar_orientacao_unica(texto, orientacao)
-
-    if chave == "pause" and not primeira:
-        orientacao = (
-            "Usar a pausa tambem para verificar quais aprendizagens da sequencia ja estao consolidadas "
-            "e quais ainda precisam de retomada."
-        )
-        return _anexar_orientacao_unica(texto, orientacao)
-
-    if chave == "encerramento":
-        if ultima:
-            orientacao = (
-                "Fechar a sequencia com uma sintese final, retomando o percurso completo e registrando "
-                "o que a turma consegue fazer com mais autonomia."
-            )
-        elif not primeira:
-            orientacao = (
-                "Registrar uma sintese parcial e uma pergunta para orientar a proxima aula da sequencia."
-            )
-        else:
-            orientacao = (
-                "Indicar que os registros desta aula serao retomados na continuidade da sequencia."
-            )
-        return _anexar_orientacao_unica(texto, orientacao)
-
+    # O lote apenas ordena PDFs. A continuidade real e criada pelo divisor
+    # depois desta etapa, quando o proprio PDF foi marcado para ser dividido.
     return texto
 
 
@@ -2900,6 +2791,7 @@ def _aula_por_pdf(
     modalidade_eja: bool = False,
     professor: str = "",
     dividir_aula_atual: bool = False,
+    aberturas_recentes: list[str] | None = None,
 ) -> dict:
     from core.variacao_metodologica import (
         obter_professor_id_por_nome,
@@ -3036,6 +2928,7 @@ def _aula_por_pdf(
         "duracao_minutos": 90 if dividir_aula_atual else 45,
         "perfil_metodologico": perfil_metodologico,
         "tipo_aula": tipo_duracao,
+        "aberturas_recentes": list(aberturas_recentes or [])[-4:],
     }
 
     resultado_final = None
@@ -3284,6 +3177,18 @@ def processar_varios_pdfs(
     progress_callback=None,
     professor: str = "",
 ) -> list[dict]:
+    aberturas_recentes: list[str] = []
+
+    def _abertura_da_metodologia(aula: dict) -> str:
+        for etapa in aula.get("metodologia") or []:
+            if not isinstance(etapa, dict):
+                continue
+            titulo = normalizar_texto_lote(etapa.get("titulo", ""))
+            texto = re.sub(r"\s+", " ", str(etapa.get("texto") or "")).strip()
+            if titulo in {"para comecar", "relembre"} and texto:
+                return texto
+        return ""
+
     def _gerar_aula(caminho: str, idx: int, total_aulas_atual: int, dividir_aula_atual: bool):
         import inspect
 
@@ -3293,7 +3198,9 @@ def processar_varios_pdfs(
             kwargs["professor"] = professor
         if "dividir_aula_atual" in sig.parameters:
             kwargs["dividir_aula_atual"] = dividir_aula_atual
-        return _aula_por_pdf(
+        if "aberturas_recentes" in sig.parameters:
+            kwargs["aberturas_recentes"] = list(aberturas_recentes)
+        aula = _aula_por_pdf(
             caminho,
             disciplina,
             turma,
@@ -3306,6 +3213,10 @@ def processar_varios_pdfs(
             modalidade_eja=modalidade_eja,
             **kwargs,
         )
+        abertura = _abertura_da_metodologia(aula)
+        if abertura:
+            aberturas_recentes.append(abertura)
+        return aula
 
     return processar_lote_pdfs(
         caminhos_pdf,

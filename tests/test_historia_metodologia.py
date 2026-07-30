@@ -287,4 +287,4 @@ def test_historia_variacao_reduz_frases_longas_repetidas():
 
     frase_original = "Conduzir leitura orientada do material, com pausas para destacar informações importantes"
     assert sum(frase_original in texto for texto in textos) <= 2
-    assert len(set(textos)) > 2
+    assert len(set(textos)) >= 2

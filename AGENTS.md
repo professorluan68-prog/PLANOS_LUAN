@@ -21,7 +21,7 @@
 
 **Planos Luan** é uma aplicação Python/Streamlit para gerar planos mensais de aula. O sistema organiza o calendário real do professor, localiza PDFs pedagógicos, extrai conteúdo e habilidades, aplica metodologia com ou sem IA, preenche modelos Word e registra os planos no SQLite.
 
-- **Versão atual do gerador:** `1.2.13`, definida em `core/revisao_final.py`.
+- **Versão atual do gerador:** `1.2.14`, definida em `core/revisao_final.py`.
 - **Stack principal:** Python 3.12, Streamlit, python-docx, pdfplumber, SQLite em WAL e Pydantic compatível com v1/v2.
 - **Frontend principal:** `planos_luan_app.py`.
 - **Backend:** `core/`, com componentes compartilhados principalmente em `core/lib/`.
@@ -472,4 +472,4 @@ Ao encontrar documentação ou comentário contraditório, trate o código e os 
 
 ---
 
-*AGENTS.md — Planos Luan v1.2.13 | Atualizado em 27/07/2026*
+*AGENTS.md — Planos Luan v1.2.14 | Atualizado em 30/07/2026*
