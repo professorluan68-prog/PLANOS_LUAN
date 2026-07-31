@@ -153,6 +153,11 @@ def normalizar_para_pasta(texto: str) -> str:
 
 def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
     disciplina_norm = normalizar_para_pasta(disciplina)
+    # O cadastro pode usar um rotulo descritivo, como
+    # "HISTORIA - E.F - 8o/9o - TURMA H". Para localizar os materiais,
+    # somente o componente curricular deve definir a raiz da disciplina.
+    if disciplina_norm == "HISTORIA" or disciplina_norm.startswith("HISTORIA_"):
+        return "HISTORIA"
     if "CDP" in disciplina_norm and (
         "ENSINO_MEDIO" in disciplina_norm
         or disciplina_norm.endswith("_CDP_EM")
@@ -248,6 +253,19 @@ def _localizar_subpasta_cdp(caminho_bimestre: Path, nivel: str) -> Path | None:
 def _tokens_serie_turma(turma_norm: str) -> list[str]:
     tokens = [turma_norm] if turma_norm else []
 
+    # Turmas multisseriadas chegam da interface como "8o/9o E.F" e sao
+    # normalizadas para "8O9_EF". Preserve o agrupamento para que a busca
+    # prefira a pasta concreta "8_ANO_9_ANO" em vez de outra pasta CDP-EF.
+    match_multisseriada = re.fullmatch(
+        r"((?:[1-9][OA]?){2,})_(?:EF|EM)",
+        turma_norm,
+    )
+    if match_multisseriada:
+        anos = re.findall(r"[1-9]", match_multisseriada.group(1))
+        tokens.append("_".join(f"{ano}_ANO" for ano in anos))
+        tokens.extend(f"{ano}_ANO" for ano in anos)
+        return [token for token in dict.fromkeys(tokens) if token]
+
     match_ano = re.search(r"(\d)_ANO(?:_([A-Z]))?", turma_norm)
     match_serie = re.search(r"(\d)_SERIE(?:_([A-Z]))?", turma_norm)
     match = match_ano or match_serie
@@ -265,6 +283,8 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
 def _nivel_preferido_para_turma(turma_norm: str) -> str:
     if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm:
         return "EM"
+    if "EF" in turma_norm:
+        return "AF"
     if re.search(r"^[6789]_ANO", turma_norm):
         return "AF"
     if "FUNDAMENTAL" in turma_norm:
@@ -295,12 +315,19 @@ def _pontuar_pasta_pdf(
         score += 60
     if turma_norm and turma_norm in partes_set:
         score += 90
-    if any(token in partes_set for token in serie_tokens):
+    tokens_multisseriados = [
+        token for token in serie_tokens if token.count("_ANO") > 1
+    ]
+    if any(token in partes_set for token in tokens_multisseriados):
+        score += 120
+    elif any(token in partes_set for token in serie_tokens):
         score += 70
     if rel_parts:
         ultimo = partes_norm[-1]
         if turma_norm and ultimo == turma_norm:
             score += 30
+        elif any(token == ultimo for token in tokens_multisseriados):
+            score += 50
         elif any(token == ultimo for token in serie_tokens):
             score += 20
 
@@ -582,7 +609,14 @@ def resolver_pasta_pdfs(
 
     match_ano = re.search(r"(\d)_ANO", turma_norm)
     match_serie = re.search(r"(\d)_SERIE", turma_norm)
-    if match_ano:
+    serie_tokens = _tokens_serie_turma(turma_norm)
+    serie_multisseriada = next(
+        (token for token in serie_tokens if token.count("_ANO") > 1),
+        "",
+    )
+    if serie_multisseriada:
+        serie = serie_multisseriada
+    elif match_ano:
         serie = match_ano.group(1) + "_ANO"
     elif match_serie:
         serie = match_serie.group(1) + "_ANO"

@@ -132,7 +132,8 @@ def test_interface_tem_aba_eja_sem_seletor_de_modalidade():
     app = Path(__file__).resolve().parents[1] / "planos_luan_app.py"
     texto = app.read_text(encoding="utf-8")
 
-    assert '"CDP - Ciclo I", "EJA", "Cadastro"' in texto
+    assert 'modos_disponiveis = ["Planos gerais", "EJA", "Cadastro"' in texto
+    assert 'modos_disponiveis = ["Planos gerais", "CDP - Ciclo I"' not in texto
     assert 'modo_eja = modo_tela == "EJA"' in texto
     assert 'st.selectbox("Modalidade", ["Regular", "EJA"]' not in texto
     assert '"Reescrita CDP"' not in texto

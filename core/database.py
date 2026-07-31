@@ -3,7 +3,9 @@ import os
 import sqlite3
 import logging
 import re
+import tempfile
 import unicodedata
+import uuid
 from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime
@@ -137,6 +139,56 @@ def _resolver_caminho_arquivo_historico(arquivo_path: str) -> Path:
     if not str(caminho):
         return Path()
     return caminho if caminho.is_absolute() else Path(HISTORICO_DOCX_DIR) / caminho
+
+
+def _caminho_historico_gerenciado(arquivo_path: str) -> Path | None:
+    """Resolve somente arquivos relativos mantidos pelo diretório de histórico."""
+    caminho = Path(str(arquivo_path or "").strip())
+    if not str(caminho) or caminho.is_absolute():
+        return None
+    raiz = Path(HISTORICO_DOCX_DIR).resolve(strict=False)
+    candidato = (raiz / caminho).resolve(strict=False)
+    try:
+        candidato.relative_to(raiz)
+    except ValueError:
+        return None
+    return candidato
+
+
+def _gravar_arquivo_historico_atomico(destino: Path, conteudo: bytes) -> None:
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    temporario: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=destino.parent,
+            prefix=f".{destino.stem}.",
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            temporario = Path(stream.name)
+            stream.write(conteudo)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporario, destino)
+        if destino.stat().st_size != len(conteudo):
+            destino.unlink(missing_ok=True)
+            raise OSError(f"Tamanho divergente após gravar {destino.name}")
+    finally:
+        if temporario is not None and temporario.exists():
+            temporario.unlink(missing_ok=True)
+
+
+def _remover_arquivo_historico_gerenciado(arquivo_path: str) -> bool:
+    caminho = _caminho_historico_gerenciado(arquivo_path)
+    if caminho is None:
+        return False
+    try:
+        caminho.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.error("Erro ao remover arquivo físico do histórico %s: %s", caminho, exc)
+        return False
+    return True
 
 
 def _chave_caminho_historico(arquivo_path: str) -> str:
@@ -1042,123 +1094,91 @@ def salvar_historico_plano(
     arquivo_nome = _normalizar_campo(arquivo_nome)
     arquivo_docx_bytes = bytes(arquivo_docx_bytes or b"")
 
-    # Gera um nome físico único para salvar no disco
-    from core.lib.classificador import normalizar_texto
-    import uuid
     prof_clean = normalizar_texto(professor_nome).replace(" ", "_")
     disc_clean = normalizar_texto(disciplina).replace(" ", "_")
     turma_clean = normalizar_texto(turma).replace(" ", "_")
     ts = uuid.uuid4().hex[:8]
-    
-    unique_filename = f"{prof_clean}_{disc_clean}_{turma_clean}_{ts}_{arquivo_nome.strip()}"
+    nome_fisico = Path(arquivo_nome or "plano.docx").name
+    nome_fisico = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", nome_fisico).strip(" .")
+    nome_fisico = nome_fisico or "plano.docx"
+    unique_filename = f"{prof_clean}_{disc_clean}_{turma_clean}_{ts}_{nome_fisico}"
     filepath = Path(HISTORICO_DOCX_DIR) / unique_filename
 
     try:
-        os.makedirs(HISTORICO_DOCX_DIR, exist_ok=True)
-        filepath.write_bytes(arquivo_docx_bytes)
-    except Exception as e:
-        logger.error(f"Erro ao salvar arquivo fisico de historico: {e}")
+        _gravar_arquivo_historico_atomico(filepath, arquivo_docx_bytes)
+    except OSError as exc:
+        logger.error("Erro ao salvar arquivo físico de histórico: %s", exc)
         return
 
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO historico_planos (professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_path)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                professor_nome,
-                disciplina,
-                turma,
-                bimestre,
-                arquivo_nome,
-                unique_filename,
-            ),
-        )
-        
-        # Aplicar política de retenção
-        if limite_retencao > 0:
+    caminhos_remover: list[str] = []
+    deletados = 0
+    try:
+        with connection_scope() as conn:
+            cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT arquivo_path FROM historico_planos
-                WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
-                  AND id NOT IN (
-                      SELECT id FROM historico_planos
-                      WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
-                      ORDER BY data_geracao DESC, id DESC
-                      LIMIT ?
-                  )
+                INSERT INTO historico_planos
+                    (professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_path)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     professor_nome,
                     disciplina,
                     turma,
                     bimestre,
-                    professor_nome,
-                    disciplina,
-                    turma,
-                    bimestre,
-                    limite_retencao,
+                    arquivo_nome,
+                    unique_filename,
                 ),
             )
-            caminhos_remover = [row[0] for row in cursor.fetchall()]
-            for p_rel in caminhos_remover:
-                if p_rel:
-                    try:
-                        p_abs = Path(HISTORICO_DOCX_DIR) / p_rel
-                        if p_abs.exists():
-                            p_abs.unlink()
-                    except Exception as e:
-                        logger.error(f"Erro ao remover arquivo fisico do historico: {e}")
 
-            cursor.execute(
-                """
-                DELETE FROM historico_planos
-                WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
-                  AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
-                  AND id NOT IN (
-                      SELECT id FROM historico_planos
-                      WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
-                        AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
-                      ORDER BY data_geracao DESC, id DESC
-                      LIMIT ?
-                  )
-                """,
-                (
-                    professor_nome,
-                    disciplina,
-                    turma,
-                    bimestre,
-                    professor_nome,
-                    disciplina,
-                    turma,
-                    bimestre,
-                    limite_retencao,
-                ),
-            )
-            deletados = cursor.rowcount
-            if deletados > 0:
-                logger.info(
-                    "Politica de retencao aplicada: %d planos antigos removidos para %s - %s - %s - %s",
-                    deletados,
-                    professor_nome,
-                    disciplina,
-                    turma,
-                    bimestre,
+            if limite_retencao > 0:
+                cursor.execute(
+                    """
+                    SELECT id, arquivo_path FROM historico_planos
+                    WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
+                      AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
+                      AND UPPER(TRIM(turma)) = UPPER(TRIM(?))
+                      AND UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                    ORDER BY data_geracao DESC, id DESC
+                    LIMIT -1 OFFSET ?
+                    """,
+                    (
+                        professor_nome,
+                        disciplina,
+                        turma,
+                        bimestre,
+                        limite_retencao,
+                    ),
                 )
-        
-        conn.commit()
+                registros_remover = cursor.fetchall()
+                caminhos_remover = [row[1] for row in registros_remover if row[1]]
+                if registros_remover:
+                    cursor.executemany(
+                        "DELETE FROM historico_planos WHERE id = ?",
+                        [(row[0],) for row in registros_remover],
+                    )
+                    deletados = len(registros_remover)
+    except Exception:
+        _remover_arquivo_historico_gerenciado(unique_filename)
+        raise
+
+    for arquivo_path in caminhos_remover:
+        if not _remover_arquivo_historico_gerenciado(arquivo_path):
+            logger.warning(
+                "Arquivo antigo não removido pela retenção por estar fora do histórico "
+                "gerenciado ou indisponível: %s",
+                arquivo_path,
+            )
+
+    if deletados > 0:
+        logger.info(
+            "Política de retenção aplicada: %d planos antigos removidos para %s - %s - %s - %s",
+            deletados,
+            professor_nome,
+            disciplina,
+            turma,
+            bimestre,
+        )
 
 
 

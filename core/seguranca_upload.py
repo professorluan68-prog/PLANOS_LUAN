@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
+import shutil
+import tempfile
 from io import BytesIO
 from pathlib import Path
 from typing import Callable
@@ -162,3 +165,65 @@ def validar_pdf_caminho(
         limite_paginas,
         lambda: contador(caminho),
     )
+
+
+def salvar_pdf_upload_temporario(
+    conteudo: bytes,
+    nome_original: str,
+    *,
+    raiz_temporaria: str | Path | None = None,
+    limite_bytes: int = LIMITE_PDF_BYTES,
+    limite_paginas: int = LIMITE_PDF_PAGINAS,
+    contador_paginas: Callable[[bytes], int] | None = None,
+) -> Path:
+    """Valida e grava um upload em diretório temporário exclusivo."""
+    conteudo = bytes(conteudo or b"")
+    nome_original = _nome_pdf_seguro(nome_original)
+    validar_pdf_bytes(
+        conteudo,
+        nome_original,
+        limite_bytes=limite_bytes,
+        limite_paginas=limite_paginas,
+        contador_paginas=contador_paginas,
+    )
+
+    raiz = Path(raiz_temporaria or tempfile.gettempdir())
+    raiz.mkdir(parents=True, exist_ok=True)
+    diretorio = Path(
+        tempfile.mkdtemp(prefix=PREFIXO_PDF_TEMPORARIO, dir=str(raiz))
+    )
+    token = secrets.token_urlsafe(6)
+    caminho_pdf = diretorio / nome_pdf_upload_temporario(nome_original, token)
+    try:
+        caminho_pdf.write_bytes(conteudo)
+        return caminho_pdf
+    except Exception:
+        shutil.rmtree(diretorio, ignore_errors=True)
+        raise
+
+
+def limpar_upload_temporario(
+    caminho_pdf: str | Path,
+    *,
+    raiz_temporaria: str | Path | None = None,
+) -> bool:
+    """Remove o diretório exclusivo do upload e todos os auxiliares gerados nele."""
+    if not caminho_pdf:
+        return False
+
+    raiz = Path(raiz_temporaria or tempfile.gettempdir()).resolve()
+    caminho = Path(caminho_pdf).resolve(strict=False)
+    diretorio = caminho.parent
+    if (
+        diretorio.parent != raiz
+        or not diretorio.name.startswith(PREFIXO_PDF_TEMPORARIO)
+    ):
+        return False
+
+    try:
+        shutil.rmtree(diretorio)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return not diretorio.exists()

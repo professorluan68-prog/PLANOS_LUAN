@@ -1,3 +1,7 @@
+from contextlib import contextmanager
+
+import pytest
+
 from core import database
 
 
@@ -179,6 +183,123 @@ def test_salvar_historico_plano_retencao_respeita_bimestre(monkeypatch, tmp_path
         ("4o BIMESTRE", "plano_4b_1.docx"),
         ("4o BIMESTRE", "plano_4b_2.docx"),
     ]
+
+
+def test_salvar_historico_remove_arquivo_novo_quando_transacao_falha(
+    monkeypatch,
+    tmp_path,
+):
+    _preparar_banco(monkeypatch, tmp_path)
+    connection_scope_original = database.connection_scope
+
+    @contextmanager
+    def _connection_scope_com_falha():
+        with connection_scope_original() as conn:
+            yield conn
+            raise RuntimeError("falha de commit simulada")
+
+    monkeypatch.setattr(database, "connection_scope", _connection_scope_com_falha)
+
+    with pytest.raises(RuntimeError, match="falha de commit simulada"):
+        database.salvar_historico_plano(
+            "ANA",
+            "Matematica",
+            "6 ANO A",
+            "plano.docx",
+            b"docx",
+        )
+
+    assert not list((tmp_path / "historico_docx").glob("*"))
+    with database.get_connection() as conn:
+        quantidade = conn.execute("SELECT COUNT(*) FROM historico_planos").fetchone()[0]
+    assert quantidade == 0
+
+
+def test_retencao_nao_apaga_arquivo_externo_ao_historico(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+    arquivo_externo = tmp_path / "plano_sincronizado.docx"
+    arquivo_externo.write_bytes(b"externo")
+
+    with database.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO historico_planos
+                (professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "ANA",
+                "Matematica",
+                "6 ANO A",
+                "3o BIMESTRE",
+                "2026-01-01 10:00:00",
+                arquivo_externo.name,
+                str(arquivo_externo),
+            ),
+        )
+        conn.commit()
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "novo.docx",
+        b"novo",
+        limite_retencao=1,
+        bimestre="3o BIMESTRE",
+    )
+
+    assert arquivo_externo.exists()
+    with database.get_connection() as conn:
+        arquivos = [
+            row[0]
+            for row in conn.execute(
+                "SELECT arquivo_nome FROM historico_planos ORDER BY id"
+            ).fetchall()
+        ]
+    assert arquivos == ["novo.docx"]
+
+
+def test_retencao_remove_arquivo_somente_depois_do_commit(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "antigo.docx",
+        b"antigo",
+        limite_retencao=5,
+        bimestre="3o BIMESTRE",
+    )
+    remover_original = database._remover_arquivo_historico_gerenciado
+    quantidades_observadas = []
+
+    def _remover_depois_de_consultar(arquivo_path):
+        with database.get_connection() as conn:
+            quantidade = conn.execute(
+                "SELECT COUNT(*) FROM historico_planos WHERE arquivo_nome = ?",
+                ("antigo.docx",),
+            ).fetchone()[0]
+        quantidades_observadas.append(quantidade)
+        return remover_original(arquivo_path)
+
+    monkeypatch.setattr(
+        database,
+        "_remover_arquivo_historico_gerenciado",
+        _remover_depois_de_consultar,
+    )
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "novo.docx",
+        b"novo",
+        limite_retencao=1,
+        bimestre="3o BIMESTRE",
+    )
+
+    assert quantidades_observadas == [0]
 
 
 def test_verificar_plano_gerado_por_outro_professor_filtra_bimestre(monkeypatch, tmp_path):

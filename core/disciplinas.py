@@ -23,6 +23,7 @@ class DisciplinaConfig:
     nome: str
     modo: str = MODO_PDF
     exige_pdf: bool = True
+    habilitado: bool = True
     aprendizagem_padrao: str = (
         "Desenvolver habilidades relacionadas ao tema da aula, participando das "
         "atividades propostas e registrando as principais aprendizagens."
@@ -74,7 +75,7 @@ def _normalizar_nome_disciplina(nome: str) -> str:
 
 
 def nomes_disciplinas() -> list[str]:
-    return list(_DISCIPLINAS)
+    return [nome for nome in _DISCIPLINAS if obter_config(nome).habilitado]
 
 
 def componentes_curriculares_por_disciplina(disciplina: str) -> list[str]:
@@ -92,7 +93,12 @@ def obter_config(disciplina: str) -> DisciplinaConfig:
     if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_MULTISSERIADA):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
-        return DisciplinaConfig(nome=nome, modo=MODO_CDP_FUNDAMENTAL, exige_pdf=False)
+        return DisciplinaConfig(
+            nome=nome,
+            modo=MODO_CDP_FUNDAMENTAL,
+            exige_pdf=False,
+            habilitado=False,
+        )
     if nome.upper().endswith("_CDP"):
         return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     return DisciplinaConfig(nome=nome)

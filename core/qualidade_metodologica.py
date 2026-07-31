@@ -572,7 +572,7 @@ def sanitizar_texto_cdp_estrito(texto: str) -> str:
 
     # 1. Tecnologias digitais
     texto = re.sub(
-        r"\b(?:computadores?|celulares?|internet|aplicativos?|plataformas?\s+digitais|links?|sites?|v[ií]deos?\s+online|v[ií]deos?|slides?|datashow|projetores?|telas?|tablets?|notebooks?|computador|celular)\b",
+        r"\b(?:computadores?|celulares?|internet|aplicativos?|plataformas?\s+digit(?:al|ais)|links?|sites?|v[ií]deos?\s+online|v[ií]deos?|slides?|datashow|projetores?|telas?|tablets?|notebooks?|computador|celular)\b",
         "material impresso, quadro e registro no caderno",
         texto,
         flags=re.I,

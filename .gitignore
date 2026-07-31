@@ -19,6 +19,8 @@ __pycache__/
 scratch/
 .cache/
 .cache_test/
+.checkpoints/
+.checkpoint.json
 outputs/
 Planos feitos/
 PLANOS_FEITOS/

@@ -5,6 +5,28 @@ import core.lote as lote
 import core.revisao_final as revisao_final
 
 
+def test_prompt_ia_contexto_cdp_define_restricoes_prisionais():
+    prompt = ia._montar_prompt(
+        "Aula de Historia sobre cidadania e direitos.",
+        "Historia",
+        "8o/9o E.F",
+        contexto_cdp=True,
+        permitir_tecnicas_explicitamente=False,
+        rascunho_base={
+            "metodologia": [
+                {"titulo": "Para comecar", "texto": "Ler uma folha impressa."}
+            ]
+        },
+    )
+
+    assert "CONTEXTO CDP - REGRAS OBRIGATORIAS" in prompt
+    assert "todas as atividades devem ser individuais" in prompt
+    assert "Use somente recursos tradicionais disponiveis" in prompt
+    assert "Gere exatamente 3 itens de acompanhamento" in prompt
+    assert "Estas regras prevalecem" in prompt
+    assert "EXEMPLO POSITIVO" not in prompt
+
+
 def test_saida_ia_registra_aviso_de_referencia_metodologica_ausente():
     saida = ia._registrar_aviso_referencia_metodologica_na_saida(
         {"tema": "Tema"},

@@ -152,6 +152,28 @@ def test_resolver_pasta_pdfs_encontra_cdp_ef_com_hifen_e_subpasta_de_turma(tmp_p
     assert caminho == cdp
 
 
+def test_resolver_pasta_pdfs_encontra_historia_cdp_8_9_pelo_rotulo_do_cadastro(tmp_path):
+    raiz_cdp = tmp_path / "HISTORIA" / "AF" / "3_BIMESTRE" / "CDP-EF"
+    cdp_6_7 = raiz_cdp / "6_ANO_7_ANO"
+    cdp_8_9 = raiz_cdp / "8_ANO_9_ANO"
+    regular_9 = tmp_path / "HISTORIA" / "AF" / "3_BIMESTRE" / "9_ANO"
+    cdp_6_7.mkdir(parents=True)
+    cdp_8_9.mkdir(parents=True)
+    regular_9.mkdir(parents=True)
+    (cdp_6_7 / "01 - Historia antiga.pdf").write_bytes(b"%PDF-1.4\n")
+    (cdp_8_9 / "01 - Navegar e enriquecer.pdf").write_bytes(b"%PDF-1.4\n")
+    (regular_9 / "AULA_001 - Historia regular.pdf").write_bytes(b"%PDF-1.4\n")
+
+    caminho = resolver_pasta_pdfs(
+        str(tmp_path),
+        "HIST\u00d3RIA - E.F - 8\u00ba/9\u00ba - TURMA H",
+        "8\u00ba/9\u00ba E.F",
+        "3\u00ba Bimestre",
+    )
+
+    assert caminho == cdp_8_9
+
+
 def test_garantir_caminho_na_raiz_aceita_subpasta(tmp_path):
     raiz = tmp_path / "PDF_AULAS"
     subpasta = raiz / "HISTORIA" / "AF" / "1_BIMESTRE" / "6_ANO"

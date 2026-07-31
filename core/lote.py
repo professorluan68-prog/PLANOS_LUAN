@@ -2306,6 +2306,18 @@ def _resolver_contexto_orientacao_estudos(
     return texto_etapa, tema_etapa, material_etapa
 
 
+def _finalizar_diagnostico_cdp_contextual(resultado: dict) -> dict:
+    """Marca a referencia CDP como informativa, nunca como bloqueio regular."""
+    resultado["contexto_metodologico"] = "cdp_eja"
+    resultado["diagnostico_referencia_docx"] = {
+        "status": str(resultado.get("status_referencia_docx") or ""),
+        "arquivo": str(resultado.get("arquivo_referencia_docx") or ""),
+        "motivo": str(resultado.get("motivo_referencia_docx") or ""),
+        "bloqueia_geracao": False,
+    }
+    return resultado
+
+
 def _montar_resultado_cdp_contextual(
     texto: str,
     tema: str,
@@ -2342,7 +2354,10 @@ def _montar_resultado_cdp_contextual(
             numero_aula = numero_referencia
 
     conceito_cdp = extracao_pdf.get("conceito_extraido", tema)
-    habilidade_cdp = extracao_pdf.get("habilidade", "")
+    habilidade_cdp = (
+        str((referencia_docx or {}).get("habilidade") or "").strip()
+        or extracao_pdf.get("habilidade", "")
+    )
     if habilidade_cdp and len(habilidade_cdp) > 15:
         aprendizagem_cdp = habilidade_cdp
     else:
@@ -2350,40 +2365,38 @@ def _montar_resultado_cdp_contextual(
             limpar_tema_cdp_contextual(tema, disciplina_base),
             limpar_tema_cdp_contextual(conceito_cdp, disciplina_base),
         )
-        aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resolu??es com apoio do professor."
+        aprendizagem_cdp = f"Compreender e aplicar conceitos relacionados a {foco_cdp}, realizando registros e resoluções com apoio do professor."
 
     from core.qualidade_metodologica import sanitizar_texto_cdp_estrito
-    if referencia_docx:
-        resultado = {
-            "disciplina": disciplina_base,
-            "tema": tema,
-            "material": formatar_material_cdp_contextual(tema, disciplina_base),
-            "numero_aula": numero_aula,
-            "aprendizagem": sanitizar_texto_cdp_estrito(_sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil)),
-            "metodologia": list(referencia_docx.get("metodologia") or []),
-            "acompanhamento": list(referencia_docx.get("acompanhamento") or [])[:3],
-            "acessibilidade": list(referencia_docx.get("acessibilidade") or [])[:3],
-            "origem_metodologia": "docx_referencia_cdp_contextual",
-            "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
-            "status_referencia_docx": "docx_literal",
-            "arquivo_referencia_docx": referencia_docx.get("fonte", ""),
-            "motivo_referencia_docx": "",
-            "texto_central_copiado_literalmente": True,
-            "ia_usada": False,
-            "ia_provedor": "",
-            "ia_erro": "",
-        }
-        resultado["avisos_validacao"] = [
-            (
-                f"{disciplina_base}: metodologia, acompanhamento da aprendizagem e "
-                "acessibilidade foram copiados exatamente do arquivo .docx de referencia da pasta."
-            )
-        ]
-        return resultado
+
+    aprendizagem_final = sanitizar_texto_cdp_estrito(
+        _sanitizar_aprendizagem(
+            aprendizagem_cdp,
+            tema,
+            conceito_cdp,
+            perfil=perfil,
+        )
+    )
+    erro_ia = ""
 
     if usar_ia:
         try:
             from core.ia import processar_plano_ia
+
+            rascunho_cdp = None
+            if referencia_docx:
+                rascunho_cdp = {
+                    "tema": tema,
+                    "aprendizagem": aprendizagem_final,
+                    "metodologia": list(referencia_docx.get("metodologia") or []),
+                    "acompanhamento": list(
+                        referencia_docx.get("acompanhamento") or []
+                    )[:3],
+                    "acessibilidade": list(
+                        referencia_docx.get("acessibilidade") or []
+                    )[:3],
+                    "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+                }
 
             plano_ia = processar_plano_ia(
                 texto,
@@ -2393,6 +2406,7 @@ def _montar_resultado_cdp_contextual(
                 modelo_ia,
                 permitir_tecnicas_explicitamente=False,
                 contexto_cdp=True,
+                rascunho_base=rascunho_cdp,
             )
             resultado = _montar_resultado_aula_ia(
                 texto=texto,
@@ -2414,17 +2428,64 @@ def _montar_resultado_cdp_contextual(
                 aprendizagem_orientacao="",
                 caminho_pdf=caminho_pdf,
                 bimestre=bimestre,
+                rascunho_base=rascunho_cdp,
             )
+            resultado["aprendizagem"] = aprendizagem_final
+            refino_docx_valido = bool(
+                (resultado.get("diagnostico_geracao") or {})
+                .get("refino_referencia_docx", {})
+                .get("valido", True)
+            )
+            if referencia_docx and not refino_docx_valido:
+                motivo_refino = str(
+                    (resultado.get("diagnostico_geracao") or {})
+                    .get("refino_referencia_docx", {})
+                    .get("motivo", "")
+                ).strip()
+                resultado.update(
+                    {
+                        "origem_metodologia": "docx_referencia_cdp_contextual",
+                        "status_referencia_docx": "docx_preservado_refino_ia_invalido",
+                        "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+                        "arquivo_referencia_docx": referencia_docx.get("fonte", ""),
+                        "motivo_referencia_docx": (
+                            motivo_refino
+                            or "A resposta da IA nao preservou o contrato do DOCX."
+                        ),
+                        "texto_central_copiado_literalmente": True,
+                        "ia_usada": True,
+                        "ia_provedor": provedor_ia,
+                        "ia_erro": "",
+                    }
+                )
+                resultado["avisos_validacao"] = [
+                    (
+                        f"{disciplina_base}: a IA respondeu, mas o refinamento nao "
+                        "preservou o contrato do DOCX. O conteudo original foi mantido."
+                    )
+                ]
+                return _finalizar_diagnostico_cdp_contextual(resultado)
             resultado.update(
                 {
                     "origem_metodologia": "ia_cdp_contextual",
-                    "status_referencia_docx": "docx_ausente",
-                    "fonte_referencia_metodologia": "",
-                    "arquivo_referencia_docx": "",
+                    "status_referencia_docx": (
+                        "docx_refinado_ia" if referencia_docx else "docx_ausente"
+                    ),
+                    "fonte_referencia_metodologia": (
+                        referencia_docx.get("fonte", "") if referencia_docx else ""
+                    ),
+                    "arquivo_referencia_docx": (
+                        referencia_docx.get("fonte", "") if referencia_docx else ""
+                    ),
                     "motivo_referencia_docx": (
-                        "Nenhum DOCX externo foi localizado; a metodologia, o "
-                        "acompanhamento e a acessibilidade foram gerados pela IA "
+                        "O DOCX externo foi usado como rascunho e refinado pela IA "
                         "com as regras do contexto CDP."
+                        if referencia_docx
+                        else (
+                            "Nenhum DOCX externo foi localizado; a metodologia, o "
+                            "acompanhamento e a acessibilidade foram gerados pela IA "
+                            "com as regras do contexto CDP."
+                        )
                     ),
                     "texto_central_copiado_literalmente": False,
                     "ia_usada": True,
@@ -2434,23 +2495,67 @@ def _montar_resultado_cdp_contextual(
             )
             resultado["avisos_validacao"] = [
                 (
-                    f"{disciplina_base}: plano gerado pela IA em contexto CDP, "
-                    "sem DOCX auxiliar, com linguagem cotidiana, sem tecnologia, "
+                    f"{disciplina_base}: DOCX refinado pela IA em contexto CDP, "
+                    "com preservacao das etapas e sanitizacao final sem tecnologia, "
                     "Lemov ou agrupamentos."
+                    if referencia_docx
+                    else (
+                        f"{disciplina_base}: plano gerado pela IA em contexto CDP, "
+                        "sem DOCX auxiliar, com linguagem cotidiana, sem tecnologia, "
+                        "Lemov ou agrupamentos."
+                    )
                 )
             ]
-            return resultado
+            return _finalizar_diagnostico_cdp_contextual(resultado)
         except Exception as exc:
             erro_ia = f"Falha na IA CDP: {str(exc)[:250]}"
-    else:
-        erro_ia = ""
+
+    if referencia_docx:
+        resultado = {
+            "disciplina": disciplina_base,
+            "tema": tema,
+            "material": formatar_material_cdp_contextual(tema, disciplina_base),
+            "numero_aula": numero_aula,
+            "aprendizagem": aprendizagem_final,
+            "metodologia": list(referencia_docx.get("metodologia") or []),
+            "acompanhamento": list(referencia_docx.get("acompanhamento") or [])[:3],
+            "acessibilidade": list(referencia_docx.get("acessibilidade") or [])[:3],
+            "origem_metodologia": "docx_referencia_cdp_contextual",
+            "fonte_referencia_metodologia": referencia_docx.get("fonte", ""),
+            "status_referencia_docx": (
+                "docx_preservado_falha_ia" if erro_ia else "docx_literal"
+            ),
+            "arquivo_referencia_docx": referencia_docx.get("fonte", ""),
+            "motivo_referencia_docx": (
+                "A IA nao concluiu o refinamento; o conteudo original do DOCX foi preservado."
+                if erro_ia
+                else ""
+            ),
+            "texto_central_copiado_literalmente": True,
+            "ia_usada": False,
+            "ia_provedor": provedor_ia if erro_ia else "",
+            "ia_erro": erro_ia,
+        }
+        resultado["avisos_validacao"] = [
+            (
+                f"{disciplina_base}: a IA nao concluiu o refinamento. Metodologia, "
+                "acompanhamento da aprendizagem e acessibilidade foram preservados "
+                "exatamente como estao no arquivo .docx de referencia."
+                if erro_ia
+                else (
+                    f"{disciplina_base}: metodologia, acompanhamento da aprendizagem e "
+                    "acessibilidade foram copiados exatamente do arquivo .docx de referencia da pasta."
+                )
+            )
+        ]
+        return _finalizar_diagnostico_cdp_contextual(resultado)
 
     resultado = {
         "disciplina": disciplina_base,
         "tema": tema,
         "material": formatar_material_cdp_contextual(tema, disciplina_base),
         "numero_aula": numero_aula,
-        "aprendizagem": sanitizar_texto_cdp_estrito(_sanitizar_aprendizagem(aprendizagem_cdp, tema, conceito_cdp, perfil=perfil)),
+        "aprendizagem": aprendizagem_final,
         "metodologia": [],
         "acompanhamento": [],
         "acessibilidade": [],
@@ -2508,7 +2613,7 @@ def _montar_resultado_cdp_contextual(
         conceito_cdp,
         indice_aula,
     )
-    return resultado
+    return _finalizar_diagnostico_cdp_contextual(resultado)
 
 
 def _limpar_repeticao_tecnicas_lemov_ia(metodologia: list[dict]) -> list[dict]:
@@ -3177,6 +3282,8 @@ def processar_varios_pdfs(
     progress_callback=None,
     professor: str = "",
 ) -> list[dict]:
+    from core.revisao_final import VERSAO_GERADOR_ATUAL
+
     aberturas_recentes: list[str] = []
 
     def _abertura_da_metodologia(aula: dict) -> str:
@@ -3188,6 +3295,11 @@ def processar_varios_pdfs(
             if titulo in {"para comecar", "relembre"} and texto:
                 return texto
         return ""
+
+    def _registrar_abertura(aula: dict) -> None:
+        abertura = _abertura_da_metodologia(aula)
+        if abertura:
+            aberturas_recentes.append(abertura)
 
     def _gerar_aula(caminho: str, idx: int, total_aulas_atual: int, dividir_aula_atual: bool):
         import inspect
@@ -3213,9 +3325,7 @@ def processar_varios_pdfs(
             modalidade_eja=modalidade_eja,
             **kwargs,
         )
-        abertura = _abertura_da_metodologia(aula)
-        if abertura:
-            aberturas_recentes.append(abertura)
+        _registrar_abertura(aula)
         return aula
 
     return processar_lote_pdfs(
@@ -3227,4 +3337,16 @@ def processar_varios_pdfs(
         texto_metodologia_fn=_texto_metodologia,
         dividir_texto_fn=processar_pdf_e_dividir_metodologia,
         metodologia_por_texto_fn=_metodologia_em_blocos_por_texto,
+        checkpoint_contexto={
+            "disciplina": disciplina,
+            "turma": turma,
+            "bimestre": bimestre,
+            "usar_ia": usar_ia,
+            "provedor_ia": provedor_ia,
+            "modelo_ia": modelo_ia,
+            "modalidade_eja": modalidade_eja,
+            "professor": professor,
+            "versao_gerador": VERSAO_GERADOR_ATUAL,
+        },
+        aula_restaurada_callback=_registrar_abertura,
     )

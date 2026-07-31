@@ -285,7 +285,7 @@ def preparar_contexto_aula_pdf(
     if cdp_contextual and cdp_caminho_pdf:
         from core.cdp.gerador_cdp import titulo_cdp_por_caminho
 
-        titulo_arquivo_cdp = titulo_cdp_por_caminho(caminho_pdf)
+        titulo_arquivo_cdp = titulo_cdp_por_caminho(caminho_pdf_contextual)
         if titulo_arquivo_cdp:
             tema = titulo_arquivo_cdp
             material_digital = titulo_arquivo_cdp
@@ -323,7 +323,10 @@ def preparar_contexto_aula_pdf(
         # Os PDFs CDP de Geografia usam nomes como ``01 - ATIVIDADE ...`` em
         # vez de ``AULA_01``. Preserve a ordem no plano final usando esse
         # prefixo numérico quando o conteúdo não traz um rótulo próprio.
-        match_numero = re.match(r"^\s*(\d{1,3})(?:\s*[-_.])", Path(caminho_pdf).stem)
+        match_numero = re.match(
+            r"^\s*(\d{1,3})(?:\s*[-_.]|\s+)",
+            Path(caminho_pdf_contextual).stem,
+        )
         if match_numero:
             numero_aula = str(int(match_numero.group(1)))
     tipo = dependencias.detectar_tipo_aula_fn(

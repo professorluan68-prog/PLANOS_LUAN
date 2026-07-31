@@ -56,7 +56,10 @@ from core.referencias_projeto_vida import (
     localizar_docx_referencia_projeto_vida,
     referencia_projeto_vida_por_pdf,
 )
-from core.seguranca_upload import nomes_pdf_original_possiveis
+from core.seguranca_upload import (
+    PREFIXO_PDF_TEMPORARIO,
+    nomes_pdf_original_possiveis,
+)
 from core.referencias_docx_padrao import (
     carregar_referencias_docx_padrao,
     localizar_docx_referencia_padrao,
@@ -121,7 +124,13 @@ _PERFIS_DOCX_SOMENTE_COLUNAS = set()
 
 def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) -> Path | None:
     caminho = Path(caminho_pdf)
-    if not (caminho.parent.name.startswith("temp_") or "temp" in caminho.parent.name.lower()):
+    caminho_temporario = (
+        caminho.parent.name.startswith(PREFIXO_PDF_TEMPORARIO)
+        or caminho.name.startswith(PREFIXO_PDF_TEMPORARIO)
+        or caminho.parent.name.startswith("temp_")
+        or "temp" in caminho.parent.name.lower()
+    )
+    if not caminho_temporario:
         return None
     
     try:
@@ -153,10 +162,8 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
             return None
 
         turma_norm = normalizar_para_pasta(turma)
-        ano_str = ""
-        m = re.search(r"(\d+)_?ANO", turma_norm)
-        if m:
-            ano_str = f"{m.group(1)}_ANO"
+        anos_turma = list(dict.fromkeys(re.findall(r"[1-9]", turma_norm)))
+        tokens_anos = [f"{ano}_ANO" for ano in anos_turma]
         
         nomes_originais = {
             nome.casefold() for nome in nomes_pdf_original_possiveis(caminho.name)
@@ -171,11 +178,13 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
             {arquivo.resolve(): arquivo for arquivo in candidatos}.values(),
             key=lambda arquivo: str(arquivo).casefold(),
         )
-        for arquivo in candidatos_unicos:
-            if ano_str and ano_str in str(arquivo).upper():
-                return arquivo
-            if not ano_str:
-                return arquivo
+        if tokens_anos:
+            for arquivo in candidatos_unicos:
+                caminho_normalizado = str(arquivo).upper()
+                if all(token in caminho_normalizado for token in tokens_anos):
+                    return arquivo
+        if candidatos_unicos:
+            return candidatos_unicos[0]
     except Exception:
         pass
     return None

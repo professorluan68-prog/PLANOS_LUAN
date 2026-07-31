@@ -21,7 +21,13 @@ try:
     from core.lote import processar_varios_pdfs
     from docx_generator.preencher import preencher_documento
     from docx_generator.preencher_cdp import preencher_documento_cdp
-    from core.disciplinas import eh_cdp, eh_cdp_fundamental, eh_cdp_multisseriada, eh_cdp_contextual
+    from core.disciplinas import (
+        eh_cdp,
+        eh_cdp_contextual,
+        eh_cdp_fundamental,
+        eh_cdp_multisseriada,
+        obter_config,
+    )
     from core.modelos_docx import caminho_template_por_contexto
     from core.helpers import filtrar_pdfs_para_aulas, ordenar_pdfs_por_numero
     from core.calendario import (
@@ -225,6 +231,12 @@ def main():
     parser.add_argument("--dividir-metodologia", action="store_true", help="Ativar divisao da metodologia em duas partes.")
     
     args = parser.parse_args()
+
+    if not obter_config(args.disciplina).habilitado:
+        parser.error(
+            "O modo CDP - Ciclo I está desativado temporariamente. "
+            "Os fluxos CDP Ensino Fundamental e CDP Ensino Médio continuam disponíveis."
+        )
     
     logger.info("Iniciando PLANOS_LUAN CLI...")
     

@@ -268,9 +268,22 @@ def _montar_prompt(
     palavras_chave_esperadas: list[str] | None = None,
     esboco_pdf: list[str] | None = None,
     referencia_metodologica: str | None = None,
+    contexto_cdp: bool = False,
 ) -> str:
     perfil = perfil_disciplina(f"{disciplina} {turma}")
-    contexto = "eja_regular" if modalidade_eja else detectar_contexto_metodologico(texto_pdf, disciplina=disciplina, turma=turma)
+    contexto = (
+        "cdp_eja"
+        if contexto_cdp
+        else (
+            "eja_regular"
+            if modalidade_eja
+            else detectar_contexto_metodologico(
+                texto_pdf,
+                disciplina=disciplina,
+                turma=turma,
+            )
+        )
+    )
     nivel = detectar_nivel_ensino(turma=turma, disciplina=disciplina, texto_pdf=texto_pdf)
     orientacao = get_orientacao_disciplina(disciplina, turma=turma)
     referencia = (
@@ -333,6 +346,24 @@ MODALIDADE EJA:
 - Na acessibilidade, valorize experiencias de vida e profissionais, registros simplificados, apoio visual e diferentes ritmos de aprendizagem.
 """
 
+    bloco_cdp = ""
+    if contexto_cdp:
+        bloco_cdp = """
+
+CONTEXTO CDP - REGRAS OBRIGATORIAS:
+- O plano sera aplicado em ambiente prisional e todas as atividades devem ser individuais.
+- Nao proponha duplas, grupos, equipes, pares, trabalho coletivo, socializacao entre estudantes ou dinamicas colaborativas.
+- Nao use internet, celular, computador, tablet, notebook, aplicativo, plataforma digital, video, slide, projetor ou datashow.
+- Use somente recursos tradicionais disponiveis: material impresso, livro, caderno, folha impressa, lapis, caneta, lousa e giz.
+- A oralidade deve ser mediada pelo professor, sem depender de interacao entre os estudantes.
+- Preserve o tema, a habilidade e as acoes pedagogicas sustentadas pelo PDF e pelo rascunho do DOCX. Nao invente habilidade, recurso ou atividade.
+- Quando houver rascunho do DOCX, refine metodologia, acompanhamento e acessibilidade sem alterar a quantidade, os titulos nem a ordem das etapas.
+- Escreva de forma simples, direta e executavel. Cada etapa deve ter no maximo 330 caracteres.
+- Gere exatamente 3 itens de acompanhamento da aprendizagem e exatamente 3 itens de acessibilidade.
+- Na acessibilidade, priorize leitura mediada, comandos curtos, palavras-chave na lousa, modelo impresso, tempo ampliado e registro simplificado no caderno.
+- Estas regras prevalecem sobre qualquer sugestao de tecnologia, agrupamento ou tecnica pedagogica presente em outras instrucoes ou no material-fonte.
+"""
+
     bloco_leitura_redacao = ""
 
     if perfil == "leitura_redacao":
@@ -351,7 +382,7 @@ MODELO ESPECIFICO DE REDACAO E LEITURA:
 """
 
     bloco_historia = ""
-    if perfil == "historia":
+    if perfil == "historia" and not contexto_cdp:
         regras_historia = get_regras_estruturais_historia()
         bloco_historia = f"""
 ================================================================================
@@ -513,6 +544,7 @@ REGRAS:
 7. Evite frases genericas/repetitivas e trechos incompletos.
 {bloco_referencia}
 {bloco_variacao}
+{bloco_cdp}
 
 CONTEUDO DO SLIDE:
 {texto_pdf[:6000]}
@@ -1096,6 +1128,7 @@ def processar_plano_ia(
     contexto_geracao: dict | None = None,
     palavras_chave_esperadas: list[str] | None = None,
     esboco_pdf: list[str] | None = None,
+    contexto_cdp: bool = False,
 ) -> dict:
     diagnostico_referencia = diagnosticar_referencia_metodologica(disciplina, turma)
     prompt = _montar_prompt(
@@ -1103,6 +1136,7 @@ def processar_plano_ia(
         disciplina,
         turma,
         modalidade_eja=modalidade_eja,
+        contexto_cdp=contexto_cdp,
         permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
         rascunho_base=rascunho_base,
         contexto_geracao=contexto_geracao,

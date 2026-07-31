@@ -1,6 +1,6 @@
 
 import streamlit as st
-import tempfile
+import logging
 import re
 import os
 import json
@@ -157,6 +157,10 @@ from core.calendario import (
     rotulo_data_sem_aula as _rotulo_data_sem_aula,
 )
 from core.lote import processar_varios_pdfs
+from core.seguranca_upload import (
+    limpar_upload_temporario,
+    salvar_pdf_upload_temporario,
+)
 from core.operacao import (
     detectar_alteracoes_planos_revisados,
     gerar_docx_final as _gerar_docx_final,
@@ -872,32 +876,17 @@ def _extrair_primeiro_texto_metodologia(aula) -> str:
     return primeiro_bloco.get("texto", "") if isinstance(primeiro_bloco, dict) else str(primeiro_bloco)
 
 def _salvar_pdf_temporario(pdf_file) -> str:
-    """
-    Guarda o PDF temporariamente, mas mantém o nome original para que 
-    a Inteligência Artificial o consiga ler e usar como contexto!
-    """
-    # 1. Tenta descobrir o nome original do ficheiro que enviaste
+    """Valida o upload e o guarda em um diretório temporário exclusivo."""
     nome_original = getattr(pdf_file, "name", "aula.pdf")
-    
-    # 2. Limpa caracteres estranhos do nome por segurança
-    nome_seguro = re.sub(r'[^A-Za-z0-9_.-]', '_', nome_original)
-    
-    # 3. Cria um nome final misturando um código curto com o nome original
-    # Exemplo: xyZ1_Aula05.pdf (Assim a IA consegue ler o 'Aula05')
-    pasta_temp = tempfile.gettempdir()
-    codigo_aleatorio = base64.b64encode(os.urandom(3)).decode('utf-8').replace('/', '_').replace('+', '-')
-    caminho_completo = os.path.join(pasta_temp, f"{codigo_aleatorio}_{nome_seguro}")
-    
     try:
         pdf_file.seek(0)
     except Exception:
         pass
-        
-    # 4. Escreve o ficheiro no computador com o nome correto
-    with open(caminho_completo, "wb") as f:
-        f.write(pdf_file.read())
-        
-    return caminho_completo
+    if hasattr(pdf_file, "getvalue"):
+        conteudo = pdf_file.getvalue()
+    else:
+        conteudo = pdf_file.read()
+    return str(salvar_pdf_upload_temporario(conteudo, nome_original))
 
 
 def _preparar_pdf_para_processamento(pdf_file) -> tuple[str, bool]:
@@ -1780,7 +1769,10 @@ def _extrair_aulas_dos_pdfs(
                     bimestre=bimestre,
                     caminho_planilha=str(st.session_state.get("caminho_ae_priorizado") or "").strip(),
                 )
-            cdp_contextual = eh_cdp_contextual(disciplina)
+            cdp_contextual = eh_cdp_contextual(disciplina) or any(
+                str(aula.get("contexto_metodologico") or "") == "cdp_eja"
+                for aula in aulas
+            )
             problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
             
             for problema in problemas_plano:
@@ -1841,8 +1833,11 @@ def _extrair_aulas_dos_pdfs(
     finally:
         for caminho_temp in caminhos_para_apagar:
             if caminho_temp:
-                try: os.unlink(caminho_temp)
-                except OSError: pass
+                if not limpar_upload_temporario(caminho_temp):
+                    logging.getLogger(__name__).warning(
+                        "Não foi possível remover completamente o upload temporário: %s",
+                        caminho_temp,
+                    )
 
 def _gerar_docx_cdp_final(modelo_bytes: bytes, escola: str, professor: str, disciplina: str, turma_atual: str, mes: str, bimestre: str, semana: str, observacao: str, aulas_previstas_manual: str, cdp_aula_inicial: int, turma_cdp: str = "", modo_ia: str = "Sem IA", modelo_openai: str = "", modelo_gemini: str = "", datas_horarios: list[dict] | None = None):
     docx_bytes = preencher_documento_cdp(
@@ -1877,7 +1872,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "CDP - Ciclo I", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
+modos_disponiveis = ["Planos gerais", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -1953,7 +1948,15 @@ with col_prof:
 
 with col_disciplina:
     dados_prof = PROFESSORES_DB.get(professor, {})
-    disciplinas_cadastradas = [] if modo_cdp_dedicado else dados_prof.get("disciplinas", [])
+    disciplinas_cadastradas = (
+        []
+        if modo_cdp_dedicado
+        else [
+            item
+            for item in dados_prof.get("disciplinas", [])
+            if obter_config(item.get("disciplina", "")).habilitado
+        ]
+    )
     if modo_eja:
         disciplinas_cadastradas = [
             item

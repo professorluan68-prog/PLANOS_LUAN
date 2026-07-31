@@ -199,6 +199,13 @@ def _obter_grade_e_aula_do_pdf(
             match_num = re.search(r"AULA_(\d+)", caminho.stem, re.I)
             if match_num:
                 numero = int(match_num.group(1))
+            else:
+                match_num = re.match(
+                    r"^\s*(\d{1,3})(?:\s*[-_.]|\s+)",
+                    caminho.stem,
+                )
+                if match_num:
+                    numero = int(match_num.group(1))
 
     return grade, numero
 

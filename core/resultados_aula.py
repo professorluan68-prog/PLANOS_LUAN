@@ -1171,7 +1171,27 @@ def montar_resultado_aula_ia(
         literal=False,
         diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
-    return _registrar_aviso_referencia_metodologica_ia(resultado, plano_ia)
+    resultado = _registrar_aviso_referencia_metodologica_ia(resultado, plano_ia)
+    if contexto_metodologico == "cdp_eja":
+        # A Historia possui um pos-processamento proprio executado durante a
+        # finalizacao. Reaplicar a normalizacao aqui garante que nenhuma
+        # sugestao de tecnologia ou agrupamento seja reintroduzida depois da
+        # primeira barreira do contexto CDP.
+        resultado["metodologia"] = _normalizar_metodologia_cdp(
+            resultado.get("metodologia") or []
+        )
+        resultado["acompanhamento"], resultado["acessibilidade"] = (
+            _normalizar_colunas_cdp(
+                resultado.get("acompanhamento") or [],
+                resultado.get("acessibilidade") or [],
+                perfil=perfil,
+                tema=tema,
+            )
+        )
+        diagnostico = dict(resultado.get("diagnostico_geracao") or {})
+        diagnostico["metodologia_final"] = list(resultado["metodologia"])
+        resultado["diagnostico_geracao"] = diagnostico
+    return resultado
 
 
 def montar_resultado_aula_local(

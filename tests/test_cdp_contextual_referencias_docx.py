@@ -231,3 +231,183 @@ def test_resultado_cdp_contextual_sem_docx_usa_gerador_local(tmp_path):
         "nao encontrei o arquivo .docx de referencia" in aviso.lower()
         for aviso in resultado["avisos_validacao"]
     )
+
+
+def test_resultado_cdp_contextual_com_docx_refina_com_ia(monkeypatch, tmp_path):
+    pasta = tmp_path / "CDP-EF" / "8_ANO_9_ANO"
+    pasta.mkdir(parents=True)
+    caminho_docx = pasta / "METODOLOGIA_GEOGRAFIA_CDP.docx"
+    caminho_pdf = pasta / "2_ano_AULA_08.1 - Globalizacao e fluxos culturais.pdf"
+    _criar_docx_referencia_cdp(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+    chamada = {}
+
+    def _refinar(*args, **kwargs):
+        chamada.update(kwargs)
+        return {
+            "tema": "Globalizacao e fluxos culturais",
+            "aprendizagem": "Texto que nao deve substituir a habilidade de origem.",
+            "metodologia": [
+                {
+                    "titulo": "Para comecar",
+                    "texto": "Exibir um video e pedir uma conversa em grupos sobre trocas culturais.",
+                },
+                {
+                    "titulo": "Foco no conteudo",
+                    "texto": "Explicar os fluxos culturais na lousa com apoio do material impresso.",
+                },
+                {
+                    "titulo": "Na pratica",
+                    "texto": "Aplicar VIREM E CONVERSEM e orientar o registro individual no caderno.",
+                },
+                {
+                    "titulo": "Encerramento",
+                    "texto": "Conferir individualmente uma sintese escrita sobre o tema.",
+                },
+            ],
+            "acompanhamento": [
+                "Observar a conversa em grupos.",
+                "Conferir o registro no caderno.",
+                "Verificar a compreensao dos fluxos culturais.",
+            ],
+            "acessibilidade": [
+                "Disponibilizar video em plataforma digital.",
+                "Escrever palavras-chave na lousa.",
+                "Permitir registro em topicos.",
+            ],
+        }
+
+    monkeypatch.setattr("core.ia.processar_plano_ia", _refinar)
+
+    resultado = _montar_resultado_cdp_contextual(
+        texto="Ensino Medio Geografia Globalizacao e fluxos culturais",
+        tema="Globalizacao e fluxos culturais",
+        disciplina_base="Geografia",
+        numero_aula="8",
+        indice_aula=0,
+        perfil="geografia",
+        tipo="",
+        extracao_pdf={
+            "conceito_extraido": "globalizacao e fluxos culturais",
+            "habilidade": "Analisar os fluxos culturais e seus efeitos nas identidades.",
+        },
+        caminho_pdf=str(caminho_pdf),
+        usar_ia=True,
+        provedor_ia="OpenAI",
+        modelo_ia="modelo-teste",
+        turma="8o/9o E.F",
+    )
+
+    assert chamada["contexto_cdp"] is True
+    assert chamada["permitir_tecnicas_explicitamente"] is False
+    assert chamada["rascunho_base"]["metodologia"]
+    assert resultado["origem_metodologia"] == "ia_cdp_contextual"
+    assert resultado["status_referencia_docx"] == "docx_refinado_ia"
+    assert resultado["ia_usada"] is True
+    assert resultado["texto_central_copiado_literalmente"] is False
+    assert resultado["aprendizagem"].startswith("Analisar os fluxos culturais")
+    assert len(resultado["acompanhamento"]) == 3
+    assert len(resultado["acessibilidade"]) == 3
+
+    texto_final = " ".join(
+        [etapa["texto"] for etapa in resultado["metodologia"]]
+        + resultado["acompanhamento"]
+        + resultado["acessibilidade"]
+    ).casefold()
+    for termo_proibido in (
+        "video",
+        "plataforma digital",
+        "em grupos",
+        "virem e conversem",
+    ):
+        assert termo_proibido not in texto_final
+
+
+def test_resultado_cdp_contextual_sem_docx_gera_com_ia(monkeypatch, tmp_path):
+    pasta = tmp_path / "CDP-EF" / "8_ANO_9_ANO"
+    pasta.mkdir(parents=True)
+    caminho_pdf = pasta / "AULA_09 - Tema sem referencia.pdf"
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+    chamada = {}
+
+    def _gerar(*args, **kwargs):
+        chamada.update(kwargs)
+        return {
+            "tema": "Tema sem referencia",
+            "aprendizagem": "Compreender o tema indicado no material.",
+            "metodologia": [
+                {"titulo": "Para comecar", "texto": "Ler a pergunta impressa."},
+                {"titulo": "Foco no conteudo", "texto": "Explicar o tema na lousa."},
+                {"titulo": "Na pratica", "texto": "Responder individualmente no caderno."},
+                {"titulo": "Encerramento", "texto": "Conferir o registro escrito."},
+            ],
+            "acompanhamento": ["Verificar a leitura.", "Conferir a resposta.", "Observar a sintese."],
+            "acessibilidade": ["Ler o comando.", "Usar palavras-chave.", "Permitir registro em topicos."],
+        }
+
+    monkeypatch.setattr("core.ia.processar_plano_ia", _gerar)
+
+    resultado = _montar_resultado_cdp_contextual(
+        texto="Geografia tema sem referencia",
+        tema="Tema sem referencia",
+        disciplina_base="Geografia",
+        numero_aula="9",
+        indice_aula=0,
+        perfil="geografia",
+        tipo="",
+        extracao_pdf={"conceito_extraido": "tema sem referencia"},
+        caminho_pdf=str(caminho_pdf),
+        usar_ia=True,
+        provedor_ia="OpenAI",
+        modelo_ia="modelo-teste",
+        turma="8o/9o E.F",
+    )
+
+    assert chamada["contexto_cdp"] is True
+    assert chamada["rascunho_base"] is None
+    assert resultado["origem_metodologia"] == "ia_cdp_contextual"
+    assert resultado["status_referencia_docx"] == "docx_ausente"
+    assert resultado["ia_usada"] is True
+    assert resultado["ia_erro"] == ""
+    assert resultado["contexto_metodologico"] == "cdp_eja"
+    assert resultado["diagnostico_referencia_docx"]["bloqueia_geracao"] is False
+    assert len(resultado["metodologia"]) == 4
+    assert len(resultado["acompanhamento"]) == 3
+    assert len(resultado["acessibilidade"]) == 3
+
+
+def test_resultado_cdp_contextual_falha_da_ia_preserva_docx(monkeypatch, tmp_path):
+    pasta = tmp_path / "CDP-EF" / "8_ANO_9_ANO"
+    pasta.mkdir(parents=True)
+    caminho_docx = pasta / "METODOLOGIA_GEOGRAFIA_CDP.docx"
+    caminho_pdf = pasta / "2_ano_AULA_08.1 - Globalizacao e fluxos culturais.pdf"
+    _criar_docx_referencia_cdp(caminho_docx)
+    caminho_pdf.write_bytes(b"%PDF-1.4\n")
+
+    def _falhar(*args, **kwargs):
+        raise RuntimeError("falha simulada")
+
+    monkeypatch.setattr("core.ia.processar_plano_ia", _falhar)
+
+    resultado = _montar_resultado_cdp_contextual(
+        texto="Ensino Medio Geografia Globalizacao e fluxos culturais",
+        tema="Globalizacao e fluxos culturais",
+        disciplina_base="Geografia",
+        numero_aula="8",
+        indice_aula=0,
+        perfil="geografia",
+        tipo="",
+        extracao_pdf={"conceito_extraido": "globalizacao e fluxos culturais"},
+        caminho_pdf=str(caminho_pdf),
+        usar_ia=True,
+        provedor_ia="OpenAI",
+        modelo_ia="modelo-teste",
+        turma="8o/9o E.F",
+    )
+
+    assert resultado["origem_metodologia"] == "docx_referencia_cdp_contextual"
+    assert resultado["status_referencia_docx"] == "docx_preservado_falha_ia"
+    assert resultado["texto_central_copiado_literalmente"] is True
+    assert resultado["ia_usada"] is False
+    assert "falha simulada" in resultado["ia_erro"]
+    assert "circulacao cultural" in resultado["metodologia"][1]["texto"].lower()

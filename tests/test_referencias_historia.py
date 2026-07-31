@@ -30,6 +30,14 @@ def test_obter_grade_e_aula_do_pdf():
     assert grade == 9
     assert numero == 17
 
+    path4 = Path(
+        "D:/PDF novos/HISTORIA/AF/3_BIMESTRE/CDP-EF/6_ANO_7_ANO/"
+        "01 A Historia na sua vida.pdf"
+    )
+    grade, numero = _obter_grade_e_aula_do_pdf(path4, None)
+    assert grade == 6
+    assert numero == 1
+
 
 def test_selecionar_referencia():
     referencias = {

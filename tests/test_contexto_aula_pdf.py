@@ -178,7 +178,7 @@ def test_preparar_contexto_recupera_contexto_cdp_de_upload_temporario(
     original.write_bytes(b"%PDF-1.4")
     temporario = (
         tmp_path
-        / "temp_upload"
+        / "planos_luan_upload_AbC1"
         / "planos_luan_upload_AbC1__01 - ATIVIDADE 1 - Fontes.pdf"
     )
     temporario.parent.mkdir()
@@ -202,6 +202,8 @@ def test_preparar_contexto_recupera_contexto_cdp_de_upload_temporario(
     assert contexto["cdp_contextual"] is True
     assert contexto["caminho_pdf_contextual"] == str(original)
     assert contexto["contexto_metodologico"] == "cdp_eja"
+    assert contexto["numero_aula"] == "1"
+    assert contexto["tema"] == "Fontes"
 
 
 def test_preparar_contexto_recupera_cdp_eja_de_sociologia_em_upload_temporario(

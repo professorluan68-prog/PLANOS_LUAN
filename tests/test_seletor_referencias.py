@@ -85,6 +85,45 @@ def test_resolver_caminho_original_reconhece_nome_temporario_reversivel(
     assert resolvido == original
 
 
+def test_resolver_caminho_original_reconhece_diretorio_real_do_upload_cdp(
+    monkeypatch, tmp_path
+):
+    import config
+
+    raiz_pdf = tmp_path / "PDF_AULAS"
+    pasta_6_7 = (
+        raiz_pdf
+        / "HISTORIA"
+        / "AF"
+        / "3_BIMESTRE"
+        / "CDP-EF"
+        / "6_ANO_7_ANO"
+    )
+    pasta_8_9 = pasta_6_7.parent / "8_ANO_9_ANO"
+    pasta_6_7.mkdir(parents=True)
+    pasta_8_9.mkdir(parents=True)
+    original = pasta_6_7 / "01 A Historia na sua vida.pdf"
+    original.write_bytes(b"%PDF-1.4")
+    (pasta_8_9 / original.name).write_bytes(b"%PDF-1.4")
+
+    temporario = (
+        tmp_path
+        / "planos_luan_upload_diretorio"
+        / "planos_luan_upload_AbC1__01 A Historia na sua vida.pdf"
+    )
+    temporario.parent.mkdir()
+    temporario.write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(config, "PDF_AULAS_DIR", raiz_pdf)
+
+    resolvido = seletor_referencias.resolver_caminho_pdf_original(
+        str(temporario),
+        "Historia",
+        "6o/7o E.F",
+    )
+
+    assert resolvido == original
+
+
 def test_upload_cdp_nao_usa_docx_regular_da_pasta_pai(monkeypatch, tmp_path):
     import config
 
