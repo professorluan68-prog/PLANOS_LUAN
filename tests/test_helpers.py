@@ -137,6 +137,27 @@ def test_resolver_pasta_pdfs_encontra_subpasta_cdp_em_para_turma_multisseriada(t
     assert caminho == cdp
 
 
+def test_resolver_pasta_pdfs_historia_cdp_em_prioriza_subpasta_multisseriada(tmp_path):
+    raiz_bimestre = tmp_path / "HISTORIA" / "EM" / "3_BIMESTRE"
+    cdp = raiz_bimestre / "CDP_EM"
+    cdp.mkdir(parents=True)
+    (cdp / "01 - ATIVIDADE 1 - Fontes historicas.pdf").write_bytes(b"%PDF-1.4\n")
+
+    for ano in ("1_ANO", "2_ANO", "3_ANO"):
+        pasta_regular = raiz_bimestre / ano
+        pasta_regular.mkdir()
+        (pasta_regular / "AULA_01 - Historia regular.pdf").write_bytes(b"%PDF-1.4\n")
+
+    caminho = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Hist\u00f3ria",
+        "1\u00ba/2\u00ba/3\u00ba E.M",
+        "3\u00ba Bimestre",
+    )
+
+    assert caminho == cdp
+
+
 def test_resolver_pasta_pdfs_encontra_cdp_ef_com_hifen_e_subpasta_de_turma(tmp_path):
     cdp = tmp_path / "HISTORIA" / "AF" / "3_BIMESTRE" / "CDP-EF" / "6_ANO_7_ANO"
     cdp.mkdir(parents=True)

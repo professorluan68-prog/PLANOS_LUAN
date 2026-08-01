@@ -621,6 +621,15 @@ def resolver_pasta_pdfs(
     elif match_serie:
         serie = match_serie.group(1) + "_ANO"
 
+    # A turma multisseriada 1º/2º/3º E.M pertence ao fluxo CDP. Sem esta
+    # prioridade, a busca flexível pode escolher uma pasta regular (por
+    # exemplo, ``3_ANO``) porque ela coincide com um dos anos da turma.
+    if nivel == "EM" and serie_multisseriada == "1_ANO_2_ANO_3_ANO":
+        caminho_bimestre = Path(base_dir) / disc_folder / nivel / bim
+        subpasta_cdp_em = _localizar_subpasta_cdp(caminho_bimestre, "EM")
+        if subpasta_cdp_em:
+            return subpasta_cdp_em
+
     caminho_padrao = Path(base_dir) / disc_folder / nivel / bim / serie
     if caminho_padrao.exists():
         if _pasta_tem_pdfs(caminho_padrao):

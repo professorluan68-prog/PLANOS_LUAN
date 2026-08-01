@@ -146,6 +146,45 @@ def test_referencia_historia_por_pdf_retorna_aula_do_docx(tmp_path):
     assert referencia["fonte"] == str(doc_path)
 
 
+def test_referencia_historia_cdp_em_sem_serie_no_caminho_usa_numero_unico(tmp_path):
+    pasta = tmp_path / "HISTORIA" / "EM" / "3_BIMESTRE" / "CDP_EM"
+    pasta.mkdir(parents=True)
+    pdf = pasta / "01 - 1 - Usando fontes historicas.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    doc_path = pasta / "METODOLOGIA_HISTORIA_CDP_1_2_3_ANO_EM_3_B.docx"
+
+    doc = Document()
+    doc.add_paragraph("AULA 1 - Usando fontes hist\u00f3ricas")
+    doc.add_paragraph("Metodologia")
+    doc.add_paragraph("Para come\u00e7ar: Retomar o conceito de fonte hist\u00f3rica.")
+    doc.add_paragraph("Foco no conte\u00fado: Explicar autoria, contexto e finalidade.")
+    doc.add_paragraph("Na pr\u00e1tica: Orientar a an\u00e1lise individual do texto impresso.")
+    doc.add_paragraph("Encerramento: Corrigir a s\u00edntese na lousa.")
+    doc.add_paragraph("Acompanhamento da aprendizagem")
+    doc.add_paragraph("\u2611 Verificar a identifica\u00e7\u00e3o da fonte.")
+    doc.add_paragraph("\u2611 Conferir a an\u00e1lise do contexto.")
+    doc.add_paragraph("\u2611 Avaliar a s\u00edntese escrita.")
+    doc.add_paragraph("Acessibilidade")
+    doc.add_paragraph("\u2611 Fornecer texto ampliado.")
+    doc.add_paragraph("\u2611 Registrar palavras na lousa.")
+    doc.add_paragraph("\u2611 Permitir resposta por t\u00f3picos.")
+    doc.save(doc_path)
+
+    referencia = referencia_historia_cdp_por_pdf(
+        pdf,
+        "1",
+        tema="Usando fontes hist\u00f3ricas",
+    )
+
+    assert referencia is not None
+    assert referencia["numero"] == "1"
+    assert referencia["titulo"] == "Usando fontes hist\u00f3ricas"
+    assert len(referencia["metodologia"]) == 4
+    assert len(referencia["acompanhamento"]) == 3
+    assert len(referencia["acessibilidade"]) == 3
+    assert referencia["fonte"] == str(doc_path)
+
+
 @pytest.mark.xfail(
     reason=(
         "Arquivo Metodologias_Historia_Ensino_Regular.docx existe mas foi gerado "

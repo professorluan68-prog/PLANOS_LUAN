@@ -342,11 +342,31 @@ def referencia_historia_cdp_por_pdf(
         return None
 
     grade, numero = _obter_grade_e_aula_do_pdf(caminho_pdf, numero_aula)
-    if not grade or not numero:
+    if not numero:
         return None
 
     referencias = _carregar_referencias_historia_docx(str(docx))
-    referencia = _selecionar_referencia(referencias, grade, numero, tema)
+    if grade:
+        referencia = _selecionar_referencia(referencias, grade, numero, tema)
+    else:
+        # Pastas CDP multisseriadas podem usar apenas ``CDP_EM`` no caminho,
+        # sem indicar 1º, 2º ou 3º ano. Nesse caso, o número da aula continua
+        # sendo seguro quando aparece uma única vez no DOCX contextual.
+        candidatas_numero = [
+            ref for (_grade, num), ref in referencias.items() if num == numero
+        ]
+        referencia = candidatas_numero[0] if len(candidatas_numero) == 1 else None
+        if referencia is None and tema:
+            candidatas_tema = sorted(
+                (
+                    (_pontuar_titulo(tema, ref.get("titulo", "")), ref)
+                    for ref in referencias.values()
+                ),
+                key=lambda item: item[0],
+                reverse=True,
+            )
+            if candidatas_tema and candidatas_tema[0][0] >= 0.60:
+                referencia = candidatas_tema[0][1]
     if not referencia:
         return None
 
