@@ -12,7 +12,10 @@ class CacheCorruptedError(Exception):
 
 
 class CacheManager:
-    def __init__(self, cache_dir: str = ".cache", schema_version: str = "v1"):
+    def __init__(self, cache_dir: Optional[str] = None, schema_version: str = "v1"):
+        if cache_dir is None:
+            from config import BASE_DIR
+            cache_dir = str(BASE_DIR / ".cache")
         os.makedirs(cache_dir, exist_ok=True)
         self.cache_dir = cache_dir
         self.schema_version = schema_version

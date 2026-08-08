@@ -53,13 +53,16 @@ REGISTRO_PROXIMA_GERACAO_PATH = os.getenv(
     "REGISTRO_PROXIMA_GERACAO_PATH",
     str(BASE_DIR / "registro_proxima_geracao.json"),
 )
-
 # 4. Configuracoes de Inteligencia Artificial
 MODELO_OPENAI_PADRAO = "gpt-4o-mini"
 MODELO_GEMINI_PADRAO = "gemini-2.5-flash"
 IA_TIMEOUT_SEGUNDOS = 120
 
 # 4.1 Fluxos temporariamente desabilitados
+# Fluxo de revisão pós-geração (etapa de edição das aulas geradas antes do DOCX).
+# Mantido False intencionalmente: a UI usa este flag em 3 pontos (linhas ~1856, 2890 e 3016
+# de planos_luan_app.py) para suprimir a tela de revisão intermediária e ir direto ao DOCX.
+# Antes de reabilitar, validar o fluxo completo de revisão com a UI.
 HABILITAR_REVISAO_POS_GERACAO = False
 
 # 5. Limites e regras de leitura

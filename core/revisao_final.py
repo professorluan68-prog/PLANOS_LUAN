@@ -111,7 +111,7 @@ def _validar_tamanho_etapas(metodologia, perfil: str) -> tuple[int, list[str]]:
     return deducoes, avisos
 
 def revisar_aula_gerada(
-    aula: dict | PlanoCompleto, 
+    aula: dict | PlanoCompleto,
     perfil: str,
     _max_regeneracoes: int = 1
 ) -> dict:
@@ -206,10 +206,12 @@ def revisar_aula_gerada(
         aula["cobertura_palavras_chave"] = resultado_pc["cobertura"]
         aula["palavras_chave_encontradas"] = resultado_pc["palavras_encontradas"]
         aula["palavras_chave_ausentes"] = resultado_pc["palavras_ausentes"]
-        
+
         if not resultado_pc["valido"]:
             taxa = resultado_pc["cobertura"]
-            penalidade_pc = max(1, int(100 - taxa))
+            # Teto de 40 pontos para manter proporcionalidade com os demais critérios
+            # e preservar a interpretabilidade do confidence_score.
+            penalidade_pc = min(40, max(1, int(100 - taxa)))
             deducoes += penalidade_pc
             avisos.append(
                 f"Aderência de palavras-chave baixa ({taxa:.1f}%). "
@@ -221,7 +223,7 @@ def revisar_aula_gerada(
 
     # 7. Atualizar dicionário
     aula["confidence_score"] = int(max(0, 100 - deducoes))
-    
+
     # CORREÇÃO FALHA #8 — Regeneração seletiva quando score < mínimo aceitável
     if (
         aula["confidence_score"] < SCORE_MINIMO_ACEITAVEL

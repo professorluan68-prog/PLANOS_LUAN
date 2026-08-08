@@ -217,14 +217,19 @@ def _pasta_tem_pdfs(caminho: Path) -> bool:
 
 def _localizar_subpasta_cdp(caminho_bimestre: Path, nivel: str) -> Path | None:
     """Localiza CDP_EM/CDP_EF mesmo quando a pasta usa hifen ou subpasta de turma."""
-    nome_esperado = "CDPEM" if nivel == "EM" else "CDPEF"
+    nomes_esperados = {"CDPEM"} if nivel == "EM" else {"CDPEF"}
+    # Algumas disciplinas do Ensino Medio usam apenas ``CDP`` dentro do
+    # bimestre. Como o nivel ja foi resolvido pela turma, esse nome e uma
+    # variante inequivoca de ``CDP_EM`` nesse ponto do fluxo.
+    if nivel == "EM":
+        nomes_esperados.add("CDP")
     try:
         candidatos = sorted(
             (
                 caminho
                 for caminho in caminho_bimestre.iterdir()
                 if caminho.is_dir()
-                and _nome_pasta_normalizado(caminho).replace("_", "") == nome_esperado
+                and _nome_pasta_normalizado(caminho).replace("_", "") in nomes_esperados
             ),
             key=lambda caminho: str(caminho).casefold(),
         )

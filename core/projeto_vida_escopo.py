@@ -75,14 +75,14 @@ def _normalizar_aula(aula) -> str:
 
 def _compactar_texto(texto: str = "") -> str:
     texto = re.sub(r"\s+", " ", str(texto or "")).strip()
-    texto = re.sub(r"\s*â€¢\s*", " â€¢ ", texto)
+    texto = re.sub(r"\s*•\s*", " • ", texto)
     return texto.strip(" .;-")
 
 def _itens(texto: str = "") -> list[str]:
     texto = _compactar_texto(texto)
     if not texto:
         return []
-    partes = [p.strip(" .;-") for p in re.split(r"\s*â€¢\s*", texto) if p.strip(" .;-")]
+    partes = [p.strip(" .;-") for p in re.split(r"\s*•\s*", texto) if p.strip(" .;-")]
     if len(partes) <= 1:
         partes = [p.strip(" .;-") for p in re.split(r"(?<=[.!?])\s+", texto) if p.strip(" .;-")]
     return partes

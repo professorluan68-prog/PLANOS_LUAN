@@ -48,12 +48,33 @@ def test_init_db_cria_indices_e_remove_historico_incompleto(monkeypatch, tmp_pat
         cursor = conn.cursor()
         cursor.execute("PRAGMA index_list(historico_planos)")
         indices = {row[1] for row in cursor.fetchall()}
+        cursor.execute("PRAGMA table_info(historico_planos)")
+        colunas = {row[1] for row in cursor.fetchall()}
         cursor.execute("SELECT arquivo_nome FROM historico_planos ORDER BY id")
         arquivos = [row[0] for row in cursor.fetchall()]
+        cursor.execute(
+            """
+            SELECT
+                professor_chave,
+                disciplina_chave,
+                turma_chave,
+                mes_geracao,
+                origem
+            FROM historico_planos
+            WHERE arquivo_nome = ?
+            """,
+            ("valido.docx",),
+        )
+        metadados = cursor.fetchone()
 
     assert "idx_historico_planos_data_id" in indices
     assert "idx_historico_planos_contexto_data" in indices
+    assert "idx_historico_planos_chaves_data" in indices
+    assert "idx_historico_planos_contexto_chaves_data" in indices
+    assert "idx_historico_planos_prof_data" in indices
+    assert {"professor_chave", "disciplina_chave", "turma_chave", "mes_geracao"} <= colunas
     assert arquivos == ["valido.docx"]
+    assert metadados == ("ANA", "MATEMATICA", "6 ANO A", "2026-06", "historico_docx")
 
 
 def test_listar_historico_planos_tem_ordem_estavel_por_id(monkeypatch, tmp_path):
@@ -99,7 +120,24 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
     with database.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT professor_nome, disciplina, turma, bimestre, arquivo_nome, arquivo_path FROM historico_planos"
+            """
+            SELECT
+                professor_nome,
+                disciplina,
+                turma,
+                bimestre,
+                arquivo_nome,
+                arquivo_path,
+                professor_chave,
+                disciplina_chave,
+                turma_chave,
+                bimestre_chave,
+                mes_geracao,
+                arquivo_hash,
+                arquivo_tamanho,
+                origem
+            FROM historico_planos
+            """
         )
         row = cursor.fetchone()
 
@@ -107,6 +145,11 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
     assert row[5] != ""
     assert (tmp_path / "historico_docx" / row[5]).exists()
     assert (tmp_path / "historico_docx" / row[5]).read_bytes() == b"docx"
+    assert row[6:10] == ("ANA", "MATEMATICA", "6 ANO A", "3 BIMESTRE")
+    assert len(row[10]) == 7 and row[10][4] == "-"
+    assert len(row[11]) == 64
+    assert row[12] == 4
+    assert row[13] == "historico_docx"
 
 
 def test_salvar_historico_plano_retencao_limite(monkeypatch, tmp_path):
