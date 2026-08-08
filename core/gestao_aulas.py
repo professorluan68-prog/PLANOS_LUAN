@@ -32,19 +32,17 @@ def _bimestres_do_cabecalho(documento: Document) -> set[int]:
     return bimestres
 
 
-def detectar_ultima_aula_de_docx_bytes(docx_bytes: bytes, bimestre: str = "") -> int:
-    """
-    Analisa os bytes de um arquivo .docx para extrair o número máximo de aula gerado.
-    """
+def detectar_resumo_aulas_de_docx_bytes(docx_bytes: bytes, bimestre: str = "") -> dict[str, int]:
+    """Analisa um .docx e retorna última aula e quantidade de aulas distintas."""
     if not docx_bytes:
-        return 0
+        return {"ultima_aula": 0, "total_aulas": 0}
 
     try:
         documento = Document(BytesIO(docx_bytes))
         bimestre_esperado = _numero_bimestre(bimestre)
         bimestres_cabecalho = _bimestres_do_cabecalho(documento)
         if bimestre_esperado and bimestres_cabecalho and bimestre_esperado not in bimestres_cabecalho:
-            return 0
+            return {"ultima_aula": 0, "total_aulas": 0}
 
         aulas_detectadas = []
         textos = [paragrafo.text for paragrafo in documento.paragraphs]
@@ -64,11 +62,19 @@ def detectar_ultima_aula_de_docx_bytes(docx_bytes: bytes, bimestre: str = "") ->
             )
 
         if aulas_detectadas:
-            return max(aulas_detectadas)
+            aulas_unicas = sorted(set(aulas_detectadas))
+            return {"ultima_aula": max(aulas_unicas), "total_aulas": len(aulas_unicas)}
     except Exception:
         pass
 
-    return 0
+    return {"ultima_aula": 0, "total_aulas": 0}
+
+
+def detectar_ultima_aula_de_docx_bytes(docx_bytes: bytes, bimestre: str = "") -> int:
+    """
+    Analisa os bytes de um arquivo .docx para extrair o número máximo de aula gerado.
+    """
+    return detectar_resumo_aulas_de_docx_bytes(docx_bytes, bimestre)["ultima_aula"]
 
 def obter_aula_parada_do_json(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     """
@@ -122,8 +128,11 @@ def obter_referencia_ultima_aula_historico(
     if not historico:
         return None
 
-    _, docx_bytes = obter_arquivo_historico(historico["id"])
-    ultima_aula = detectar_ultima_aula_de_docx_bytes(docx_bytes, bimestre)
+    if historico.get("ultima_aula") is not None:
+        ultima_aula = int(historico.get("ultima_aula") or 0)
+    else:
+        _, docx_bytes = obter_arquivo_historico(historico["id"])
+        ultima_aula = detectar_ultima_aula_de_docx_bytes(docx_bytes, bimestre)
 
     return {
         **historico,

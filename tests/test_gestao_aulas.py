@@ -64,6 +64,14 @@ def test_obter_ultima_aula_gerada_sistema_impl_reinicia_da_primeira_aula(monkeyp
     assert ultima_aula == 0
 
 
+def test_detectar_resumo_aulas_de_docx_bytes_conta_aulas_distintas():
+    resumo = gestao_aulas.detectar_resumo_aulas_de_docx_bytes(
+        _docx_com_aulas(1, 2, 2, 5),
+    )
+
+    assert resumo == {"ultima_aula": 5, "total_aulas": 3}
+
+
 def test_obter_referencia_ultima_aula_historico_consulta_ultimo_plano_do_bimestre(monkeypatch, tmp_path):
     _preparar_banco(monkeypatch, tmp_path)
     database.salvar_historico_plano(

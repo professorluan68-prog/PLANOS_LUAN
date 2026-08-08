@@ -1,6 +1,8 @@
 from contextlib import contextmanager
+from io import BytesIO
 
 import pytest
+from docx import Document
 
 from core import database
 
@@ -9,6 +11,15 @@ def _preparar_banco(monkeypatch, tmp_path):
     monkeypatch.setattr(database, "DB_PATH", tmp_path / "planos_teste.db")
     monkeypatch.setattr(database, "HISTORICO_DOCX_DIR", tmp_path / "historico_docx")
     database.init_db()
+
+
+def _docx_com_aulas(*numeros_aula: int) -> bytes:
+    documento = Document()
+    for numero in numeros_aula:
+        documento.add_paragraph(f"AULA {numero}")
+    buffer = BytesIO()
+    documento.save(buffer)
+    return buffer.getvalue()
 
 
 def test_init_db_cria_indices_e_remove_historico_incompleto(monkeypatch, tmp_path):
@@ -150,6 +161,23 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
     assert len(row[11]) == 64
     assert row[12] == 4
     assert row[13] == "historico_docx"
+
+
+def test_salvar_historico_plano_grava_resumo_de_aulas(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "plano.docx",
+        _docx_com_aulas(1, 2, 2, 8),
+    )
+
+    resultado = database.buscar_historico_planos_avancado(professor_nome="ANA")
+
+    assert resultado[0]["ultima_aula"] == 8
+    assert resultado[0]["total_aulas"] == 3
 
 
 def test_salvar_historico_plano_retencao_limite(monkeypatch, tmp_path):
@@ -458,6 +486,113 @@ def test_sincronizar_historico_planos_com_planos_feitos_indexa_arquivos(monkeypa
     assert resultados[0]["disciplina"] == "LINGUA PORTUGUESA"
     assert resultados[0]["turma"] == "6O ANO A"
     assert resultados[0]["arquivo_nome"] == "Plano_6o_ANO_A_Lingua_Portuguesa.docx"
+
+
+def test_buscar_historico_planos_avancado_combina_filtros(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "mat_3b.docx",
+        b"matematica",
+        bimestre="3o BIMESTRE",
+    )
+    database.salvar_historico_plano(
+        "ANA",
+        "Historia",
+        "6 ANO A",
+        "hist_4b.docx",
+        b"historia",
+        bimestre="4o BIMESTRE",
+    )
+    database.salvar_historico_plano(
+        "BIA",
+        "Matematica",
+        "6 ANO A",
+        "bia_mat_3b.docx",
+        b"bia",
+        bimestre="3o BIMESTRE",
+    )
+
+    resultados = database.buscar_historico_planos_avancado(
+        professor_nome=" ana ",
+        disciplina="matematica",
+        turma="6o ano a",
+        bimestre="3 bimestre",
+        termo_busca="mat",
+    )
+
+    assert [item["arquivo_nome"] for item in resultados] == ["mat_3b.docx"]
+    assert resultados[0]["arquivo_disponivel"] is True
+    assert resultados[0]["origem"] == "historico_docx"
+    assert resultados[0]["arquivo_tamanho"] == len(b"matematica")
+
+
+def test_buscar_historico_planos_avancado_filtra_disponiveis(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Matematica",
+        "6 ANO A",
+        "disponivel.docx",
+        b"ok",
+    )
+    with database.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO historico_planos
+                (
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    data_geracao,
+                    arquivo_nome,
+                    arquivo_path,
+                    professor_chave,
+                    disciplina_chave,
+                    turma_chave,
+                    mes_geracao,
+                    origem
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "ANA",
+                "Matematica",
+                "6 ANO A",
+                "2026-01-01 10:00:00",
+                "ausente.docx",
+                "ausente.docx",
+                "ANA",
+                "MATEMATICA",
+                "6 ANO A",
+                "2026-01",
+                "historico_docx",
+            ),
+        )
+        conn.commit()
+
+    todos = database.buscar_historico_planos_avancado(professor_nome="ANA")
+    disponiveis = database.buscar_historico_planos_avancado(
+        professor_nome="ANA",
+        somente_disponiveis=True,
+    )
+
+    assert {item["arquivo_nome"] for item in todos} == {"disponivel.docx", "ausente.docx"}
+    assert [item["arquivo_nome"] for item in disponiveis] == ["disponivel.docx"]
+
+
+def test_obter_bimestres_historico_planos_retorna_distintos(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano("ANA", "Matematica", "6 ANO A", "a.docx", b"a", bimestre="3o BIMESTRE")
+    database.salvar_historico_plano("ANA", "Historia", "7 ANO A", "b.docx", b"b", bimestre="3 Bimestre")
+    database.salvar_historico_plano("BIA", "Historia", "8 ANO A", "c.docx", b"c", bimestre="4o BIMESTRE")
+
+    assert database.obter_bimestres_historico_planos() == ["3 Bimestre", "4o BIMESTRE"]
 
 
 def test_obter_arquivo_historico_aceita_caminho_absoluto(monkeypatch, tmp_path):
