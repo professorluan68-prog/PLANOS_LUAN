@@ -22,6 +22,22 @@ def _docx_com_aulas(*numeros_aula: int) -> bytes:
     return buffer.getvalue()
 
 
+def _docx_com_cabecalho_plano(mes: str, bimestre: str, *numeros_aula: int) -> bytes:
+    documento = Document()
+    tabela = documento.add_table(rows=3, cols=9)
+    rotulos = ["ESCOLA", "ESCOLA", "PROFESSOR", "COMPONENTE CURRICULAR", "COMPONENTE CURRICULAR", "COMPONENTE CURRICULAR", "TURMA", "MÊS", "BIMESTRE"]
+    valores = ["ESCOLA", "ESCOLA", "ANA", "História", "História", "História", "6º ANO A", mes, bimestre]
+    for indice, texto in enumerate(rotulos):
+        tabela.cell(1, indice).text = texto
+    for indice, texto in enumerate(valores):
+        tabela.cell(2, indice).text = texto
+    for numero in numeros_aula:
+        documento.add_paragraph(f"AULA {numero}")
+    buffer = BytesIO()
+    documento.save(buffer)
+    return buffer.getvalue()
+
+
 def test_init_db_cria_indices_e_remove_historico_incompleto(monkeypatch, tmp_path):
     _preparar_banco(monkeypatch, tmp_path)
 
@@ -83,7 +99,7 @@ def test_init_db_cria_indices_e_remove_historico_incompleto(monkeypatch, tmp_pat
     assert "idx_historico_planos_chaves_data" in indices
     assert "idx_historico_planos_contexto_chaves_data" in indices
     assert "idx_historico_planos_prof_data" in indices
-    assert {"professor_chave", "disciplina_chave", "turma_chave", "mes_geracao"} <= colunas
+    assert {"professor_chave", "disciplina_chave", "turma_chave", "mes_geracao", "mes_plano"} <= colunas
     assert arquivos == ["valido.docx"]
     assert metadados == ("ANA", "MATEMATICA", "6 ANO A", "2026-06", "historico_docx")
 
@@ -144,6 +160,7 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
                 turma_chave,
                 bimestre_chave,
                 mes_geracao,
+                mes_plano,
                 arquivo_hash,
                 arquivo_tamanho,
                 origem
@@ -158,9 +175,35 @@ def test_salvar_historico_plano_normaliza_metadados(monkeypatch, tmp_path):
     assert (tmp_path / "historico_docx" / row[5]).read_bytes() == b"docx"
     assert row[6:10] == ("ANA", "MATEMATICA", "6 ANO A", "3 BIMESTRE")
     assert len(row[10]) == 7 and row[10][4] == "-"
-    assert len(row[11]) == 64
-    assert row[12] == 4
-    assert row[13] == "historico_docx"
+    assert row[11] == ""
+    assert len(row[12]) == 64
+    assert row[13] == 4
+    assert row[14] == "historico_docx"
+
+
+def test_salvar_historico_plano_grava_mes_do_plano(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+    mes_esperado = f"{database.datetime.now():%Y}-09"
+
+    database.salvar_historico_plano(
+        "ANA",
+        "Historia",
+        "6 ANO A",
+        "plano.docx",
+        _docx_com_cabecalho_plano("SETEMBRO", "3º Bimestre", 1, 2),
+        bimestre="",
+        mes_plano="",
+    )
+
+    resultado = database.buscar_historico_planos_avancado(
+        professor_nome="ANA",
+        mes=mes_esperado,
+        bimestre="3 Bimestre",
+    )
+
+    assert [item["arquivo_nome"] for item in resultado] == ["plano.docx"]
+    assert resultado[0]["bimestre"] == "3º Bimestre"
+    assert resultado[0]["mes_plano"] == mes_esperado
 
 
 def test_salvar_historico_plano_grava_resumo_de_aulas(monkeypatch, tmp_path):
@@ -467,11 +510,12 @@ def test_listar_ultimos_planos_por_contexto_filtra_bimestre_e_pega_mais_recente(
 def test_sincronizar_historico_planos_com_planos_feitos_indexa_arquivos(monkeypatch, tmp_path):
     _preparar_banco(monkeypatch, tmp_path)
     monkeypatch.setattr(database, "PLANOS_FEITOS_DIR", tmp_path / "PLANOS_FEITOS")
+    mes_esperado = f"{database.datetime.now():%Y}-09"
 
     pasta = tmp_path / "PLANOS_FEITOS" / "HELOISA_MORAES_DELFINO" / "LINGUA_PORTUGUESA"
     pasta.mkdir(parents=True)
     arquivo = pasta / "Plano_6o_ANO_A_Lingua_Portuguesa.docx"
-    arquivo.write_bytes(b"docx-real")
+    arquivo.write_bytes(_docx_com_cabecalho_plano("SETEMBRO", "3º Bimestre", 1, 2))
 
     with database.get_connection() as conn:
         cursor = conn.cursor()
@@ -486,6 +530,11 @@ def test_sincronizar_historico_planos_com_planos_feitos_indexa_arquivos(monkeypa
     assert resultados[0]["disciplina"] == "LINGUA PORTUGUESA"
     assert resultados[0]["turma"] == "6O ANO A"
     assert resultados[0]["arquivo_nome"] == "Plano_6o_ANO_A_Lingua_Portuguesa.docx"
+    assert resultados[0]["bimestre"] == "3º Bimestre"
+    assert resultados[0]["mes_plano"] == mes_esperado
+
+    por_mes = database.buscar_historico_planos_avancado(mes=mes_esperado)
+    assert [item["arquivo_nome"] for item in por_mes] == ["Plano_6o_ANO_A_Lingua_Portuguesa.docx"]
 
 
 def test_buscar_historico_planos_avancado_combina_filtros(monkeypatch, tmp_path):
@@ -528,6 +577,28 @@ def test_buscar_historico_planos_avancado_combina_filtros(monkeypatch, tmp_path)
     assert resultados[0]["arquivo_disponivel"] is True
     assert resultados[0]["origem"] == "historico_docx"
     assert resultados[0]["arquivo_tamanho"] == len(b"matematica")
+
+
+def test_buscar_historico_planos_avancado_inclui_legado_sem_bimestre(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_historico_plano(
+        "HELOÍSA MORAES DELFINO",
+        "Língua Portuguesa",
+        "8O ANO A",
+        "legado_sem_bimestre.docx",
+        b"docx",
+        bimestre="",
+    )
+
+    resultados = database.buscar_historico_planos_avancado(
+        professor_nome="HELOÍSA MORAES DELFINO",
+        bimestre="3 Bimestre",
+        somente_disponiveis=True,
+    )
+
+    assert [item["arquivo_nome"] for item in resultados] == ["legado_sem_bimestre.docx"]
+    assert resultados[0]["bimestre"] == ""
 
 
 def test_buscar_historico_planos_avancado_filtra_disponiveis(monkeypatch, tmp_path):

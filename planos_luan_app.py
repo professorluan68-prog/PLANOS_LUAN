@@ -186,6 +186,7 @@ from core.helpers import (
     texto_lista as _texto_lista,
     numero_aula_pdf,
 )
+from core.validacao_pdfs_contexto import validar_lote_pdfs_contexto_sem_ia
 from core.proveniencia_docx import resumir_proveniencia_docx
 from core.turmas import turmas_espelho_mesma_serie
 from core.professores_planos import (
@@ -416,6 +417,7 @@ def _salvar_planos_gerados_se_configurado(
     professor: str,
     disciplina: str,
     bimestre: str,
+    mes: str = "",
 ) -> bool:
     if not st.session_state.get("salvar_historico_geracao", False):
         return False
@@ -428,6 +430,7 @@ def _salvar_planos_gerados_se_configurado(
             nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False)),
             plano["docx_bytes"].getvalue(),
             bimestre=bimestre,
+            mes_plano=mes,
         )
     return True
 
@@ -2724,6 +2727,26 @@ else:
                 st.info(msg)
                 pdfs_encontrados = filtrar_pdfs_para_aulas(pasta_pdfs.glob("*.pdf"))
                 pdfs_auto_total = len(pdfs_encontrados)
+                validacao_pdfs = validar_lote_pdfs_contexto_sem_ia(
+                    pdfs_encontrados,
+                    disciplina=disciplina,
+                    turma=turma,
+                    bimestre=bimestre,
+                )
+                if validacao_pdfs.suspeitos:
+                    st.error(
+                        "Alguns PDFs da pasta foram bloqueados antes da geracao "
+                        "porque nao conferem com o contexto selecionado."
+                    )
+                    for suspeito in validacao_pdfs.suspeitos:
+                        motivos = "; ".join(suspeito.motivos)
+                        st.caption(f"{suspeito.caminho.name}: {motivos}")
+                pdfs_encontrados = [resultado.caminho for resultado in validacao_pdfs.validos]
+                if pdfs_auto_total > 0 and not pdfs_encontrados:
+                    st.error(
+                        "Nenhum PDF da pasta passou na validacao de contexto. "
+                        "Confira se a pasta pertence a disciplina, turma e bimestre selecionados."
+                    )
                 pdfs_com_numero = [pdf for pdf in pdfs_encontrados if numero_aula_pdf(pdf) is not None]
                 pdfs_para_ordenar = pdfs_com_numero or pdfs_encontrados
                 pdf_files_disponiveis = ordenar_pdfs_por_numero(pdfs_para_ordenar)
@@ -2959,6 +2982,7 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                 professor,
                 disciplina_saida,
                 bimestre,
+                mes,
             )
             _registrar_mensagem_memoria_plano(salvou_historico)
             status.update(label="✅ Concluído", state="complete", expanded=False)
@@ -3045,6 +3069,7 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                         professor,
                         disciplina_saida,
                         bimestre,
+                        mes,
                     )
                     _registrar_mensagem_memoria_plano(salvou_historico)
                     status.update(label="✅ DOCX gerado!", state="complete", expanded=False)
@@ -3426,6 +3451,7 @@ if st.session_state.get("turmas_processadas"):
             professor,
             disciplina_saida,
             bimestre,
+            mes,
         )
         _registrar_mensagem_memoria_plano(salvou_historico)
         st.success("Planos gerados!")
@@ -3448,7 +3474,7 @@ if st.session_state.get("planos_gerados"):
             # Salva localmente e no histórico
             _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
             if st.session_state.get("salvar_historico_geracao", False):
-                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina_saida, bimestre)
+                _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina_saida, bimestre, mes)
             st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
             st.rerun()
 

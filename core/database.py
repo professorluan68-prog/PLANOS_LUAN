@@ -7,6 +7,7 @@ import hashlib
 import tempfile
 import unicodedata
 import uuid
+from io import BytesIO
 from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime
@@ -19,6 +20,22 @@ logger = logging.getLogger(__name__)
 
 HISTORICO_PLANOS_LIMITE_PADRAO = 50
 HISTORICO_PLANOS_LIMITE_MAXIMO = 500
+
+_MESES_HISTORICO = {
+    "JANEIRO": "01",
+    "FEVEREIRO": "02",
+    "MARCO": "03",
+    "MARÇO": "03",
+    "ABRIL": "04",
+    "MAIO": "05",
+    "JUNHO": "06",
+    "JULHO": "07",
+    "AGOSTO": "08",
+    "SETEMBRO": "09",
+    "OUTUBRO": "10",
+    "NOVEMBRO": "11",
+    "DEZEMBRO": "12",
+}
 
 
 class SafeConnectionWrapper:
@@ -106,6 +123,91 @@ def _mes_geracao_historico(data_geracao: str = "") -> str:
     return ""
 
 
+def _normalizar_mes_plano_historico(valor: str = "", data_geracao: str = "") -> str:
+    texto = _normalizar_campo(valor)
+    if not texto:
+        return ""
+    if re.match(r"^\d{4}-\d{2}$", texto):
+        return texto
+
+    ano = _mes_geracao_historico(data_geracao)[:4]
+    if not ano:
+        ano_match = re.search(r"\b(20\d{2})\b", texto)
+        ano = ano_match.group(1) if ano_match else ""
+
+    texto_chave = _normalizar_campo_chave(texto)
+    mes_num = ""
+    match_num = re.search(r"(?<!\d)(0?[1-9]|1[0-2])(?!\d)", texto_chave)
+    if match_num:
+        mes_num = f"{int(match_num.group(1)):02d}"
+    else:
+        for nome_mes, numero_mes in _MESES_HISTORICO.items():
+            if nome_mes in texto_chave:
+                mes_num = numero_mes
+                break
+
+    if not (ano and mes_num):
+        return ""
+    return f"{ano}-{mes_num}"
+
+
+def _extrair_contexto_docx_historico(
+    arquivo_docx_bytes: bytes | None,
+    data_geracao: str = "",
+) -> dict[str, str]:
+    if not arquivo_docx_bytes:
+        return {"bimestre": "", "mes_plano": ""}
+
+    try:
+        from docx import Document
+
+        documento = Document(BytesIO(arquivo_docx_bytes))
+    except Exception:
+        return {"bimestre": "", "mes_plano": ""}
+
+    bimestre = ""
+    mes_plano = ""
+
+    for tabela in documento.tables:
+        linhas = tabela.rows
+        for indice, linha in enumerate(linhas[:-1]):
+            rotulos = [_normalizar_campo_chave(celula.text) for celula in linha.cells]
+            valores = [_normalizar_campo(celula.text) for celula in linhas[indice + 1].cells]
+            for posicao, rotulo in enumerate(rotulos):
+                valor = valores[posicao] if posicao < len(valores) else ""
+                if not mes_plano and rotulo == "MES":
+                    mes_plano = _normalizar_mes_plano_historico(valor, data_geracao)
+                if not bimestre and rotulo == "BIMESTRE":
+                    bimestre = valor
+            if bimestre and mes_plano:
+                return {"bimestre": bimestre, "mes_plano": mes_plano}
+
+    textos = []
+    for paragrafo in documento.paragraphs:
+        texto = _normalizar_campo(paragrafo.text)
+        if texto:
+            textos.append(texto)
+    texto_completo = "\n".join(textos)
+    if not bimestre:
+        match_bimestre = re.search(
+            r"\b([1-4]\s*[ºoO]?\s*Bimestre)\b",
+            texto_completo,
+            flags=re.I,
+        )
+        if match_bimestre:
+            bimestre = _normalizar_campo(match_bimestre.group(1))
+    if not mes_plano:
+        match_mes = re.search(
+            r"\b(Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\b",
+            texto_completo,
+            flags=re.I,
+        )
+        if match_mes:
+            mes_plano = _normalizar_mes_plano_historico(match_mes.group(1), data_geracao)
+
+    return {"bimestre": bimestre, "mes_plano": mes_plano}
+
+
 def _inferir_origem_historico(arquivo_path: str = "") -> str:
     caminho = Path(str(arquivo_path or "").strip())
     if not str(caminho):
@@ -128,6 +230,7 @@ def _metadados_historico(
     disciplina: str = "",
     turma: str = "",
     bimestre: str = "",
+    mes_plano: str = "",
     data_geracao: str = "",
     arquivo_path: str = "",
     arquivo_docx_bytes: bytes | None = None,
@@ -137,6 +240,7 @@ def _metadados_historico(
     arquivo_hash = ""
     ultima_aula = None
     total_aulas = None
+    arquivo_bytes = arquivo_docx_bytes
     if arquivo_docx_bytes is not None:
         arquivo_tamanho = len(arquivo_docx_bytes)
         arquivo_hash = hashlib.sha256(arquivo_docx_bytes).hexdigest()
@@ -153,19 +257,31 @@ def _metadados_historico(
             arquivo_tamanho = None
         if extrair_resumo_aulas and arquivo_tamanho:
             try:
-                ultima_aula, total_aulas = _extrair_resumo_aulas_historico(
-                    caminho.read_bytes(),
-                    bimestre,
-                )
+                arquivo_bytes = caminho.read_bytes()
+                ultima_aula, total_aulas = _extrair_resumo_aulas_historico(arquivo_bytes, bimestre)
             except OSError:
                 ultima_aula, total_aulas = None, None
 
+    bimestre_final = _normalizar_campo(bimestre)
+    mes_plano_final = _normalizar_mes_plano_historico(mes_plano, data_geracao)
+    if arquivo_bytes and (not bimestre_final or not mes_plano_final):
+        contexto_docx = _extrair_contexto_docx_historico(arquivo_bytes, data_geracao)
+        if not bimestre_final:
+            bimestre_final = _normalizar_campo(contexto_docx.get("bimestre"))
+        if not mes_plano_final:
+            mes_plano_final = _normalizar_mes_plano_historico(
+                contexto_docx.get("mes_plano", ""),
+                data_geracao,
+            )
+
     return {
+        "bimestre": bimestre_final,
         "professor_chave": _normalizar_campo_chave(professor_nome),
         "disciplina_chave": _normalizar_campo_chave(disciplina),
         "turma_chave": _normalizar_turma_historico_chave(turma),
-        "bimestre_chave": _normalizar_bimestre_historico_chave(bimestre),
+        "bimestre_chave": _normalizar_bimestre_historico_chave(bimestre_final),
         "mes_geracao": _mes_geracao_historico(data_geracao),
+        "mes_plano": mes_plano_final,
         "arquivo_hash": arquivo_hash,
         "arquivo_tamanho": arquivo_tamanho,
         "origem": _inferir_origem_historico(arquivo_path),
@@ -368,9 +484,25 @@ def _existe_historico_mesmo_contexto_arquivo(
     turma: str,
     arquivo_nome: str,
 ) -> bool:
+    return _buscar_id_historico_mesmo_contexto_arquivo(
+        cursor,
+        professor_nome,
+        disciplina,
+        turma,
+        arquivo_nome,
+    ) is not None
+
+
+def _buscar_id_historico_mesmo_contexto_arquivo(
+    cursor,
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    arquivo_nome: str,
+) -> int | None:
     cursor.execute(
         """
-        SELECT 1
+        SELECT id
         FROM historico_planos
         WHERE UPPER(TRIM(professor_nome)) = UPPER(TRIM(?))
           AND UPPER(TRIM(disciplina)) = UPPER(TRIM(?))
@@ -380,7 +512,8 @@ def _existe_historico_mesmo_contexto_arquivo(
         """,
         (professor_nome, disciplina, turma, arquivo_nome),
     )
-    return bool(cursor.fetchone())
+    row = cursor.fetchone()
+    return int(row[0]) if row else None
 
 
 def sincronizar_historico_planos_com_planos_feitos() -> int:
@@ -451,7 +584,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
             professor_nome,
             disciplina,
             turma,
-            "",
+            metadados["bimestre"],
             data_geracao,
             arquivo_nome,
             caminho_str,
@@ -460,6 +593,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
             metadados["turma_chave"],
             metadados["bimestre_chave"],
             metadados["mes_geracao"],
+            metadados["mes_plano"],
             metadados["arquivo_hash"],
             metadados["arquivo_tamanho"],
             metadados["origem"],
@@ -475,8 +609,72 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
     with get_connection() as conn:
         cursor = conn.cursor()
         for dados in dados_para_inserir:
-            prof, disc, turma, bim, dt, arq, path = dados[:7]
-            if _existe_historico_mesmo_contexto_arquivo(cursor, prof, disc, turma, arq):
+            (
+                prof,
+                disc,
+                turma,
+                bim,
+                dt,
+                arq,
+                path,
+                professor_chave,
+                disciplina_chave,
+                turma_chave,
+                bimestre_chave,
+                mes_geracao,
+                mes_plano,
+                arquivo_hash,
+                arquivo_tamanho,
+                origem,
+                ultima_aula,
+                total_aulas,
+            ) = dados
+            registro_existente_id = _buscar_id_historico_mesmo_contexto_arquivo(
+                cursor,
+                prof,
+                disc,
+                turma,
+                arq,
+            )
+            if registro_existente_id is not None:
+                cursor.execute(
+                    """
+                    UPDATE historico_planos
+                    SET bimestre = COALESCE(NULLIF(bimestre, ''), ?),
+                        data_geracao = ?,
+                        arquivo_path = ?,
+                        professor_chave = ?,
+                        disciplina_chave = ?,
+                        turma_chave = ?,
+                        bimestre_chave = COALESCE(NULLIF(bimestre_chave, ''), ?),
+                        mes_geracao = ?,
+                        mes_plano = COALESCE(NULLIF(mes_plano, ''), ?),
+                        arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
+                        arquivo_tamanho = ?,
+                        origem = ?,
+                        ultima_aula = COALESCE(ultima_aula, ?),
+                        total_aulas = COALESCE(total_aulas, ?)
+                    WHERE id = ?
+                    """,
+                    (
+                        bim,
+                        dt,
+                        path,
+                        professor_chave,
+                        disciplina_chave,
+                        turma_chave,
+                        bimestre_chave,
+                        mes_geracao,
+                        mes_plano,
+                        arquivo_hash,
+                        arquivo_tamanho,
+                        origem,
+                        ultima_aula,
+                        total_aulas,
+                        registro_existente_id,
+                    ),
+                )
+                inseridos += 1
                 continue
 
             cursor.execute(
@@ -495,13 +693,14 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
                         turma_chave,
                         bimestre_chave,
                         mes_geracao,
+                        mes_plano,
                         arquivo_hash,
                         arquivo_tamanho,
                         origem,
                         ultima_aula,
                         total_aulas
                     )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 dados,
             )
@@ -581,6 +780,12 @@ def _criar_indices_banco(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE INDEX IF NOT EXISTS idx_historico_planos_mes_plano_data
+        ON historico_planos (mes_plano DESC, data_geracao DESC, id DESC)
+        """
+    )
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_historico_planos_hash
         ON historico_planos (arquivo_hash)
         """
@@ -628,7 +833,10 @@ def _atualizar_metadados_historico(cursor) -> None:
         WHERE COALESCE(TRIM(professor_chave), '') = ''
            OR COALESCE(TRIM(disciplina_chave), '') = ''
            OR COALESCE(TRIM(turma_chave), '') = ''
+           OR COALESCE(TRIM(bimestre_chave), '') = ''
            OR COALESCE(TRIM(mes_geracao), '') = ''
+           OR COALESCE(TRIM(mes_plano), '') = ''
+           OR COALESCE(TRIM(bimestre), '') = ''
            OR origem IS NULL
            OR arquivo_tamanho IS NULL
            OR ultima_aula IS NULL
@@ -655,6 +863,8 @@ def _atualizar_metadados_historico(cursor) -> None:
                 turma_chave = ?,
                 bimestre_chave = ?,
                 mes_geracao = ?,
+                mes_plano = COALESCE(NULLIF(mes_plano, ''), ?),
+                bimestre = COALESCE(NULLIF(bimestre, ''), ?),
                 origem = ?,
                 arquivo_tamanho = COALESCE(arquivo_tamanho, ?),
                 arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
@@ -668,6 +878,8 @@ def _atualizar_metadados_historico(cursor) -> None:
                 metadados["turma_chave"],
                 metadados["bimestre_chave"],
                 metadados["mes_geracao"],
+                metadados["mes_plano"],
+                metadados["bimestre"],
                 metadados["origem"],
                 metadados["arquivo_tamanho"],
                 arquivo_hash,
@@ -708,6 +920,8 @@ MIGRACOES = [
     "ALTER TABLE historico_planos ADD COLUMN ultima_aula INTEGER",
     # Versão 14
     "ALTER TABLE historico_planos ADD COLUMN total_aulas INTEGER",
+    # Versão 15
+    "ALTER TABLE historico_planos ADD COLUMN mes_plano TEXT",
 ]
 
 
@@ -918,6 +1132,7 @@ def init_db():
                 turma_chave TEXT,
                 bimestre_chave TEXT,
                 mes_geracao TEXT,
+                mes_plano TEXT,
                 arquivo_hash TEXT,
                 arquivo_tamanho INTEGER,
                 origem TEXT,
@@ -1366,6 +1581,7 @@ def salvar_historico_plano(
     arquivo_docx_bytes,
     limite_retencao: int = 5,
     bimestre: str = "",
+    mes_plano: str = "",
 ):
     professor_nome = _normalizar_campo(professor_nome)
     disciplina = _normalizar_campo(disciplina)
@@ -1389,11 +1605,13 @@ def salvar_historico_plano(
         disciplina=disciplina,
         turma=turma,
         bimestre=bimestre,
+        mes_plano=mes_plano,
         data_geracao=data_geracao,
         arquivo_path=unique_filename,
         arquivo_docx_bytes=arquivo_docx_bytes,
         extrair_resumo_aulas=True,
     )
+    bimestre = str(metadados["bimestre"] or bimestre)
 
     try:
         _gravar_arquivo_historico_atomico(filepath, arquivo_docx_bytes)
@@ -1422,13 +1640,14 @@ def salvar_historico_plano(
                         turma_chave,
                         bimestre_chave,
                         mes_geracao,
+                        mes_plano,
                         arquivo_hash,
                         arquivo_tamanho,
                         origem,
                         ultima_aula,
                         total_aulas
                     )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     professor_nome,
@@ -1443,6 +1662,7 @@ def salvar_historico_plano(
                     metadados["turma_chave"],
                     metadados["bimestre_chave"],
                     metadados["mes_geracao"],
+                    metadados["mes_plano"],
                     metadados["arquivo_hash"],
                     metadados["arquivo_tamanho"],
                     metadados["origem"],
@@ -1614,12 +1834,13 @@ def listar_ultimos_planos_por_contexto(bimestre: str = "") -> list[dict]:
 
 
 def obter_meses_historico_planos() -> list[str]:
-    """Retorna uma lista de anos-meses (YYYY-MM) disponíveis no histórico."""
+    """Retorna anos-meses (YYYY-MM) do plano, com fallback para a geração."""
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT DISTINCT COALESCE(NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) as mes
+            SELECT DISTINCT
+                COALESCE(NULLIF(mes_plano, ''), NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) as mes
             FROM historico_planos
             WHERE data_geracao IS NOT NULL
             ORDER BY mes DESC
@@ -1661,14 +1882,14 @@ def buscar_historico_planos(professor_nome: str, mes: str = "") -> list[dict]:
         cursor = conn.cursor()
         
         query = """
-            SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path
+            SELECT id, professor_nome, disciplina, turma, bimestre, data_geracao, arquivo_nome, arquivo_path, mes_plano
             FROM historico_planos
             WHERE professor_chave = ?
         """
         params = [professor_chave]
         
         if mes:
-            query += " AND COALESCE(NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) = ?"
+            query += " AND COALESCE(NULLIF(mes_plano, ''), NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) = ?"
             params.append(mes)
             
         query += " ORDER BY data_geracao DESC, id DESC"
@@ -1684,6 +1905,7 @@ def buscar_historico_planos(professor_nome: str, mes: str = "") -> list[dict]:
                 "data_geracao": row[5] or "",
                 "arquivo_nome": row[6] or "",
                 "arquivo_path": row[7] or "",
+                "mes_plano": row[8] or "",
             }
             for row in cursor.fetchall()
         ]
@@ -1715,7 +1937,9 @@ def buscar_historico_planos_avancado(
 
     mes = _normalizar_campo(mes)
     if mes:
-        filtros.append("COALESCE(NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) = ?")
+        filtros.append(
+            "COALESCE(NULLIF(mes_plano, ''), NULLIF(mes_geracao, ''), strftime('%Y-%m', data_geracao)) = ?"
+        )
         params.append(mes)
 
     disciplina_chave = _normalizar_campo_chave(disciplina)
@@ -1730,7 +1954,7 @@ def buscar_historico_planos_avancado(
 
     bimestre_chave = _normalizar_bimestre_historico_chave(bimestre)
     if bimestre_chave:
-        filtros.append("bimestre_chave = ?")
+        filtros.append("(bimestre_chave = ? OR COALESCE(TRIM(bimestre_chave), '') = '')")
         params.append(bimestre_chave)
 
     termo = _normalizar_campo(termo_busca)
@@ -1781,7 +2005,8 @@ def buscar_historico_planos_avancado(
                 origem,
                 arquivo_tamanho,
                 ultima_aula,
-                total_aulas
+                total_aulas,
+                mes_plano
             FROM historico_planos
             {where_sql}
             ORDER BY data_geracao DESC, id DESC
@@ -1816,6 +2041,7 @@ def buscar_historico_planos_avancado(
                 "arquivo_tamanho": int(row[9]) if row[9] is not None else None,
                 "ultima_aula": int(row[10]) if row[10] is not None else None,
                 "total_aulas": int(row[11]) if row[11] is not None else None,
+                "mes_plano": row[12] or "",
                 "arquivo_disponivel": arquivo_disponivel,
             }
         )

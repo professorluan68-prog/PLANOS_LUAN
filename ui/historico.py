@@ -41,6 +41,29 @@ def _formatar_data(data_texto: str) -> str:
     return data_formatada
 
 
+def _formatar_mes_plano(mes_plano: str) -> str:
+    texto = str(mes_plano or "").strip()
+    if not re.match(r"^\d{4}-\d{2}$", texto):
+        return ""
+    nomes = {
+        "01": "Janeiro",
+        "02": "Fevereiro",
+        "03": "Março",
+        "04": "Abril",
+        "05": "Maio",
+        "06": "Junho",
+        "07": "Julho",
+        "08": "Agosto",
+        "09": "Setembro",
+        "10": "Outubro",
+        "11": "Novembro",
+        "12": "Dezembro",
+    }
+    ano, mes = texto.split("-")
+    nome = nomes.get(mes)
+    return f"{nome}/{ano}" if nome else texto
+
+
 def _formatar_tamanho(tamanho: int | None) -> str:
     if tamanho is None:
         return ""
@@ -93,7 +116,7 @@ def _renderizar_historico(professores_db):
             else:
                 st.info("Historico ja estava atualizado.")
     with col_limite:
-        limite = st.selectbox("Limite", [50, 100, 200, 500], index=1)
+        limite = st.selectbox("Limite", [50, 100, 200, 500], index=3)
 
     lista_professores = ["Todos"] + sorted(list(professores_db.keys()))
     meses_disponiveis = obter_meses_historico_planos()
@@ -105,7 +128,7 @@ def _renderizar_historico(professores_db):
     with col1:
         prof_selecionado = st.selectbox("Selecione o Professor", lista_professores)
     with col2:
-        mes_selecionado = st.selectbox("Filtrar por Mes (Ano-Mes)", lista_meses)
+        mes_selecionado = st.selectbox("Filtrar por Mês do Plano (Ano-Mês)", lista_meses)
     with col3:
         bimestre_selecionado = st.selectbox("Filtrar por Bimestre", lista_bimestres)
 
@@ -144,6 +167,7 @@ def _renderizar_historico(professores_db):
                 detalhes = [
                     item
                     for item in [
+                        f"Plano: {_formatar_mes_plano(plano.get('mes_plano'))}" if _formatar_mes_plano(plano.get("mes_plano")) else "",
                         _formatar_tamanho(plano.get("arquivo_tamanho")),
                         _formatar_resumo_aulas(
                             plano.get("ultima_aula"),

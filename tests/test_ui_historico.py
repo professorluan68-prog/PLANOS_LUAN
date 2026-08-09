@@ -1,4 +1,4 @@
-from ui.historico import _formatar_resumo_aulas, _formatar_turma
+from ui.historico import _formatar_mes_plano, _formatar_resumo_aulas, _formatar_turma
 
 
 def test_formatar_turma_multisseriada_ensino_fundamental():
@@ -17,3 +17,8 @@ def test_formatar_turma_regular():
 def test_formatar_resumo_aulas():
     assert _formatar_resumo_aulas(9, 8) == "Aulas: 1-9 (8)"
     assert _formatar_resumo_aulas(0, 0) == ""
+
+
+def test_formatar_mes_plano():
+    assert _formatar_mes_plano("2026-09") == "Setembro/2026"
+    assert _formatar_mes_plano("") == ""
