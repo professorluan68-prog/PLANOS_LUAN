@@ -1,6 +1,6 @@
 from core import database
 from core.professores_planos import mesclar_professores
-from ui.cadastro import _disciplinas_por_professor
+from ui.cadastro import _disciplinas_por_professor, _eh_professor_dados_piloto
 
 
 def _preparar_banco(monkeypatch, tmp_path):
@@ -84,6 +84,58 @@ def test_excluir_ultimo_vinculo_remove_professor_sem_remover_historico(monkeypat
     assert database.excluir_vinculo_professor(vinculo["id"]) is True
     assert database.obter_professores_db() == {}
     assert len(database.listar_historico_planos()) == 1
+
+
+def test_dados_administrativos_do_professor_salvam_e_atualizam(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_dados_administrativos_professor(
+        "Luan Dias",
+        cpf="000.000.000-00",
+        email="luan@example.com",
+        valor_mensal="R$ 1.500,00",
+        telefone="(11) 99999-0000",
+        observacoes="Piloto",
+    )
+
+    dados = database.obter_dados_administrativos_professor("LUAN DIAS")
+    assert dados["professor"] == "LUAN DIAS"
+    assert dados["cpf"] == "000.000.000-00"
+    assert dados["email"] == "luan@example.com"
+    assert dados["valor_mensal"] == "R$ 1.500,00"
+    assert dados["telefone"] == "(11) 99999-0000"
+    assert dados["observacoes"] == "Piloto"
+
+    database.salvar_dados_administrativos_professor(
+        "LUAN DIAS",
+        email="novo@example.com",
+        observacoes="Atualizado",
+    )
+    atualizado = database.obter_dados_administrativos_professor("Luan Dias")
+    assert atualizado["cpf"] == ""
+    assert atualizado["email"] == "novo@example.com"
+    assert atualizado["observacoes"] == "Atualizado"
+
+
+def test_dados_administrativos_preservam_professor_ao_excluir_ultimo_vinculo(monkeypatch, tmp_path):
+    _preparar_banco(monkeypatch, tmp_path)
+
+    database.salvar_professor_turma("Luan Dias", "Fisica", "3 ANO A", "", "", "1")
+    database.salvar_dados_administrativos_professor("Luan Dias", email="luan@example.com")
+    vinculo = database.listar_vinculos_professores()[0]
+
+    assert database.excluir_vinculo_professor(vinculo["id"]) is True
+
+    professores = database.obter_professores_db()
+    assert "LUAN DIAS" in professores
+    assert professores["LUAN DIAS"]["disciplinas"] == []
+    assert database.obter_dados_administrativos_professor("Luan Dias")["email"] == "luan@example.com"
+
+
+def test_piloto_dados_professor_fica_restrito_ao_luan():
+    assert _eh_professor_dados_piloto("Luan Dias") is True
+    assert _eh_professor_dados_piloto("Luan Das") is True
+    assert _eh_professor_dados_piloto("Bruna") is False
 
 
 def test_mesclagem_preserva_banco_e_importa_dados_da_pasta():

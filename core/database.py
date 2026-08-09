@@ -723,7 +723,23 @@ def _obter_ou_criar_professor(cursor, nome: str) -> int:
 def _remover_professor_sem_turmas(cursor, professor_id: int) -> None:
     cursor.execute("SELECT COUNT(*) FROM professor_turmas WHERE professor_id = ?", (professor_id,))
     total = int(cursor.fetchone()[0] or 0)
-    if total == 0:
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM professor_dados
+        WHERE professor_id = ?
+          AND (
+              COALESCE(TRIM(cpf), '') <> ''
+              OR COALESCE(TRIM(email), '') <> ''
+              OR COALESCE(TRIM(valor_mensal), '') <> ''
+              OR COALESCE(TRIM(telefone), '') <> ''
+              OR COALESCE(TRIM(observacoes), '') <> ''
+          )
+        """,
+        (professor_id,),
+    )
+    tem_dados_administrativos = int(cursor.fetchone()[0] or 0) > 0
+    if total == 0 and not tem_dados_administrativos:
         cursor.execute("DELETE FROM professores WHERE id = ?", (professor_id,))
 
 
@@ -922,6 +938,19 @@ MIGRACOES = [
     "ALTER TABLE historico_planos ADD COLUMN total_aulas INTEGER",
     # Versão 15
     "ALTER TABLE historico_planos ADD COLUMN mes_plano TEXT",
+    # Versão 16
+    """
+    CREATE TABLE IF NOT EXISTS professor_dados (
+        professor_id INTEGER PRIMARY KEY,
+        cpf TEXT,
+        email TEXT,
+        valor_mensal TEXT,
+        telefone TEXT,
+        observacoes TEXT,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
+    )
+    """,
 ]
 
 
@@ -1113,6 +1142,21 @@ def init_db():
             )
             """
         )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS professor_dados (
+                professor_id INTEGER PRIMARY KEY,
+                cpf TEXT,
+                email TEXT,
+                valor_mensal TEXT,
+                telefone TEXT,
+                observacoes TEXT,
+                atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
+            )
+            """
+        )
         
         
 
@@ -1223,6 +1267,105 @@ def obter_professor_id_por_nome(nome: str) -> int | None:
     except Exception:
         pass
     return None
+
+
+def _professor_dados_vazio(nome: str = "") -> dict[str, str]:
+    return {
+        "professor": _normalizar_campo(nome).upper(),
+        "cpf": "",
+        "email": "",
+        "valor_mensal": "",
+        "telefone": "",
+        "observacoes": "",
+        "atualizado_em": "",
+    }
+
+
+def obter_dados_administrativos_professor(nome: str) -> dict[str, str]:
+    nome = _normalizar_campo(nome).upper()
+    if not nome:
+        return _professor_dados_vazio()
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                p.nome,
+                COALESCE(d.cpf, ''),
+                COALESCE(d.email, ''),
+                COALESCE(d.valor_mensal, ''),
+                COALESCE(d.telefone, ''),
+                COALESCE(d.observacoes, ''),
+                COALESCE(d.atualizado_em, '')
+            FROM professores p
+            LEFT JOIN professor_dados d ON d.professor_id = p.id
+            WHERE p.nome = ?
+            """,
+            (nome,),
+        )
+        row = cursor.fetchone()
+
+    if not row:
+        return _professor_dados_vazio(nome)
+    return {
+        "professor": row[0] or nome,
+        "cpf": row[1] or "",
+        "email": row[2] or "",
+        "valor_mensal": row[3] or "",
+        "telefone": row[4] or "",
+        "observacoes": row[5] or "",
+        "atualizado_em": row[6] or "",
+    }
+
+
+def salvar_dados_administrativos_professor(
+    nome: str,
+    *,
+    cpf: str = "",
+    email: str = "",
+    valor_mensal: str = "",
+    telefone: str = "",
+    observacoes: str = "",
+) -> dict[str, str]:
+    nome = _normalizar_campo(nome).upper()
+    if not nome:
+        raise ValueError("Nome do professor é obrigatório.")
+
+    dados = {
+        "cpf": _normalizar_campo(cpf),
+        "email": _normalizar_campo(email),
+        "valor_mensal": _normalizar_campo(valor_mensal),
+        "telefone": _normalizar_campo(telefone),
+        "observacoes": _normalizar_campo(observacoes),
+    }
+    with connection_scope() as conn:
+        cursor = conn.cursor()
+        professor_id = _obter_ou_criar_professor(cursor, nome)
+        cursor.execute(
+            """
+            INSERT INTO professor_dados
+                (professor_id, cpf, email, valor_mensal, telefone, observacoes, atualizado_em)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(professor_id) DO UPDATE SET
+                cpf = excluded.cpf,
+                email = excluded.email,
+                valor_mensal = excluded.valor_mensal,
+                telefone = excluded.telefone,
+                observacoes = excluded.observacoes,
+                atualizado_em = CURRENT_TIMESTAMP
+            """,
+            (
+                professor_id,
+                dados["cpf"],
+                dados["email"],
+                dados["valor_mensal"],
+                dados["telefone"],
+                dados["observacoes"],
+            ),
+        )
+
+    return obter_dados_administrativos_professor(nome)
 
 
 def obter_professores_db():

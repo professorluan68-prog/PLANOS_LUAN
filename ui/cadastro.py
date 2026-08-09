@@ -10,6 +10,8 @@ from core.database import (
     salvar_professor_turma,
     duplicar_vinculo_professor,
     excluir_vinculo_professor,
+    obter_dados_administrativos_professor,
+    salvar_dados_administrativos_professor,
 )
 from core.modelos_docx import (
     resolver_template_id_geracao,
@@ -40,6 +42,19 @@ from ui.shared import (
     PREFIXO_HORARIO_PERSONALIZADO,
     _defaults_grade_horarios,
 )
+
+_PROFESSORES_DADOS_PILOTO = {"LUAN DIAS", "LUAN DAS"}
+
+
+def _normalizar_nome_dados_professor(nome: str = "") -> str:
+    texto = unicodedata.normalize("NFKD", str(nome or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"\s+", " ", texto).strip().upper()
+    return texto
+
+
+def _eh_professor_dados_piloto(nome: str = "") -> bool:
+    return _normalizar_nome_dados_professor(nome) in _PROFESSORES_DADOS_PILOTO
 
 
 def _opcoes_componente_curricular(disciplina_atual: str = "", componente_atual: str = "") -> list[str]:
@@ -650,6 +665,78 @@ def _renderizar_organizacao_cadastro(cadastros: list[dict], diagnostico: dict) -
         else:
             st.info("Nenhuma duplicidade foi encontrada.")
 
+
+def _renderizar_dados_administrativos_professor(cadastros: list[dict], professores_db) -> None:
+    st.markdown("**Dados do professor**")
+    st.caption("Piloto liberado apenas para LUAN DIAS por enquanto. Os dados ficam no banco local, nao no codigo.")
+
+    nomes = {
+        str(nome or "").strip().upper()
+        for nome in professores_db.keys()
+        if str(nome or "").strip()
+    }
+    nomes.update(
+        str(cadastro.get("professor") or "").strip().upper()
+        for cadastro in cadastros
+        if str(cadastro.get("professor") or "").strip()
+    )
+    opcoes = sorted(nome for nome in nomes if _eh_professor_dados_piloto(nome))
+
+    if not opcoes:
+        st.info("O piloto esta pronto, mas nao encontrei LUAN DIAS nos cadastros carregados.")
+        return
+
+    professor = st.selectbox(
+        "Professor",
+        opcoes,
+        key="dados_admin_professor_piloto",
+    )
+    dados = obter_dados_administrativos_professor(professor)
+
+    with st.form("form_dados_administrativos_professor"):
+        col_cpf, col_email = st.columns(2)
+        with col_cpf:
+            cpf = st.text_input("CPF", value=dados.get("cpf", ""), key="dados_admin_cpf").strip()
+        with col_email:
+            email = st.text_input("Email", value=dados.get("email", ""), key="dados_admin_email").strip()
+
+        col_valor, col_tel = st.columns(2)
+        with col_valor:
+            valor_mensal = st.text_input(
+                "Valor mensal",
+                value=dados.get("valor_mensal", ""),
+                key="dados_admin_valor_mensal",
+                placeholder="Ex.: R$ 1.500,00",
+            ).strip()
+        with col_tel:
+            telefone = st.text_input("Telefone", value=dados.get("telefone", ""), key="dados_admin_telefone").strip()
+
+        observacoes = st.text_area(
+            "Observacoes",
+            value=dados.get("observacoes", ""),
+            key="dados_admin_observacoes",
+            height=140,
+        ).strip()
+
+        salvar = st.form_submit_button("Salvar dados do professor", type="primary")
+        if salvar:
+            try:
+                salvar_dados_administrativos_professor(
+                    professor,
+                    cpf=cpf,
+                    email=email,
+                    valor_mensal=valor_mensal,
+                    telefone=telefone,
+                    observacoes=observacoes,
+                )
+                st.success("Dados do professor salvos.")
+                st.rerun()
+            except Exception as exc:
+                st.error("Nao foi possivel salvar os dados do professor.")
+                with st.expander("Ver detalhe tecnico"):
+                    st.exception(exc)
+
+
 def _renderizar_cadastro_professor(professores_db) -> None:
     st.markdown('<div class="section-title">Cadastro de professor</div>', unsafe_allow_html=True)
     st.caption("Consulte, edite, duplique ou exclua vinculos de professor, disciplina, turma e horarios.")
@@ -658,10 +745,14 @@ def _renderizar_cadastro_professor(professores_db) -> None:
     diagnostico = _diagnosticar_modelos_professores_cache()
     _renderizar_metricas_cadastro(cadastros, diagnostico)
 
-    aba_editar, aba_novo, aba_organizacao = st.tabs(["Consultar e editar", "Novo cadastro", "Organizacao"])
+    aba_editar, aba_novo, aba_dados, aba_organizacao = st.tabs(
+        ["Consultar e editar", "Novo cadastro", "Dados do professor", "Organizacao"]
+    )
     with aba_editar:
         _renderizar_editor_cadastro(cadastros)
     with aba_novo:
         _renderizar_novo_cadastro(professores_db)
+    with aba_dados:
+        _renderizar_dados_administrativos_professor(cadastros, professores_db)
     with aba_organizacao:
         _renderizar_organizacao_cadastro(cadastros, diagnostico)
