@@ -74,6 +74,7 @@ from core.constantes import (
     EXTENSAO_MES_ANTECIPACOES,
     EXTENSAO_MES_OPCOES,
     EXTENSAO_MES_VALORES,
+    ESCOLAS,
 )
 
 from ui.shared import (
@@ -2204,7 +2205,7 @@ if st.session_state.get("last_componente_curricular") != assinatura_comp:
     st.session_state["componente_curricular"] = str((config_turma_selecionada or {}).get("componente_curricular") or disciplina)
 
 col_escola, col_comp = st.columns([1, 1])
-with col_escola: escola = st.selectbox("Escola", ["EE PROFª. EGLE LUPORINI COSTA", "PADRE GERALDO LOURENÇO"], key="escola")
+with col_escola: escola = st.selectbox("Escola", ESCOLAS, key="escola")
 with col_comp: componente_curricular = st.text_input("Componente curricular", key="componente_curricular")
 
 modalidade_eja = bool(modo_eja)
