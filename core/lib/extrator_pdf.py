@@ -11,7 +11,13 @@ import pdfplumber
 import logging
 import os
 
-from config import PDF_TEXTO_LIMITE_CHARS, HABILITAR_PDF2DOCX
+from config import (
+    HABILITAR_PDF2DOCX,
+    PDF_TEXTO_LIMITE_CHARS,
+    POPPLER_BIN_DIR,
+    TESSDATA_DIR,
+    TESSERACT_CMD,
+)
 from core.qualidade_metodologica import (
     corrigir_mojibake,
     limitar_texto_natural,
@@ -62,7 +68,12 @@ def _extrair_texto_pdf_ocr(caminho_pdf: str, limite_chars: int) -> str:
 
     paginas_limite = int(os.getenv("PLANOS_LUAN_OCR_MAX_PAGES", "12") or "12")
     try:
-        imagens = convert_from_path(caminho_pdf, first_page=1, last_page=paginas_limite)
+        imagens = convert_from_path(
+            caminho_pdf,
+            first_page=1,
+            last_page=paginas_limite,
+            poppler_path=str(POPPLER_BIN_DIR) if POPPLER_BIN_DIR else None,
+        )
     except Exception as exc:
         raise PDFImagemSemOCR(
             _mensagem_pdf_imagem(
@@ -72,6 +83,10 @@ def _extrair_texto_pdf_ocr(caminho_pdf: str, limite_chars: int) -> str:
         ) from exc
 
     partes = []
+    if TESSERACT_CMD:
+        pytesseract.pytesseract.tesseract_cmd = str(TESSERACT_CMD)
+    if TESSDATA_DIR.is_dir():
+        os.environ.setdefault("TESSDATA_PREFIX", str(TESSDATA_DIR))
     for imagem in imagens:
         try:
             partes.append(pytesseract.image_to_string(imagem, lang=os.getenv("PLANOS_LUAN_OCR_LANG", "por")))

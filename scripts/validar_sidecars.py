@@ -12,12 +12,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--base",
-        default="D:\\PLANOS_LUAN",
+        default=str(Path(__file__).resolve().parent.parent.parent / "PLANOS_LUAN_DADOS"),
         help="Pasta base onde os sidecars JSON serao procurados.",
     )
     parser.add_argument(
         "--saida",
-        default="D:\\PLANOS_LUAN\\Auditoria_Estruturas\\relatorio_validacao_sidecars.csv",
+        default=str(Path(__file__).resolve().parent.parent.parent / "PLANOS_LUAN_DADOS" / "relatorio_validacao_sidecars.csv"),
         help="Arquivo CSV de saida.",
     )
     args = parser.parse_args()

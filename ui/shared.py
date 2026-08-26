@@ -268,6 +268,20 @@ def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
     primeira = numeros[0]
     ultima = numeros[-1]
     consecutivas = numeros == list(range(primeira, ultima + 1))
+
+    # Caso as aulas sejam não consecutivas no mesmo dia, retornamos os horários
+    # individuais de cada uma separados por pipe " | "
+    if not consecutivas and len(numeros) >= 2:
+        intervalos = []
+        for n in numeros:
+            inicio_n = slots[n - 1]
+            fim_n = slots[n] if n < len(slots) else ""
+            if fim_n:
+                intervalos.append(f"{inicio_n} - {fim_n}")
+            else:
+                intervalos.append(inicio_n)
+        return (" | ".join(intervalos), _formatar_label_aulas(numeros))
+
     inicio = slots[primeira - 1]
     fim = slots[ultima if consecutivas else ultima - 1]
     label = _formatar_label_aulas(numeros)
@@ -415,21 +429,55 @@ def _resumo_grade_cadastrada(config: dict | None) -> str:
 
 
 def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
-    trecho_norm = _normalizar_label_aula(trecho)
-    horarios_no_texto = _horarios_extraidos_texto(trecho)
+    trecho_texto = str(trecho or "").strip()
+    if not trecho_texto:
+        return None
 
-    horario_personalizado = _horario_personalizado_por_texto(trecho)
+    # Obter aulas globais para ver se são consecutivas
+    aulas_globais = _numeros_aulas_de_texto(trecho_texto)
+    consecutivas_globais = True
+    if len(aulas_globais) >= 2:
+        primeira = aulas_globais[0]
+        ultima = aulas_globais[-1]
+        consecutivas_globais = (aulas_globais == list(range(primeira, ultima + 1)))
+
+    # Suporte a múltiplos horários desmembrados por " | "
+    # Apenas se não forem aulas consecutivas (ex: "6ª e 7ª aulas | 12:25 a 13:15 | 13:15 a 14:05"
+    # representa uma aula dupla consecutiva, então NÃO devemos desmembrar como se fossem aulas distintas).
+    if " | " in trecho_texto and not consecutivas_globais and len(aulas_globais) >= 2:
+        sub_trechos = [st.strip() for st in trecho_texto.split("|") if st.strip()]
+        sugestoes = []
+        for idx, sub in enumerate(sub_trechos):
+            aula_num = [aulas_globais[idx]] if idx < len(aulas_globais) else []
+            sug = _sugerir_horario_cadastrado(sub, contexto)
+            if sug:
+                if isinstance(sug, list):
+                    sugestoes.extend(sug)
+                else:
+                    sugestoes.append(sug)
+            elif aula_num:
+                turno = _turno_por_horario_inicio(sub, contexto)
+                flex = _montar_horario_flexivel(turno, aula_num)
+                if flex:
+                    sugestoes.append(flex)
+        if sugestoes:
+            return sugestoes
+
+    trecho_norm = _normalizar_label_aula(trecho_texto)
+    horarios_no_texto = _horarios_extraidos_texto(trecho_texto)
+
+    horario_personalizado = _horario_personalizado_por_texto(trecho_texto)
     if horario_personalizado:
         return horario_personalizado
 
-    horario_integral = _horario_integral_por_texto(trecho)
+    horario_integral = _horario_integral_por_texto(trecho_texto)
     if horario_integral:
         return horario_integral
     
     # Horário Flexível
     numeros_a = []
-    base_a = re.sub(r"\b\d{1,2}h\d*\b", " ", str(trecho or "").lower())
-    for numero in range(1, 7):
+    base_a = re.sub(r"\b\d{1,2}h\d*\b", " ", trecho_texto.lower())
+    for numero in range(1, 10):  # Corrigido: vai até a 9ª aula (range(1, 10))
         if re.search(rf"\b{numero}\s*(?:ª|º|a|o)?\b", base_a):
             numeros_a.append(numero)
     numeros_a = sorted(set(numeros_a))
@@ -443,6 +491,17 @@ def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
             primeira = numeros[0]
             ultima = numeros[-1]
             consecutivas = numeros == list(range(primeira, ultima + 1))
+            
+            # Se não forem consecutivas no mesmo dia, desmembra em múltiplas aulas separadas
+            if not consecutivas and len(numeros) >= 2:
+                sugestoes_desmembradas = []
+                for n in numeros:
+                    sug = _montar_horario_flexivel(turno, [n])
+                    if sug:
+                        sugestoes_desmembradas.append(sug)
+                if sugestoes_desmembradas:
+                    return sugestoes_desmembradas
+            
             inicio = slots[primeira - 1]
             fim = slots[ultima if consecutivas else ultima - 1]
             label = _formatar_label_aulas(numeros)
@@ -463,7 +522,7 @@ def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
         if horario_norm and horario_norm in trecho_norm:
             return horario
 
-    horario_norm = _normalizar_horario_cadastro(trecho)
+    horario_norm = _normalizar_horario_cadastro(trecho_texto)
     if horario_norm:
         horario_sem_zero = horario_norm[1:] if horario_norm.startswith("0") else horario_norm
         for horario in HORARIOS_SIMPLES + HORARIOS_DUPLAS:
@@ -585,9 +644,16 @@ def _horarios_padronizados_de_texto(texto: str, contexto: str = "") -> list[tupl
         partes = [str(texto)]
     for parte in partes:
         sugestao = _sugerir_horario_cadastrado(parte, contexto)
-        if sugestao and sugestao not in vistos:
-            horarios.append(sugestao)
-            vistos.add(sugestao)
+        if sugestao:
+            if isinstance(sugestao, list):
+                for sug in sugestao:
+                    if sug not in vistos:
+                        horarios.append(sug)
+                        vistos.add(sug)
+            else:
+                if sugestao not in vistos:
+                    horarios.append(sugestao)
+                    vistos.add(sugestao)
     return horarios
 
 def _defaults_grade_horarios(dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> dict[str, dict[str, object]]:
@@ -605,10 +671,26 @@ def _defaults_grade_horarios(dia_texto: str = "", horario_texto: str = "", conte
         )
         horario = _sugerir_horario_cadastrado(trecho_horario, contexto)
         if horario:
-            turno, aulas = _turno_e_aulas_de_horario(horario, contexto)
-            valor = {"turno": turno, "aulas": aulas}
-            if turno == TURNO_HORARIO_PERSONALIZADO:
-                valor["horario_personalizado"] = str(horario[0])
+            if isinstance(horario, list):
+                # Caso venha desmembrado em lista
+                todas_aulas = []
+                for h in horario:
+                    _, aulas_h = _turno_e_aulas_de_horario(h, contexto)
+                    todas_aulas.extend(aulas_h)
+                turno, _ = _turno_e_aulas_de_horario(horario[0], contexto)
+                # Ordenar aulas pelo número para consistência
+                def _num_sort(x):
+                    match = re.search(r'\d+', str(x))
+                    return int(match.group(0)) if match else 0
+                aulas_ordenadas = sorted(list(set(todas_aulas)), key=_num_sort)
+                valor = {"turno": turno, "aulas": aulas_ordenadas}
+                if turno == TURNO_HORARIO_PERSONALIZADO:
+                    valor["horario_personalizado"] = str(horario[0][0])
+            else:
+                turno, aulas = _turno_e_aulas_de_horario(horario, contexto)
+                valor = {"turno": turno, "aulas": aulas}
+                if turno == TURNO_HORARIO_PERSONALIZADO:
+                    valor["horario_personalizado"] = str(horario[0])
         elif trecho_horario:
             valor = {
                 "turno": TURNO_HORARIO_PERSONALIZADO,
@@ -652,8 +734,29 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
         if parte.strip()
     ]
     dias_semana = [dia for dia in dias_semana if dia is not None]
-    horarios_cadastro = _horarios_padronizados_de_texto(str((config or {}).get("horario") or ""), turma)
+    
+    partes_horario = _partes_horario_config(str((config or {}).get("horario") or ""))
+    
+    if dias_semana and partes_horario:
+        for idx, dia in enumerate(dias_semana):
+            trecho = partes_horario[idx] if idx < len(partes_horario) else partes_horario[-1]
+            sugestoes = _sugerir_horario_cadastrado(trecho, turma)
+            if sugestoes:
+                if isinstance(sugestoes, list):
+                    for sug in sugestoes:
+                        chave = (dia, sug)
+                        if chave not in vistos:
+                            vistos.add(chave)
+                            padroes.append({"dia": dia, "horario": sug})
+                else:
+                    chave = (dia, sugestoes)
+                    if chave not in vistos:
+                        vistos.add(chave)
+                        padroes.append({"dia": dia, "horario": sugestoes})
+        if padroes:
+            return sorted(padroes, key=lambda item: (item["dia"], _indice_horario(item["horario"])))
 
+    horarios_cadastro = _horarios_padronizados_de_texto(str((config or {}).get("horario") or ""), turma)
     if horarios_cadastro and dias_semana:
         for idx, dia in enumerate(dias_semana):
             sugestao = horarios_cadastro[idx] if idx < len(horarios_cadastro) else horarios_cadastro[0]
@@ -686,17 +789,31 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
             continue
         trecho_horario = " ".join(str(item.get(chave) or "").strip() for chave in ("horario", "aula")).strip()
         sugestao = _sugerir_horario_cadastrado(trecho_horario, turma) or HORARIOS_AULA[0]
-        chave = (data_aula.weekday(), sugestao)
-        if chave in vistos:
-            continue
-        vistos.add(chave)
-        padroes.append({"dia": data_aula.weekday(), "horario": sugestao})
+        if isinstance(sugestao, list):
+            for sug in sugestao:
+                chave = (data_aula.weekday(), sug)
+                if chave not in vistos:
+                    vistos.add(chave)
+                    padroes.append({"dia": data_aula.weekday(), "horario": sug})
+        elif sugestao:
+            chave = (data_aula.weekday(), sugestao)
+            if chave not in vistos:
+                vistos.add(chave)
+                padroes.append({"dia": data_aula.weekday(), "horario": sugestao})
 
     if padroes:
         return sorted(padroes, key=lambda item: (item["dia"], _indice_horario(item["horario"])))
 
-    partes_horario = _partes_horario_config(str((config or {}).get("horario") or ""))
-    sugestoes_h = [_sugerir_horario_cadastrado(parte, turma) or HORARIOS_AULA[0] for parte in partes_horario]
+    sugestoes_h = []
+    for parte in partes_horario:
+        sug = _sugerir_horario_cadastrado(parte, turma)
+        if isinstance(sug, list):
+            sugestoes_h.extend(sug)
+        elif sug:
+            sugestoes_h.append(sug)
+        else:
+            sugestoes_h.append(HORARIOS_AULA[0])
+            
     if dias_semana and not sugestoes_h:
         sugestoes_h = [HORARIOS_AULA[0]]
 

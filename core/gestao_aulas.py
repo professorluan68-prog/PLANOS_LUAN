@@ -111,8 +111,8 @@ def obter_referencia_ultima_aula_historico(
 ) -> dict | None:
     """Consulta o último plano salvo e identifica a última aula registrada nele.
 
-    Esta função é apenas informativa para a tela de geração. Ela não altera a
-    aula inicial nem a seleção automática dos PDFs.
+    Esta função auxilia no cálculo da continuidade pedagógica e na seleção automática
+    de PDFs da interface.
     """
     from core.database import (
         obter_arquivo_historico,
@@ -142,9 +142,10 @@ def obter_referencia_ultima_aula_historico(
 
 def obter_ultima_aula_gerada_sistema_impl(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     """
-    Regra atual do projeto: novos planos sempre começam pela Aula 1.
-
-    O histórico continua salvo para consulta e download, mas não deve mais
-    interferir na aula inicial sugerida para novas gerações.
+    Retorna o número da última aula gerada do histórico para servir de ponto
+    de partida e continuidade na nova geração.
     """
+    ref = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre)
+    if ref:
+        return int(ref.get("ultima_aula") or 0)
     return 0

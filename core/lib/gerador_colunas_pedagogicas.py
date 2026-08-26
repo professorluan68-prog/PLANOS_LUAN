@@ -3,12 +3,18 @@ from __future__ import annotations
 import random
 import re
 import unicodedata
-
 from dataclasses import dataclass, field
 from typing import Dict, List
 
 from core.lib.extrator_blocos_pedagogicos import extrair_blocos_pedagogicos
-from core.normalizacao import normalizar as norm
+
+
+def norm(txt: str) -> str:
+    if not txt:
+        return ""
+    txt = unicodedata.normalize("NFKD", txt)
+    txt = "".join(c for c in txt if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", txt).strip().lower()
 
 
 def clean(txt: str) -> str:
@@ -67,7 +73,6 @@ class PistasPedagogicas:
     tem_mapa: bool = False
     tem_leitura_guiada: bool = False
     tem_construcao_conceito: bool = False
-    tem_analise_linguistica: bool = False
 
     tecnicas_lemov: List[str] = field(default_factory=list)
 
@@ -90,23 +95,17 @@ VERBOS_OBJETIVO = [
     "avaliar", "identificar", "planejar", "aplicar", "justificar",
 ]
 
-PALAVRAS_GRAFICO = ["grafico", "gráfico", "grafico de", "gráfico de", "eixo", "eixos", "fluxo de refugiados"]
-PALAVRAS_TABELA = ["tabela", "tabelas", "quadro comparativo", "quadro-sintese", "quadro síntese"]
+PALAVRAS_GRAFICO = ["grafico", "gráfico", "coluna", "linha", "eixo", "fluxo de refugiados"]
+PALAVRAS_TABELA = ["tabela", "quadro", "comparativo"]
 PALAVRAS_CALCULO = ["juros", "porcentagem", "percentual", "cálculo", "calculo", "rendimento"]
 PALAVRAS_COMPARACAO = ["comparar", "comparação", "comparacao", "diferença", "diferenca", "sinônimos", "sinonimos"]
 PALAVRAS_ESTUDO_CASO = ["situação", "situacao", "caso", "estudante de 25 anos", "um rapaz se mudou"]
-PALAVRAS_NOTICIA = ["leia a notícia", "leia a noticia", "notícia", "noticia", "manchete", "reportagem"]
+PALAVRAS_NOTICIA = ["leia a notícia", "leia a noticia", "notícia", "noticia", "uol", "g1", "cnn", "bbc", "veja"]
 PALAVRAS_IMAGEM = ["observe as imagens", "observe a imagem", "imagem de satélite", "imagem de satelite"]
 PALAVRAS_MAPA = ["mapa interativo", "fluxo de migração", "fluxo de migracao", "legenda", "países ou regiões", "paises ou regioes"]
 PALAVRAS_LEITURA = ["leia", "leitura", "hora da leitura"]
 PALAVRAS_CONSTRUCAO_CONCEITO = ["construindo o conceito"]
 PALAVRAS_DEBATE = ["virem e conversem", "com suas palavras", "para refletir"]
-PALAVRAS_ANALISE_LINGUISTICA = [
-    "ordem direta", "ordem inversa", "hiperbato", "hipérbato", "conjuncoes", "conjunções",
-    "regencia verbal", "regência verbal", "regencia nominal", "regência nominal",
-    "oracoes subordinadas", "orações subordinadas", "modalizacao", "modalização",
-    "analise sintatica", "análise sintática",
-]
 
 
 def extrair_bullets_secao(texto: str, marcador_secao: str) -> List[str]:
@@ -179,190 +178,19 @@ def extrair_vocabulario_chave(conteudos: List[str], objetivos: List[str], titulo
     return dedup(saida)[:6]
 
 
-_REGRAS_PERFIL_LP = [
-    ("texto_publicitario", [
-        "anuncie aqui", "anuncio publicitario", "anúncio publicitário",
-        "propaganda", "publicidade", "slogan", "jingle",
-        "campanha publicitaria", "campanha publicitária",
-        "advergame", "unboxing", "social advertising",
-    ]),
-    ("diario_pessoal", [
-        "diario pessoal", "diário pessoal",
-        "genero diario pessoal", "gênero diário pessoal",
-        "reflexoes do cotidiano", "reflexões do cotidiano",
-    ]),
-    ("biografia", [
-        "historia de uma vida", "história de uma vida",
-        "biografia", "trajetoria", "trajetória",
-        "vida de", "carreira", "nascimento",
-        "mapa conceitual", "lygia fagundes telles",
-    ]),
-    ("noticia_multimodal", [
-        "jornalismo em imagens", "fotojornalismo",
-        "fotojornalistico", "fotojornalístico",
-        "recursos visuais em textos jornalisticos",
-        "recursos visuais em textos jornalísticos",
-        "textos jornalisticos digitais",
-        "textos jornalísticos digitais",
-        "fotos e videos", "fotos e vídeos",
-        "intencionalidade das imagens",
-    ]),
-    ("leitura_multimodal", [
-        "cartaz", "campanha", "infografico", "infografico",
-        "tirinha", "charge", "texto verbal", "texto nao verbal",
-        "linguagem verbal e nao verbal", "multimodal",
-        "multissemotico", "multissemiotico",
-    ]),
-    ("resumo_retextualizacao", [
-        "resumir", "resumo", "retextualizacao",
-        "esquema", "notas", "topicos",
-        "topico frasal", "paragrafacao",
-        "paragrafos", "coesao", "coerencia",
-    ]),
-    ("variacao_linguistica_registro", [
-        "regionalismo", "registro formal",
-        "registro informal", "giria", "girias",
-        "preconceito linguistico", "biscoito", "bolacha",
-    ]),
-    ("argumentacao_debate", [
-        "contra argumento", "contra-argumento",
-        "debate", "refutar", "planejar debate",
-        "celular em sala", "celular na escola",
-    ]),
-    ("texto_digital_blog", [
-        "post de blog", "blog", "postagem", "internet",
-        "comentario", "a voz da internet",
-        "mulheres na universidade", "publico leitor",
-    ]),
-    ("analise_linguistica_ortografia", [
-        "ortografia", "concordancia nominal",
-        "discurso direto", "discurso indireto", "marcas linguisticas",
-        "paragrafacao", "topico frasal", "x ou ch", "sc", "cedilha",
-    ]),
-    ("conto_distopico", [
-        "conto distopico", "conto distópico",
-        "narrativa distopica", "narrativa distópica",
-        "distopia", "distopico", "distópico",
-        "olhos por bugalhos",
-        "uma narrativa pode moldar uma imagem",
-    ]),
-    ("literatura_prosa", [
-        "prosa de 30", "prosa regionalista",
-        "romance regionalista", "sertao", "sertão",
-        "seca", "retirantes", "o quinze", "vidas secas",
-        "capitaes da areia", "capitães da areia",
-        "rachel de queiroz", "graciliano ramos", "jorge amado",
-    ]),
-    ("literatura_modernismo", [
-        "semana de arte moderna", "vanguardas europeias",
-        "vanguardas", "modernismo", "modernista",
-        "mario de andrade", "mário de andrade",
-        "oswald de andrade", "drummond", "murilo mendes",
-        "manuel bandeira", "manifesto literario", "manifesto literário",
-    ]),
-    ("poema", [
-        "poema", "soneto", "verso", "estrofe",
-        "eu lirico", "eu lírico", "rima", "metrica", "métrica",
-        "carpe diem", "fugere urbem",
-    ]),
-    ("cronica", ["cronica", "crônica", "genero cronica", "gênero crônica"]),
-    ("editorial_argumentativo", ["editorial", "editoriais", "texto opinativo"]),
-    ("artigo_opiniao", [
-        "artigo de opiniao", "artigo de opinião",
-        "construcao da opiniao", "construção da opinião",
-        "tese", "argumentos", "posicionamento",
-        "ponto de vista", "persuadir",
-    ]),
-    ("oralidade_entrevista", [
-        "oralidade", "entrevista oral", "entrevista",
-        "turnos de fala", "marcas de oralidade",
-        "transcricao", "transcrição",
-        "variacao linguistica", "variação linguística", "podcast",
-    ]),
-    ("texto_normativo", [
-        "estatuto da pessoa idosa", "constituicao federal",
-        "constituição federal", "texto normativo",
-        "textos legais", "texto legal", "normas", "direitos assegurados",
-    ]),
-    ("gramatica_analise_linguistica", [
-        "ordem direta", "ordem inversa", "hiperbato", "hipérbato",
-        "conjuncoes", "conjunções", "regencia verbal", "regência verbal",
-        "regencia nominal", "regência nominal",
-        "oracoes subordinadas", "orações subordinadas",
-        "modalizacao", "modalização",
-        "analise sintatica", "análise sintática",
-    ]),
-]
-
-
-def classificar_perfil(
-    texto: str,
-    titulo: str,
-    conteudos: List[str],
-    objetivos: List[str],
-    blocos: Dict[str, str],
-    perfil: str = None,
-) -> str:
-    """
-    Classifica o perfil pedagógico da aula com base no conteúdo do PDF.
-    Usa tabela de regras em ordem de prioridade.
-    """
+def classificar_perfil(texto: str, titulo: str, conteudos: List[str], objetivos: List[str], blocos: Dict[str, str]) -> str:
     base = " ".join([texto, titulo] + conteudos + objetivos)
     n = norm(base)
 
-    # Verificar regras em ordem de prioridade
-    perfis_lp_permitidos = {"lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}
-    if perfil is None or perfil in perfis_lp_permitidos:
-        if "literatura medieval portuguesa e suas influencias" in n or "literatura medieval portuguesa e suas influências" in n:
-            return "literatura_contexto"
-        if any(t in n for t in ["gil vicente", "auto da barca"]):
-            return "literatura_drama"
-        if any(t in n for t in [
-            "literatura medieval", "trovadorismo", "cantiga", "cantigas",
-            "versos medievais", "classicismo", "camoes", "camões",
-            "lusiadas", "lusíadas",
-        ]):
-            return "poema"
-        if any(t in n for t in ["ortografia", "concordancia nominal", "discurso direto", "discurso indireto", "x ou ch"]):
-            return "analise_linguistica_ortografia"
-        if any(t in n for t in ["resumo", "retextualizacao", "topico frasal", "paragrafacao"]) and any(
-            t in n for t in ["infografico", "esquema", "topicos", "paragrafos", "notas"]
-        ):
-            return "resumo_retextualizacao"
-        if any(t in n for t in ["preconceito linguistico", "biscoito", "bolacha", "regionalismo"]) and any(
-            t in n for t in ["variacao linguistica", "registro formal", "registro informal", "lingua viva"]
-        ):
-            return "variacao_linguistica_registro"
-        if any(t in n for t in ["post de blog", "a voz da internet", "publico leitor"]) and any(
-            t in n for t in ["comentario", "internet", "blog", "postagem"]
-        ):
-            return "texto_digital_blog"
-        if any(t in n for t in ["contra argumento", "contra-argumento", "planejar debate", "celular em sala", "celular na escola"]):
-            return "argumentacao_debate"
-        for perfil_nome, termos in _REGRAS_PERFIL_LP:
-            for termo in termos:
-                termo_norm = norm(termo)
-                if not termo_norm:
-                    continue
-                # Busca exata com limites de palavra
-                if re.search(rf"(?<!\w){re.escape(termo_norm)}(?!\w)", n):
-                    return perfil_nome
-
-    # Regras compostas que dependem de múltiplos sinais
-    tem_noticia = any(norm(p) in n for p in PALAVRAS_NOTICIA)
-    tem_imagem = any(norm(p) in n for p in PALAVRAS_IMAGEM)
-    tem_mapa = any(norm(p) in n for p in PALAVRAS_MAPA)
-    tem_comparacao = any(norm(p) in n for p in PALAVRAS_COMPARACAO)
-    tem_grafico = any(norm(p) in n for p in PALAVRAS_GRAFICO)
+    tem_noticia = any(p in n for p in [norm(x) for x in PALAVRAS_NOTICIA])
+    tem_imagem = any(p in n for p in [norm(x) for x in PALAVRAS_IMAGEM])
+    tem_mapa = any(p in n for p in [norm(x) for x in PALAVRAS_MAPA])
+    tem_comparacao = any(p in n for p in [norm(x) for x in PALAVRAS_COMPARACAO])
+    tem_grafico = any(p in n for p in [norm(x) for x in PALAVRAS_GRAFICO])
+    tem_estado = any(t in n for t in ["estado", "documentos internacionais", "direitos", "restrições", "restricoes", "soberania", "fronteiras"])
     tem_xenofobia = "xenofobia" in n
     tem_refugiado = "refugiado" in n or "refugiados" in n
-    tem_migracao_legal_ilegal = "migracao legal e ilegal" in n or (
-        "migrante legal" in n and "migrante ilegal" in n
-    )
-    tem_estado = any(t in n for t in [
-        "estado", "documentos internacionais", "direitos",
-        "restricoes", "restrições", "soberania", "fronteiras",
-    ])
+    tem_migracao_legal_ilegal = "migracao legal e ilegal" in n or ("migrante legal" in n and "migrante ilegal" in n)
 
     if tem_xenofobia and tem_noticia:
         return "noticia_leitura_critica"
@@ -382,11 +210,10 @@ def classificar_perfil(
         return "imagem_debate"
     if "construindo o conceito" in n or blocos.get("Construindo o conceito"):
         return "conceito_reflexivo"
-
     return "geral"
 
 
-def extrair_pistas(texto_pdf: str, titulo_aula: str, perfil: str = None) -> PistasPedagogicas:
+def extrair_pistas(texto_pdf: str, titulo_aula: str) -> PistasPedagogicas:
     texto_pdf = texto_pdf or ""
     listas = extrair_conteudos_objetivos(texto_pdf)
     conteudos = listas["conteudos"]
@@ -418,11 +245,10 @@ def extrair_pistas(texto_pdf: str, titulo_aula: str, perfil: str = None) -> Pist
         tem_mapa=any(p in n for p in [norm(x) for x in PALAVRAS_MAPA]),
         tem_leitura_guiada=any(p in n for p in [norm(x) for x in PALAVRAS_LEITURA]),
         tem_construcao_conceito=any(p in n for p in [norm(x) for x in PALAVRAS_CONSTRUCAO_CONCEITO]),
-        tem_analise_linguistica=any(p in n for p in [norm(x) for x in PALAVRAS_ANALISE_LINGUISTICA]),
         tecnicas_lemov=detectar_tecnicas(texto_pdf),
     )
 
-    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos, blocos, perfil=perfil)
+    pistas.perfil = classificar_perfil(texto_pdf, titulo_aula, conteudos, objetivos, blocos)
     pistas.verbo_objetivo = detectar_verbo_objetivo(objetivos)
     return pistas
 
@@ -432,47 +258,12 @@ def sanitizar_texto_pedagogico(txt: str) -> str:
     txt = txt.replace("..", ".")
     txt = re.sub(r"\s+,", ",", txt)
     txt = re.sub(r"\s+\.", ".", txt)
-    # Remover apenas quando o termo está no início ou fim da frase,
-    # ou isolado entre vírgulas/pontos — nunca no meio de uma frase
-    txt = re.sub(r"(?:^|\.\s+)2o bimestre\b", "", txt, flags=re.I)
-    txt = re.sub(r"(?:^|\.\s+)ensino medio\b", "", txt, flags=re.I)
-    # "aula N" pode ser removido com segurança pois é sempre referência isolada
-    txt = re.sub(r"\baula \d+\b\s*[-:–]?\s*", "", txt, flags=re.I)
+    txt = re.sub(r"\b2o bimestre\b", "", txt, flags=re.I)
+    txt = re.sub(r"\bensino medio\b", "", txt, flags=re.I)
+    txt = re.sub(r"\baula \d+\b", "", txt, flags=re.I)
     txt = txt.strip(" -:;,")
     txt = clean(txt)
     return sentenca(txt)
-
-
-_FINAIS_INVALIDOS_FRASE = frozenset({
-    "a", "as", "o", "os", "um", "uma",
-    "de", "da", "do", "das", "dos",
-    "em", "e", "com", "para", "por",
-    "que", "se", "na", "no", "nas", "nos",
-    "ao", "aos", "à", "às",
-})
-
-
-def validar_frase_completa(texto: str) -> bool:
-    """
-    Verifica se uma frase parece completa (não termina com preposição ou artigo).
-    Retorna True se a frase parece completa, False se parece truncada.
-    """
-    texto = clean(texto).rstrip(".!?")
-    if not texto:
-        return False
-    ultima_palavra = texto.split()[-1].lower().rstrip(".,;:")
-    return ultima_palavra not in _FINAIS_INVALIDOS_FRASE
-
-
-def sanitizar_e_validar(txt: str, fallback: str = "") -> str:
-    """
-    Sanitiza o texto pedagógico e verifica se está completo.
-    Se truncado, retorna o fallback.
-    """
-    resultado = sanitizar_texto_pedagogico(txt)
-    if not validar_frase_completa(resultado):
-        return sanitizar_texto_pedagogico(fallback) if fallback else resultado
-    return resultado
 
 
 def bloquear_contaminacao_tematica(texto: str, pistas: PistasPedagogicas) -> str:
@@ -500,66 +291,12 @@ def bloquear_contaminacao_tematica(texto: str, pistas: PistasPedagogicas) -> str
 def frase_inicial(p: PistasPedagogicas) -> str:
     opcoes = []
 
-    if p.perfil == "texto_publicitario":
-        return "Iniciar a aula retomando anúncios e campanhas conhecidos pelos estudantes, observando como linguagem verbal, imagem, som e contexto buscam persuadir o público."
-    if p.perfil == "diario_pessoal":
-        return "Iniciar a aula retomando situações do cotidiano em que as pessoas registram vivências, sentimentos e reflexões, preparando a turma para reconhecer características do diário pessoal."
-    if p.perfil == "diario_pessoal":
-        return "Propor atividade de leitura e análise para que os estudantes identifiquem características do diário pessoal, observem marcas de subjetividade e registrem como o autor organiza experiências e reflexões."
-    if p.perfil == "diario_pessoal":
-        return "Propor atividade de leitura e analise para que os estudantes identifiquem caracteristicas do diario pessoal, observem marcas de subjetividade e registrem como o autor organiza experiencias e reflexoes."
-    if p.perfil == "biografia":
-        return "Iniciar a aula apresentando a trajetória da pessoa biografada e mobilizando conhecimentos prévios sobre como fatos de vida podem ser organizados em texto e mapa conceitual."
-    if p.perfil == "noticia_multimodal":
-        return "Iniciar a aula observando como notícias digitais articulam texto, fotos e vídeos para informar e produzir efeitos de sentido no leitor."
-    if p.perfil == "leitura_multimodal":
-        return "Iniciar a aula com observacao orientada de cartaz, infografico, tirinha ou imagem do material, mobilizando hipoteses sobre a mensagem, o publico e a finalidade comunicativa."
-    if p.perfil == "resumo_retextualizacao":
-        return "Iniciar a aula retomando o esquema, a lista ou o infografico do material para que a turma identifique quais informacoes merecem ser transformadas em texto organizado."
-    if p.perfil == "variacao_linguistica_registro":
-        return "Iniciar a aula apresentando situacoes reais de uso da lingua, aproximando a turma de exemplos de variacao, registro e adequacao ao contexto."
-    if p.perfil == "argumentacao_debate":
-        return "Iniciar a aula com tema polemico e proximo da vivencia da turma, incentivando os estudantes a diferenciar opiniao espontanea de argumento fundamentado."
-    if p.perfil == "texto_digital_blog":
-        return "Iniciar a aula retomando a leitura do post de blog e mobilizando conhecimentos previos sobre interlocutor, comentario, registro e circulacao do texto digital."
-    if p.perfil == "analise_linguistica_ortografia":
-        return "Iniciar a aula retomando trechos do proprio material para que a turma observe como escolhas ortograficas e linguisticas aparecem em uso real."
-    if p.perfil == "leitura_multimodal":
-        return "Propor atividade de leitura e registro para que os estudantes relacionem imagem, texto verbal, legenda e dados do material, justificando como esses elementos constroem a mensagem."
-    if p.perfil == "resumo_retextualizacao":
-        return "Propor atividade de retextualizacao para que os estudantes transformem topicos, listas ou informacoes do infografico em paragrafos coerentes, evitando copia mecanica."
-    if p.perfil == "variacao_linguistica_registro":
-        return "Propor atividade de classificacao e registro para que os estudantes identifiquem exemplos de variacao linguistica e expliquem a adequacao de cada uso ao contexto."
-    if p.perfil == "argumentacao_debate":
-        return "Propor atividade de analise e planejamento para que os estudantes selecionem argumentos e contra-argumentos, registrem evidencias e preparem posicionamento para debate."
-    if p.perfil == "texto_digital_blog":
-        return "Propor atividade de comentario ou resposta para que os estudantes retomem o post de blog, mobilizem argumentos e escrevam com clareza e respeito ao interlocutor."
-    if p.perfil == "analise_linguistica_ortografia":
-        return "Propor atividade aplicada para que os estudantes retomem palavras, frases ou trechos do material, analisem o recurso linguistico estudado e revisem a escrita em contexto."
-    if p.perfil == "conto_distopico":
-        return "Iniciar a aula situando a narrativa distópica e levantando hipóteses sobre narrador, personagens, conflito e atmosfera de tensão presentes no conto."
-    if p.perfil == "literatura_prosa":
-        return "Iniciar a aula situando o texto literário no contexto da obra, do autor e do período estudado, mobilizando conhecimentos prévios sobre a prosa brasileira."
-    if p.perfil == "literatura_contexto":
-        return "Iniciar a aula observando imagens, referências históricas ou registros do material para levantar hipóteses sobre a formação da literatura portuguesa medieval."
-    if p.perfil == "literatura_drama":
-        return "Iniciar a aula situando o texto dramático no contexto da obra, do autor e do período estudado, mobilizando conhecimentos prévios sobre personagens, falas e crítica social."
-    if p.perfil == "literatura_modernismo":
-        return "Iniciar a aula contextualizando o movimento literário estudado, destacando rupturas estéticas, autores e relações com o momento histórico."
-    if p.perfil == "poema":
-        return "Iniciar a aula aproximando os estudantes do poema, observando título, organização em versos, voz poética e primeiras impressões de leitura."
-    if p.perfil == "cronica":
-        return "Iniciar a aula aproximando o tema da crônica de situações cotidianas conhecidas pelos estudantes, preparando a turma para observar linguagem, voz narrativa e efeitos de sentido."
-    if p.perfil == "artigo_opiniao":
-        return "Iniciar a aula mobilizando conhecimentos prévios sobre opinião, tese e argumentação, preparando a turma para reconhecer ponto de vista e estratégias persuasivas."
-    if p.perfil == "editorial_argumentativo":
-        return "Iniciar a aula apresentando o editorial como texto de opinião, mobilizando conhecimentos prévios sobre ponto de vista, argumentação e circulação social do gênero."
-    if p.perfil == "oralidade_entrevista":
-        return "Iniciar a aula apresentando a entrevista como prática de oralidade, destacando turnos de fala, perguntas, respostas e adequação da linguagem ao contexto."
-    if p.perfil == "texto_normativo":
-        return "Iniciar a aula retomando a função social dos textos normativos e legais, relacionando direitos, deveres e regras a situações concretas do cotidiano."
-    if p.perfil == "gramatica_analise_linguistica":
-        return "Iniciar a aula retomando exemplos de uso da língua no material, preparando a turma para observar forma, sentido e efeito das escolhas linguísticas."
+    if p.perfil in ["resolucao_problemas", "modelagem", "grafico", "khan"] or p.tem_calculo:
+        return "Para começar: Explorar conhecimentos prévios conectando o conceito matemático com experiências cotidianas através de perguntas reflexivas ou desafios simples."
+    if p.perfil in ["leitura", "debate_critico", "fonte_historica", "analise_geografica"]:
+        return "Para começar: Apresentar o tema central conectando-o com o contexto histórico/geográfico atual, ativando conhecimentos prévios e incentivando hipóteses."
+    if p.perfil in ["estudo_caso", "leitura_analise", "impacto_socioambiental", "investigativa", "analise_dados"] or (p.perfil == "conceito_novo" and not p.tem_calculo):
+        return "Para começar: Introduzir a temática com uma situação-problema ou imagem do material, mobilizando a curiosidade investigativa dos estudantes."
 
     if p.tem_noticia:
         opcoes.append("Iniciar a aula com leitura guiada da notícia apresentada no material, mobilizando conhecimentos prévios e incentivando a turma a identificar o problema central discutido.")
@@ -575,152 +312,44 @@ def frase_inicial(p: PistasPedagogicas) -> str:
 
 
 def frase_foco(p: PistasPedagogicas) -> str:
-    frase = ""
-    if p.perfil == "texto_publicitario":
-        frase = "Conduzir a análise do texto publicitário, destacando público-alvo, finalidade persuasiva, slogan, imagens, recursos sonoros ou audiovisuais e efeitos de sentido da campanha."
-    elif p.perfil == "diario_pessoal":
-        frase = "Conduzir a leitura orientada do diário pessoal, destacando escrita em primeira pessoa, organização temporal, marcas de intimidade, reflexões do cotidiano e relação entre experiência vivida e linguagem."
-    elif p.perfil == "biografia":
-        frase = "Conduzir a leitura orientada da biografia, destacando trajetória, fatos relevantes, organização temporal e uso do mapa conceitual como recurso para organizar informações."
-    elif p.perfil == "noticia_multimodal":
-        frase = "Conduzir a leitura crítica da notícia digital, destacando relação entre texto, fotos, vídeos, legenda, intencionalidade das imagens e efeitos de sentido no contexto jornalístico."
-    elif p.perfil == "leitura_multimodal":
-        frase = "Conduzir a leitura orientada do texto multimodal, destacando relacao entre imagem, texto verbal, dados, legenda e finalidade comunicativa."
-    elif p.perfil == "resumo_retextualizacao":
-        frase = "Explicar como selecionar informacoes principais do esquema ou infografico e transforma-las em paragrafos com topico frasal, coerencia e progressao de ideias."
-    elif p.perfil == "variacao_linguistica_registro":
-        frase = "Sistematizar a variacao linguistica presente no material, diferenciando usos regionais, sociais, historicos e situacionais sem reforcar preconceito linguistico."
-    elif p.perfil == "argumentacao_debate":
-        frase = "Conduzir a analise dos argumentos do material, destacando tese, contra-argumento, evidencias e criterios para sustentar posicionamentos com respeito."
-    elif p.perfil == "texto_digital_blog":
-        frase = "Conduzir a leitura orientada do post de blog, destacando tese, exemplos, registro de linguagem, interlocutor e efeitos de sentido no ambiente digital."
-    elif p.perfil == "analise_linguistica_ortografia":
-        frase = "Sistematizar o recurso linguistico ou ortografico do material, relacionando forma, clareza, adequacao ao contexto e construcao de sentido."
-    elif p.perfil == "conto_distopico":
-        frase = "Conduzir a leitura literária do conto distópico, destacando narrador, personagens, enredo, conflito, suspense e efeitos produzidos pelos tempos e modos verbais."
-    elif p.perfil == "literatura_prosa":
-        frase = "Conduzir a leitura orientada do texto literário do material, destacando contexto histórico, características da prosa, narrador, personagens, ambiente e efeitos de sentido construídos pela linguagem."
-    elif p.perfil == "literatura_contexto":
-        frase = "Conduzir a leitura orientada do material, destacando Reconquista, cultura galego-portuguesa, manifestações literárias iniciais e relações entre contexto histórico e produção literária."
-    elif p.perfil == "literatura_drama":
-        frase = "Conduzir a leitura orientada de trechos dramáticos do material, destacando personagens, falas, rubricas, conflito, crítica social e efeitos de sentido construídos pela linguagem teatral."
-    elif p.perfil == "literatura_modernismo":
-        frase = "Conduzir a análise do movimento literário estudado, relacionando contexto histórico, propostas estéticas, autores, obras e rupturas de linguagem presentes no material."
-    elif p.perfil == "poema":
-        frase = "Conduzir a leitura orientada do poema, destacando eu lírico, imagens poéticas, versos, estrofes, ritmo, escolhas lexicais e efeitos de sentido."
-    elif p.perfil == "cronica":
-        frase = "Conduzir a leitura orientada da crônica, destacando situação cotidiana, voz narrativa, marcas de linguagem, humor ou reflexão e relação entre experiência comum e construção literária."
-    elif p.perfil == "artigo_opiniao":
-        frase = "Conduzir a leitura orientada do artigo de opinião, destacando tese, argumentos, posicionamento do autor, estratégias persuasivas e relação com o público leitor."
-    elif p.perfil == "editorial_argumentativo":
-        frase = "Conduzir a leitura orientada do editorial, destacando tese, argumentos, ponto de vista, escolhas linguísticas e relação entre projeto editorial, contexto de circulação e leitor previsto."
-    elif p.perfil == "oralidade_entrevista":
-        frase = "Conduzir a análise da entrevista, destacando turnos de fala, organização das perguntas e respostas, marcas de oralidade, transcrição e variação linguística."
-    elif p.perfil == "texto_normativo":
-        frase = "Conduzir a leitura orientada do texto normativo ou legal do material, destacando finalidade, direitos, deveres, linguagem objetiva, contexto de circulação e efeitos das escolhas linguísticas."
-    elif p.perfil == "gramatica_analise_linguistica":
-        frase = "Sistematizar o fenômeno de análise linguística apresentado no material, relacionando forma, função, sentido e efeito produzido nos textos estudados."
-    elif p.perfil == "noticia_leitura_critica":
-        frase = "Conduzir a leitura orientada da notícia e das perguntas propostas, destacando informações principais, pontos de vista, formas de preconceito ou conflito e relações com o conceito central da aula."
-    elif p.perfil == "imagem_debate":
-        frase = "Explorar as imagens e questões iniciais do material, promovendo debate orientado e análise crítica das situações apresentadas antes da sistematização dos conceitos."
-    elif p.perfil == "imagem_debate_direitos":
-        frase = "Explorar as imagens, os questionamentos iniciais e os conceitos do material, destacando diferenças entre situações analisadas, riscos envolvidos, direitos, restrições e o papel do Estado."
-    elif p.perfil == "comparacao_conceitual":
-        frase = "Sistematizar os conceitos centrais da aula por meio de comparação orientada, ajudando a turma a distinguir termos próximos, reconhecer critérios e justificar diferenças com clareza."
-    elif p.perfil == "mapa_fluxos_migratorios":
-        frase = "Conduzir a leitura orientada do mapa e dos conceitos do material, destacando fluxos migratórios, causas dos deslocamentos e relações entre globalização, trabalho e qualidade de vida."
-    elif p.perfil == "grafico_fluxos_refugiados":
-        frase = "Conduzir a leitura orientada de gráficos, quadros ou informações visuais do material, ajudando a turma a interpretar os fluxos de refugiados e relacioná-los às causas do deslocamento forçado."
-    elif p.perfil == "conceito_reflexivo":
-        frase = "Sistematizar os conceitos centrais da aula com explicações claras, exemplos próximos da realidade dos estudantes e retomada do vocabulário principal."
-    else:
-        if p.tem_grafico and p.tem_tabela:
-            frase = "Desenvolver o conteúdo central da aula por meio da análise orientada de gráficos e tabelas explicativas presentes no material."
-        elif p.tem_grafico:
-            frase = "Desenvolver o conteúdo central da aula por meio da leitura e interpretação orientada de gráficos e informações visuais do material."
-        elif p.tem_tabela:
-            frase = "Desenvolver o conteúdo central da aula por meio da análise de tabelas ou quadros comparativos do material."
-        else:
-            frase = "Desenvolver o conteúdo central da aula com explicação dialogada, exemplos do material e participação orientada da turma."
-
-    if p.tem_analise_linguistica and p.perfil != "gramatica_analise_linguistica":
-        frase += " Articular essa leitura à análise linguística indicada no material, mostrando como os recursos da língua contribuem para a construção de sentido."
-
-    perfis_textuais = {
-        "texto_publicitario",
-        "diario_pessoal",
-        "biografia",
-        "noticia_multimodal",
-        "leitura_multimodal",
-        "resumo_retextualizacao",
-        "variacao_linguistica_registro",
-        "argumentacao_debate",
-        "texto_digital_blog",
-        "analise_linguistica_ortografia",
-        "conto_distopico",
-        "literatura_prosa",
-        "literatura_contexto",
-        "literatura_drama",
-        "literatura_modernismo",
-        "poema",
-        "cronica",
-        "artigo_opiniao",
-        "editorial_argumentativo",
-        "oralidade_entrevista",
-        "texto_normativo",
-        "gramatica_analise_linguistica",
-    }
-    if (p.tem_grafico or p.tem_tabela) and p.perfil not in perfis_textuais:
-        f_norm = norm(frase)
-        if "grafico" not in f_norm and "tabela" not in f_norm and "quadro" not in f_norm:
-            if p.tem_grafico and p.tem_tabela:
-                frase += " Orientar a leitura e interpretação dos gráficos e tabelas presentes no material para fundamentar a análise."
-            elif p.tem_grafico:
-                frase += " Orientar a leitura e interpretação dos gráficos presentes no material."
-            elif p.tem_tabela:
-                frase += " Orientar a análise das tabelas ou quadros explicativos do material."
-
-    return frase
+    if p.perfil == "noticia_leitura_critica":
+        return "Conduzir a leitura orientada da notícia e das perguntas propostas, destacando informações principais, pontos de vista, formas de preconceito ou conflito e relações com o conceito central da aula."
+    if p.perfil == "imagem_debate":
+        return "Explorar as imagens e questões iniciais do material, promovendo debate orientado e análise crítica das situações apresentadas antes da sistematização dos conceitos."
+    if p.perfil == "imagem_debate_direitos":
+        return "Explorar as imagens, os questionamentos iniciais e os conceitos do material, destacando diferenças entre situações analisadas, riscos envolvidos, direitos, restrições e o papel do Estado."
+    if p.perfil == "comparacao_conceitual":
+        return "Sistematizar os conceitos centrais da aula por meio de comparação orientada, ajudando a turma a distinguir termos próximos, reconhecer critérios e justificar diferenças com clareza."
+    if p.perfil == "mapa_fluxos_migratorios":
+        return "Conduzir a leitura orientada do mapa e dos conceitos do material, destacando fluxos migratórios, causas dos deslocamentos e relações entre globalização, trabalho e qualidade de vida."
+    if p.perfil == "grafico_fluxos_refugiados":
+        return "Conduzir a leitura orientada de gráficos, quadros ou informações visuais do material, ajudando a turma a interpretar os fluxos de refugiados e relacioná-los às causas do deslocamento forçado."
+    if p.perfil == "conceito_reflexivo":
+        return "Sistematizar os conceitos centrais da aula com explicações claras, exemplos próximos da realidade dos estudantes e retomada do vocabulário principal."
+    return "Desenvolver o conteúdo central da aula com explicação dialogada, exemplos do material e participação orientada da turma."
 
 
 def frase_pause(p: PistasPedagogicas) -> str:
+
+    if p.perfil in ["resolucao_problemas", "modelagem", "grafico", "khan"] or p.tem_calculo:
+        return "Realizar correção coletiva e mediada, promovendo debate sobre diferentes estratégias de resolução e verificando onde houve maiores dificuldades."
+    if p.perfil in ["leitura", "debate_critico", "fonte_historica", "analise_geografica"]:
+        return "Pausar para correção e socialização das interpretações, garantindo que os conceitos históricos e geográficos foram assimilados corretamente."
+    if p.perfil in ["estudo_caso", "leitura_analise", "impacto_socioambiental", "investigativa", "analise_dados"] or (p.perfil == "conceito_novo" and not p.tem_calculo):
+        return "Realizar checagem de entendimento, garantindo que as hipóteses levantadas pelos estudantes sejam discutidas e fundamentadas coletivamente."
     if p.tem_pause_responda:
         return "Realizar uma pausa de verificação da aprendizagem para que os estudantes justifiquem respostas, retomem conceitos e revisem o raciocínio antes de avançar."
     return ""
 
 
 def frase_pratica(p: PistasPedagogicas) -> str:
-    if p.perfil == "texto_publicitario":
-        return "Propor atividade de análise multimodal para que os estudantes identifiquem público-alvo, estratégias de persuasão, relação entre elementos verbais e não verbais e efeitos da campanha."
-    if p.perfil == "biografia":
-        return "Propor atividade de leitura e organização de informações para que os estudantes selecionem fatos relevantes da biografia e os registrem em mapa conceitual ou esquema orientado."
-    if p.perfil == "noticia_multimodal":
-        return "Propor atividade de análise da notícia digital para que os estudantes relacionem texto, imagem e vídeo, discutindo intencionalidade, ética e efeitos de sentido no jornalismo."
-    if p.perfil == "conto_distopico":
-        return "Propor atividade de análise literária para que os estudantes retomem trechos do conto, identifiquem narrador, conflito, tempos verbais e expliquem como esses recursos constroem tensão."
-    if p.perfil == "literatura_prosa":
-        return "Propor atividade de análise literária para que os estudantes retomem trechos do material, registrem evidências do texto e expliquem como contexto, personagens e linguagem sustentam a interpretação."
-    if p.perfil == "literatura_contexto":
-        return "Propor atividade de organização das informações para que os estudantes relacionem contexto histórico, formação do reino de Portugal e primeiras manifestações literárias em registros claros."
-    if p.perfil == "literatura_drama":
-        return "Propor atividade de análise do texto dramático para que os estudantes retomem falas e cenas, identifiquem personagens, conflito e crítica social, justificando respostas com trechos da obra."
-    if p.perfil == "literatura_modernismo":
-        return "Propor atividade de análise literária para que os estudantes relacionem características do movimento, autores, obras e recursos expressivos, registrando evidências do material."
-    if p.perfil == "poema":
-        return "Propor atividade de interpretação do poema para que os estudantes identifiquem voz poética, imagens, estrutura e escolhas linguísticas, justificando respostas com trechos do texto."
-    if p.perfil == "cronica":
-        return "Propor atividade de análise e registro em que os estudantes identifiquem elementos da crônica, relacionem cotidiano e linguagem e justifiquem os efeitos de sentido percebidos na leitura."
-    if p.perfil == "artigo_opiniao":
-        return "Propor atividade de análise argumentativa para que os estudantes identifiquem tese, argumentos, posicionamento e estratégias persuasivas, registrando conclusões com base no artigo lido."
-    if p.perfil == "editorial_argumentativo":
-        return "Propor atividade de análise argumentativa para que os estudantes identifiquem tese, argumentos e estratégias de persuasão, registrando conclusões com base no texto lido."
-    if p.perfil == "oralidade_entrevista":
-        return "Propor atividade de análise da entrevista para que os estudantes reconheçam turnos de fala, marcas de oralidade, variação linguística e relação entre pergunta, resposta e contexto."
-    if p.perfil == "texto_normativo":
-        return "Propor atividade de interpretação do texto normativo para que os estudantes retomem trechos, identifiquem direitos ou regras e relacionem a finalidade do texto ao contexto social discutido."
-    if p.perfil == "gramatica_analise_linguistica":
-        return "Propor atividade de aplicação para que os estudantes reconheçam o recurso linguístico em exemplos do material, expliquem seu efeito e registrem conclusões no caderno."
+
+    if p.perfil in ["resolucao_problemas", "modelagem", "grafico", "khan"] or p.tem_calculo:
+        return "Na prática: Orientar a resolução dos exercícios do material. Promover discussão em duplas utilizando a técnica 'Virem e conversem' para comparar métodos de cálculo."
+    if p.perfil in ["leitura", "debate_critico", "fonte_historica", "analise_geografica"]:
+        return "Na prática: Propor análise de fontes ou estudo de caso. Utilizar a técnica 'Virem e conversem' para que os estudantes confrontem diferentes pontos de vista antes do registro no caderno."
+    if p.perfil in ["estudo_caso", "leitura_analise", "impacto_socioambiental", "investigativa", "analise_dados"] or (p.perfil == "conceito_novo" and not p.tem_calculo):
+        return "Na prática: Orientar a atividade investigativa ou resolução de questões. Aplicar a técnica 'Todo mundo escreve' para garantir o registro individual e a sistematização da descoberta."
     if p.perfil == "noticia_leitura_critica":
         return "Propor atividade de análise e registro em que os estudantes retomem a notícia, respondam às questões e relacionem o caso discutido aos conceitos trabalhados na aula."
     if p.perfil == "imagem_debate":
@@ -737,6 +366,13 @@ def frase_pratica(p: PistasPedagogicas) -> str:
 
 
 def frase_encerramento(p: PistasPedagogicas) -> str:
+
+    if p.perfil in ["resolucao_problemas", "modelagem", "grafico", "khan"] or p.tem_calculo:
+        return "Sintetizar as aprendizagens da aula e promover reflexão final pedindo que os estudantes expliquem a lógica do cálculo 'Com suas palavras'."
+    if p.perfil in ["leitura", "debate_critico", "fonte_historica", "analise_geografica"]:
+        return "Encerrar a aula com síntese dos pontos principais, incentivando os estudantes a explicarem as conclusões do dia 'Com suas palavras'."
+    if p.perfil in ["estudo_caso", "leitura_analise", "impacto_socioambiental", "investigativa", "analise_dados"] or (p.perfil == "conceito_novo" and not p.tem_calculo):
+        return "Sistematizar os conceitos abordados na aula, finalizando com a técnica 'Com suas palavras' para reelaboração autônoma do conhecimento."
     destaque = ", ".join(p.vocabulario_chave[:3])
     if destaque:
         return f"Encerrar a aula com síntese dos pontos principais, retomando especialmente {destaque} e verificando o que a turma conseguiu compreender."
@@ -810,10 +446,6 @@ def _blocos_metodologia(p: PistasPedagogicas) -> List[Dict[str, str]]:
             seen.add(chave)
             uniq.append(bloco)
 
-    if len(uniq) > 6:
-        for idx in range(5, len(uniq)):
-            if uniq[idx]["titulo"] in {"Encerramento", "Com suas palavras"}:
-                return uniq[:5] + [uniq[idx]]
     return uniq[:6]
 
 
@@ -823,108 +455,6 @@ def gerar_metodologia(pistas: PistasPedagogicas) -> str:
 
 
 BANCO_ACOMPANHAMENTO = {
-    "texto_publicitario": [
-        "Verificar se os estudantes identificam público-alvo, finalidade persuasiva e recursos verbais, visuais ou audiovisuais da campanha.",
-        "Observar se relacionam slogan, imagem, som e contexto aos efeitos de sentido produzidos no anúncio.",
-        "Conferir se os registros finais diferenciam publicidade, propaganda e notícia, evitando confusões entre gêneros.",
-        "Acompanhar se a turma justifica interpretações com elementos presentes no material publicitário."
-    ],
-    "diario_pessoal": [
-        "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexão presentes no diário pessoal.",
-        "Observar se relacionam experiências narradas, sentimentos e contexto de escrita ao sentido construído no texto.",
-        "Conferir se os registros finais retomam características do gênero sem confundi-lo com biografia, memória ou notícia.",
-        "Acompanhar se a turma justifica interpretações com trechos do diário e com elementos da linguagem analisada."
-    ],
-    "diario_pessoal": [
-        "Realizar leitura compartilhada do diário em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexões aparecem no texto.",
-        "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
-        "Permitir registro em tópicos, grifos no texto, esquema simples ou resposta oral mediada.",
-        "Retomar coletivamente a diferença entre diário pessoal, biografia e relato informativo antes da atividade individual."
-    ],
-    "biografia": [
-        "Verificar se os estudantes identificam fatos relevantes da trajetória da pessoa biografada e organizam informações com coerência.",
-        "Observar se compreendem a função do mapa conceitual como organizador de ideias, sem tratá-lo como mapa geográfico.",
-        "Conferir se os registros finais relacionam vida, obra, carreira e contexto da pessoa estudada.",
-        "Acompanhar se a turma diferencia biografia de notícia ou reportagem."
-    ],
-    "noticia_multimodal": [
-        "Verificar se os estudantes relacionam texto, foto, vídeo, legenda e intencionalidade das imagens na notícia digital.",
-        "Observar se reconhecem efeitos de sentido produzidos pelos recursos multimodais no contexto jornalístico.",
-        "Conferir se os registros finais analisam a notícia sem transformar a aula em leitura de gráfico, tabela ou reportagem.",
-        "Acompanhar se a turma diferencia informação, imagem jornalística e entretenimento."
-    ],
-    "conto_distopico": [
-        "Verificar se os estudantes identificam narrador, personagens, conflito, suspense e marcas da narrativa distópica.",
-        "Observar se relacionam tempos e modos verbais aos efeitos de tensão, ponto de vista e construção do enredo.",
-        "Conferir se os registros finais usam trechos do conto para sustentar interpretações.",
-        "Acompanhar se a turma diferencia conto literário de notícia, artigo de opinião ou debate jornalístico."
-    ],
-    "literatura_prosa": [
-        "Verificar se os estudantes relacionam trechos da obra ao contexto, aos personagens e aos efeitos de sentido construídos pela linguagem.",
-        "Observar se utilizam evidências do texto literário para sustentar interpretações orais e escritas.",
-        "Conferir se os registros apresentam compreensão de narrador, ambiente, conflito e características da prosa estudada.",
-        "Acompanhar se a turma diferencia informação contextual e interpretação literária."
-    ],
-    "literatura_contexto": [
-        "Verificar se os estudantes relacionam contexto histórico, cultura galego-portuguesa e formação da literatura portuguesa medieval.",
-        "Observar se utilizam informações do material para explicar influências culturais, religiosas e sociais nas primeiras manifestações literárias.",
-        "Conferir se os registros organizam relações entre período histórico, produção literária e circulação dos textos.",
-        "Acompanhar se a turma diferencia informação histórica e interpretação literária sem reduzir a aula a memorização de características."
-    ],
-    "literatura_drama": [
-        "Verificar se os estudantes identificam personagens, falas, conflito e crítica social no texto dramático estudado.",
-        "Observar se utilizam trechos da cena para justificar interpretações sobre linguagem, intenção e efeito de sentido.",
-        "Conferir se os registros relacionam contexto histórico, construção das personagens e crítica presente na obra.",
-        "Acompanhar se a turma diferencia leitura dramatizada, interpretação literária e resumo do enredo."
-    ],
-    "literatura_modernismo": [
-        "Verificar se os estudantes reconhecem características do movimento literário, autores, obras e rupturas estéticas estudadas.",
-        "Observar se relacionam contexto histórico e escolhas de linguagem presentes nos textos do material.",
-        "Conferir se os registros finais usam evidências dos poemas, manifestos ou textos literários analisados.",
-        "Acompanhar se a turma compreende as inovações modernistas sem confundi-las com gêneros jornalísticos."
-    ],
-    "poema": [
-        "Verificar se os estudantes identificam voz poética, imagens, versos, estrofes e efeitos de sentido do poema.",
-        "Observar se justificam interpretações com trechos e escolhas linguísticas do texto poético.",
-        "Conferir se os registros apresentam compreensão da organização formal e temática do poema.",
-        "Acompanhar se a turma diferencia leitura literal e interpretação poética."
-    ],
-    "cronica": [
-        "Verificar se os estudantes identificam situação cotidiana, voz narrativa, marcas de linguagem e efeitos de humor, ironia ou reflexão.",
-        "Observar se relacionam elementos da crônica à experiência comum e ao ponto de vista construído no texto.",
-        "Conferir se os registros finais retomam evidências da crônica e explicam efeitos de sentido.",
-        "Acompanhar se a turma reconhece especificidades do gênero sem tratá-lo como notícia ou reportagem."
-    ],
-    "artigo_opiniao": [
-        "Verificar se os estudantes identificam tese, argumentos, posicionamento do autor e estratégias persuasivas do artigo.",
-        "Observar se justificam respostas com evidências do texto e diferenciam opinião, argumento e exemplo.",
-        "Conferir se os registros finais apresentam análise argumentativa coerente e retomada do tema discutido.",
-        "Acompanhar se a turma reconhece a finalidade opinativa do gênero sem tratá-lo como notícia."
-    ],
-    "editorial_argumentativo": [
-        "Verificar se os estudantes identificam tese, argumentos e posicionamento institucional presente no editorial.",
-        "Observar se relacionam escolhas linguísticas, projeto editorial e público leitor às ideias defendidas no texto.",
-        "Conferir se os registros finais sustentam conclusões com evidências do editorial analisado.",
-        "Acompanhar se a turma diferencia editorial, notícia e artigo de opinião."
-    ],
-    "oralidade_entrevista": [
-        "Verificar se os estudantes reconhecem turnos de fala, perguntas, respostas e marcas de oralidade presentes na entrevista.",
-        "Observar se relacionam variação linguística, contexto de fala e adequação da linguagem à situação comunicativa.",
-        "Conferir se os registros finais apresentam compreensão da organização da entrevista e de sua transcrição.",
-        "Acompanhar se a turma diferencia análise da oralidade de leitura de notícia ou reportagem."
-    ],
-    "texto_normativo": [
-        "Verificar se os estudantes compreendem finalidade, estrutura e linguagem objetiva do texto normativo ou legal.",
-        "Observar se localizam direitos, deveres, regras ou artigos relevantes e explicam sua função social.",
-        "Conferir se os registros finais relacionam trechos do texto legal ao contexto discutido na aula.",
-        "Acompanhar se a turma diferencia texto normativo de notícia, artigo de opinião ou debate formal."
-    ],
-    "gramatica_analise_linguistica": [
-        "Verificar se os estudantes reconhecem o recurso linguístico estudado e explicam seu funcionamento no texto.",
-        "Observar se aplicam a análise de forma contextualizada, relacionando forma, sentido e efeito.",
-        "Conferir se os registros finais apresentam exemplos corretos e justificativas claras.",
-        "Acompanhar se a turma usa a nomenclatura gramatical como apoio para interpretar o texto, sem reduzir a aula à memorização."
-    ],
     "noticia_leitura_critica": [
         "Verificar se os estudantes identificam informações principais, problema central e posicionamentos presentes na notícia analisada.",
         "Observar se relacionam o caso discutido aos conceitos trabalhados na aula, utilizando argumentos coerentes nas respostas orais e escritas.",
@@ -976,54 +506,6 @@ BANCO_ACOMPANHAMENTO = {
 }
 
 
-BANCO_ACOMPANHAMENTO.update(
-    {
-        "diario_pessoal": [
-            "Verificar se os estudantes identificam marcas de primeira pessoa, temporalidade, subjetividade e reflexao presentes no diario pessoal.",
-            "Observar se relacionam experiencias narradas, sentimentos e contexto de escrita ao sentido construido no texto.",
-            "Conferir se os registros finais retomam caracteristicas do genero sem confundi-lo com biografia, memoria ou noticia.",
-            "Acompanhar se a turma justifica interpretacoes com trechos do diario e com elementos da linguagem analisada.",
-        ],
-        "leitura_multimodal": [
-            "Verificar se os estudantes relacionam imagem, texto verbal, legenda, dados e organizacao visual na leitura do material multimodal.",
-            "Observar se reconhecem a finalidade comunicativa e justificam interpretacoes com elementos concretos do cartaz, infografico, tirinha ou campanha.",
-            "Conferir se os registros finais tratam a imagem como parte do texto, sem reduzi-la a ilustracao decorativa.",
-            "Acompanhar se a turma explica como os recursos verbais e nao verbais constroem sentido em conjunto.",
-        ],
-        "resumo_retextualizacao": [
-            "Verificar se os estudantes selecionam informacoes principais do esquema, lista ou infografico antes de escrever.",
-            "Observar se transformam topicos em paragrafos coerentes, com articulacao entre ideias e sem copia mecanica.",
-            "Conferir se os registros finais apresentam topico frasal, desenvolvimento e vocabulario adequado ao objetivo do resumo.",
-            "Acompanhar se a turma revisa o proprio texto considerando clareza, coesao e fidelidade ao material-base.",
-        ],
-        "variacao_linguistica_registro": [
-            "Verificar se os estudantes identificam exemplos de variacao linguistica e distinguem usos regionais, sociais, historicos e situacionais.",
-            "Observar se explicam a adequacao do registro ao contexto sem tratar a variacao como erro.",
-            "Conferir se os registros finais retomam evidencias do texto e evitam preconceito linguistico.",
-            "Acompanhar se a turma usa vocabulario da aula para justificar classificacoes e comparacoes.",
-        ],
-        "argumentacao_debate": [
-            "Verificar se os estudantes identificam tese, argumentos, contra-argumentos e evidencias no material-base.",
-            "Observar se selecionam informacoes relevantes para sustentar posicionamentos sem depender apenas de opiniao espontanea.",
-            "Conferir se os registros finais mostram planejamento do debate com argumentos favoraveis e contrarios.",
-            "Acompanhar se a turma justifica escolhas com dados, exemplos ou trechos do texto lido.",
-        ],
-        "texto_digital_blog": [
-            "Verificar se os estudantes reconhecem tese, argumentos, exemplos, registro de linguagem e publico leitor do post de blog.",
-            "Observar se relacionam comentario, interlocutor e circulacao digital aos efeitos de sentido do texto.",
-            "Conferir se os registros finais retomam o texto-base para sustentar respostas e comentarios.",
-            "Acompanhar se a turma escreve com clareza e respeito ao interlocutor, sem perder o foco argumentativo.",
-        ],
-        "analise_linguistica_ortografia": [
-            "Verificar se os estudantes reconhecem o recurso linguistico ou ortografico estudado em palavras, frases e trechos do material.",
-            "Observar se explicam como a escolha analisada contribui para clareza, adequacao e sentido do texto.",
-            "Conferir se os registros finais apresentam aplicacao contextualizada, e nao apenas repeticao de regra isolada.",
-            "Acompanhar se a turma revisa a escrita com base em exemplos do proprio material.",
-        ],
-    }
-)
-
-
 def gerar_acompanhamento(pistas: PistasPedagogicas) -> List[str]:
     base = BANCO_ACOMPANHAMENTO.get(pistas.perfil, BANCO_ACOMPANHAMENTO["geral"])[:]
     rng = random.Random(pistas.titulo + "|acompanhamento|" + pistas.perfil)
@@ -1032,96 +514,6 @@ def gerar_acompanhamento(pistas: PistasPedagogicas) -> List[str]:
 
 
 BANCO_ACESSIBILIDADE = {
-    "texto_publicitario": [
-        "Apresentar os elementos do anúncio em etapas, destacando público-alvo, slogan, imagem, som e finalidade persuasiva.",
-        "Disponibilizar roteiro de análise multimodal com perguntas curtas sobre linguagem verbal, não verbal e efeito produzido.",
-        "Permitir registro em tópicos, marcações no anúncio ou resposta oral mediada.",
-        "Retomar coletivamente a diferença entre anúncio, notícia e artigo de opinião antes da atividade."
-    ],
-    "biografia": [
-        "Realizar leitura compartilhada da biografia, destacando linha do tempo, fatos relevantes e palavras-chave da trajetória.",
-        "Organizar o mapa conceitual passo a passo, mostrando que ele funciona como esquema de ideias, não como mapa geográfico.",
-        "Permitir registro em tópicos, setas, esquema orientado ou resposta oral mediada.",
-        "Oferecer banco de palavras com vida, obra, carreira, nascimento, contexto e contribuições."
-    ],
-    "noticia_multimodal": [
-        "Orientar a observação de texto, foto, vídeo e legenda separadamente antes de relacionar os recursos.",
-        "Disponibilizar perguntas-guia sobre intencionalidade da imagem, informação principal e efeito de sentido.",
-        "Permitir registro em tópicos, marcações no material ou resposta oral mediada.",
-        "Retomar coletivamente a diferença entre recurso visual jornalístico, imagem decorativa e gráfico de dados."
-    ],
-    "conto_distopico": [
-        "Realizar leitura em trechos do conto, pausando para localizar narrador, personagens, conflito e clima de suspense.",
-        "Destacar exemplos de tempos e modos verbais no próprio texto antes da atividade individual.",
-        "Permitir registro em tópicos, marcações no conto ou explicação oral mediada.",
-        "Oferecer roteiro com perguntas sobre enredo, ponto de vista, tensão narrativa e efeito dos verbos."
-    ],
-    "literatura_prosa": [
-        "Oferecer leitura compartilhada de trechos selecionados, com pausas para explicar vocabulário, personagens, ambiente e contexto.",
-        "Disponibilizar roteiro com perguntas sobre narrador, personagens, espaço, conflito e evidências do texto.",
-        "Permitir registro em tópicos, marcações de trechos ou resposta oral mediada conforme as necessidades da turma.",
-        "Retomar coletivamente passagens centrais antes da atividade individual."
-    ],
-    "literatura_contexto": [
-        "Disponibilizar quadro com período histórico, cultura galego-portuguesa, manifestações literárias e palavras-chave do material.",
-        "Realizar leitura guiada dos trechos explicativos, retomando vocabulário histórico e relações com a literatura.",
-        "Permitir registro em tópicos, esquema de relações ou resposta oral mediada sobre contexto e produção literária.",
-        "Retomar coletivamente as relações entre história e literatura antes da atividade individual."
-    ],
-    "literatura_drama": [
-        "Realizar leitura dramatizada guiada de trechos curtos, retomando vocabulário, personagens e intenção das falas.",
-        "Disponibilizar roteiro com perguntas sobre personagem, conflito, rubrica, crítica social e evidências da cena.",
-        "Permitir participação por leitura, marcação de falas, registro em tópicos ou resposta oral mediada.",
-        "Retomar coletivamente as cenas centrais antes da análise individual."
-    ],
-    "literatura_modernismo": [
-        "Disponibilizar linha do tempo, palavras-chave ou quadro de autores e características para apoiar a contextualização do movimento.",
-        "Realizar leitura guiada dos textos modernistas, explicando vocabulário, rupturas de linguagem e referências históricas.",
-        "Permitir registro por tópicos, esquema ou associação entre obra, autor e característica estética.",
-        "Usar exemplos curtos do material para diferenciar movimento literário, obra e contexto."
-    ],
-    "poema": [
-        "Realizar leitura em voz alta do poema, retomando versos e imagens poéticas com pausas para compreensão.",
-        "Destacar visualmente eu lírico, palavras-chave, versos e estrofes antes da interpretação individual.",
-        "Permitir registro em tópicos, marcações no texto ou resposta oral mediada.",
-        "Oferecer perguntas orientadoras para apoiar a passagem da leitura literal para a interpretação poética."
-    ],
-    "cronica": [
-        "Realizar leitura compartilhada da crônica, destacando situação cotidiana, voz narrativa e marcas de linguagem.",
-        "Oferecer perguntas curtas para apoiar identificação de humor, ironia, reflexão ou ponto de vista.",
-        "Permitir registro em tópicos, frases curtas ou resposta oral mediada.",
-        "Retomar coletivamente trechos importantes antes da análise individual."
-    ],
-    "artigo_opiniao": [
-        "Disponibilizar roteiro de leitura com campos para tese, argumentos, exemplos e posicionamento do autor.",
-        "Destacar conectivos, expressões opinativas e palavras-chave que apoiem a compreensão da argumentação.",
-        "Permitir registro em tópicos ou esquema tese-argumento-conclusão antes da resposta escrita.",
-        "Retomar oralmente a diferença entre tema, opinião e argumento com exemplos simples."
-    ],
-    "editorial_argumentativo": [
-        "Disponibilizar roteiro de análise com foco em tese, argumentos, posicionamento do veículo e público leitor.",
-        "Destacar palavras-chave e marcas de modalização que ajudem a identificar o ponto de vista institucional.",
-        "Permitir registro por tópicos, esquema argumentativo ou resposta oral mediada.",
-        "Retomar coletivamente a diferença entre editorial, notícia e artigo de opinião antes da atividade."
-    ],
-    "oralidade_entrevista": [
-        "Organizar a escuta ou leitura da entrevista em partes, destacando pergunta, resposta e turnos de fala.",
-        "Disponibilizar roteiro com marcas de oralidade, variação linguística e adequação ao contexto.",
-        "Permitir registro em tópicos, tabela de turnos de fala quando o material solicitar, ou resposta oral mediada.",
-        "Retomar exemplos de fala e transcrição antes da análise individual."
-    ],
-    "texto_normativo": [
-        "Oferecer leitura compartilhada do texto legal, explicando termos jurídicos, artigos, incisos e finalidade social.",
-        "Disponibilizar glossário ou palavras-chave para apoiar a compreensão de direitos, deveres e regras.",
-        "Permitir registro em tópicos, paráfrase de trechos ou resposta oral mediada.",
-        "Retomar coletivamente a estrutura do texto normativo antes da atividade individual."
-    ],
-    "gramatica_analise_linguistica": [
-        "Apresentar exemplos do próprio material com destaque visual para o recurso linguístico estudado.",
-        "Organizar explicação passo a passo, relacionando nomenclatura, função e efeito de sentido.",
-        "Permitir consulta a exemplos-modelo durante a atividade individual ou em duplas.",
-        "Flexibilizar o registro, aceitando marcações no texto, tópicos ou explicação oral mediada."
-    ],
     "noticia_leitura_critica": [
         "Oferecer leitura guiada da notícia com destaque para título, informações principais, personagens envolvidos e problema central discutido.",
         "Disponibilizar palavras-chave e perguntas orientadoras para apoiar a interpretação do texto e a organização das respostas.",
@@ -1173,54 +565,6 @@ BANCO_ACESSIBILIDADE = {
 }
 
 
-BANCO_ACESSIBILIDADE.update(
-    {
-        "diario_pessoal": [
-            "Realizar leitura compartilhada do diario em trechos curtos, com pausas para destacar quem escreve, para quem escreve e quais reflexoes aparecem no texto.",
-            "Disponibilizar roteiro com perguntas objetivas sobre primeira pessoa, temporalidade, sentimentos e acontecimentos narrados.",
-            "Permitir registro em topicos, grifos no texto, esquema simples ou resposta oral mediada.",
-            "Retomar coletivamente a diferenca entre diario pessoal, biografia e relato informativo antes da atividade individual.",
-        ],
-        "leitura_multimodal": [
-            "Orientar a observacao de imagem, legenda, texto verbal e dados em etapas, antes de solicitar interpretacao global do material multimodal.",
-            "Disponibilizar perguntas-guia sobre finalidade comunicativa, informacoes principais e relacao entre elementos verbais e nao verbais.",
-            "Permitir registro em topicos, marcacoes no material ou resposta oral mediada.",
-            "Retomar coletivamente que a imagem faz parte do texto e precisa ser lida como fonte de sentido.",
-        ],
-        "resumo_retextualizacao": [
-            "Destacar visualmente topicos, palavras-chave e informacoes principais antes da escrita em paragrafos.",
-            "Oferecer modelo curto de topico frasal e roteiro de transformacao de lista em texto corrido.",
-            "Permitir planejamento em topicos, setas ou frases-base antes da versao final.",
-            "Organizar revisao com colega ou com o professor para verificar clareza e fidelidade ao material-base.",
-        ],
-        "variacao_linguistica_registro": [
-            "Disponibilizar exemplos comparativos de registros e variacoes para apoiar a classificacao sem reforcar preconceito linguistico.",
-            "Explicar com linguagem simples a diferenca entre adequado ao contexto e erro gramatical.",
-            "Permitir resposta oral mediada, registro em topicos ou quadro comparativo antes da resposta final.",
-            "Retomar coletivamente exemplos da propria turma, da familia ou da comunidade para concretizar o conceito.",
-        ],
-        "argumentacao_debate": [
-            "Disponibilizar quadro com tese, argumento, contra-argumento e evidencias para apoiar o planejamento do debate.",
-            "Oferecer modelo de resposta argumentativa curta antes da atividade autoral.",
-            "Permitir planejamento em dupla e registro por topicos antes da fala ou do texto final.",
-            "Retomar com a turma que o debate precisa de texto-base, dados e escuta respeitosa para acontecer com seguranca.",
-        ],
-        "texto_digital_blog": [
-            "Organizar a leitura do post em partes, destacando tese, exemplos, comentario e relacao com o publico leitor.",
-            "Disponibilizar roteiro com campos para tom do texto, argumento principal e comentario do estudante.",
-            "Permitir registro em frases curtas, topicos ou resposta oral mediada antes da escrita final.",
-            "Retomar coletivamente criterios de respeito ao interlocutor e adequacao ao genero digital.",
-        ],
-        "analise_linguistica_ortografia": [
-            "Apresentar exemplos retirados do proprio material com destaque visual para a palavra, estrutura ou escolha linguistica estudada.",
-            "Organizar explicacao passo a passo, ligando regra, efeito de sentido e contexto de uso.",
-            "Permitir consulta a exemplos-modelo durante a atividade individual ou em dupla.",
-            "Flexibilizar o registro com marcacoes no texto, topicos ou explicacao oral mediada quando necessario.",
-        ],
-    }
-)
-
-
 def gerar_acessibilidade(pistas: PistasPedagogicas) -> List[str]:
     base = BANCO_ACESSIBILIDADE.get(pistas.perfil, BANCO_ACESSIBILIDADE["geral"])[:]
     rng = random.Random(pistas.titulo + "|acessibilidade|" + pistas.perfil)
@@ -1228,8 +572,8 @@ def gerar_acessibilidade(pistas: PistasPedagogicas) -> List[str]:
     return [sentenca(item) for item in dedup(base)[:3]]
 
 
-def montar_colunas_pedagogicas(texto_pdf: str, titulo_aula: str, perfil: str = None) -> Dict[str, object]:
-    pistas = extrair_pistas(texto_pdf, titulo_aula, perfil=perfil)
+def montar_colunas_pedagogicas(texto_pdf: str, titulo_aula: str) -> Dict[str, object]:
+    pistas = extrair_pistas(texto_pdf, titulo_aula)
     return {
         "pistas": pistas,
         "desenvolvimento": gerar_metodologia(pistas),

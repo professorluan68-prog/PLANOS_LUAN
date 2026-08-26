@@ -281,6 +281,8 @@ CAMPOS_TELA = {
     "relatorio_conferencia_paths",
     "erro_processamento",
     "erro_processamento_detalhe",
+    "permitir_dia_sem_pdf_portugues",
+    "dia_sem_pdf_portugues",
 }
 
 PREFIXOS_TELA = (
@@ -423,6 +425,14 @@ def _salvar_planos_gerados_se_configurado(
         return False
 
     for plano in planos_gerados or []:
+        ultimo_pdf_nome = ""
+        aulas_plano = plano.get("aulas") or []
+        for aula in reversed(aulas_plano):
+            caminho_pdf_orig = aula.get("caminho_pdf")
+            if caminho_pdf_orig:
+                ultimo_pdf_nome = Path(caminho_pdf_orig).name
+                break
+
         salvar_historico_plano(
             professor,
             disciplina,
@@ -431,6 +441,7 @@ def _salvar_planos_gerados_se_configurado(
             plano["docx_bytes"].getvalue(),
             bimestre=bimestre,
             mes_plano=mes,
+            ultimo_pdf=ultimo_pdf_nome,
         )
     return True
 
@@ -1219,6 +1230,7 @@ _PERFIS_PORTUGUES_PERMITEM_SEM_PDF = {
     "lingua_portuguesa_ef",
     "lingua_portuguesa_em",
     "leitura_redacao",
+    "matematica",
 }
 
 
@@ -2638,11 +2650,14 @@ else:
     )
     if referencia_historico and referencia_historico["ultima_aula"] > 0:
         proxima_aula = referencia_historico["ultima_aula"] + 1
+        ultimo_pdf_info = ""
+        if referencia_historico.get("ultimo_pdf"):
+            ultimo_pdf_info = f" (PDF: `{referencia_historico['ultimo_pdf']}`)"
         st.info(
             "📚 **Continuidade dos PDFs:** no último plano salvo no histórico "
             f"para este professor, disciplina, turma e bimestre, a geração foi até a "
-            f"**Aula {referencia_historico['ultima_aula']}**. Para continuar, comece pelo "
-            f"PDF da **Aula {proxima_aula}**."
+            f"**Aula {referencia_historico['ultima_aula']}**{ultimo_pdf_info}. Para continuar, "
+            f"o sistema sugere começar a partir do PDF da **Aula {proxima_aula}**."
         )
     elif referencia_historico:
         st.warning(
@@ -2940,8 +2955,8 @@ if disciplina_cdp:
     st.checkbox(
         "Salvar este plano no histórico",
         key="salvar_historico_geracao",
-        value=bool(st.session_state.get("salvar_historico_geracao", False)),
-        help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
+        value=bool(st.session_state.get("salvar_historico_geracao", True)),
+        help="Mantenha marcado para salvar este plano no histórico e habilitar a continuidade da sequência de PDFs na próxima geração.",
     )
 rotulo_botao_geracao = "GERAR PLANO" if disciplina_cdp else ("PROCESSAR AULAS" if HABILITAR_REVISAO_POS_GERACAO else "PROCESSAR E GERAR DOCX")
 if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"):
@@ -3434,8 +3449,8 @@ if st.session_state.get("turmas_processadas"):
     st.checkbox(
         "Salvar este plano no histórico",
         key="salvar_historico_geracao",
-        value=bool(st.session_state.get("salvar_historico_geracao", False)),
-        help="Marque apenas quando o plano estiver realmente ok. Isso guarda o DOCX para consulta futura, sem alterar a aula inicial dos próximos planos.",
+        value=bool(st.session_state.get("salvar_historico_geracao", True)),
+        help="Mantenha marcado para salvar este plano no histórico e habilitar a continuidade da sequência de PDFs na próxima geração.",
     )
     if st.button("GERAR DOCX", type="primary"):
         planos_gerados = []

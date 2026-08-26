@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from dataclasses import dataclass
@@ -156,8 +156,8 @@ def _normalizar_metodologia_cdp(metodologia: list[dict]) -> list[dict]:
         texto = _sanitizar_agrupamento_cdp(
             sanitizar_texto_cdp_estrito(str(item.get("texto", "")))
         )
-        # Retirar finais como "e fazer" quando a ação seguinte era um nome
-        # de técnica que acabou de ser removido.
+        # Retirar finais como "e fazer" quando a aÃ§Ã£o seguinte era um nome
+        # de tÃ©cnica que acabou de ser removido.
         texto = re.sub(
             r"\s+(?:e|ou|para)\s+(?:fazer|realizar|discutir|compartilhar)\s*[.!?]?$",
             ".",
@@ -183,11 +183,11 @@ def _diagnosticar_referencia_docx(
     arquivo_referencia_docx: str,
     numero_aula: str,
 ) -> dict:
-    """Produz um motivo utilizável pela tela antes de acionar a IA.
+    """Produz um motivo utilizÃ¡vel pela tela antes de acionar a IA.
 
-    O seletor retorna ``None`` tanto quando o DOCX não existe quanto quando o
-    arquivo existe, mas não consegue entregar uma aula utilizável. Esta função
-    mantém essas duas situações separadas para que o usuário saiba o que deve
+    O seletor retorna ``None`` tanto quando o DOCX nÃ£o existe quanto quando o
+    arquivo existe, mas nÃ£o consegue entregar uma aula utilizÃ¡vel. Esta funÃ§Ã£o
+    mantÃ©m essas duas situaÃ§Ãµes separadas para que o usuÃ¡rio saiba o que deve
     corrigir.
     """
     fonte = str(
@@ -200,9 +200,9 @@ def _diagnosticar_referencia_docx(
             "status": "docx_ausente",
             "arquivo": "",
             "motivo": (
-                "Nenhum arquivo DOCX de referência foi localizado na pasta do PDF."
+                "Nenhum arquivo DOCX de referÃªncia foi localizado na pasta do PDF."
             ),
-            "bloqueia_geracao": True,
+            "bloqueia_geracao": False,
         }
 
     if not referencia_docx:
@@ -210,11 +210,11 @@ def _diagnosticar_referencia_docx(
             "status": "aula_ausente_ou_incompleta",
             "arquivo": fonte,
             "motivo": (
-                f"O arquivo DOCX de referência foi encontrado, mas a Aula {numero} "
-                "não foi localizada de forma utilizável. Verifique o título 'AULA "
+                f"O arquivo DOCX de referÃªncia foi encontrado, mas a Aula {numero} "
+                "nÃ£o foi localizada de forma utilizÃ¡vel. Verifique o tÃ­tulo 'AULA "
                 "N - ...' e as etapas da metodologia dessa aula."
             ),
-            "bloqueia_geracao": True,
+            "bloqueia_geracao": False,
         }
 
     metodologia = list(referencia_docx.get("metodologia") or [])
@@ -233,7 +233,7 @@ def _diagnosticar_referencia_docx(
             "motivo": (
                 f"A Aula {numero} foi encontrada no DOCX, mas a etapa "
                 f"{', '.join(etapas_excedentes)} ultrapassa o limite de 350 caracteres. "
-                "Com IA, o sistema pode refiná-la; sem IA, ajuste o DOCX."
+                "Com IA, o sistema pode refinÃ¡-la; sem IA, ajuste o DOCX."
             ),
             "bloqueia_geracao": False,
         }
@@ -244,7 +244,7 @@ def _diagnosticar_referencia_docx(
             "status": "metodologia_incompleta",
             "arquivo": fonte,
             "motivo": f"A Aula {numero} foi encontrada no DOCX, mas {motivo_metodologia}",
-            "bloqueia_geracao": True,
+            "bloqueia_geracao": False,
         }
 
     return {
@@ -512,13 +512,13 @@ def _montar_resultado_referencia_docx_exata(
                     tit = str(item.get("titulo", "Etapa")).strip()
                     etapas_excedentes.append(f"'{tit}' ({len(txt)} caracteres)")
         if etapas_excedentes:
-            fonte = str(referencia_docx.get("fonte") or "DOCX de referência").strip()
+            fonte = str(referencia_docx.get("fonte") or "DOCX de referÃªncia").strip()
             detalhes = ", ".join(etapas_excedentes)
             mensagem_limite = (
-                f"O arquivo .docx de referência ({fonte}) contém etapa(s) da metodologia "
-                f"que excede(m) o limite máximo de 350 caracteres: {detalhes}. "
-                f"Para prosseguir, selecione a opção 'Com IA' para que o sistema refine a metodologia "
-                f"automaticamente até 350 caracteres, ou edite o arquivo .docx ajustando o tamanho do texto."
+                f"O arquivo .docx de referÃªncia ({fonte}) contÃ©m etapa(s) da metodologia "
+                f"que excede(m) o limite mÃ¡ximo de 350 caracteres: {detalhes}. "
+                f"Para prosseguir, selecione a opÃ§Ã£o 'Com IA' para que o sistema refine a metodologia "
+                f"automaticamente atÃ© 350 caracteres, ou edite o arquivo .docx ajustando o tamanho do texto."
             )
             raise ValueError(mensagem_limite.replace("350 caracteres", f"{limite_metodologia} caracteres"))
     metodologia_valida, motivo_metodologia = validar_etapas_obrigatorias(metodologia)
@@ -687,10 +687,10 @@ def _perfil_referencia_docx_estrita(
     """Define quando o DOCX e a fonte obrigatoria das colunas pedagogicas.
 
     Nos planos regulares, metodologia, acompanhamento e acessibilidade devem
-    partir do DOCX da disciplina. EJA, CDP e Orientação de Estudos mantêm
-    fluxos próprios; nesta última, as etapas pedagógicas vêm do PDF da missão.
-    Aulas que já trazem uma metodologia estruturada no material de origem
-    também preservam essa fonte.
+    partir do DOCX da disciplina. EJA, CDP e OrientaÃ§Ã£o de Estudos mantÃªm
+    fluxos prÃ³prios; nesta Ãºltima, as etapas pedagÃ³gicas vÃªm do PDF da missÃ£o.
+    Aulas que jÃ¡ trazem uma metodologia estruturada no material de origem
+    tambÃ©m preservam essa fonte.
     """
     if (
         modalidade_eja_ativa
@@ -856,10 +856,7 @@ def montar_resultado_aula_ia(
     if (
         referencia_docx_obrigatoria
         and not metodologia_fixa_pdf
-        and (
-            not referencia_docx
-            or diagnostico_referencia_docx.get("bloqueia_geracao", False)
-        )
+        and diagnostico_referencia_docx.get("bloqueia_geracao", False)
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -1282,10 +1279,7 @@ def montar_resultado_aula_local(
     if (
         referencia_docx_obrigatoria
         and not metodologia_fixa_pdf
-        and (
-            not referencia_docx
-            or diagnostico_referencia_docx.get("bloqueia_geracao", False)
-        )
+        and diagnostico_referencia_docx.get("bloqueia_geracao", False)
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -1533,3 +1527,4 @@ def montar_resultado_aula_local(
         arquivo_referencia_docx=arquivo_referencia_docx,
         diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
+

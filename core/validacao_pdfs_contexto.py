@@ -27,35 +27,9 @@ class ResultadoValidacaoLotePDF:
 
 
 _STOPWORDS = {
-    "a",
-    "ao",
-    "aos",
-    "as",
-    "com",
-    "como",
-    "da",
-    "das",
-    "de",
-    "do",
-    "dos",
-    "e",
-    "em",
-    "ensino",
-    "medio",
-    "fundamental",
-    "na",
-    "nas",
-    "no",
-    "nos",
-    "o",
-    "os",
-    "para",
-    "por",
-    "que",
-    "serie",
-    "sobre",
-    "um",
-    "uma",
+    "a", "ao", "aos", "as", "com", "como", "da", "das", "de", "do", "dos",
+    "e", "em", "ensino", "medio", "fundamental", "na", "nas", "no", "nos",
+    "o", "os", "para", "por", "que", "serie", "sobre", "um", "uma",
 }
 
 _ALIASES_PERFIL = {
@@ -78,6 +52,21 @@ _ALIASES_PERFIL = {
     "sociologia": ("sociologia",),
     "tecnologia_inovacao": ("tecnologia e inovacao", "tecnologia", "inovacao"),
 }
+
+# ── Prefixos de habilidades BNCC que contêm números de série ─────────────────
+# Ex: EF08HI16 → série 8; EF09HI → série 9.
+# Esses padrões NÃO devem ser interpretados como "outra série no texto".
+_PADRAO_CODIGO_BNCC = re.compile(
+    r"\b(?:EF|EM)\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\b",
+    re.IGNORECASE,
+)
+
+# Padrões de anos/séries que aparecem em contextos pedagógicos gerais
+# (ex: "Anos Finais", "6º ao 9º ano") e não indicam conflito de turma.
+_PADRAO_ANOS_FINAIS = re.compile(
+    r"\b(?:anos?\s+finais?|anos?\s+iniciais?|[6-9]\s*(?:ao|a)\s*[6-9]\s*ano)\b",
+    re.IGNORECASE,
+)
 
 
 def _extrair_amostra_texto_pdf(caminho_pdf: Path, limite_paginas: int = 2, limite_chars: int = 4000) -> str:
@@ -149,11 +138,55 @@ def _serie_esta_no_contexto(contexto_norm: str, serie: int) -> bool:
     )
 
 
-def _contexto_tem_outra_serie(contexto_norm: str, serie: int) -> bool:
-    return any(
-        outra != serie and _serie_esta_no_contexto(contexto_norm, outra)
-        for outra in range(1, 10)
-    )
+def _remover_codigos_bncc_e_contextos_gerais(texto: str) -> str:
+    """
+    Remove códigos BNCC (ex: EF08HI16) e expressões de faixa etária genérica
+    (ex: 'Anos Finais', '6º ao 9º ano') do texto antes de verificar conflito
+    de série. Isso evita falsos positivos onde o número de outra série aparece
+    apenas dentro de um código de habilidade ou em contexto pedagógico geral.
+    """
+    texto_limpo = _PADRAO_CODIGO_BNCC.sub("", texto)
+    texto_limpo = _PADRAO_ANOS_FINAIS.sub("", texto_limpo)
+    return texto_limpo
+
+
+def _contexto_tem_outra_serie_real(texto_original: str, contexto_norm: str, serie: int) -> bool:
+    """
+    Verifica se o texto contém EXPLICITAMENTE outra série, ignorando:
+    - Códigos BNCC (EF08HI16, EF09HI19, etc.)
+    - Expressões genéricas como 'Anos Finais', '6º ao 9º ano'
+    - Menções de série dentro do nome do arquivo (que já foi validado)
+
+    Só retorna True quando outra série aparece de forma inequívoca no
+    CONTEÚDO PEDAGÓGICO do PDF (ex: cabeçalho "9º ANO" em material de 9º ano).
+    """
+    # Remove códigos BNCC e contextos gerais antes de verificar
+    texto_limpo = _remover_codigos_bncc_e_contextos_gerais(texto_original)
+    contexto_limpo = normalizar_texto(texto_limpo)
+
+    # Conta quantas séries diferentes aparecem no texto limpo
+    series_encontradas = set()
+    for outra in range(1, 10):
+        if _serie_esta_no_contexto(contexto_limpo, outra):
+            series_encontradas.add(outra)
+
+    # Só bloqueia se:
+    # 1. A série esperada NÃO aparece no texto limpo, E
+    # 2. Outra série aparece de forma explícita
+    # Isso evita bloquear PDFs que simplesmente não mencionam a série
+    # mas também não mencionam outra série conflitante.
+    serie_esperada_presente = _serie_esta_no_contexto(contexto_limpo, serie)
+    outras_series = series_encontradas - {serie}
+
+    if not serie_esperada_presente and outras_series:
+        # Confirmação adicional: a outra série deve aparecer no contexto
+        # ORIGINAL também (não apenas no limpo), para evitar artefatos
+        # da remoção de BNCC.
+        for outra in outras_series:
+            if _serie_esta_no_contexto(contexto_norm, outra):
+                return True
+
+    return False
 
 
 def _referencia_para_pdf(caminho_pdf: Path, numero: int | None, disciplina: str, turma: str) -> dict | None:
@@ -218,7 +251,13 @@ def validar_pdf_contexto_sem_ia(
     if serie:
         if _serie_esta_no_contexto(contexto_norm, serie):
             score += 10
-        elif _contexto_tem_outra_serie(contexto_norm, serie):
+        elif _contexto_tem_outra_serie_real(contexto_original, contexto_norm, serie):
+            # ── CORREÇÃO APLICADA ──────────────────────────────────────────
+            # Versão anterior usava _contexto_tem_outra_serie() que bloqueava
+            # PDFs legítimos do 8º ANO porque encontrava "9" em códigos BNCC
+            # como EF09HI19 ou em expressões como "Anos Finais (6º ao 9º ano)".
+            # A nova função _contexto_tem_outra_serie_real() remove esses
+            # falsos positivos antes de verificar o conflito real de série.
             motivos.append("serie/turma do PDF nao confere com o cadastro")
 
     referencia = _referencia_para_pdf(caminho, numero, disciplina, turma)

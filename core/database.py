@@ -951,6 +951,8 @@ MIGRACOES = [
         FOREIGN KEY(professor_id) REFERENCES professores(id) ON DELETE CASCADE
     )
     """,
+    # Versão 17
+    "ALTER TABLE historico_planos ADD COLUMN ultimo_pdf TEXT",
 ]
 
 
@@ -1725,6 +1727,7 @@ def salvar_historico_plano(
     limite_retencao: int = 5,
     bimestre: str = "",
     mes_plano: str = "",
+    ultimo_pdf: str = "",
 ):
     professor_nome = _normalizar_campo(professor_nome)
     disciplina = _normalizar_campo(disciplina)
@@ -1788,9 +1791,10 @@ def salvar_historico_plano(
                         arquivo_tamanho,
                         origem,
                         ultima_aula,
-                        total_aulas
+                        total_aulas,
+                        ultimo_pdf
                     )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     professor_nome,
@@ -1811,6 +1815,7 @@ def salvar_historico_plano(
                     metadados["origem"],
                     metadados["ultima_aula"],
                     metadados["total_aulas"],
+                    _normalizar_campo(ultimo_pdf),
                 ),
             )
 
@@ -2237,7 +2242,7 @@ def obter_ultimo_historico_por_contexto(
         if chave_bimestre_esperada:
             cursor.execute(
                 """
-                SELECT id, bimestre, data_geracao, arquivo_nome, ultima_aula, total_aulas
+                SELECT id, bimestre, data_geracao, arquivo_nome, ultima_aula, total_aulas, ultimo_pdf
                 FROM historico_planos
                 WHERE professor_chave = ?
                   AND disciplina_chave = ?
@@ -2260,7 +2265,7 @@ def obter_ultimo_historico_por_contexto(
         else:
             cursor.execute(
                 """
-                SELECT id, bimestre, data_geracao, arquivo_nome, ultima_aula, total_aulas
+                SELECT id, bimestre, data_geracao, arquivo_nome, ultima_aula, total_aulas, ultimo_pdf
                 FROM historico_planos
                 WHERE professor_chave = ?
                   AND disciplina_chave = ?
@@ -2282,6 +2287,7 @@ def obter_ultimo_historico_por_contexto(
         "arquivo_nome": registro[3] or "",
         "ultima_aula": int(registro[4]) if registro[4] is not None else None,
         "total_aulas": int(registro[5]) if registro[5] is not None else None,
+        "ultimo_pdf": registro[6] or "" if len(registro) > 6 else "",
     }
 
 
