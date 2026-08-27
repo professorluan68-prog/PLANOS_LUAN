@@ -22,8 +22,6 @@ def problemas_lista_exatamente_tres(
             f"{prefixo}{nome_campo} deve ter exatamente 3 itens; "
             f"foram encontrados {len(itens)}."
         )
-    if itens and any(not item.startswith("☑") for item in itens):
-        problemas.append(f"{prefixo}{nome_campo} deve ter todos os itens iniciando com ☑.")
     return problemas
 
 
