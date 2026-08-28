@@ -1232,6 +1232,7 @@ _PERFIS_PORTUGUES_PERMITEM_SEM_PDF = {
     "lingua_portuguesa_em",
     "leitura_redacao",
     "matematica",
+    "ciencias_ef",
 }
 
 
@@ -1240,7 +1241,14 @@ def _permite_um_dia_sem_pdf_portugues(disciplina: str, turma: str = "") -> bool:
         return perfil_disciplina(disciplina, turma=turma) in _PERFIS_PORTUGUES_PERMITEM_SEM_PDF
     except Exception:
         disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
-        return "portugu" in disciplina_norm or "reda" in disciplina_norm or "leitura" in disciplina_norm
+        return (
+            "portugu" in disciplina_norm
+            or "reda" in disciplina_norm
+            or "leitura" in disciplina_norm
+            or "matem" in disciplina_norm
+            or "cienc" in disciplina_norm
+            or "cien" in disciplina_norm
+        )
 
 
 def _eh_bloco_sem_pdf(aula: dict) -> bool:
@@ -2587,7 +2595,7 @@ else:
         st.checkbox(
             "Permitir 1 dia da semana sem PDF",
             key="permitir_dia_sem_pdf_portugues",
-            help="Use esta opção para deixar um dos dias semanais de Português em branco no plano, mantendo apenas a data.",
+            help="Use esta opção para deixar um dos dias semanais de Português, Matemática ou Ciências em branco no plano, mantendo apenas a data.",
         )
         usar_dia_sem_pdf_portugues = bool(st.session_state.get("permitir_dia_sem_pdf_portugues", False))
         if usar_dia_sem_pdf_portugues:
