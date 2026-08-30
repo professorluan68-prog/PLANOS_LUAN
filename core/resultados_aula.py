@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from dataclasses import dataclass
@@ -277,6 +277,7 @@ def _extrair_base_pedagogica(
         numero_aula,
         tema,
         perfil,
+        disciplina_base,
     )
     diagnostico_referencia_docx = _diagnosticar_referencia_docx(
         referencia_docx=referencia_docx,

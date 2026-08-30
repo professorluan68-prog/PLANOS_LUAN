@@ -142,6 +142,7 @@ def tentar_reutilizar_cache_plano(
             dados_json.get("numero_aula") or "",
             dados_json.get("tema") or "",
             perfil_cache,
+            disciplina,
         )
         if (
             referencia_docx_cache
