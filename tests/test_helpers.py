@@ -352,3 +352,46 @@ def test_relatorio_geracao_inclui_observacao_ia_quando_houver_fallback():
     )
 
     assert "Observacao IA: Falha na IA (openai): timeout. Usando motor heuristico local." in relatorio
+
+
+def test_resolver_pasta_pdfs_marta_araujo_matematica_resolucao_normal(tmp_path):
+    pasta_segundo = tmp_path / "MATEMATICA" / "EM" / "3_BIMESTRE" / "2_ANO"
+    pasta_segundo.mkdir(parents=True)
+    (pasta_segundo / "AULA_01.pdf").write_bytes(b"%PDF-1.4\n")
+
+    caminho = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Matemática",
+        "2º ANO B",
+        "3º Bimestre",
+        professor="Marta de Araújo",
+    )
+
+    assert caminho == pasta_segundo
+
+
+def test_resolver_pasta_pdfs_marta_araujo_educacao_financeira_redireciona_oitavo_ano(tmp_path):
+    pasta_oitavo = tmp_path / "EDUCACAO_FINANCEIRA" / "AF" / "3_BIMESTRE" / "8_ANO"
+    pasta_oitavo.mkdir(parents=True)
+    (pasta_oitavo / "AULA_01.pdf").write_bytes(b"%PDF-1.4\n")
+
+    # Testa para 2º ANO A
+    caminho_2a = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Educação Financeira",
+        "2º ANO A",
+        "3º Bimestre",
+        professor="Marta de Araújo",
+    )
+    assert caminho_2a == pasta_oitavo
+
+    # Testa para 3º ANO A
+    caminho_3a = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Educação Financeira",
+        "3º ANO A",
+        "3º Bimestre",
+        professor="Marta de Araújo",
+    )
+    assert caminho_3a == pasta_oitavo
+

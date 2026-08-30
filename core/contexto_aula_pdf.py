@@ -131,6 +131,7 @@ def _ajustar_contexto_por_perfil(
     *,
     caminho_pdf: str,
     numero_aula: str,
+    disciplina: str,
     perfil: str,
     tema: str,
     material_digital: str,
@@ -144,7 +145,7 @@ def _ajustar_contexto_por_perfil(
             caminho_pdf,
             numero_aula,
             tema,
-            perfil,
+            disciplina if perfil == "orientacao_estudos" else perfil,
         )
         titulo_referencia = str((referencia_docx_perfil or {}).get("titulo") or "").strip()
         if titulo_referencia:
@@ -158,7 +159,7 @@ def _ajustar_contexto_por_perfil(
             caminho_pdf,
             numero_aula,
             tema,
-            perfil,
+            disciplina if perfil == "orientacao_estudos" else perfil,
         )
         titulo_referencia = str((referencia_docx_oe or {}).get("titulo") or "").strip()
         habilidade_referencia = dependencias.habilidade_referencia_docx_fn(
@@ -181,7 +182,7 @@ def _ajustar_contexto_por_perfil(
             caminho_pdf,
             numero_aula,
             tema,
-            perfil,
+            disciplina if perfil == "orientacao_estudos" else perfil,
         )
         titulo_referencia = str((referencia_docx_pv or {}).get("titulo") or "").strip()
         titulo_escopo = str((escopo_pv or {}).get("titulo") or "").strip()
@@ -376,6 +377,7 @@ def preparar_contexto_aula_pdf(
     ) = _ajustar_contexto_por_perfil(
         caminho_pdf=caminho_pdf,
         numero_aula=numero_aula,
+        disciplina=disciplina_base,
         perfil=perfil,
         tema=tema,
         material_digital=material_digital,

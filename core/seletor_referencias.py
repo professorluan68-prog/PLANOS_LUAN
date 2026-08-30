@@ -283,18 +283,20 @@ def referencia_docx_por_perfil(
     caminho_pdf: str,
     numero_aula: str,
     tema: str,
-    perfil: str,
+    disciplina_ou_perfil: str,
 ):
     if not caminho_pdf:
         return None
 
+    perfil = perfil_disciplina(disciplina_ou_perfil)
+
     caminho_docx = localizar_docx_referencia_por_perfil(
         caminho_pdf,
-        perfil,
+        disciplina_ou_perfil,
         "",
     )
 
-    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, perfil, "")
+    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina_ou_perfil, "")
     caminho_contexto = str(caminho_oficial or caminho_pdf)
     if eh_cdp_contextual_disciplina(caminho_contexto):
         # No contexto CDP, somente a referencia CDP pode ser usada. Se ela

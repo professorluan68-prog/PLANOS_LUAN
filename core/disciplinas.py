@@ -48,6 +48,7 @@ _DISCIPLINAS = [
     "Língua Portuguesa",
     "Matemática",
     "Orientação de Estudos",
+    "Orientação de Estudos Matemática",
     "Projeto de Vida",
     "Química",
     "Redação e Leitura",

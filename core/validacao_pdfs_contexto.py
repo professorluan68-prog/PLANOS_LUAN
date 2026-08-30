@@ -70,6 +70,7 @@ _PADRAO_ANOS_FINAIS = re.compile(
 
 
 def _extrair_amostra_texto_pdf(caminho_pdf: Path, limite_paginas: int = 2, limite_chars: int = 4000) -> str:
+    texto = ""
     try:
         import pdfplumber
 
@@ -79,9 +80,38 @@ def _extrair_amostra_texto_pdf(caminho_pdf: Path, limite_paginas: int = 2, limit
                 partes.append(pagina.extract_text() or "")
                 if sum(len(parte) for parte in partes) >= limite_chars:
                     break
-        return "\n".join(partes)[:limite_chars]
+        texto = "\n".join(partes)[:limite_chars]
     except Exception:
-        return ""
+        pass
+
+    # Se o texto for vazio ou muito curto (ex: PDF escaneado ou gerado de imagem),
+    # tenta OCR na primeira página de forma rápida usando PyMuPDF (fitz) e pytesseract.
+    if len(texto.strip()) < 50:
+        try:
+            import fitz
+            import pytesseract
+            from PIL import Image
+            import io
+            import os
+
+            tess_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+            if os.path.exists(tess_path):
+                pytesseract.pytesseract.tesseract_cmd = tess_path
+
+            doc = fitz.open(str(caminho_pdf))
+            if len(doc) > 0:
+                page = doc[0]
+                pix = page.get_pixmap()
+                img_data = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_data))
+                texto_ocr = pytesseract.image_to_string(img)
+                if texto_ocr.strip():
+                    texto = texto_ocr[:limite_chars]
+            doc.close()
+        except Exception:
+            pass
+
+    return texto
 
 
 def _tokens_relevantes(texto: str) -> set[str]:
@@ -235,7 +265,7 @@ def validar_pdf_contexto_sem_ia(
     contexto_norm = normalizar_texto(contexto_original)
     perfil = perfil_disciplina(disciplina, turma=turma)
     aliases = _ALIASES_PERFIL.get(perfil) or tuple(_tokens_relevantes(disciplina))
-    if aliases and any(normalizar_texto(alias) in contexto_norm for alias in aliases):
+    if perfil == "orientacao_estudos" or (aliases and any(normalizar_texto(alias) in contexto_norm for alias in aliases)):
         score += 25
     else:
         motivos.append("disciplina do PDF nao confere com o cadastro")
@@ -244,7 +274,7 @@ def validar_pdf_contexto_sem_ia(
     if bimestre_num:
         if _bimestre_esta_no_contexto(contexto_norm, bimestre_num):
             score += 15
-        elif _contexto_tem_outro_bimestre(contexto_norm, bimestre_num):
+        elif _contexto_tem_outro_bimestre(contexto_norm, bimestre_num) and perfil != "orientacao_estudos":
             motivos.append("bimestre do PDF nao confere com o selecionado")
 
     serie = _serie_esperada(turma)
@@ -270,13 +300,13 @@ def validar_pdf_contexto_sem_ia(
         intersecao_titulo = tokens_titulo & tokens_contexto
         if intersecao_titulo:
             score += 20
-        elif len(tokens_titulo) >= 2 and score < 65:
+        elif len(tokens_titulo) >= 2 and score < 65 and perfil != "orientacao_estudos":
             motivos.append("titulo da aula nao aparece no PDF")
     elif tokens_habilidade:
         intersecao_habilidade = tokens_habilidade & tokens_contexto
         if len(intersecao_habilidade) >= min(2, len(tokens_habilidade)):
             score += 10
-        elif score < 65:
+        elif score < 65 and perfil != "orientacao_estudos":
             motivos.append("habilidade da referencia nao aparece no PDF")
 
     valido = not motivos

@@ -521,6 +521,15 @@ def resolver_pasta_pdfs(
     modalidade_eja: bool = False,
 ) -> Path:
     r"""Monta uma subpasta de PDFs a partir da raiz informada."""
+    # Redirecionamento customizado para a professora Marta de Araújo
+    prof_norm = normalizar_para_pasta(professor)
+    disc_norm = _normalizar_disciplina_para_pasta(disciplina)
+    turma_norm = normalizar_para_pasta(turma)
+
+    if "MARTA" in prof_norm and "ARAUJO" in prof_norm:
+        if disc_norm == "EDUCACAO_FINANCEIRA" and turma_norm in {"2_ANO_A", "3_ANO_A"}:
+            turma = "8º ANO"
+
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
 
     eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
