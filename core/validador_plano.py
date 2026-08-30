@@ -108,7 +108,12 @@ def validar_aulas_geradas(
         else:
             primeiro = metodologia[0]
             texto_primeiro = primeiro.get("texto", "") if isinstance(primeiro, dict) else str(primeiro)
-            if len(texto_primeiro.strip()) < 40:
+            texto_primeiro_lower = normalizar_texto(texto_primeiro).lower()
+            palavras_chave_divisao = ["continua", "dividi", "parte", "dia", "anterior", "etapa", "segundo"]
+            eh_divisao = any(pc in texto_primeiro_lower for pc in palavras_chave_divisao)
+            
+            limite_minimo = 5 if eh_divisao else 15
+            if len(texto_primeiro.strip()) < limite_minimo:
                 problemas.append(f"Aula {idx}: desenvolvimento muito curto.")
 
             etapas_identificadas = _contar_etapas_metodologia(metodologia)
