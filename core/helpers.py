@@ -262,7 +262,7 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
     # normalizadas para "8O9_EF". Preserve o agrupamento para que a busca
     # prefira a pasta concreta "8_ANO_9_ANO" em vez de outra pasta CDP-EF.
     match_multisseriada = re.fullmatch(
-        r"((?:[1-9][OA]?){2,})_(?:EF|EM)",
+        r"((?:[1-9][OA]?){2,})_(?:EF|EM)(?:_[A-Z])?",
         turma_norm,
     )
     if match_multisseriada:

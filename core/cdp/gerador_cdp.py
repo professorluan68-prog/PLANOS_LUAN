@@ -34,6 +34,8 @@ def _eh_cdp_contextual_disciplina(disciplina: str) -> bool:
             or base.endswith("cdpem")
             or base.endswith("cdpef")
             or base.endswith("cdpeja")
+            or base.endswith("-cdp")
+            or base.endswith("cdp")
         )
     )
 

@@ -275,7 +275,10 @@ def validar_pdf_contexto_sem_ia(
         if _bimestre_esta_no_contexto(contexto_norm, bimestre_num):
             score += 15
         elif _contexto_tem_outro_bimestre(contexto_norm, bimestre_num) and perfil != "orientacao_estudos":
-            motivos.append("bimestre do PDF nao confere com o selecionado")
+            from core.disciplinas import eh_cdp, eh_cdp_contextual
+            is_cdp = eh_cdp(disciplina) or eh_cdp_contextual(disciplina) or str(disciplina).upper().endswith("-CDP")
+            if not is_cdp:
+                motivos.append("bimestre do PDF nao confere com o selecionado")
 
     serie = _serie_esperada(turma)
     if serie:

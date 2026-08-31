@@ -98,3 +98,16 @@ def test_validar_lote_pdfs_contexto_sem_ia_separa_validos_e_suspeitos(monkeypatc
     assert [item.caminho.name for item in resultado.suspeitos] == [
         "AULA_002__HISTORIA__EM__B3__1_ANO.pdf"
     ]
+
+
+def test_validar_pdf_contexto_sem_ia_ignora_bimestre_errado_para_cdp():
+    resultado = validacao.validar_pdf_contexto_sem_ia(
+        Path("AULA_003__ENERGIA__MATEMATICA__EM__B2__1_ANO.pdf"),
+        disciplina="Matemática-CDP",
+        turma="1º ANO A",
+        bimestre="3º Bimestre",
+        texto_pdf="Matemática Energia 2o bimestre Ensino Médio",
+    )
+
+    assert resultado.valido is True
+    assert resultado.motivos == ()

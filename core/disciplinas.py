@@ -36,6 +36,7 @@ _DISCIPLINAS = [
     "Biologia",
     "Aprofundamento em Biologia",
     "Ciências",
+    "Ciências-CDP",
     "Educação Financeira",
     "Educação Física",
     "Filosofia",
@@ -47,6 +48,7 @@ _DISCIPLINAS = [
     "Língua Inglesa",
     "Língua Portuguesa",
     "Matemática",
+    "Matemática-CDP",
     "Orientação de Estudos",
     "Orientação de Estudos Matemática",
     "Projeto de Vida",
@@ -62,8 +64,8 @@ _DISCIPLINAS = [
 TURMAS_CDP = [
     "MULTISSERIADO 1º, 2º e 3º ano",
     "MULTISSERIADO 4º e 5º ano",
-    "6º/7º E.F",
-    "8º/9º E.F",
+    "6º/7º E.F/ C",
+    "8º/9º E.F/ H",
     "1º/2º/3º E.M",
 ]
 TURMAS_CDP_MULTISSERIADA = TURMAS_CDP
@@ -134,5 +136,6 @@ def eh_cdp_contextual(nome: str) -> bool:
             or chave_compacta.endswith("CDPEF")
             or chave_compacta.endswith("CDPEJA")
             or chave_compacta.endswith("_CDP")
+            or chave_compacta.endswith("-CDP")
         )
     )

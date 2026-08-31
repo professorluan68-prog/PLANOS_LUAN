@@ -87,9 +87,25 @@ def _paragrafos_docx(caminho_docx: str) -> list[str]:
     except Exception:
         return []
 
+    doc = None
     try:
         doc = Document(caminho_docx)
     except Exception:
+        import shutil
+        import tempfile
+        try:
+            temp_dir = tempfile.gettempdir()
+            temp_file = Path(temp_dir) / f"temp_{Path(caminho_docx).name}"
+            shutil.copy2(caminho_docx, temp_file)
+            doc = Document(str(temp_file))
+            try:
+                os.remove(temp_file)
+            except Exception:
+                pass
+        except Exception:
+            return []
+
+    if not doc:
         return []
 
     paragrafos: list[str] = []
@@ -213,18 +229,20 @@ def localizar_docx_referencia_cdp_contextual(caminho_pdf: str | Path) -> Path | 
         from core.referencias_historia import localizar_docx_referencia_historia_cdp
         return localizar_docx_referencia_historia_cdp(caminho_pdf)
     caminho = Path(caminho_pdf)
-    if not caminho.parent.exists():
+    parent_dir = caminho.parent
+    if not parent_dir.exists():
         return None
 
-    candidatos = list(caminho.parent.glob("metodologias*.docx"))
-    candidatos.extend(caminho.parent.glob("Metodologias*.docx"))
-    candidatos.extend(caminho.parent.glob("*CDP*Metodologia*.docx"))
-    candidatos.extend(caminho.parent.glob("*Metodologia*.docx"))
-    candidatos_unicos = {candidato.resolve(): candidato for candidato in candidatos}.values()
-    candidatos_validos = [candidato for candidato in candidatos_unicos if not candidato.name.startswith("~$")]
-    if not candidatos_validos:
+    candidatos = []
+    for item in parent_dir.iterdir():
+        if item.is_file() and item.suffix.lower() == ".docx" and not item.name.startswith("~$"):
+            nome_lower = item.name.lower()
+            if "metodologia" in nome_lower or "metodologias" in nome_lower:
+                candidatos.append(item)
+
+    if not candidatos:
         return None
-    return max(candidatos_validos, key=_score_docx_referencia)
+    return max(candidatos, key=_score_docx_referencia)
 
 
 def titulos_referencia_cdp_contextual_por_docx(caminho_docx: str | Path) -> dict[str, str]:

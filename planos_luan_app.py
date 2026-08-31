@@ -1896,7 +1896,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
+modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -1918,6 +1918,7 @@ modo_tela = option_menu(
 st.session_state["modo_tela"] = modo_tela
 
 modo_cdp_dedicado = modo_tela == "CDP - Ciclo I"
+modo_cdp_ef_em = modo_tela == "CDP-EF/EM"
 modo_eja = modo_tela == "EJA"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
@@ -1937,6 +1938,12 @@ modelo_automatico_arquivo = ""
 modelo_automatico_template_id = ""
 escolha_template = "MODELOCDP.docx" if modo_cdp_dedicado else OPCAO_MODELO_AUTOMATICO
 pdfs_aulas_files = []
+
+if modo_cdp_ef_em:
+    st.info(
+        "Aba CDP-EF/EM: geração de planos de aula sob metodologia tradicional (lousa, giz, livro, caderno) para salas multisseriadas, EJA e centro de detenção.",
+        icon="🏢",
+    )
 
 if modo_eja:
     st.info(
@@ -1991,6 +1998,17 @@ with col_disciplina:
             item
             for item in nomes_disciplinas()
             if not eh_cdp(item) and _disciplina_suporta_modalidade_eja(item)
+        ]
+    elif modo_cdp_ef_em:
+        disciplinas_cadastradas = [
+            item
+            for item in disciplinas_cadastradas
+            if eh_cdp_contextual(item.get("disciplina", "")) or item.get("disciplina", "").upper().endswith("-CDP") or eh_cdp(item.get("disciplina", ""))
+        ]
+        disciplinas_gerais = [
+            item
+            for item in nomes_disciplinas()
+            if eh_cdp_contextual(item) or item.upper().endswith("-CDP") or eh_cdp(item)
         ]
     else:
         disciplinas_gerais = [item for item in nomes_disciplinas() if not eh_cdp(item)]

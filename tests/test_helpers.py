@@ -181,7 +181,7 @@ def test_resolver_pasta_pdfs_encontra_cdp_ef_com_hifen_e_subpasta_de_turma(tmp_p
     caminho = resolver_pasta_pdfs(
         str(tmp_path),
         "História",
-        "6º/7º E.F",
+        "6º/7º E.F/ C",
         "3º Bimestre",
     )
 
