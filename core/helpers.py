@@ -262,12 +262,13 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
     # normalizadas para "8O9_EF". Preserve o agrupamento para que a busca
     # prefira a pasta concreta "8_ANO_9_ANO" em vez de outra pasta CDP-EF.
     match_multisseriada = re.fullmatch(
-        r"((?:[1-9][OA]?){2,})_(?:EF|EM)(?:_[A-Z])?",
+        r"((?:[1-9][OA]?){2,})(?:_(?:EF|EM|[A-Z]))?(?:_[A-Z])?",
         turma_norm,
     )
     if match_multisseriada:
         anos = re.findall(r"[1-9]", match_multisseriada.group(1))
         tokens.append("_".join(f"{ano}_ANO" for ano in anos))
+        tokens.append("_".join(anos) + "_ANO")
         tokens.extend(f"{ano}_ANO" for ano in anos)
         return [token for token in dict.fromkeys(tokens) if token]
 
@@ -530,6 +531,10 @@ def resolver_pasta_pdfs(
         if disc_norm == "EDUCACAO_FINANCEIRA" and turma_norm in {"2_ANO_A", "3_ANO_A"}:
             turma = "8º ANO"
 
+    if disc_norm == "HISTORIA":
+        if turma_norm in {"1O2O3_EM", "123_C", "123_E"}:
+            disciplina = "HISTÓRIACDP"
+
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
 
     eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
@@ -605,6 +610,16 @@ def resolver_pasta_pdfs(
     match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
     bim = match_bim.group(1) + "_BIMESTRE" if match_bim else ""
 
+    if disc_folder == "HISTORIA":
+        if "6" in turma_norm and "7" in turma_norm:
+            caminho_historia_cdp = Path(base_dir) / "HISTÓRIACDP" / "EF" / bim / "6_7_ANO_MULTISSERIADO"
+            if caminho_historia_cdp.exists():
+                return caminho_historia_cdp
+        elif "8" in turma_norm and "9" in turma_norm:
+            caminho_historia_cdp = Path(base_dir) / "HISTÓRIACDP" / "EF" / bim / "8_9_ANO_MULTISSERIADO"
+            if caminho_historia_cdp.exists():
+                return caminho_historia_cdp
+
     if _usa_aprofundamento_biologia_silvana(professor, disciplina, turma_norm):
         pasta_aprofundamento = _pasta_aprofundamento_biologia_2ano_a(base_dir, bim)
         if pasta_aprofundamento:
@@ -644,7 +659,9 @@ def resolver_pasta_pdfs(
         if subpasta_cdp_em:
             return subpasta_cdp_em
 
-    caminho_padrao = Path(base_dir) / disc_folder / nivel / bim / serie
+    raiz_resolvida = resolver_raiz_disciplina_pdfs(base_dir, disciplina)
+
+    caminho_padrao = raiz_resolvida / nivel / bim / serie
     if caminho_padrao.exists():
         if _pasta_tem_pdfs(caminho_padrao):
             return caminho_padrao
@@ -660,7 +677,7 @@ def resolver_pasta_pdfs(
         return caminho_padrao
 
     caminho_flexivel = _buscar_pasta_pdf_flexivel(
-        Path(base_dir) / disc_folder,
+        raiz_resolvida,
         nivel_preferido=_nivel_preferido_para_turma(turma_norm),
         bimestre_token=bim,
         serie_tokens=_tokens_serie_turma(turma_norm),

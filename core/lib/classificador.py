@@ -491,12 +491,12 @@ def _tipo_aula_lingua_portuguesa_em(titulo: str, texto: str) -> str:
         ("literatura", [
             "trovadorismo", "modernismo", "romantismo", "realismo", "geracao",
             "guimaraes rosa", "clarice", "machado", "drummond", "literatura",
-            "literario", "literaria", "estetica", "vanguardas", "romance", "conto", "poema", "poesia", "haicai", "verso",
+            "literario", "literaria", "estetica", "vanguardas", "romance", "conto", "poema", "poesia", "haicai", "verso", "versos",
             "barroco", "gregorio de matos", "padre antonio vieira", "camoes", "lusiadas",
             "classicismo", "gil vicente", "auto da barca", "carta de caminha", "anchieta",
             "catequese", "parnasianismo", "francisca julia", "eca de queiros",
             "aluisio azevedo", "joao cabral", "fernando pessoa", "heteronimos",
-            "miniconto", "microconto", "cancao do exilio", "goncalves dias"
+            "miniconto", "microconto", "cancao do exilio", "goncalves dias", "medieval", "cantigas"
         ]),
         ("genero_textual", [
             "diario", "manifesto", "playlist", "cronica", "noticia", "noticioso",

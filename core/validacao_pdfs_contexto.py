@@ -258,7 +258,8 @@ def validar_pdf_contexto_sem_ia(
         score += 25
 
     texto = texto_pdf if texto_pdf is not None else _extrair_amostra_texto_pdf(caminho)
-    if not texto.strip():
+    perfil = perfil_disciplina(disciplina, turma=turma)
+    if not texto.strip() and perfil != "orientacao_estudos":
         motivos.append("nao foi possivel ler texto do PDF")
 
     contexto_original = f"{caminho.name} {texto}"

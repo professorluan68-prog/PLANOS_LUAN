@@ -53,6 +53,7 @@ _DISCIPLINAS = [
     "Orientação de Estudos Matemática",
     "Projeto de Vida",
     "Química",
+    "Química-EJA",
     "Redação e Leitura",
     "Robótica",
     "Sociologia",

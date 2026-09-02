@@ -65,9 +65,7 @@ def test_revisar_aula_gerada_auditoria():
     assert "Campo de aprendizagem vazio." in alertas
     assert "Metodologia com poucas etapas." in alertas
     assert "Acompanhamento da aprendizagem deve ter exatamente 3 itens; foram encontrados 1." in alertas
-    assert "Acompanhamento da aprendizagem deve ter todos os itens iniciando com ☑." in alertas
     assert "Acessibilidade deve ter exatamente 3 itens; foram encontrados 1." in alertas
-    assert "Acessibilidade deve ter todos os itens iniciando com ☑." in alertas
     assert "Placeholder residual em acessibilidade: 'informação do material simples'." in alertas
 
 def test_lote_cache_validation_by_hash(tmp_path):

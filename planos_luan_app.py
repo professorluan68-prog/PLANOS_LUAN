@@ -973,6 +973,8 @@ def _disciplina_suporta_modalidade_eja(disciplina: str) -> bool:
         "LINGUA INGLESA",
         "LIDERANCA E ORATORIA",
         "LIDERANCA ORATORIA",
+        "QUIMICA",
+        "QUIMICA EJA",
     }
 
 
@@ -1947,7 +1949,7 @@ if modo_cdp_ef_em:
 
 if modo_eja:
     st.info(
-        "Modalidade EJA: escolha Língua Inglesa, Biologia ou Liderança e Oratória. "
+        "Modalidade EJA: escolha Língua Inglesa, Biologia, Liderança e Oratória ou Química. "
         "A geração usará linguagem adulta, direta e ligada ao mundo do trabalho.",
         icon="👥",
     )
@@ -3260,8 +3262,23 @@ if st.session_state.get("turmas_processadas"):
                         "acompanhamento": [x.strip() for x in acomp_val.split("\n") if x.strip()],
                         "acessibilidade": [x.strip() for x in aces_val.split("\n") if x.strip()]
                     }
-                    from core.validador_plano import validar_aderencia_palavras_chave
-                    resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
+                    
+                    import hashlib
+                    hash_content = f"{m_val}||{acomp_val}||{aces_val}||{','.join(palavras_chave_esperadas)}"
+                    current_hash = hashlib.md5(hash_content.encode("utf-8")).hexdigest()
+                    
+                    cache_key = f"pc_cache_{rev_tok}_{t_idx}_{a_idx}"
+                    cache_data = st.session_state.get(cache_key)
+                    
+                    if cache_data and cache_data.get("hash") == current_hash:
+                        resultado_pc = cache_data["resultado"]
+                    else:
+                        from core.validador_plano import validar_aderencia_palavras_chave
+                        resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
+                        st.session_state[cache_key] = {
+                            "hash": current_hash,
+                            "resultado": resultado_pc
+                        }
                     
                     cobertura_atual = resultado_pc["cobertura"]
                     valido_atual = resultado_pc["valido"]

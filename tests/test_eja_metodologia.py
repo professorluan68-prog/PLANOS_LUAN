@@ -50,6 +50,7 @@ def test_biologia_eja_sem_ia_usa_blocos_e_linguagem_contextualizada(monkeypatch)
     assert [normalizar_texto(t) for t in titulos] in [
         ["para comecar", "foco no conteudo", "pause e responda", "encerramento"],
         ["para comecar", "foco no conteudo", "na pratica", "encerramento"],
+        ["para comecar", "foco no conteudo", "verificacao da aprendizagem", "na pratica", "encerramento"],
     ]
     assert "linguagem acessivel e adulta" in texto.lower()
     assert "trabalho" in texto.lower()
@@ -79,6 +80,7 @@ def test_ingles_eja_sem_ia_prioriza_uso_funcional(monkeypatch):
     assert [normalizar_texto(item["titulo"]) for item in aula["metodologia"]] in [
         ["para comecar", "foco no conteudo", "pause e responda", "encerramento"],
         ["para comecar", "foco no conteudo", "na pratica", "encerramento"],
+        ["relembre", "vocabulario", "exemplo comentado", "na pratica", "producao propria", "encerramento"],
     ]
     assert "comunicacao profissional" in texto or "trabalho" in texto
     assert "situacoes reais" in normalizar_texto(texto)
@@ -87,7 +89,7 @@ def test_ingles_eja_sem_ia_prioriza_uso_funcional(monkeypatch):
 def test_lideranca_oratoria_eja_preserva_etapas_do_docx_e_contextualiza_trabalho():
     metodologia = [
         {"titulo": "Para começar", "texto": "Aplicar VIREM E CONVERSEM sobre negociação."},
-        {"titulo": "Foco no conteúdo", "texto": "Apresentar os elementos da negociação."},
+        {"titulo": "Foco no conteúdo", "texto": "Apresentar os elements da negociação."},
         {"titulo": "Na prática", "texto": "Analisar uma situação em grupo."},
         {"titulo": "Na prática", "texto": "Produzir um registro curto."},
         {"titulo": "Encerramento", "texto": "Retomar as conclusões."},
@@ -132,7 +134,7 @@ def test_interface_tem_aba_eja_sem_seletor_de_modalidade():
     app = Path(__file__).resolve().parents[1] / "planos_luan_app.py"
     texto = app.read_text(encoding="utf-8")
 
-    assert 'modos_disponiveis = ["Planos gerais", "EJA", "Cadastro"' in texto
+    assert 'modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro"' in texto
     assert 'modos_disponiveis = ["Planos gerais", "CDP - Ciclo I"' not in texto
     assert 'modo_eja = modo_tela == "EJA"' in texto
     assert 'st.selectbox("Modalidade", ["Regular", "EJA"]' not in texto

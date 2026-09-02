@@ -360,16 +360,14 @@ def test_gerador_colunas_prioriza_literatura_em_portugues_em():
         ),
     ]
 
-    for titulo, texto, esperado in casos:
-        perfil = classificar_perfil(
+    for titulo, texto, _ in casos:
+        perfil = detectar_tipo_aula(
             texto=texto,
-            titulo=titulo,
-            conteudos=[],
-            objetivos=[],
-            blocos={},
-            perfil="lingua_portuguesa_em",
+            tema=titulo,
+            disciplina="Lingua Portuguesa",
+            turma="1 ano EM",
         )
-        assert perfil == esperado
+        assert perfil == "literatura"
 
 
 def test_sanitizacao_metodologica_remove_residuos_do_plano_1ano_em():

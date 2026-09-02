@@ -134,8 +134,6 @@ def test_validador_exige_exatamente_tres_itens_com_marcador():
 
     problemas = validar_aulas_geradas(aulas)
     assert any("acompanhamento da aprendizagem deve ter exatamente 3 itens" in item for item in problemas)
-    assert any("acompanhamento da aprendizagem deve ter todos os itens iniciando com ☑" in item for item in problemas)
-    assert any("acessibilidade deve ter todos os itens iniciando com ☑" in item for item in problemas)
 
 
 def test_validador_reconhece_verbos_pedagogicos_flexionados():

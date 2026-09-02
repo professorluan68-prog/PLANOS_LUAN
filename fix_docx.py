@@ -1,53 +1,56 @@
 ﻿import docx
-import os
-import glob
 import re
 
-base_dir = r'C:\Users\LuanDias\OneDrive\PLANOS_LUAN_DADOS\PDF_AULAS\ARTE'
-files = glob.glob(os.path.join(base_dir, 'Metodologias_Arte_*_Ano_Ensino_Fundamental.docx'))
+doc_path = r'C:\Users\LuanDias\PLANOS_LUAN_DADOS\PDF_AULAS\LIDERANCA_E_ORATORIA\EM\3_BIMESTRE\2_ANO\METODOLOGIA_LIDERANCA_E_ORATORIA_2_ANO_3_B.docx'
+doc = docx.Document(doc_path)
 
-for filepath in files:
-    filename = os.path.basename(filepath)
-    print(f'Processando {filename}...')
-    
-    # Extrair ano do nome do arquivo
-    match = re.search(r'Arte_(\d+)_Ano', filename)
-    if not match:
-        continue
-    ano = match.group(1)
-    
-    doc = docx.Document(filepath)
-    modificado = False
-    
-    # Expressão regular para encontrar [Texto] e substituir por Texto: no início ou meio
-    padrao = re.compile(r'\[(.*?)\]')
-    
-    for para in doc.paragraphs:
-        if padrao.search(para.text):
-            # Limpar formatações anteriores e refazer o texto
-            # É mais seguro substituir texto diretamente no run se estiver contido,
-            # ou limpar o parágrafo e reconstruir (mais fácil se formatação fina não for crítica)
-            novo_texto = padrao.sub(r'\1:', para.text)
-            para.text = novo_texto
-            modificado = True
+for p in doc.paragraphs:
+    if p.text.startswith('Foco no conteúdo:'):
+        match = re.search(r'Construir a reflexao sobre (.*?) por meio de exemplos', p.text)
+        texto = match.group(1) if match else 'o tema principal'
+        if len(texto) > 100:
+            texto = texto[:97] + '...'
+        new_text = f'Foco no conteúdo: Mediar leitura do material. Organizar no quadro ideias principais. Refletir sobre: {texto}. Usar exemplos cotidianos para relacionar sentir, pensar e agir.'
+        if len(new_text) > 350:
+             new_text = new_text[:347] + '...'
+        p.text = ''
+        run = p.add_run('Foco no conteúdo: ')
+        run.bold = True
+        p.add_run(new_text[18:])
             
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if padrao.search(para.text):
-                        novo_texto = padrao.sub(r'\1:', para.text)
-                        para.text = novo_texto
-                        modificado = True
-                        
-    if modificado:
-        target_dir = os.path.join(base_dir, 'AF', '3_BIMESTRE', f'{ano}_ANO')
-        if not os.path.exists(target_dir):
-            os.makedirs(target_dir)
-        target_path = os.path.join(target_dir, filename)
-        doc.save(target_path)
-        print(f'Salvo em: {target_path}')
-        os.remove(filepath)
-    else:
-        print('Nenhuma modificação necessária.')
+    elif p.text.startswith('Na prática:'):
+        new_text = 'Na prática: Realizar correção dialogada retomando material e dúvidas. Acompanhar atividade com registro individual. Garantir socialização opcional, evitando exposição.'
+        if len(new_text) > 350:
+             new_text = new_text[:347] + '...'
+        p.text = ''
+        run = p.add_run('Na prática: ')
+        run.bold = True
+        p.add_run(new_text[12:])
+        
+    elif p.text.startswith('Para começar:'):
+        match = re.search(r'relacionada a \"(.*?)\",', p.text)
+        tema = match.group(1) if match else 'o tema'
+        if len(tema) > 100:
+            tema = tema[:97] + '...'
+        new_text = f'Para começar: Abrir a aula com situação acolhedora sobre \"{tema}\". Propor roda de conversa, respeitando ritmos e sem exigir exposição pessoal.'
+        if len(new_text) > 350:
+             new_text = new_text[:347] + '...'
+        p.text = ''
+        run = p.add_run('Para começar: ')
+        run.bold = True
+        p.add_run(new_text[14:])
+        
+    elif p.text.startswith('Encerramento:'):
+        match = re.search(r'relacionado a \"(.*?)\",', p.text)
+        tema = match.group(1) if match else 'o tema'
+        if len(tema) > 100:
+            tema = tema[:97] + '...'
+        new_text = f'Encerramento: Concluir com observação para a semana sobre \"{tema}\", reforçando autonomia, respeito e cuidado nas relações.'
+        if len(new_text) > 350:
+             new_text = new_text[:347] + '...'
+        p.text = ''
+        run = p.add_run('Encerramento: ')
+        run.bold = True
+        p.add_run(new_text[14:])
 
+doc.save(doc_path)

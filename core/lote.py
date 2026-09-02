@@ -3131,6 +3131,7 @@ def _aula_por_pdf(
             resultado_candidato = None
             referencia_docx_disponivel = bool(
                 rascunho_local.get("fonte_referencia_metodologia")
+                and rascunho_local.get("status_referencia_docx") not in {"metodologia_incompleta", "etapa_acima_do_limite"}
             )
 
             if usar_ia and not referencia_docx_disponivel:
