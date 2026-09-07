@@ -300,6 +300,7 @@ CAMPOS_TELA = {
     "erro_processamento",
     "erro_processamento_detalhe",
     "permitir_dia_sem_pdf_portugues",
+    "frequencia_dia_sem_pdf_opcao",
     "dia_sem_pdf_portugues",
 }
 
@@ -2757,35 +2758,40 @@ else:
     auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
     dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
     if permitir_dia_sem_pdf_portugues:
-        rotulo_checkbox = (
-            "Permitir 1 dia sem PDF (a cada 15 dias)"
-            if frequencia_dia_sem_pdf == "quinzenal"
-            else "Permitir 1 dia da semana sem PDF"
-        )
-        help_checkbox = (
-            "Use esta opção para deixar um dos dias da disciplina sem PDF a cada 15 dias (semanas alternadas), mantendo apenas a data."
-            if frequencia_dia_sem_pdf == "quinzenal"
-            else "Use esta opção para deixar um dos dias semanais da disciplina em branco no plano, mantendo apenas a data."
-        )
         st.checkbox(
-            rotulo_checkbox,
+            "Permitir 1 dia sem PDF",
             key="permitir_dia_sem_pdf_portugues",
-            help=help_checkbox,
+            help="Use esta opção para deixar um dos dias da disciplina em branco no plano (sem PDF), mantendo apenas a data.",
         )
         usar_dia_sem_pdf_portugues = bool(st.session_state.get("permitir_dia_sem_pdf_portugues", False))
         if usar_dia_sem_pdf_portugues:
             opcoes_dia_sem_pdf = _opcoes_dia_sem_pdf(datas_horarios_mes)
             valores_dia_sem_pdf = [dia for dia, _ in opcoes_dia_sem_pdf]
             if valores_dia_sem_pdf:
-                chave_dia_sem_pdf = "dia_sem_pdf_portugues"
-                if st.session_state.get(chave_dia_sem_pdf) not in valores_dia_sem_pdf:
-                    st.session_state[chave_dia_sem_pdf] = valores_dia_sem_pdf[0]
-                dia_sem_pdf_portugues = st.selectbox(
-                    "Dia da semana que ficará sem PDF",
-                    valores_dia_sem_pdf,
-                    key=chave_dia_sem_pdf,
-                    format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
-                )
+                col_freq, col_dia = st.columns([1, 1])
+                with col_freq:
+                    opcoes_freq = ["A cada 15 dias (semanas alternadas)", "Toda semana (semanal)"]
+                    default_freq_idx = 0 if _frequencia_dia_sem_pdf(disciplina, turma=turma) == "quinzenal" else 1
+                    chave_freq_opcao = "frequencia_dia_sem_pdf_opcao"
+                    if st.session_state.get(chave_freq_opcao) not in opcoes_freq:
+                        st.session_state[chave_freq_opcao] = opcoes_freq[default_freq_idx]
+                    freq_selecionada = st.selectbox(
+                        "Frequência do dia sem PDF",
+                        opcoes_freq,
+                        key=chave_freq_opcao,
+                        help="Escolha se a isenção de PDF ocorrerá a cada 15 dias ou toda semana.",
+                    )
+                    frequencia_dia_sem_pdf = "quinzenal" if "15 dias" in str(freq_selecionada) else "semanal"
+                with col_dia:
+                    chave_dia_sem_pdf = "dia_sem_pdf_portugues"
+                    if st.session_state.get(chave_dia_sem_pdf) not in valores_dia_sem_pdf:
+                        st.session_state[chave_dia_sem_pdf] = valores_dia_sem_pdf[0]
+                    dia_sem_pdf_portugues = st.selectbox(
+                        "Dia da semana que ficará sem PDF",
+                        valores_dia_sem_pdf,
+                        key=chave_dia_sem_pdf,
+                        format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
+                    )
     _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
