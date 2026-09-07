@@ -4,6 +4,7 @@ from planos_luan_app import (
     _permite_um_dia_sem_pdf,
     _frequencia_dia_sem_pdf,
     _eh_data_sem_pdf,
+    _eh_aula_sem_pdf,
 )
 
 
@@ -97,3 +98,29 @@ def test_eh_data_sem_pdf_semanal_vs_quinzenal():
     assert _eh_data_sem_pdf(segundas[1], segunda_weekday, datas_agenda=segundas, frequencia="quinzenal") is False
     assert _eh_data_sem_pdf(segundas[2], segunda_weekday, datas_agenda=segundas, frequencia="quinzenal") is True
     assert _eh_data_sem_pdf(segundas[3], segunda_weekday, datas_agenda=segundas, frequencia="quinzenal") is False
+
+
+def test_eh_aula_sem_pdf_aula_dupla():
+    # Segunda-feira com 2 aulas no mesmo dia (aula dupla)
+    seg_7 = date(2026, 9, 7)
+    seg_14 = date(2026, 9, 14)
+    datas_agenda = [
+        seg_7,   # idx 0: 1ª aula do dia 07/09
+        seg_7,   # idx 1: 2ª aula do dia 07/09
+        seg_14,  # idx 2: 1ª aula do dia 14/09
+        seg_14,  # idx 3: 2ª aula do dia 14/09
+    ]
+    segunda_weekday = 0
+
+    # Modo "uma_aula": Na 1ª semana sem PDF (07/09), 1ª aula fica com PDF (False) e 2ª aula fica sem PDF (True)
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
+    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is True
+
+    # Na 2ª semana (14/09), como a frequência é quinzenal, nenhuma aula fica sem PDF
+    assert _eh_aula_sem_pdf(2, seg_14, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
+    assert _eh_aula_sem_pdf(3, seg_14, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
+
+    # Modo "ambas": Ambas as aulas da semana sem PDF ficam sem PDF (True)
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="ambas") is True
+    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="ambas") is True
+

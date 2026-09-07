@@ -301,6 +301,7 @@ CAMPOS_TELA = {
     "erro_processamento_detalhe",
     "permitir_dia_sem_pdf_portugues",
     "frequencia_dia_sem_pdf_opcao",
+    "modo_aula_dupla_sem_pdf_opcao",
     "dia_sem_pdf_portugues",
 }
 
@@ -1371,6 +1372,36 @@ def _eh_data_sem_pdf(
     return idx_data % 2 == 0
 
 
+def _eh_aula_sem_pdf(
+    idx: int,
+    data_aula: date | None,
+    dia_sem_pdf_semana: int | None,
+    datas_agenda: list[date] | None = None,
+    frequencia: str = "semanal",
+    modo_aula_dupla: str = "uma_aula",
+) -> bool:
+    """Verifica se uma aula específica (pelo índice e data) deve ficar sem PDF."""
+    if not isinstance(data_aula, date) or dia_sem_pdf_semana is None:
+        return False
+
+    if not _eh_data_sem_pdf(data_aula, dia_sem_pdf_semana, datas_agenda=datas_agenda, frequencia=frequencia):
+        return False
+
+    if not datas_agenda:
+        return True
+
+    # Identificar todas as aulas registradas no mesmo dia de data_aula
+    indices_do_dia = [i for i, d in enumerate(datas_agenda) if d == data_aula]
+    if len(indices_do_dia) > 1 and modo_aula_dupla == "uma_aula":
+        # Em dia com aula dupla e modo "uma_aula":
+        # A 1ª aula do dia (posição 0) fica COM PDF (False)
+        # As demais aulas do dia (posição > 0) ficam SEM PDF (True)
+        posicao_no_dia = indices_do_dia.index(idx) if idx in indices_do_dia else 0
+        return posicao_no_dia > 0
+
+    return True
+
+
 def _eh_bloco_sem_pdf(aula: dict) -> bool:
     return bool((aula or {}).get("bloco_sem_pdf"))
 
@@ -1574,6 +1605,7 @@ def _coletar_aulas_envio(
     permitir_um_dia_sem_pdf: bool = False,
     dia_sem_pdf_semana: int | None = None,
     frequencia_dia_sem_pdf: str = "semanal",
+    modo_aula_dupla: str = "uma_aula",
 ):
     aulas_envio = []
     datas_cache = []
@@ -1703,11 +1735,13 @@ def _coletar_aulas_envio(
         eh_bloco_sem_pdf = bool(
             permitir_um_dia_sem_pdf
             and dia_sem_pdf_semana is not None
-            and _eh_data_sem_pdf(
+            and _eh_aula_sem_pdf(
+                idx,
                 data_aula,
                 dia_sem_pdf_semana,
                 datas_agenda=datas_cache,
                 frequencia=frequencia_dia_sem_pdf,
+                modo_aula_dupla=modo_aula_dupla,
             )
         )
         st.divider()
@@ -2732,6 +2766,7 @@ else:
     )
     usar_dia_sem_pdf_portugues = False
     dia_sem_pdf_portugues = None
+    modo_aula_dupla = "uma_aula"
 
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
     if deixar_ant_vazia and datas_horarios_mes:
@@ -2768,7 +2803,7 @@ else:
             opcoes_dia_sem_pdf = _opcoes_dia_sem_pdf(datas_horarios_mes)
             valores_dia_sem_pdf = [dia for dia, _ in opcoes_dia_sem_pdf]
             if valores_dia_sem_pdf:
-                col_freq, col_dia = st.columns([1, 1])
+                col_freq, col_dia, col_dupla = st.columns([1, 1, 1])
                 with col_freq:
                     opcoes_freq = ["A cada 15 dias (semanas alternadas)", "Toda semana (semanal)"]
                     default_freq_idx = 0 if _frequencia_dia_sem_pdf(disciplina, turma=turma) == "quinzenal" else 1
@@ -2792,6 +2827,18 @@ else:
                         key=chave_dia_sem_pdf,
                         format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
                     )
+                with col_dupla:
+                    opcoes_dupla = ["1 aula com PDF + 1 sem PDF", "Ambas as aulas sem PDF"]
+                    chave_dupla_opcao = "modo_aula_dupla_sem_pdf_opcao"
+                    if st.session_state.get(chave_dupla_opcao) not in opcoes_dupla:
+                        st.session_state[chave_dupla_opcao] = opcoes_dupla[0]
+                    dupla_selecionada = st.selectbox(
+                        "Em dias com aula dupla",
+                        opcoes_dupla,
+                        key=chave_dupla_opcao,
+                        help="Escolha se apenas 1 das aulas duplas fica sem PDF ou se ambas ficam sem PDF.",
+                    )
+                    modo_aula_dupla = "uma_aula" if "1 aula" in str(dupla_selecionada) else "ambas"
     _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
@@ -2861,16 +2908,18 @@ else:
         est_necessarios = 0
         datas_modelo_base = [a.get("data") for a in aulas_oficiais_modelo if isinstance(a.get("data"), date)]
         aulas_oficiais_modelo_pdf = [
-            aula for aula in aulas_oficiais_modelo
+            aula for idx_a, aula in enumerate(aulas_oficiais_modelo)
             if not (
                 usar_dia_sem_pdf_portugues
                 and dia_sem_pdf_portugues is not None
                 and isinstance(aula.get("data"), date)
-                and _eh_data_sem_pdf(
+                and _eh_aula_sem_pdf(
+                    idx_a,
                     aula["data"],
                     dia_sem_pdf_portugues,
                     datas_agenda=datas_modelo_base,
                     frequencia=frequencia_dia_sem_pdf,
+                    modo_aula_dupla=modo_aula_dupla,
                 )
             )
         ]
@@ -2884,16 +2933,18 @@ else:
         if gerar_turma_espelho and len(aulas_oficiais_modelo_espelho) > 0:
             datas_modelo_espelho = [a.get("data") for a in aulas_oficiais_modelo_espelho if isinstance(a.get("data"), date)]
             aulas_oficiais_modelo_espelho_pdf = [
-                aula for aula in aulas_oficiais_modelo_espelho
+                aula for idx_a, aula in enumerate(aulas_oficiais_modelo_espelho)
                 if not (
                     usar_dia_sem_pdf_portugues
                     and dia_sem_pdf_portugues is not None
                     and isinstance(aula.get("data"), date)
-                    and _eh_data_sem_pdf(
+                    and _eh_aula_sem_pdf(
+                        idx_a,
                         aula["data"],
                         dia_sem_pdf_portugues,
                         datas_agenda=datas_modelo_espelho,
                         frequencia=frequencia_dia_sem_pdf,
+                        modo_aula_dupla=modo_aula_dupla,
                     )
                 )
             ]
@@ -3057,6 +3108,7 @@ else:
         permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
         dia_sem_pdf_semana=dia_sem_pdf_portugues,
         frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
+        modo_aula_dupla=modo_aula_dupla,
     )
 
     aulas_mes_oficial = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else list(aulas_envio)
@@ -3126,6 +3178,7 @@ else:
             permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
             dia_sem_pdf_semana=dia_sem_pdf_portugues,
             frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
+            modo_aula_dupla=modo_aula_dupla,
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
