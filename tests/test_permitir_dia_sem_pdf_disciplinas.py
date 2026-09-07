@@ -5,6 +5,7 @@ from planos_luan_app import (
     _frequencia_dia_sem_pdf,
     _eh_data_sem_pdf,
     _eh_aula_sem_pdf,
+    _eh_horario_duplo,
 )
 
 
@@ -100,11 +101,18 @@ def test_eh_data_sem_pdf_semanal_vs_quinzenal():
     assert _eh_data_sem_pdf(segundas[3], segunda_weekday, datas_agenda=segundas, frequencia="quinzenal") is False
 
 
+def test_eh_horario_duplo():
+    assert _eh_horario_duplo(tipo_horario_str="Dupla") is True
+    assert _eh_horario_duplo("07h - 08h40 - 1ª e 2ª aula") is True
+    assert _eh_horario_duplo(("07:00", "08:40", "1ª e 2ª aula")) is True
+    assert _eh_horario_duplo("07h - 07h50 - 1ª aula") is False
+
+
 def test_eh_aula_sem_pdf_aula_dupla():
-    # Segunda-feira com 2 aulas no mesmo dia (aula dupla)
+    # Cenário A: 2 cards separados no mesmo dia (ex: 2 cards na 07/09)
     seg_7 = date(2026, 9, 7)
     seg_14 = date(2026, 9, 14)
-    datas_agenda = [
+    datas_agenda_multi = [
         seg_7,   # idx 0: 1ª aula do dia 07/09
         seg_7,   # idx 1: 2ª aula do dia 07/09
         seg_14,  # idx 2: 1ª aula do dia 14/09
@@ -113,14 +121,20 @@ def test_eh_aula_sem_pdf_aula_dupla():
     segunda_weekday = 0
 
     # Modo "uma_aula": Na 1ª semana sem PDF (07/09), 1ª aula fica com PDF (False) e 2ª aula fica sem PDF (True)
-    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
-    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is True
-
-    # Na 2ª semana (14/09), como a frequência é quinzenal, nenhuma aula fica sem PDF
-    assert _eh_aula_sem_pdf(2, seg_14, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
-    assert _eh_aula_sem_pdf(3, seg_14, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda_multi, frequencia="quinzenal", modo_aula_dupla="uma_aula") is False
+    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda_multi, frequencia="quinzenal", modo_aula_dupla="uma_aula") is True
 
     # Modo "ambas": Ambas as aulas da semana sem PDF ficam sem PDF (True)
-    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="ambas") is True
-    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda, frequencia="quinzenal", modo_aula_dupla="ambas") is True
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda_multi, frequencia="quinzenal", modo_aula_dupla="ambas") is True
+    assert _eh_aula_sem_pdf(1, seg_7, segunda_weekday, datas_agenda=datas_agenda_multi, frequencia="quinzenal", modo_aula_dupla="ambas") is True
+
+    # Cenário B: 1 ÚNICO card por dia, mas o horário do card é DUPLO (1ª e 2ª aula)
+    datas_agenda_single = [seg_7, seg_14]
+
+    # Modo "uma_aula": Como o card é uma aula dupla (2 aulas) e 1 aula deve ser com PDF, o card DEVE receber PDF (False)!
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda_single, frequencia="quinzenal", modo_aula_dupla="uma_aula", eh_horario_duplo=True) is False
+
+    # Modo "ambas": Ambas as aulas ficam sem PDF -> o card fica sem PDF (True)
+    assert _eh_aula_sem_pdf(0, seg_7, segunda_weekday, datas_agenda=datas_agenda_single, frequencia="quinzenal", modo_aula_dupla="ambas", eh_horario_duplo=True) is True
+
 

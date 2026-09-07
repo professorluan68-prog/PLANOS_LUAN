@@ -1372,6 +1372,23 @@ def _eh_data_sem_pdf(
     return idx_data % 2 == 0
 
 
+def _eh_horario_duplo(item=None, tipo_horario_str: str | None = None) -> bool:
+    """Verifica se um item de horário ou string representa uma aula dupla."""
+    if tipo_horario_str == "Dupla":
+        return True
+    if item in HORARIOS_DUPLAS:
+        return True
+    if isinstance(item, (tuple, list)):
+        texto = " ".join(str(x) for x in item).lower()
+        if " e " in texto or "dupla" in texto:
+            return True
+    elif isinstance(item, str):
+        texto = item.lower()
+        if " e " in texto or "dupla" in texto or "1ª e 2ª" in texto or "3ª e 4ª" in texto or "6ª e 7ª" in texto or "8ª e 9ª" in texto:
+            return True
+    return False
+
+
 def _eh_aula_sem_pdf(
     idx: int,
     data_aula: date | None,
@@ -1379,6 +1396,7 @@ def _eh_aula_sem_pdf(
     datas_agenda: list[date] | None = None,
     frequencia: str = "semanal",
     modo_aula_dupla: str = "uma_aula",
+    eh_horario_duplo: bool = False,
 ) -> bool:
     """Verifica se uma aula específica (pelo índice e data) deve ficar sem PDF."""
     if not isinstance(data_aula, date) or dia_sem_pdf_semana is None:
@@ -1388,17 +1406,32 @@ def _eh_aula_sem_pdf(
         return False
 
     if not datas_agenda:
-        return True
+        return not (eh_horario_duplo and modo_aula_dupla == "uma_aula")
 
     # Identificar todas as aulas registradas no mesmo dia de data_aula
     indices_do_dia = [i for i, d in enumerate(datas_agenda) if d == data_aula]
-    if len(indices_do_dia) > 1 and modo_aula_dupla == "uma_aula":
-        # Em dia com aula dupla e modo "uma_aula":
-        # A 1ª aula do dia (posição 0) fica COM PDF (False)
-        # As demais aulas do dia (posição > 0) ficam SEM PDF (True)
-        posicao_no_dia = indices_do_dia.index(idx) if idx in indices_do_dia else 0
-        return posicao_no_dia > 0
 
+    # Caso 1: Há múltiplos cards/linhas na mesma data (ex: 2 cards na mesma terça-feira)
+    if len(indices_do_dia) > 1:
+        if modo_aula_dupla == "uma_aula":
+            # A 1ª aula do dia (posição 0) fica COM PDF (False)
+            # As demais aulas do dia (posição > 0) ficam SEM PDF (True)
+            posicao_no_dia = indices_do_dia.index(idx) if idx in indices_do_dia else 0
+            return posicao_no_dia > 0
+        else:
+            return True
+
+    # Caso 2: Há apenas UM card/linha nesta data (len(indices_do_dia) == 1)
+    # Se este card for uma AULA DUPLA (horário duplo) e o modo for "uma_aula":
+    if eh_horario_duplo:
+        if modo_aula_dupla == "uma_aula":
+            # 1 das 2 aulas é com PDF -> este card PRECISA receber PDF (retorna False)
+            return False
+        else:
+            # Ambas as aulas da aula dupla ficam sem PDF (retorna True)
+            return True
+
+    # Aula simples e única no dia: fica sem PDF (retorna True)
     return True
 
 
@@ -1742,6 +1775,7 @@ def _coletar_aulas_envio(
                 datas_agenda=datas_cache,
                 frequencia=frequencia_dia_sem_pdf,
                 modo_aula_dupla=modo_aula_dupla,
+                eh_horario_duplo=_eh_horario_duplo(horario_aula, tipo_horario),
             )
         )
         st.divider()
@@ -2920,6 +2954,7 @@ else:
                     datas_agenda=datas_modelo_base,
                     frequencia=frequencia_dia_sem_pdf,
                     modo_aula_dupla=modo_aula_dupla,
+                    eh_horario_duplo=_eh_horario_duplo(aula.get("horario")),
                 )
             )
         ]
@@ -2945,6 +2980,7 @@ else:
                         datas_agenda=datas_modelo_espelho,
                         frequencia=frequencia_dia_sem_pdf,
                         modo_aula_dupla=modo_aula_dupla,
+                        eh_horario_duplo=_eh_horario_duplo(aula.get("horario")),
                     )
                 )
             ]
