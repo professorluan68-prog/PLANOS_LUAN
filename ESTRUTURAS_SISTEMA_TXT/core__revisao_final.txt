@@ -91,18 +91,10 @@ def _validar_titulos_proibidos(metodologia, perfil: str) -> tuple[int, list[str]
     return deducoes, avisos
 
 
-def _validar_tamanho_etapas(
-    metodologia, perfil: str, ia_usada: bool = False
-) -> tuple[int, list[str]]:
-    # [CORREÇÃO A1] Distingue limite entre motor local (300) e IA/DOCX (350).
-    # Motor local sem IA: máximo 300 caracteres por etapa (regra de negócio).
-    # Com IA ou DOCX de referência: máximo 350 caracteres por etapa.
+def _validar_tamanho_etapas(metodologia, perfil: str) -> tuple[int, list[str]]:
     avisos = []
     deducoes = 0
-    if ia_usada:
-        limite = _LIMITES_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
-    else:
-        limite = 300  # motor local sem IA: limite estrito conforme regra de negócio
+    limite = _LIMITES_CHARS_POR_ETAPA.get(perfil, _LIMITE_CHARS_DEFAULT)
 
     for item in metodologia or []:
         texto = _texto_etapa(item)
@@ -154,9 +146,7 @@ def revisar_aula_gerada(
         deducoes += ded_titulos
         avisos.extend(avisos_titulos)
 
-    # [CORREÇÃO A1] Passa ia_usada para distinguir limite 300 (local) vs 350 (IA/DOCX)
-    ia_usada = aula.get("ia_usada", False)
-    ded_tamanho, avisos_tamanho = _validar_tamanho_etapas(metodologia, perfil, ia_usada)
+    ded_tamanho, avisos_tamanho = _validar_tamanho_etapas(metodologia, perfil)
     if ded_tamanho:
         deducoes += ded_tamanho
         avisos.extend(avisos_tamanho)

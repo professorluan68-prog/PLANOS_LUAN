@@ -1,0 +1,61 @@
+================================================================================
+  MAPA DAS ESTRUTURAS DO SISTEMA (PLANOS LUAN) — EXPORTAÇÃO EM .TXT
+================================================================================
+
+Esta pasta contém a exportação em formato .txt dos componentes mais críticos e
+estruturais do sistema PLANOS LUAN v1.2.14, para facilitar auditorias automáticas.
+
+--------------------------------------------------------------------------------
+1. INTERFACE PRINCIPAL E REGRAS GERAIS
+--------------------------------------------------------------------------------
+- AGENTS.txt                        -> Diretrizes operacionais e regras essenciais de negócio
+- GEMINI.txt                        -> Arquitetura, fluxo de dados e regras tecnológicas
+- config.txt                        -> Parâmetros centrais, caminhos padrão e limites
+- planos_luan_app.txt              -> Interface web Streamlit principal, gerenciamento de estado e formulários
+
+--------------------------------------------------------------------------------
+2. MOTOR PRINCIPAL E ORQUESTRAÇÃO DE GERAÇÃO
+--------------------------------------------------------------------------------
+- core__lote.txt                   -> Orquestrador principal de geração em lote de planos
+- core__resultados_aula.txt        -> Proveniência, montagem dos resultados e integração PDF/DOCX/IA
+- core__revisao_final.txt          -> Cálculo do score de qualidade, revisão de limites e regeneração
+- core__qualidade_metodologica.txt -> Sanitização de etapas, limites de caracteres e consolidação
+- core__validador_plano.txt        -> Validação final dos dados gerados antes da montagem do DOCX
+- core__ia.txt                     -> Integração com APIs OpenAI / Gemini e schema de prompts
+- core__models.txt                 -> Modelos Pydantic (PlanoCompleto, EtapaMetodologia, etc.)
+
+--------------------------------------------------------------------------------
+3. BANCO DE DADOS, REGRAS E AUXILIARES
+--------------------------------------------------------------------------------
+- core__database.txt               -> Conexão SQLite (WAL), tabelas (professores, histórico, config) e migrações
+- core__helpers.txt                -> Resolução de caminhos de PDFs, aliases e rotas EJA
+- core__disciplinas.txt            -> Mapeamento de 23 disciplinas e bimestres
+- core__calendario.txt             -> Feriados nacionais, calendário escolar e contagem de datas
+
+--------------------------------------------------------------------------------
+4. MÓDULOS DE REGRAS PEDAGÓGICAS (core/lib/)
+--------------------------------------------------------------------------------
+- core__lib__classificador.txt     -> Classificação de 18 perfis disciplinares, tipos de aula e normalização
+- core__lib__metodologia.txt        -> Motor principal de geração de metodologia sem IA (por perfil)
+- core__lib__higienizador_pedagogico.txt -> Limpeza e substituições gramaticais/pedagógicas
+- core__lib__acompanhamento.txt    -> Geração automática de acompanhamento da aprendizagem
+- core__lib__acessibilidade.txt     -> Adaptações e inclusão por perfil disciplinar
+- core__lib__extrator_pdf.txt      -> Extração estruturada de conteúdo dos PDFs (13 campos)
+- core__lib__tecnicas.txt          -> Banco de técnicas pedagógicas (LEMOV, etc.)
+- core__lib__progressao.txt        -> Variação determinística para evitar repetição entre aulas
+
+--------------------------------------------------------------------------------
+5. EXTENSÕES, CDP E ORIENTAÇÃO DE ESTUDOS
+--------------------------------------------------------------------------------
+- core__cdp_em_docx.txt            -> Motor dos planos CDP Ensino Médio
+- core__ae_priorizado.txt          -> Planilha e integração de Aprendizagem Essencial (AE)
+- core__seletor_referencias.txt    -> Seleção automática de arquivos DOCX de referência
+- core__extracao_palavras_chave_pdf.txt -> Extração semântica de palavras-chave dos PDFs
+- core__contexto_aula_pdf.txt      -> Construção do contexto da aula via PDF
+
+--------------------------------------------------------------------------------
+6. GERADORES DE DOCUMENTOS WORD (.DOCX)
+--------------------------------------------------------------------------------
+- docx_generator__preencher.txt     -> Preenchimento do modelo Word regular (tabelas, células mescladas)
+- docx_generator__preencher_cdp.txt -> Preenchimento do modelo Word CDP / EJA
+================================================================================

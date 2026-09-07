@@ -24,12 +24,9 @@ def _monitorar_sessoes_ativas():
     consecutive_zero_sessions = 0
     while True:
         try:
-            # [CORREÇÃO A4] Proteger acesso à API privada do Streamlit.
-            # runtime._session_mgr é API interna que pode mudar entre versões.
-            # Se indisponível, count=-1 impede encerramento indevido do servidor.
             from streamlit.runtime import get_instance
             runtime = get_instance()
-            if runtime and hasattr(runtime, "_session_mgr"):
+            if runtime:
                 active_sessions = runtime._session_mgr.list_active_sessions()
                 count = len(active_sessions)
                 if count > 0:
@@ -39,14 +36,8 @@ def _monitorar_sessoes_ativas():
                     if has_connected:
                         consecutive_zero_sessions += 1
             else:
-                count = -1  # API indisponível — não encerrar
                 consecutive_zero_sessions = 0
-        except Exception as _monitor_exc:
-            import logging as _log
-            _log.getLogger(__name__).debug(
-                "Monitor de sessões: API Streamlit indisponível (%s)", _monitor_exc
-            )
-            count = -1  # API indisponível — não encerrar
+        except Exception:
             consecutive_zero_sessions = 0
         
         if has_connected and consecutive_zero_sessions >= 5:
@@ -224,8 +215,8 @@ from core.lib.classificador import perfil_disciplina
 APP_ICON_PNG = BASE_DIR / "assets" / "planos_luan_icon.png"
 
 st.set_page_config(
-    page_title="Planos de Aula — SEDUC",
-    page_icon="📚",
+    page_title="PLANOS_LUAN",
+    page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -359,7 +350,8 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
-# [CORREÇÃO B1] import unicodedata removido aqui — já importado no topo do arquivo.
+import unicodedata
+
 def _remover_acentos(texto: str) -> str:
     if not texto:
         return ""
@@ -714,10 +706,6 @@ TURMAS_PADRAO += [
 TURMAS_PADRAO += [turma for turma in TURMAS_CDP_MULTISSERIADA if turma not in TURMAS_PADRAO]
 TURMAS_PADRAO += ["Outra (digitar)"]
 
-# [CORREÇÃO M8] Esta função redefine _selecionar_turma importada de ui.shared acima.
-# A importação de ui.shared é morta — esta versão local é a que está em uso.
-# TODO: Remover a importação de ui.shared ou renomear esta para _selecionar_turma_app()
-#       e verificar qual das duas versões é a canônica antes de consolidar.
 def _selecionar_turma(label: str, key_select: str, key_texto: str, placeholder: str = "Ex.: 7º ANO A") -> str:
     valor_atual = str(st.session_state.get(key_texto, "") or "").strip()
     opcoes = list(TURMAS_PADRAO)
@@ -880,8 +868,21 @@ def _abrir_cadastro_com_filtros(professor: str, disciplina: str, turma: str) -> 
     st.session_state["cadastro_filtro_disciplina"] = disciplina
     st.session_state["cadastro_busca"] = turma
 
-# [CORREÇÃO B2] Definição morta de _falhas_ia() removida.
-# A versão canônica é _falhas_ia_atualizadas que delega para listar_falhas_ia().
+def _falhas_ia(aulas, exigir_ia: bool = True) -> list[str]:
+    falhas = []
+    if not exigir_ia:
+        return falhas
+    for idx, aula in enumerate(aulas or [], start=1):
+        if aula.get("ia_usada"):
+            continue
+        erro = str(aula.get("ia_erro") or "").strip()
+        tema = str(aula.get("tema") or f"Aula {idx}").strip()
+        if erro:
+            falhas.append(f"Aula {idx} ({tema}): {erro}")
+        else:
+            falhas.append(f"Aula {idx} ({tema}): a IA não retornou desenvolvimento completo.")
+    return falhas
+
 def _falhas_ia_atualizadas(aulas, exigir_ia: bool = True) -> list[str]:
     return listar_falhas_ia(aulas, exigir_ia=exigir_ia)
 
@@ -1242,132 +1243,22 @@ _PERFIS_PORTUGUES_PERMITEM_SEM_PDF = {
     "leitura_redacao",
     "matematica",
     "ciencias_ef",
-    "biologia",
-    "quimica",
-    "fisica",
-    "historia",
-    "geografia",
-    "ingles",
-    "arte",
-    "educacao_financeira",
-    "tecnologia_inovacao",
-    "sociologia",
-    "orientacao_estudos",
-    "lideranca_oratoria",
-    "geral",
 }
-
-
-def _permite_um_dia_sem_pdf(
-    disciplina: str,
-    turma: str = "",
-    modo_eja: bool = False,
-    modo_cdp: bool = False,
-) -> bool:
-    """Verifica se a disciplina/modalidade permite a opção de deixar 1 dia da semana sem PDF.
-
-    Permitido em Artes e demais disciplinas regulares, EXCETO:
-    - Projeto de Vida
-    - Aprofundamento em Biologia
-    - Aprofundamento em Geografia
-    - Nenhuma disciplina do CDP
-    - Nenhuma disciplina do EJA
-    """
-    if modo_eja or modo_cdp:
-        return False
-
-    disc_str = str(disciplina or "").strip()
-    if not disc_str:
-        return False
-
-    disc_norm = re.sub(r"\s+", " ", disc_str).lower()
-    disc_norm_sem_acento = (
-        unicodedata.normalize("NFKD", disc_norm).encode("ASCII", "ignore").decode("ascii")
-    )
-
-    # 1. Bloquear CDP ou EJA no nome da disciplina
-    if "cdp" in disc_norm_sem_acento or "eja" in disc_norm_sem_acento:
-        return False
-
-    # 2. Bloquear Projeto de Vida
-    if "projeto" in disc_norm_sem_acento and "vida" in disc_norm_sem_acento:
-        return False
-    try:
-        if perfil_disciplina(disc_str, turma=turma) == "projeto_de_vida":
-            return False
-    except Exception:
-        pass
-
-    # 3. Bloquear Aprofundamento em Biologia
-    if "aprofundamento" in disc_norm_sem_acento and "biologia" in disc_norm_sem_acento:
-        return False
-
-    # 4. Bloquear Aprofundamento em Geografia
-    if "aprofundamento" in disc_norm_sem_acento and "geografia" in disc_norm_sem_acento:
-        return False
-
-    return True
 
 
 def _permite_um_dia_sem_pdf_portugues(disciplina: str, turma: str = "") -> bool:
-    return _permite_um_dia_sem_pdf(disciplina, turma=turma)
-
-
-_PERFIS_SEMANAIS_SEM_PDF = {
-    "lingua_portuguesa_ef",
-    "lingua_portuguesa_em",
-    "leitura_redacao",
-    "matematica",
-    "ciencias_ef",
-}
-
-
-def _frequencia_dia_sem_pdf(disciplina: str, turma: str = "") -> str:
-    """Retorna 'semanal' se a disciplina usa 1 dia sem PDF por semana (ex: Português, Matemática, Ciências),
-
-    ou 'quinzenal' se a disciplina usa 1 dia sem PDF a cada 15 dias (ex: Arte, Biologia, Geografia, etc.).
-    """
     try:
-        if perfil_disciplina(disciplina, turma=turma) in _PERFIS_SEMANAIS_SEM_PDF:
-            return "semanal"
+        return perfil_disciplina(disciplina, turma=turma) in _PERFIS_PORTUGUES_PERMITEM_SEM_PDF
     except Exception:
         disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
-        if any(term in disciplina_norm for term in ["portugu", "reda", "leitura", "matem", "cienc", "cien"]):
-            return "semanal"
-
-    return "quinzenal"
-
-
-def _eh_data_sem_pdf(
-    data_aula: date | None,
-    dia_sem_pdf_semana: int | None,
-    datas_agenda: list[date] | None = None,
-    frequencia: str = "semanal",
-) -> bool:
-    """Verifica se uma data de aula específica deve ficar sem PDF conforme a frequência (semanal ou quinzenal)."""
-    if not isinstance(data_aula, date) or dia_sem_pdf_semana is None:
-        return False
-
-    if data_aula.weekday() != dia_sem_pdf_semana:
-        return False
-
-    if frequencia != "quinzenal":
-        return True
-
-    # Para frequência quinzenal (a cada 15 dias):
-    # Identificar a ordem relativa dessa data entre todas as datas da agenda no mesmo dia da semana
-    if not datas_agenda:
-        return True
-
-    datas_dia = sorted(
-        list(dict.fromkeys(d for d in datas_agenda if isinstance(d, date) and d.weekday() == dia_sem_pdf_semana))
-    )
-    if data_aula not in datas_dia:
-        return True
-
-    idx_data = datas_dia.index(data_aula)
-    # A cada 15 dias (semanas alternadas): ocorrências em índices 0, 2, 4... ficam sem PDF
-    return idx_data % 2 == 0
+        return (
+            "portugu" in disciplina_norm
+            or "reda" in disciplina_norm
+            or "leitura" in disciplina_norm
+            or "matem" in disciplina_norm
+            or "cienc" in disciplina_norm
+            or "cien" in disciplina_norm
+        )
 
 
 def _eh_bloco_sem_pdf(aula: dict) -> bool:
@@ -1572,7 +1463,6 @@ def _coletar_aulas_envio(
     antecipacao_mes: int = 0,
     permitir_um_dia_sem_pdf: bool = False,
     dia_sem_pdf_semana: int | None = None,
-    frequencia_dia_sem_pdf: str = "semanal",
 ):
     aulas_envio = []
     datas_cache = []
@@ -1702,12 +1592,7 @@ def _coletar_aulas_envio(
         eh_bloco_sem_pdf = bool(
             permitir_um_dia_sem_pdf
             and dia_sem_pdf_semana is not None
-            and _eh_data_sem_pdf(
-                data_aula,
-                dia_sem_pdf_semana,
-                datas_agenda=datas_cache,
-                frequencia=frequencia_dia_sem_pdf,
-            )
+            and data_aula.weekday() == dia_sem_pdf_semana
         )
         st.divider()
         dividir_pdf = False
@@ -2633,15 +2518,7 @@ def _render_previa_aulas_cdp(preview: list[dict]):
 
 semana = ""
 
-# Texto padrão fixo para OUTUBRO
-default_outubro = (
-    "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
-    "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
-    "identificadas, preservando os objetivos de aprendizagem estabelecidos.\n"
-    "12/10 – Feriado Nacional"
-)
-
-# Texto padrão fixo para AGOSTO
+# Pre-populate observation for August with the current fixed calendar text
 default_agosto = (
     "Replanejamento – 22 e 23.07;\n"
     "Período do plano – 24.07 até 31.08;\n"
@@ -2651,14 +2528,9 @@ default_agosto = (
 default_agosto_legado = "06/08 - Aniversário da cidade\n07/08 - Ponto facultativo"
 observacoes_automaticas_agosto = {default_agosto, default_agosto_legado}
 
-# Conjunto de todos os textos automáticos conhecidos (para detectar troca de mês)
-_obs_automaticas_conhecidas = observacoes_automaticas_agosto | {default_outubro}
-
 if "observacao" not in st.session_state or not st.session_state["observacao"]:
     if mes.strip().upper() == "AGOSTO":
         st.session_state["observacao"] = default_agosto
-    elif mes.strip().upper() == "OUTUBRO":
-        st.session_state["observacao"] = default_outubro
 elif (
     mes.strip().upper() == "AGOSTO"
     and str(st.session_state.get("observacao", "") or "").strip() == default_agosto_legado
@@ -2669,15 +2541,12 @@ if "last_mes_for_obs" not in st.session_state:
     st.session_state["last_mes_for_obs"] = mes
 
 if st.session_state["last_mes_for_obs"] != mes:
-    current_obs = st.session_state.get("observacao", "").strip()
+    current_obs = st.session_state.get("observacao", "")
     if mes.strip().upper() == "AGOSTO":
-        if not current_obs or current_obs in {"", default_agosto_legado} or current_obs in _obs_automaticas_conhecidas:
+        if not current_obs or current_obs.strip() in {"", default_agosto_legado}:
             st.session_state["observacao"] = default_agosto
-    elif mes.strip().upper() == "OUTUBRO":
-        if not current_obs or current_obs in _obs_automaticas_conhecidas:
-            st.session_state["observacao"] = default_outubro
     else:
-        if current_obs in _obs_automaticas_conhecidas:
+        if current_obs.strip() in observacoes_automaticas_agosto:
             st.session_state["observacao"] = ""
     st.session_state["last_mes_for_obs"] = mes
 
@@ -2720,14 +2589,8 @@ else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
     sequencia_pdf_esperada_ae = []
     contexto_divisao_pdf = "|".join(str(valor or "") for valor in [professor, disciplina, turma, mes, bimestre])
-    frequencia_dia_sem_pdf = _frequencia_dia_sem_pdf(disciplina, turma=turma)
     permitir_dia_sem_pdf_portugues = bool(
-        _permite_um_dia_sem_pdf(
-            disciplina,
-            turma=turma,
-            modo_eja=modo_eja,
-            modo_cdp=disciplina_cdp or modo_cdp_dedicado or modo_cdp_ef_em,
-        )
+        not disciplina_cdp and _permite_um_dia_sem_pdf_portugues(disciplina, turma=turma)
     )
     usar_dia_sem_pdf_portugues = False
     dia_sem_pdf_portugues = None
@@ -2757,20 +2620,10 @@ else:
     auto_repetir_semana = st.checkbox("Repetir semana", key="auto_repetir_semana", disabled=bool(len(datas_horarios_mes or [])))
     dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
     if permitir_dia_sem_pdf_portugues:
-        rotulo_checkbox = (
-            "Permitir 1 dia sem PDF (a cada 15 dias)"
-            if frequencia_dia_sem_pdf == "quinzenal"
-            else "Permitir 1 dia da semana sem PDF"
-        )
-        help_checkbox = (
-            "Use esta opção para deixar um dos dias da disciplina sem PDF a cada 15 dias (semanas alternadas), mantendo apenas a data."
-            if frequencia_dia_sem_pdf == "quinzenal"
-            else "Use esta opção para deixar um dos dias semanais da disciplina em branco no plano, mantendo apenas a data."
-        )
         st.checkbox(
-            rotulo_checkbox,
+            "Permitir 1 dia da semana sem PDF",
             key="permitir_dia_sem_pdf_portugues",
-            help=help_checkbox,
+            help="Use esta opção para deixar um dos dias semanais de Português, Matemática ou Ciências em branco no plano, mantendo apenas a data.",
         )
         usar_dia_sem_pdf_portugues = bool(st.session_state.get("permitir_dia_sem_pdf_portugues", False))
         if usar_dia_sem_pdf_portugues:
@@ -2853,19 +2706,13 @@ else:
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
-        datas_modelo_base = [a.get("data") for a in aulas_oficiais_modelo if isinstance(a.get("data"), date)]
         aulas_oficiais_modelo_pdf = [
             aula for aula in aulas_oficiais_modelo
             if not (
                 usar_dia_sem_pdf_portugues
                 and dia_sem_pdf_portugues is not None
                 and isinstance(aula.get("data"), date)
-                and _eh_data_sem_pdf(
-                    aula["data"],
-                    dia_sem_pdf_portugues,
-                    datas_agenda=datas_modelo_base,
-                    frequencia=frequencia_dia_sem_pdf,
-                )
+                and aula["data"].weekday() == dia_sem_pdf_portugues
             )
         ]
         if linhas_modelo_pdf > 0:
@@ -2876,19 +2723,13 @@ else:
             )
             
         if gerar_turma_espelho and len(aulas_oficiais_modelo_espelho) > 0:
-            datas_modelo_espelho = [a.get("data") for a in aulas_oficiais_modelo_espelho if isinstance(a.get("data"), date)]
             aulas_oficiais_modelo_espelho_pdf = [
                 aula for aula in aulas_oficiais_modelo_espelho
                 if not (
                     usar_dia_sem_pdf_portugues
                     and dia_sem_pdf_portugues is not None
                     and isinstance(aula.get("data"), date)
-                    and _eh_data_sem_pdf(
-                        aula["data"],
-                        dia_sem_pdf_portugues,
-                        datas_agenda=datas_modelo_espelho,
-                        frequencia=frequencia_dia_sem_pdf,
-                    )
+                    and aula["data"].weekday() == dia_sem_pdf_portugues
                 )
             ]
             est_necessarios_espelho = _estimar_pdfs_por_estado(
@@ -3050,7 +2891,6 @@ else:
         antecipacao_mes=antecipacao_mes,
         permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
         dia_sem_pdf_semana=dia_sem_pdf_portugues,
-        frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
     )
 
     aulas_mes_oficial = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else list(aulas_envio)
@@ -3119,7 +2959,6 @@ else:
             sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
             permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
             dia_sem_pdf_semana=dia_sem_pdf_portugues,
-            frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)

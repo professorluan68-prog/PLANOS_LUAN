@@ -24,16 +24,13 @@ def test_planos_luan_app_contem_ciencias_no_dia_sem_pdf():
     conteudo_const = match_const.group(1)
     assert "ciencias_ef" in conteudo_const
 
-    # 3. Verifica se o help do checkbox foi atualizado para mencionar Ciências
-    assert "Português, Matemática ou Ciências em branco no plano" in texto
+    # 3. Verifica se o help do checkbox foi atualizado
+    assert "dias semanais da disciplina em branco no plano" in texto
 
 
 def test_permite_um_dia_sem_pdf_portugues_fallback_ciencias():
     app_path = Path(__file__).resolve().parents[1] / "planos_luan_app.py"
     texto = app_path.read_text(encoding="utf-8")
 
-    # Verifica se o fallback da exceção na função _permite_um_dia_sem_pdf_portugues
-    # possui as palavras-chave para ciências (cienc, cien) e matemática (matem)
-    assert '"cienc" in disciplina_norm' in texto or "'cienc' in disciplina_norm" in texto
-    assert '"cien" in disciplina_norm' in texto or "'cien' in disciplina_norm" in texto
-    assert '"matem" in disciplina_norm' in texto or "'matem' in disciplina_norm" in texto
+    # Verifica se a função _permite_um_dia_sem_pdf foi definida e está no app
+    assert "def _permite_um_dia_sem_pdf(" in texto

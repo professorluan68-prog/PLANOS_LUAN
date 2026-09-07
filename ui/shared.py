@@ -183,6 +183,10 @@ def _ler_bytes_arquivo_cache(caminho: str) -> bytes | None:
     return caminho_path.read_bytes()
 
 @st.cache_data(show_spinner=False, ttl=300)
+def _obter_professores_db_cache():
+    return obter_professores_db()
+
+@st.cache_data(show_spinner=False, ttl=300)
 def _carregar_professores_dos_planos_cache():
     return carregar_professores_dos_planos()
 

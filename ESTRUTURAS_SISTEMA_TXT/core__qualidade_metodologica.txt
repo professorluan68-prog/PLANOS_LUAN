@@ -8,7 +8,7 @@ from typing import Any
 from core.normalizacao import normalizar_preservar_pontuacao as normalizar_texto
 
 
-_PADROES_MOJIBAKE = ("Ã", "Â", "â€", "–", "—", "\ufffd")
+_PADROES_MOJIBAKE = ("Ã", "Â", "â€", "–", "—", "�")
 _CORRECOES_PONTUAIS_MOJIBAKE = {
     "an?lise": "análise",
     "discuss?o": "discussão",
@@ -265,12 +265,6 @@ LIMITE_CARACTERES_ETAPA_EJA = 350
 
 
 def obter_limite_caracteres_etapa(modalidade_eja: bool = False) -> int:
-    """Retorna o limite de caracteres por etapa conforme modalidade.
-
-    [CORREÇÃO A1] Atenção: este limite (300 local / 350 EJA) é para o motor
-    de geração. O score de qualidade em revisao_final.py usa ia_usada para
-    distinguir o limite correto na validação pós-geração.
-    """
     return LIMITE_CARACTERES_ETAPA_EJA if modalidade_eja else LIMITE_CARACTERES_ETAPA_LOCAL
 
 
@@ -393,8 +387,6 @@ PADROES_FRASES_PROBLEMATICAS = {
 }
 
 
-# [CORREÇÃO M5] Referência: estes termos são substituídos por frases longas
-# em sanitizar_texto_cdp_estrito(). Aplicar limite de chars APÓS a sanitização.
 RECURSOS_TECNOLOGICOS_CDP = (
     "computador",
     "celular",
@@ -575,14 +567,6 @@ def _ajustar_texto_ciencias(texto: str) -> str:
 
 
 def sanitizar_texto_cdp_estrito(texto: str) -> str:
-    """Sanitiza texto CDP removendo tecnologias, técnicas LEMOV e agrupamentos.
-
-    [CORREÇÃO M5] ATENÇÃO: Esta função pode AUMENTAR o comprimento do texto,
-    pois substitui palavras curtas (ex: 'celular' = 7 chars) por frases longas
-    (ex: 'material impresso, quadro e registro no caderno' = 47 chars).
-    O chamador DEVE aplicar _encurtar_texto_cdp() ou limitar_texto_natural()
-    APÓS esta função, nunca antes, para garantir o limite de caracteres.
-    """
     if not texto:
         return ""
 

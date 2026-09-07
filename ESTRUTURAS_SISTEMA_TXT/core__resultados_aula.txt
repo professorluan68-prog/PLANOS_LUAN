@@ -47,16 +47,21 @@ _CDP_MAX_ITEM_CHARS = 180
 
 
 def _encurtar_texto_cdp(texto: str, limite: int) -> str:
-    """Mantem frases completas e evita colunas longas no modelo Word.
-
-    [CORREÇÃO A5] Substituído fallback com corte bruto por limitar_texto_natural(),
-    que respeita limites por frase completa conforme regra de negócio.
-    """
-    from core.qualidade_metodologica import limitar_texto_natural
+    """Mantem frases completas e evita colunas longas no modelo Word."""
     texto = re.sub(r"\s+", " ", str(texto or "")).strip(" ,;:-")
     if len(texto) <= limite:
         return texto
-    return limitar_texto_natural(texto, limite=limite)
+    frases = re.split(r"(?<=[.!?])\s+", texto)
+    acumulado = ""
+    for frase in frases:
+        candidato = f"{acumulado} {frase}".strip()
+        if len(candidato) > limite:
+            break
+        acumulado = candidato
+    if acumulado:
+        return acumulado.rstrip(" ,;:-")
+    corte = texto[: max(1, limite - 1)].rsplit(" ", 1)[0].strip(" ,;:-")
+    return corte or texto[:limite].rstrip(" ,;:-")
 
 
 def _sanitizar_agrupamento_cdp(texto: str) -> str:
