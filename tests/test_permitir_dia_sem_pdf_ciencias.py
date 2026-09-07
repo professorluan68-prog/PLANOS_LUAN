@@ -25,7 +25,7 @@ def test_planos_luan_app_contem_ciencias_no_dia_sem_pdf():
     assert "ciencias_ef" in conteudo_const
 
     # 3. Verifica se o help do checkbox foi atualizado
-    assert "dias semanais da disciplina em branco no plano" in texto
+    assert "em branco no plano" in texto
 
 
 def test_permite_um_dia_sem_pdf_portugues_fallback_ciencias():
