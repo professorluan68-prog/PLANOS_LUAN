@@ -58,7 +58,7 @@ O caminho é calculado por `PLANOS_LUAN_DADOS_DIR` e `PDF_AULAS_DIR`. Não criar
 - Biologia EJA: `BIOLOGIA\EJA_BIOLOGIA`.
 - Biologia EJA — 2º e 3º Termo: ambos usam os conteúdos de `3_BIMESTRE\2_TERMO` quando esse bimestre é selecionado.
 - Liderança e Oratória EJA: `LIDERANCA_E_ORATORIA\EJA_EM`.
-- Língua Inglesa EJA: `LINGUA_INGLESA\EJA_EM`.
+- Língua Inglesa EJA: `LINGUA_INGLESA_EJA\EM` (com `1_TERMO` e `2_TERMO` por bimestre) ou `LINGUA_INGLESA\EJA_EM`.
 - Orientação de Estudos: `ORIENTACAO_DE_ESTUDOS\EF\<ANO>`.
 
 As regras de aliases e resolução de pastas ficam em `core/helpers.py`. Ao acrescentar uma nova rota, testar nome da disciplina, modalidade, bimestre e turma separadamente.

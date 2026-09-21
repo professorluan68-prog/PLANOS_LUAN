@@ -45,3 +45,24 @@ def test_resolver_biologia_eja_1_termo_4_bimestre(tmp_path: Path):
             str(base), "Biologia", turma, "4º Bimestre", modalidade_eja=True
         ) == termo_1
 
+
+def test_resolver_lingua_inglesa_eja_1_e_2_termo_4_bimestre(tmp_path: Path):
+    base = tmp_path / "PDF_AULAS"
+    termo_1 = base / "LINGUA_INGLESA_EJA" / "EM" / "4_BIMESTRE" / "1_TERMO"
+    termo_2 = base / "LINGUA_INGLESA_EJA" / "EM" / "4_BIMESTRE" / "2_TERMO"
+    termo_1.mkdir(parents=True)
+    termo_2.mkdir(parents=True)
+    (termo_1 / "AULA_01.pdf").write_bytes(b"%PDF-fake")
+    (termo_2 / "AULA_01.pdf").write_bytes(b"%PDF-fake")
+
+    for disc in ["Língua Inglesa", "Língua Inglesa EJA", "Inglês", "Inglês EJA"]:
+        for turma in ["1ºTermo", "1º Termo", "1_TERMO", "1 Termo"]:
+            assert resolver_pasta_pdfs(
+                str(base), disc, turma, "4º Bimestre", modalidade_eja=True
+            ) == termo_1
+        for turma in ["2ºTermo", "2º Termo", "2_TERMO", "2 Termo"]:
+            assert resolver_pasta_pdfs(
+                str(base), disc, turma, "4º Bimestre", modalidade_eja=True
+            ) == termo_2
+
+

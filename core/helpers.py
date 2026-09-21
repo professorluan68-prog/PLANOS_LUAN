@@ -27,6 +27,11 @@ DISCIPLINA_PASTA_ALIASES = {
     "CDP_ENSINO_FUNDAMENTAL": "CDP_ENSINO_FUNDAMENTAL",
     "BIOLOGIAEJA": "BIOLOGIA_EJA",
     "BIOLOGIA_EJA": "BIOLOGIA_EJA",
+    "INGLES": "LINGUA_INGLESA",
+    "LINGUA_INGLESA_EJA": "LINGUA_INGLESA_EJA",
+    "LINGUA_INGLESAEJA": "LINGUA_INGLESA_EJA",
+    "INGLES_EJA": "LINGUA_INGLESA_EJA",
+    "INGLESEJA": "LINGUA_INGLESA_EJA",
     "SOCIOLOGIA_CDP": "SOCIOLOGIA",
     "MATEMATICA_CDP": "MATEMATICA",
     "MATEMATICA_EM_CDP": "MATEMATICA",
@@ -40,7 +45,9 @@ PASTAS_EJA_POR_DISCIPLINA = {
     "BIOLOGIA": "EJA_BIOLOGIA",
     "BIOLOGIA_EJA": "EJA_BIOLOGIA",
     "LINGUA_INGLESA": "EJA_EM",
+    "LINGUA_INGLESA_EJA": "EJA_EM",
     "INGLES": "EJA_EM",
+    "INGLES_EJA": "EJA_EM",
     "LIDERANCA_E_ORATORIA": "EJA_EM",
     "LIDERANA_E_ORATRIA": "EJA_EM",
 }
@@ -202,8 +209,8 @@ def resolver_raiz_disciplina_pdfs(
     eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
 
     if eja_solicitado:
-        disciplina_base_eja = "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
-        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja)
+        disciplina_base_eja = re.sub(r"_?EJA$", "", disc_folder) or disc_folder
+        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja) or PASTAS_EJA_POR_DISCIPLINA.get(disc_folder)
         candidatas_eja = [
             base_path / f"{disciplina_base_eja}_EJA",
             base_path / disc_folder,
@@ -600,9 +607,9 @@ def resolver_pasta_pdfs(
                 return pasta_flexivel_eja
 
         disciplina_base_eja = (
-            "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
+            re.sub(r"_?EJA$", "", disc_folder) or disc_folder
         )
-        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja)
+        subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja) or PASTAS_EJA_POR_DISCIPLINA.get(disc_folder)
         if subpasta_eja:
             raiz_eja = Path(base_dir) / disciplina_base_eja / subpasta_eja
             if raiz_eja.exists():
