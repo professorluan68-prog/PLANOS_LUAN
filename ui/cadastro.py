@@ -12,6 +12,7 @@ from core.database import (
     excluir_vinculo_professor,
     obter_dados_administrativos_professor,
     salvar_dados_administrativos_professor,
+    listar_todos_dados_administrativos,
 )
 from core.modelos_docx import (
     resolver_template_id_geracao,
@@ -43,7 +44,25 @@ from ui.shared import (
     _defaults_grade_horarios,
 )
 
-_PROFESSORES_DADOS_PILOTO = {"LUAN DIAS", "LUAN DAS"}
+
+def extrair_valor_float(valor_str: str) -> float:
+    if not valor_str:
+        return 0.0
+    limpo = re.sub(r"[^\d,\.]", "", str(valor_str)).strip()
+    if not limpo:
+        return 0.0
+    if "," in limpo and "." in limpo:
+        limpo = limpo.replace(".", "").replace(",", ".")
+    elif "," in limpo:
+        limpo = limpo.replace(",", ".")
+    try:
+        return float(limpo)
+    except ValueError:
+        return 0.0
+
+
+def formatar_moeda_br(valor: float) -> str:
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _normalizar_nome_dados_professor(nome: str = "") -> str:
@@ -54,7 +73,7 @@ def _normalizar_nome_dados_professor(nome: str = "") -> str:
 
 
 def _eh_professor_dados_piloto(nome: str = "") -> bool:
-    return _normalizar_nome_dados_professor(nome) in _PROFESSORES_DADOS_PILOTO
+    return bool(str(nome or "").strip())
 
 
 def _opcoes_componente_curricular(disciplina_atual: str = "", componente_atual: str = "") -> list[str]:
@@ -668,7 +687,7 @@ def _renderizar_organizacao_cadastro(cadastros: list[dict], diagnostico: dict) -
 
 def _renderizar_dados_administrativos_professor(cadastros: list[dict], professores_db) -> None:
     st.markdown("**Dados do professor**")
-    st.caption("Piloto liberado apenas para LUAN DIAS por enquanto. Os dados ficam no banco local, nao no codigo.")
+    st.caption("Consulte e gerencie os dados de contato e o valor mensal cobrado de cada professor.")
 
     nomes = {
         str(nome or "").strip().upper()
@@ -680,41 +699,47 @@ def _renderizar_dados_administrativos_professor(cadastros: list[dict], professor
         for cadastro in cadastros
         if str(cadastro.get("professor") or "").strip()
     )
-    opcoes = sorted(nome for nome in nomes if _eh_professor_dados_piloto(nome))
+    for admin_item in listar_todos_dados_administrativos():
+        nome_admin = str(admin_item.get("professor") or "").strip().upper()
+        if nome_admin:
+            nomes.add(nome_admin)
+
+    opcoes = sorted(nome for nome in nomes if nome)
 
     if not opcoes:
-        st.info("O piloto esta pronto, mas nao encontrei LUAN DIAS nos cadastros carregados.")
+        st.info("Nenhum professor encontrado nos cadastros.")
         return
 
     professor = st.selectbox(
         "Professor",
         opcoes,
-        key="dados_admin_professor_piloto",
+        key="dados_admin_professor_selecionado",
     )
     dados = obter_dados_administrativos_professor(professor)
 
-    with st.form("form_dados_administrativos_professor"):
+    prof_slug = re.sub(r"\W+", "_", professor.lower()).strip("_")
+    with st.form(f"form_dados_administrativos_{prof_slug}"):
         col_cpf, col_email = st.columns(2)
         with col_cpf:
-            cpf = st.text_input("CPF", value=dados.get("cpf", ""), key="dados_admin_cpf").strip()
+            cpf = st.text_input("CPF", value=dados.get("cpf", ""), key=f"dados_admin_cpf_{prof_slug}").strip()
         with col_email:
-            email = st.text_input("Email", value=dados.get("email", ""), key="dados_admin_email").strip()
+            email = st.text_input("Email", value=dados.get("email", ""), key=f"dados_admin_email_{prof_slug}").strip()
 
         col_valor, col_tel = st.columns(2)
         with col_valor:
             valor_mensal = st.text_input(
                 "Valor mensal",
                 value=dados.get("valor_mensal", ""),
-                key="dados_admin_valor_mensal",
+                key=f"dados_admin_valor_mensal_{prof_slug}",
                 placeholder="Ex.: R$ 1.500,00",
             ).strip()
         with col_tel:
-            telefone = st.text_input("Telefone", value=dados.get("telefone", ""), key="dados_admin_telefone").strip()
+            telefone = st.text_input("Telefone", value=dados.get("telefone", ""), key=f"dados_admin_telefone_{prof_slug}").strip()
 
         observacoes = st.text_area(
             "Observacoes",
             value=dados.get("observacoes", ""),
-            key="dados_admin_observacoes",
+            key=f"dados_admin_observacoes_{prof_slug}",
             height=140,
         ).strip()
 
@@ -729,12 +754,99 @@ def _renderizar_dados_administrativos_professor(cadastros: list[dict], professor
                     telefone=telefone,
                     observacoes=observacoes,
                 )
-                st.success("Dados do professor salvos.")
+                st.success(f"Dados do professor {professor} salvos com sucesso.")
                 st.rerun()
             except Exception as exc:
                 st.error("Nao foi possivel salvar os dados do professor.")
                 with st.expander("Ver detalhe tecnico"):
                     st.exception(exc)
+
+
+def _renderizar_faturamento_professores(cadastros: list[dict], professores_db) -> None:
+    st.markdown("**Faturamento total do mês**")
+    st.caption("Visão consolidada da receita mensal com base nos valores cobrados de cada professor.")
+
+    admin_dados = listar_todos_dados_administrativos()
+    admin_by_prof = {item["professor"].upper(): item for item in admin_dados}
+
+    professores_todos = set(professores_db.keys())
+    professores_todos.update(
+        str(cadastro.get("professor") or "").strip().upper()
+        for cadastro in cadastros
+        if str(cadastro.get("professor") or "").strip()
+    )
+    professores_todos.update(admin_by_prof.keys())
+    lista_professores = sorted(list(professores_todos))
+
+    if not lista_professores:
+        st.info("Nenhum professor cadastrado no momento.")
+        return
+
+    vinculos_por_prof = {}
+    for c in cadastros:
+        p_nome = str(c.get("professor") or "").strip().upper()
+        if p_nome:
+            vinculos_por_prof[p_nome] = vinculos_por_prof.get(p_nome, 0) + 1
+
+    tabela_linhas = []
+    total_faturamento = 0.0
+    pagantes_count = 0
+
+    for prof in lista_professores:
+        info_admin = admin_by_prof.get(prof, {})
+        val_str = info_admin.get("valor_mensal", "")
+        val_float = extrair_valor_float(val_str)
+        if val_float > 0:
+            total_faturamento += val_float
+            pagantes_count += 1
+
+        tabela_linhas.append({
+            "Professor": prof,
+            "Valor mensal": formatar_moeda_br(val_float) if val_float > 0 else (val_str if val_str else "Não cadastrado"),
+            "Valor (R$)": val_float,
+            "Telefone": info_admin.get("telefone", "") or "-",
+            "Email": info_admin.get("email", "") or "-",
+            "Vínculos / Turmas": vinculos_por_prof.get(prof, 0),
+            "Status": "Pagante" if val_float > 0 else "Sem valor definido",
+            "Observações": info_admin.get("observacoes", "") or "-",
+        })
+
+    total_professores = len(lista_professores)
+    ticket_medio = (total_faturamento / pagantes_count) if pagantes_count > 0 else 0.0
+
+    col_tot, col_pag, col_avg, col_prof = st.columns(4)
+    with col_tot:
+        st.metric("Faturamento Mensal Total", formatar_moeda_br(total_faturamento))
+    with col_pag:
+        st.metric("Professores Pagantes", f"{pagantes_count} de {total_professores}")
+    with col_avg:
+        st.metric("Ticket Médio (Pagantes)", formatar_moeda_br(ticket_medio))
+    with col_prof:
+        st.metric("Professores Cadastrados", str(total_professores))
+
+    st.markdown("---")
+    st.markdown("##### Detalhamento por professor")
+
+    busca = st.text_input("Filtrar por nome do professor", key="busca_faturamento_prof").strip().upper()
+    if busca:
+        tabela_linhas = [l for l in tabela_linhas if busca in l["Professor"]]
+
+    if tabela_linhas:
+        df_exibicao = [
+            {
+                "Professor": row["Professor"],
+                "Valor Mensal": row["Valor mensal"],
+                "Status": row["Status"],
+                "Vínculos": row["Vínculos / Turmas"],
+                "Telefone": row["Telefone"],
+                "Email": row["Email"],
+                "Observações": row["Observações"],
+            }
+            for row in tabela_linhas
+        ]
+        st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum professor encontrado com os critérios de busca.")
 
 
 def _renderizar_cadastro_professor(professores_db) -> None:
@@ -745,8 +857,8 @@ def _renderizar_cadastro_professor(professores_db) -> None:
     diagnostico = _diagnosticar_modelos_professores_cache()
     _renderizar_metricas_cadastro(cadastros, diagnostico)
 
-    aba_editar, aba_novo, aba_dados, aba_organizacao = st.tabs(
-        ["Consultar e editar", "Novo cadastro", "Dados do professor", "Organizacao"]
+    aba_editar, aba_novo, aba_dados, aba_faturamento, aba_organizacao = st.tabs(
+        ["Consultar e editar", "Novo cadastro", "Dados do professor", "Faturamento", "Organizacao"]
     )
     with aba_editar:
         _renderizar_editor_cadastro(cadastros)
@@ -754,5 +866,7 @@ def _renderizar_cadastro_professor(professores_db) -> None:
         _renderizar_novo_cadastro(professores_db)
     with aba_dados:
         _renderizar_dados_administrativos_professor(cadastros, professores_db)
+    with aba_faturamento:
+        _renderizar_faturamento_professores(cadastros, professores_db)
     with aba_organizacao:
         _renderizar_organizacao_cadastro(cadastros, diagnostico)

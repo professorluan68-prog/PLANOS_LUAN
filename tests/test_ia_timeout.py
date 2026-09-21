@@ -259,3 +259,58 @@ def test_aula_por_pdf_envia_rascunho_local_para_refinamento_da_ia(monkeypatch):
     assert capturado["rascunho_base"]["tema"] == "Recursos hidricos"
     assert capturado["rascunho_base"]["metodologia"][0]["texto"] == "Retomar o consumo de agua em situacoes do cotidiano."
     assert aula["ia_usada"] is True
+
+
+def test_processar_plano_ia_fallback_openai_para_gemini(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "chave-openai-invalida")
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-gemini-valida")
+
+    class DummyOpenAI:
+        def __init__(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(ia, "OpenAI", DummyOpenAI)
+    monkeypatch.setattr(
+        ia,
+        "_chamar_openai_com_retry",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("Erro OpenAI RateLimit")),
+    )
+
+    class DummyResponse:
+        text = '{"tema":"Tema via Fallback Gemini","aprendizagem":"AE Gemini","metodologia":[]}'
+
+    class DummyModels:
+        def generate_content(self, **kwargs):
+            return DummyResponse()
+
+    class DummyClient:
+        def __init__(self, api_key=None, http_options=None):
+            self.models = DummyModels()
+
+    monkeypatch.setattr(ia, "genai", SimpleNamespace(Client=DummyClient))
+    monkeypatch.setattr(
+        ia,
+        "types",
+        SimpleNamespace(
+            HttpOptions=lambda **kwargs: dict(kwargs),
+            GenerateContentConfig=lambda **kwargs: dict(kwargs),
+        ),
+    )
+    monkeypatch.setattr(ia, "_montar_prompt", lambda *args, **kwargs: "PROMPT")
+    monkeypatch.setattr(ia, "get_system_prompt", lambda disciplina, turma="": "SYSTEM")
+    monkeypatch.setattr(ia, "_normalizar_saida_ia", lambda data, *args, **kwargs: data)
+    monkeypatch.setattr(
+        ia,
+        "diagnosticar_referencia_metodologica",
+        lambda *args, **kwargs: SimpleNamespace(texto="", aviso=""),
+    )
+
+    saida = ia.processar_plano_ia(
+        texto_pdf="texto",
+        disciplina="História",
+        turma="1º ANO",
+        provedor="openai",
+        modelo="gpt-4o-mini",
+    )
+
+    assert saida["tema"] == "Tema via Fallback Gemini"

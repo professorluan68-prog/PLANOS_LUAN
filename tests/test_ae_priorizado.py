@@ -322,3 +322,46 @@ def test_aplica_ae_priorizado_a_partir_da_planilha_local(tmp_path):
     assert ajustadas[0]["aprendizagem_original"] == "Habilidade: EF89LP37 texto original"
     assert ajustadas[0]["ae_priorizado_aplicado"] is True
     assert ajustadas[0]["ae_priorizado_codigo"] == "AE4"
+
+
+def test_ignora_hifens_e_placeholders_na_planilha_ae(tmp_path):
+    caminho_planilha = tmp_path / "GUIA_7_ANO_4_BIMESTRE.xlsx"
+    pd.DataFrame(
+        [
+            {
+                "AULA": 1,
+                "TÍTULO": "Aula 1",
+                "Habilidades": "EF07LI02",
+                "Aprendizagem Essencial": "AE7 - Utilizar a língua inglesa",
+            },
+            {
+                "AULA": 4,
+                "TÍTULO": "Trilha de aprendizagem individual",
+                "Habilidades": "-",
+                "Aprendizagem Essencial": "-",
+            },
+        ]
+    ).to_excel(caminho_planilha, index=False)
+
+    aulas = [
+        {
+            "tema": "Trilha de aprendizagem individual",
+            "material": "AULA 4 - Trilha",
+            "numero_aula": "4",
+            "aprendizagem": "Compreender e analisar conceitos relacionados a Trilha de aprendizagem",
+        }
+    ]
+
+    ajustadas, avisos = ae_priorizado.aplicar_ae_priorizado_nas_aulas(
+        aulas,
+        disciplina="Língua Inglesa",
+        turma="7º ANO A",
+        bimestre="4º Bimestre",
+        caminho_planilha=str(caminho_planilha),
+    )
+
+    # Não deve sobrescrever com '-' ou texto inválido
+    assert ajustadas[0]["aprendizagem"] == "Compreender e analisar conceitos relacionados a Trilha de aprendizagem"
+    assert ajustadas[0]["ae_priorizado_aplicado"] is False
+    assert len(avisos) == 1
+    assert "4" in avisos[0]

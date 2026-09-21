@@ -111,3 +111,19 @@ def test_validar_pdf_contexto_sem_ia_ignora_bimestre_errado_para_cdp():
 
     assert resultado.valido is True
     assert resultado.motivos == ()
+
+
+def test_validar_pdf_contexto_sem_ia_suporta_pdf_dividido_em_pasta():
+    # PDF par de um slide deck dividido (ex: AULA_2.pdf), sem a capa que continha o nome da disciplina no texto
+    caminho = Path(r"C:\Users\LuanDias\PLANOS_LUAN_DADOS\PDF_AULAS\ROBOTICA\EM\4_BIMESTRE\2_ANO\AULA_2.pdf")
+    resultado = validacao.validar_pdf_contexto_sem_ia(
+        caminho,
+        disciplina="ROBOTICA",
+        turma="2º ANO",
+        bimestre="4º Bimestre",
+        texto_pdf="Na prática. Monte as peças conforme o gabarito 2.",
+    )
+
+    assert resultado.valido is True
+    assert resultado.motivos == ()
+

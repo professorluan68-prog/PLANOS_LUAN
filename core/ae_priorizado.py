@@ -105,6 +105,17 @@ def _normalizar_cabecalho_coluna(valor: str = "") -> str:
     return texto.strip().lower()
 
 
+def _eh_texto_valido(texto: str = "", min_len: int = 4) -> bool:
+    texto_limpo = str(texto or "").strip()
+    if not texto_limpo or texto_limpo.lower() in {"nan", "null", "none", "n/a"}:
+        return False
+    if re.match(r"^[-_.\s]*$", texto_limpo):
+        return False
+    if len(texto_limpo) < min_len:
+        return False
+    return True
+
+
 def _extrair_codigo_ae(texto_ae: str = "") -> str:
     match = re.search(r"\b(AE\d+)\b", str(texto_ae or ""), flags=re.IGNORECASE)
     return match.group(1).upper() if match else ""
@@ -161,26 +172,30 @@ def carregar_base_ae_planilha(caminho_planilha: str = "") -> dict:
             continue
             
         texto_ae = str(row.get(col_ae) or "").strip()
-        if not texto_ae or texto_ae.lower() == "nan" or re.match(r"^-?\s*$", texto_ae):
+        if not _eh_texto_valido(texto_ae, min_len=5):
             # Tenta varredura robusta nas outras colunas
+            texto_encontrado = ""
             for col in df.columns:
                 val = str(row[col]).strip()
                 if val.lower() != "nan" and re.search(r"\bAE\d+\b", val, re.IGNORECASE):
-                    texto_ae = val
+                    texto_encontrado = val
                     break
+            texto_ae = texto_encontrado
 
-        # Se mesmo assim não achar AE, ignora
-        if not texto_ae or texto_ae.lower() == "nan":
+        # Se mesmo assim não achar AE válido, ignora
+        if not _eh_texto_valido(texto_ae, min_len=5):
             continue
 
         habilidade = str(row.get(col_habilidade) or "").strip() if col_habilidade else ""
-        if not habilidade or habilidade.lower() == "nan":
+        if not _eh_texto_valido(habilidade, min_len=4):
             # Varredura robusta por habilidade nas outras colunas
+            hab_encontrada = ""
             for col in df.columns:
                 val = str(row[col]).strip()
                 if val.lower() != "nan" and re.search(r"\b[A-Z]{2,4}\d+[A-Z\d]+\b", val):
-                    habilidade = val
+                    hab_encontrada = val
                     break
+            habilidade = hab_encontrada
 
         vistos.add(numero_aula)
         mapa_por_aula.append(
@@ -233,32 +248,36 @@ def carregar_base_habilidades_planilha(caminho_planilha: str = "") -> dict:
             continue
             
         habilidade = str(row.get(col_habilidade) or "").strip()
-        if not habilidade or habilidade.lower() == "nan" or re.match(r"^-?\s*$", habilidade):
+        if not _eh_texto_valido(habilidade, min_len=4):
             # Tenta varredura robusta nas outras colunas
+            hab_encontrada = ""
             for col in df.columns:
                 val = str(row[col]).strip()
                 if val.lower() != "nan" and re.search(r"\b[A-Z]{2,4}\d+[A-Z\d]+\b", val):
-                    habilidade = val
+                    hab_encontrada = val
                     break
+            habilidade = hab_encontrada
 
-        if not habilidade or habilidade.lower() == "nan":
+        if not _eh_texto_valido(habilidade, min_len=4):
             continue
 
         texto_ae = str(row.get(col_ae) or "").strip() if col_ae else ""
-        if not texto_ae or texto_ae.lower() == "nan":
+        if not _eh_texto_valido(texto_ae, min_len=5):
             # Tenta varredura robusta nas outras colunas
+            texto_encontrado = ""
             for col in df.columns:
                 val = str(row[col]).strip()
                 if val.lower() != "nan" and re.search(r"\bAE\d+\b", val, re.IGNORECASE):
-                    texto_ae = val
+                    texto_encontrado = val
                     break
+            texto_ae = texto_encontrado
 
         vistos.add(numero_aula)
         mapa_por_aula.append(
             {
                 "aula_numero": numero_aula,
                 "habilidade_textos": habilidade,
-                "usar_ae": texto_ae if texto_ae.lower() != "nan" else "",
+                "usar_ae": texto_ae if _eh_texto_valido(texto_ae, min_len=5) else "",
                 "ae_codigos": _extrair_codigo_ae(texto_ae),
                 "titulo": str(row.get(col_titulo) or "").strip() if col_titulo else "",
             }
@@ -455,10 +474,11 @@ def aplicar_ae_priorizado_nas_aulas(
             aula_ajustada["_ae_ordem_entrada"] = ordem_entrada
             aula_ajustada["_ae_ordem_guia"] = ordem_planilha.get(numero_aula, 10_000 + ordem_entrada)
 
-            if item and item.get("usar_ae"):
+            texto_usar_ae = str(item.get("usar_ae") or "").strip() if item else ""
+            if _eh_texto_valido(texto_usar_ae, min_len=5):
                 aprendizagem_original = str(aula_ajustada.get("aprendizagem") or "").strip()
                 aula_ajustada["aprendizagem_original"] = aprendizagem_original
-                aula_ajustada["aprendizagem"] = str(item.get("usar_ae") or "").strip()
+                aula_ajustada["aprendizagem"] = texto_usar_ae
                 aula_ajustada["ae_priorizado_aplicado"] = True
                 aula_ajustada["ae_priorizado_codigo"] = str(item.get("ae_codigos") or "").strip()
             else:
@@ -505,10 +525,11 @@ def aplicar_ae_priorizado_nas_aulas(
         aula_ajustada["_ae_ordem_entrada"] = ordem_entrada
         aula_ajustada["_ae_ordem_guia"] = ordem.get(chave, 10_000 + ordem_entrada)
 
-        if item and item.get("usar_ae"):
+        texto_usar_ae = str(item.get("usar_ae") or "").strip() if item else ""
+        if _eh_texto_valido(texto_usar_ae, min_len=5):
             aprendizagem_original = str(aula_ajustada.get("aprendizagem") or "").strip()
             aula_ajustada["aprendizagem_original"] = aprendizagem_original
-            aula_ajustada["aprendizagem"] = str(item.get("usar_ae") or "").strip()
+            aula_ajustada["aprendizagem"] = texto_usar_ae
             aula_ajustada["ae_priorizado_aplicado"] = True
             aula_ajustada["ae_priorizado_chave"] = chave
             aula_ajustada["ae_priorizado_codigo"] = str(item.get("ae_codigos") or "").strip()

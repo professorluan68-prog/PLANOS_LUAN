@@ -1993,9 +1993,14 @@ def _extrair_aulas_dos_pdfs(
             )
             problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
             
+            problemas_bloqueantes = []
             for problema in problemas_plano:
-                if "repetido de aula anterior" in str(problema).lower(): avisos_repeticao.append(problema)
-                else: raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_plano))
+                if "repetido de aula anterior" in str(problema).lower():
+                    avisos_repeticao.append(problema)
+                else:
+                    problemas_bloqueantes.append(problema)
+            if problemas_bloqueantes:
+                raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_bloqueantes))
 
         aulas_vazias = []
         for aula_envio in aulas_antecipacao + aulas_sem_pdf:
@@ -2444,7 +2449,7 @@ def _resolver_pasta_pdfs_oficial(
             f"Pasta oficial de PDFs indisponivel: {raiz_oficial}"
         )
 
-    disciplinas_busca = [f"{disciplina}-EJA", disciplina] if modo_eja else [disciplina]
+    disciplinas_busca = [f"{disciplina} EJA", disciplina] if modo_eja else [disciplina]
     candidatos = []
     for disciplina_busca in disciplinas_busca:
         pasta = resolver_pasta_pdfs(

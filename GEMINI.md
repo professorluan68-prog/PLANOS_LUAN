@@ -11,7 +11,7 @@ inteligente do conteúdo dos PDFs.
 - **Streamlit 1.28.1** — interface web (`planos_luan_app.py`)
 - **pdfplumber 0.10.3** — leitura de PDFs
 - **python-docx 0.8.11** — geração de Word
-- **SQLite** — banco de dados (`planos_luan.db`)
+- **SQLite** — banco de dados (`PLANOS_LUAN_DADOS/planos_luan.db`)
 - **OpenAI / Google Gemini** — extração via IA
 - **pytest** — testes
 

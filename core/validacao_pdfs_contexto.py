@@ -262,8 +262,8 @@ def validar_pdf_contexto_sem_ia(
     if not texto.strip() and perfil != "orientacao_estudos":
         motivos.append("nao foi possivel ler texto do PDF")
 
-    contexto_original = f"{caminho.name} {texto}"
-    contexto_norm = normalizar_texto(contexto_original)
+    contexto_original = f"{caminho} {texto}"
+    contexto_norm = normalizar_texto(contexto_original).replace("_", " ")
     perfil = perfil_disciplina(disciplina, turma=turma)
     aliases = _ALIASES_PERFIL.get(perfil) or tuple(_tokens_relevantes(disciplina))
     if perfil == "orientacao_estudos" or (aliases and any(normalizar_texto(alias) in contexto_norm for alias in aliases)):

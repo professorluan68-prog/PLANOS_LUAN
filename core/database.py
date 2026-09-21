@@ -12,7 +12,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime
 
-from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR, PLANOS_FEITOS_DIR
+from config import BASE_DIR, DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR, PLANOS_FEITOS_DIR
 from core.lib.classificador import normalizar_texto
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,17 @@ def get_connection(db_path=None):
     Retorna uma nova conexão SQLite configurada para concorrência (WAL).
     Cada worker/thread deve abrir sua própria conexão via esta função.
     """
-    db_path = DB_PATH if db_path is None else db_path
+    if db_path is None:
+        db_path = DB_PATH
+        banco_raiz = BASE_DIR / "planos_luan.db"
+        if banco_raiz.exists() and banco_raiz.resolve() != Path(DB_PATH).resolve():
+            logger.warning(
+                "Detectado banco residual na raiz ('%s'). O sistema opera com o banco oficial em '%s'.",
+                banco_raiz,
+                DB_PATH,
+            )
+
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     # Pragmas aplicadas por conexão para garantir comportamento consistente
     conn.execute("PRAGMA journal_mode=WAL;")
@@ -1368,6 +1378,40 @@ def salvar_dados_administrativos_professor(
         )
 
     return obter_dados_administrativos_professor(nome)
+
+
+def listar_todos_dados_administrativos() -> list[dict[str, str]]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                p.nome,
+                COALESCE(d.cpf, ''),
+                COALESCE(d.email, ''),
+                COALESCE(d.valor_mensal, ''),
+                COALESCE(d.telefone, ''),
+                COALESCE(d.observacoes, ''),
+                COALESCE(d.atualizado_em, '')
+            FROM professores p
+            LEFT JOIN professor_dados d ON d.professor_id = p.id
+            ORDER BY p.nome
+            """
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "professor": row[0],
+            "cpf": row[1] or "",
+            "email": row[2] or "",
+            "valor_mensal": row[3] or "",
+            "telefone": row[4] or "",
+            "observacoes": row[5] or "",
+            "atualizado_em": row[6] or "",
+        }
+        for row in rows
+    ]
 
 
 def obter_professores_db():

@@ -149,11 +149,16 @@ class LocalFileWrapper(io.BytesIO):
 
 
 def normalizar_para_pasta(texto: str) -> str:
-    texto_norm = unicodedata.normalize("NFKD", str(texto or ""))
+    t = str(texto or "")
+    t = re.sub(r"(\d)\s*[º°ª]\s*", r"\1_", t)
+    texto_norm = unicodedata.normalize("NFKD", t)
     texto_norm = "".join(ch for ch in texto_norm if not unicodedata.combining(ch))
-    texto_norm = re.sub(r"[^\w\s]", "", texto_norm).upper().strip().replace(" ", "_")
+    texto_norm = re.sub(r"[^\w\s]", "", texto_norm).upper().strip()
+    texto_norm = re.sub(r"\s+", "_", texto_norm)
     # Ajustar entradas comuns como "1o ano" e "2a serie".
     return re.sub(r"(\d)[OA]_", r"\1_", texto_norm)
+
+
 
 
 def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
@@ -199,8 +204,13 @@ def resolver_raiz_disciplina_pdfs(
     if eja_solicitado:
         disciplina_base_eja = "BIOLOGIA" if disc_folder == "BIOLOGIA_EJA" else disc_folder
         subpasta_eja = PASTAS_EJA_POR_DISCIPLINA.get(disciplina_base_eja)
+        candidatas_eja = [
+            base_path / f"{disciplina_base_eja}_EJA",
+            base_path / disc_folder,
+        ]
         if subpasta_eja:
-            raiz_eja = base_path / disciplina_base_eja / subpasta_eja
+            candidatas_eja.append(base_path / disciplina_base_eja / subpasta_eja)
+        for raiz_eja in candidatas_eja:
             if raiz_eja.exists():
                 return raiz_eja
 
@@ -214,6 +224,7 @@ def resolver_raiz_disciplina_pdfs(
                 return candidata
 
     return pasta_disc
+
 
 
 def _pasta_tem_pdfs(caminho: Path) -> bool:
@@ -272,32 +283,38 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
     # normalizadas para "8O9_EF". Preserve o agrupamento para que a busca
     # prefira a pasta concreta "8_ANO_9_ANO" em vez de outra pasta CDP-EF.
     match_multisseriada = re.fullmatch(
-        r"((?:[1-9][OA]?){2,})(?:_(?:EF|EM|[A-Z]))?(?:_[A-Z])?",
+        r"((?:[1-9][OA_]?)+)(?:_(?:EF|EM|[A-Z]))?(?:_[A-Z])?",
         turma_norm,
     )
     if match_multisseriada:
         anos = re.findall(r"[1-9]", match_multisseriada.group(1))
-        tokens.append("_".join(f"{ano}_ANO" for ano in anos))
-        tokens.append("_".join(anos) + "_ANO")
-        tokens.extend(f"{ano}_ANO" for ano in anos)
-        return [token for token in dict.fromkeys(tokens) if token]
+        if len(anos) >= 2:
+            tokens.append("_".join(f"{ano}_ANO" for ano in anos))
+            tokens.append("_".join(anos) + "_ANO")
+            tokens.extend(f"{ano}_ANO" for ano in anos)
+            return [token for token in dict.fromkeys(tokens) if token]
+
 
     match_ano = re.search(r"(\d)_ANO(?:_([A-Z]))?", turma_norm)
     match_serie = re.search(r"(\d)_SERIE(?:_([A-Z]))?", turma_norm)
-    match = match_ano or match_serie
+    match_termo = re.search(r"(\d)_TERMO(?:_([A-Z]))?", turma_norm)
+    match = match_ano or match_serie or match_termo
     if not match:
         return [token for token in dict.fromkeys(tokens) if token]
 
     numero = match.group(1)
     letra = match.group(2)
-    tokens.extend([f"{numero}_ANO", f"{numero}_SERIE"])
+    sufixo = "TERMO" if match == match_termo else ("SERIE" if match == match_serie else "ANO")
+    tokens.extend([f"{numero}_{sufixo}"])
+    if sufixo != "TERMO":
+        tokens.append(f"{numero}_SERIE" if sufixo == "ANO" else f"{numero}_ANO")
     if letra:
-        tokens.extend([f"{numero}_ANO_{letra}", f"{numero}_SERIE_{letra}"])
+        tokens.extend([f"{numero}_{sufixo}_{letra}"])
     return [token for token in dict.fromkeys(tokens) if token]
 
 
 def _nivel_preferido_para_turma(turma_norm: str) -> str:
-    if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm:
+    if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm or "TERMO" in turma_norm:
         return "EM"
     if "EF" in turma_norm:
         return "AF"
@@ -306,6 +323,7 @@ def _nivel_preferido_para_turma(turma_norm: str) -> str:
     if "FUNDAMENTAL" in turma_norm:
         return "AF"
     return "EM"
+
 
 
 def _pontuar_pasta_pdf(

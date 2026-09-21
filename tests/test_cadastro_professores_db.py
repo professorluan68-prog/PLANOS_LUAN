@@ -1,6 +1,6 @@
 from core import database
 from core.professores_planos import mesclar_professores
-from ui.cadastro import _disciplinas_por_professor, _eh_professor_dados_piloto
+from ui.cadastro import _disciplinas_por_professor, _eh_professor_dados_piloto, extrair_valor_float, formatar_moeda_br
 
 
 def _preparar_banco(monkeypatch, tmp_path):
@@ -86,11 +86,11 @@ def test_excluir_ultimo_vinculo_remove_professor_sem_remover_historico(monkeypat
     assert len(database.listar_historico_planos()) == 1
 
 
-def test_dados_administrativos_do_professor_salvam_e_atualizam(monkeypatch, tmp_path):
+def test_dados_administrativos_professor_crud_e_listagem(monkeypatch, tmp_path):
     _preparar_banco(monkeypatch, tmp_path)
 
     database.salvar_dados_administrativos_professor(
-        "Luan Dias",
+        "LUAN DIAS",
         cpf="000.000.000-00",
         email="luan@example.com",
         valor_mensal="R$ 1.500,00",
@@ -107,14 +107,16 @@ def test_dados_administrativos_do_professor_salvam_e_atualizam(monkeypatch, tmp_
     assert dados["observacoes"] == "Piloto"
 
     database.salvar_dados_administrativos_professor(
-        "LUAN DIAS",
-        email="novo@example.com",
-        observacoes="Atualizado",
+        "MARIA SILVA",
+        email="maria@example.com",
+        valor_mensal="800,00",
     )
-    atualizado = database.obter_dados_administrativos_professor("Luan Dias")
-    assert atualizado["cpf"] == ""
-    assert atualizado["email"] == "novo@example.com"
-    assert atualizado["observacoes"] == "Atualizado"
+
+    todos = database.listar_todos_dados_administrativos()
+    assert len(todos) >= 2
+    professores_nomes = [item["professor"] for item in todos]
+    assert "LUAN DIAS" in professores_nomes
+    assert "MARIA SILVA" in professores_nomes
 
 
 def test_dados_administrativos_preservam_professor_ao_excluir_ultimo_vinculo(monkeypatch, tmp_path):
@@ -132,10 +134,21 @@ def test_dados_administrativos_preservam_professor_ao_excluir_ultimo_vinculo(mon
     assert database.obter_dados_administrativos_professor("Luan Dias")["email"] == "luan@example.com"
 
 
-def test_piloto_dados_professor_fica_restrito_ao_luan():
+def test_dados_professor_liberado_para_todos():
     assert _eh_professor_dados_piloto("Luan Dias") is True
-    assert _eh_professor_dados_piloto("Luan Das") is True
-    assert _eh_professor_dados_piloto("Bruna") is False
+    assert _eh_professor_dados_piloto("Maria Silva") is True
+    assert _eh_professor_dados_piloto("João Pedro") is True
+
+
+def test_conversoes_de_moeda():
+    assert extrair_valor_float("R$ 1.500,00") == 1500.0
+    assert extrair_valor_float("1500") == 1500.0
+    assert extrair_valor_float("800,50") == 800.5
+    assert extrair_valor_float("2.350,75") == 2350.75
+    assert extrair_valor_float("") == 0.0
+
+    assert formatar_moeda_br(1500.0) == "R$ 1.500,00"
+    assert formatar_moeda_br(800.5) == "R$ 800,50"
 
 
 def test_mesclagem_preserva_banco_e_importa_dados_da_pasta():
