@@ -69,7 +69,7 @@ def _tokens_titulo(texto: str) -> set[str]:
     return {
         token
         for token in re.findall(r"[a-z0-9]+", _normalizar_busca(texto))
-        if token not in ignorar and len(token) > 1
+        if token not in ignorar and len(token) > 1 and not token.isdigit()
     }
 
 
@@ -259,11 +259,10 @@ def _selecionar_referencia(
     numero_aula: str,
     tema: str = "",
 ) -> dict[str, Any] | None:
-    referencia_numerica = referencias.get(numero_aula)
-    if not tema:
-        return referencia_numerica
-
+    referencia_numerica = referencias.get(str(numero_aula).strip())
     tokens_tema = _tokens_titulo(tema)
+    if not tokens_tema:
+        return referencia_numerica
     melhor_numero = ""
     melhor_pontuacao = 0.0
     for numero, referencia in referencias.items():

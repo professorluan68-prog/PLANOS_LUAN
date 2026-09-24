@@ -32,10 +32,48 @@ DISCIPLINA_PASTA_ALIASES = {
     "LINGUA_INGLESAEJA": "LINGUA_INGLESA_EJA",
     "INGLES_EJA": "LINGUA_INGLESA_EJA",
     "INGLESEJA": "LINGUA_INGLESA_EJA",
-    "SOCIOLOGIA_CDP": "SOCIOLOGIA",
-    "MATEMATICA_CDP": "MATEMATICA",
-    "MATEMATICA_EM_CDP": "MATEMATICA",
-    "MATEMATICA_EF_CDP": "MATEMATICA",
+    "HISTORIA_CDP": "HISTORIA_CDP",
+    "HISTORIA_CDP_EJA_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIA_EM_CDP": "HISTORIA_CDP",
+    "HISTORIA_EF_CDP": "HISTORIA_CDP",
+    "HISTORIA_EM_TURMA_E_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIA_EM_TURMA_J_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIA_EM_TURMA_E": "HISTORIA_CDP",
+    "HISTORIA_EM_TURMA_J": "HISTORIA_CDP",
+    "HISTORIA_EF_TURMA_J_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIA_EF_TURMA_E_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIA_EF_TURMA_J": "HISTORIA_CDP",
+    "HISTORIA_EF_TURMA_E": "HISTORIA_CDP",
+    "HISTORIA_EF_MULTISSERIADO": "HISTORIA_CDP",
+    "HISTORIACDP": "HISTORIA_CDP",
+    "CIENCIAS_CDP": "CIENCIAS_CDP",
+    "CIENCIAS_CDP_EJA_MULTISSERIADO": "CIENCIAS_CDP",
+    "CIENCIASCDP": "CIENCIAS_CDP",
+    "CIENCIAS_CDP_EF": "CIENCIAS_CDP",
+    "CIENCIAS_CDP_MULTISSERIADO_6_7_EF": "CIENCIAS_CDP",
+    "CIENCIAS_CDP_MULTISSERIADO_8_9_EF": "CIENCIAS_CDP",
+    "MATEMATICA_CDP": "MATEMATICA_CDP",
+    "MATEMATICA_CDP_EJA_MULTISSERIADO": "MATEMATICA_CDP",
+    "MATEMATICACDP": "MATEMATICA_CDP",
+    "MATEMATICA_EM_EJA_CDP": "MATEMATICA_CDP",
+    "MATEMATICA_EM_CDP": "MATEMATICA_CDP",
+    "MATEMATICA_EF_CDP": "MATEMATICA_CDP",
+    "GEOGRAFIA_CDP": "GEOGRAFIA_CDP",
+    "GEOGRAFIA_CDP_EJA_MULTISSERIADO": "GEOGRAFIA_CDP",
+    "GEOGRAFIA_EM_CDP": "GEOGRAFIA_CDP",
+    "GEOGRAFIA_EMCDP": "GEOGRAFIA_CDP",
+    "GEOGRAFIA_EM_TURMA_J": "GEOGRAFIA_CDP",
+    "GEOGRAFIA_TURMA_J": "GEOGRAFIA_CDP",
+    "SOCIOLOGIA_CDP": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "SOCIOLOGIA_CDP_EJA_MULTISSERIADO": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "SOCIOLOGIA_CDP_MULTISSERIADO": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "SOCIOLOGIA_CDP_MULTISSERIADA": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "SOCIOLOGIA_MULTISSERIADO": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "SOCIOLOGIA_MULTISSERIADA": "SOCIOLOGIA_CDP_MULTISSERIADO",
+    "LIDERANCA_E_ORATORIA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA",
+    "ORATORIA_E_LIDERANCA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA",
+    "LINGUA_PORTUGUESA_CDP_EJA_MULTISSERIADO": "LINGUA_PORTUGUESA",
+    "ARTE_CDP_EJA_MULTISSERIADO": "ARTE",
 }
 
 # Subpastas usadas quando a modalidade EJA é selecionada na interface.
@@ -170,6 +208,18 @@ def normalizar_para_pasta(texto: str) -> str:
 
 def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
     disciplina_norm = normalizar_para_pasta(disciplina)
+    if "SOCIOLOGIA" in disciplina_norm and ("MULTISSERIAD" in disciplina_norm or "CDP" in disciplina_norm):
+        return "SOCIOLOGIA_CDP_MULTISSERIADO"
+    if "GEOGRAFIA" in disciplina_norm and ("TURMA_J" in disciplina_norm or "TURMA_E" in disciplina_norm or "CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
+        return "GEOGRAFIA_CDP"
+    if "HISTORIA" in disciplina_norm and ("TURMA_E" in disciplina_norm or "TURMA_J" in disciplina_norm or "CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
+        return "HISTORIA_CDP"
+    if "CIENCIAS" in disciplina_norm and ("CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
+        return "CIENCIAS_CDP"
+    if "MATEMATICA" in disciplina_norm and ("CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
+        return "MATEMATICA_CDP"
+    if ("LIDERANCA" in disciplina_norm or "ORATORIA" in disciplina_norm) and ("CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
+        return "LIDERANCA_E_ORATORIA"
     # O cadastro pode usar um rotulo descritivo, como
     # "HISTORIA - E.F - 8o/9o - TURMA H". Para localizar os materiais,
     # somente o componente curricular deve definir a raiz da disciplina.
@@ -221,16 +271,29 @@ def resolver_raiz_disciplina_pdfs(
             if raiz_eja.exists():
                 return raiz_eja
 
-    pasta_disc = base_path / disc_folder
-    if pasta_disc.exists():
-        return pasta_disc
+    # Candidatos diretos conhecidos (com underline, hifen, etc.)
+    candidatos_diretos = [
+        base_path / disc_folder,
+        base_path / disc_folder.replace("_", "-"),
+        base_path / disc_folder.replace("-", "_"),
+        base_path / "CDP_ENSINO_MEDIO" / disc_folder,
+        base_path / "CDP_ENSINO_MEDIO" / disc_folder.replace("_", "-"),
+        base_path / "CDP_ENSINO_MEDIO" / disc_folder.replace("-", "_"),
+        base_path / "CDP_ENSINO_FUNDAMENTAL" / disc_folder,
+        base_path / "CDP_ENSINO_FUNDAMENTAL" / disc_folder.replace("_", "-"),
+        base_path / "CDP_ENSINO_FUNDAMENTAL" / disc_folder.replace("-", "_"),
+    ]
+    for c in candidatos_diretos:
+        if c.exists():
+            return c
 
+    disc_chave = normalizar_para_pasta(disc_folder).replace("_", "")
     if base_path.exists():
         for candidata in base_path.iterdir():
-            if candidata.is_dir() and normalizar_para_pasta(candidata.name) == disc_folder:
+            if candidata.is_dir() and normalizar_para_pasta(candidata.name).replace("_", "") == disc_chave:
                 return candidata
 
-    return pasta_disc
+    return candidatos_diretos[0]
 
 
 
@@ -286,27 +349,123 @@ def _localizar_subpasta_cdp(caminho_bimestre: Path, nivel: str) -> Path | None:
 def _tokens_serie_turma(turma_norm: str) -> list[str]:
     tokens = [turma_norm] if turma_norm else []
 
-    # Turmas multisseriadas chegam da interface como "8o/9o E.F" e sao
-    # normalizadas para "8O9_EF". Preserve o agrupamento para que a busca
-    # prefira a pasta concreta "8_ANO_9_ANO" em vez de outra pasta CDP-EF.
+    # Extrair agrupamentos de dígitos como 1/2/3, 6/7, 8/9, 123, 67, 89, 1_2_3, 6_7, 8_9
+    anos = []
     match_multisseriada = re.fullmatch(
         r"((?:[1-9][OA_]?)+)(?:_(?:EF|EM|[A-Z]))?(?:_[A-Z])?",
         turma_norm,
     )
     if match_multisseriada:
         anos = re.findall(r"[1-9]", match_multisseriada.group(1))
-        if len(anos) >= 2:
-            tokens.append("_".join(f"{ano}_ANO" for ano in anos))
-            tokens.append("_".join(anos) + "_ANO")
-            tokens.extend(f"{ano}_ANO" for ano in anos)
-            return [token for token in dict.fromkeys(tokens) if token]
 
+    if len(anos) < 2:
+        prefixo_ano = turma_norm.split("_ANO")[0] if "_ANO" in turma_norm else turma_norm
+        digitos_prefixo = re.findall(r"[1-9]", prefixo_ano)
+        if len(digitos_prefixo) >= 2:
+            anos = digitos_prefixo
+
+    if len(anos) < 2:
+        anos_multi = re.findall(r"\b([1-9])\b", turma_norm.replace("_", " "))
+        if len(anos_multi) >= 2:
+            anos = anos_multi
+
+    if len(anos) >= 2:
+        tokens.append("_".join(f"{ano}_ANO" for ano in anos))
+        tokens.append("_".join(anos) + "_ANO")
+        tokens.append("_E_".join(anos) + "_ANO")
+        tokens.append("_E_".join(anos))
+        tokens.append("_".join(anos))
+        if len(anos) == 2:
+            tokens.append(f"{anos[0]}_E_{anos[1]}_ANO")
+            tokens.append(f"{anos[0]}_E_{anos[1]}_ANO_MULTISSERIADO")
+            tokens.append(f"{anos[0]}_{anos[1]}_ANO_MULTISSERIADO")
+        elif len(anos) == 3:
+            tokens.append(f"{anos[0]}_{anos[1]}_E_{anos[2]}_ANO")
+            tokens.append(f"{anos[0]}_{anos[1]}_E_{anos[2]}_ANO_MULTISSERIADO")
+            tokens.append(f"{anos[0]}_{anos[1]}_{anos[2]}_ANO_MULTISSERIADO")
+            tokens.append(f"{anos[0]}_E_{anos[1]}_E_{anos[2]}_ANO_MULTISSERIADO")
+        tokens.extend(f"{ano}_ANO" for ano in anos)
+        return [token for token in dict.fromkeys(tokens) if token]
 
     match_ano = re.search(r"(\d)_ANO(?:_([A-Z]))?", turma_norm)
     match_serie = re.search(r"(\d)_SERIE(?:_([A-Z]))?", turma_norm)
     match_termo = re.search(r"(\d)_TERMO(?:_([A-Z]))?", turma_norm)
     match = match_ano or match_serie or match_termo
     if not match:
+        if turma_norm in {"C", "TURMA_C"}:
+            tokens.extend([
+                "6_E_7_ANO_MULTISSERIADO",
+                "6_E_7_ANO",
+                "6_7_ANO_MULTISSERIADO",
+                "6_ANO_7_ANO",
+                "6_7_ANO",
+                "6_ANO",
+                "7_ANO",
+            ])
+        elif turma_norm in {"H", "TURMA_H"}:
+            tokens.extend([
+                "8_E_9_ANO_MULTISSERIADO",
+                "8_E_9_ANO",
+                "8_9_ANO_MULTISSERIADO",
+                "8_ANO_9_ANO",
+                "8_9_ANO",
+                "8_ANO",
+                "9_ANO",
+            ])
+        elif turma_norm in {"J", "E", "TURMA_J", "TURMA_E"}:
+            tokens.extend([
+                "1_2_E_3_ANO_MULTISSERIADO",
+                "1_ANO_2_ANO_3_ANO",
+                "1_2_3_ANO_MULTISSERIADO",
+                "1_2_3_ANO",
+                "8_E_9_ANO_MULTISSERIADO",
+                "8_E_9_ANO",
+                "8_9_ANO_MULTISSERIADO",
+                "8_ANO_9_ANO",
+                "8_9_ANO",
+                "1_ANO",
+                "2_ANO",
+                "3_ANO",
+                "8_ANO",
+                "9_ANO",
+            ])
+        elif "MULTISSERIAD" in turma_norm:
+            if "EM" in turma_norm or "MEDIO" in turma_norm:
+                tokens.extend([
+                    "1_ANO_2_ANO_3_ANO",
+                    "1_2_3_ANO",
+                    "1_2_3_ANO_MULTISSERIADO",
+                    "1_ANO_2_ANO_3_ANO_MULTISSERIADO",
+                    "1_2_E_3_ANO_MULTISSERIADO",
+                ])
+            elif "EF" in turma_norm or "FUNDAMENTAL" in turma_norm:
+                if any(x in turma_norm for x in ["8", "9", "TURMA_J", "TURMA_E"]):
+                    tokens.extend([
+                        "8_E_9_ANO_MULTISSERIADO",
+                        "8_9_ANO_MULTISSERIADO",
+                        "8_ANO_9_ANO",
+                    ])
+                elif any(x in turma_norm for x in ["6", "7", "TURMA_C", "TURMA_H"]):
+                    tokens.extend([
+                        "6_E_7_ANO_MULTISSERIADO",
+                        "6_7_ANO_MULTISSERIADO",
+                        "6_ANO_7_ANO",
+                    ])
+                else:
+                    tokens.extend([
+                        "8_E_9_ANO_MULTISSERIADO",
+                        "8_9_ANO_MULTISSERIADO",
+                        "6_E_7_ANO_MULTISSERIADO",
+                        "6_7_ANO_MULTISSERIADO",
+                    ])
+            else:
+                tokens.extend([
+                    "1_ANO_2_ANO_3_ANO",
+                    "6_7_ANO_MULTISSERIADO",
+                    "6_E_7_ANO_MULTISSERIADO",
+                    "8_9_ANO_MULTISSERIADO",
+                    "8_E_9_ANO_MULTISSERIADO",
+                ])
         return [token for token in dict.fromkeys(tokens) if token]
 
     numero = match.group(1)
@@ -321,11 +480,22 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
 
 
 def _nivel_preferido_para_turma(turma_norm: str) -> str:
-    if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm or "TERMO" in turma_norm:
-        return "EM"
+    if turma_norm in {"C", "H"}:
+        return "AF"
+    if (
+        "EM" in turma_norm
+        or "ENSINO_MEDIO" in turma_norm
+        or "SERIE" in turma_norm
+        or "TERMO" in turma_norm
+        or "EJA" in turma_norm
+        or "123" in turma_norm
+        or "1_2_3" in turma_norm
+    ):
+        if not ("EF" in turma_norm or "FUNDAMENTAL" in turma_norm or re.search(r"^[6789]", turma_norm)):
+            return "EM"
     if "EF" in turma_norm:
         return "AF"
-    if re.search(r"^[6789]_ANO", turma_norm):
+    if re.search(r"^[6789]_ANO", turma_norm) or re.search(r"^[6789]", turma_norm):
         return "AF"
     if "FUNDAMENTAL" in turma_norm:
         return "AF"
@@ -349,15 +519,20 @@ def _pontuar_pasta_pdf(
     partes_norm = [_nome_pasta_normalizado(parte) for parte in rel_parts]
     partes_set = set(partes_norm)
 
+    if bimestre_token:
+        outros_bimestres = {f"{b}_BIMESTRE" for b in range(1, 5)} - {bimestre_token}
+        if any(b in partes_set for b in outros_bimestres):
+            return -100, len(rel_parts)
+
     score = 0
     if nivel_preferido in partes_set:
         score += 40
     if bimestre_token and bimestre_token in partes_set:
-        score += 60
+        score += 100
     if turma_norm and turma_norm in partes_set:
         score += 90
     tokens_multisseriados = [
-        token for token in serie_tokens if token.count("_ANO") > 1
+        token for token in serie_tokens if token.count("_ANO") > 1 or "_E_" in token
     ]
     if any(token in partes_set for token in tokens_multisseriados):
         score += 120
@@ -557,6 +732,7 @@ def resolver_pasta_pdfs(
     modalidade_eja: bool = False,
 ) -> Path:
     r"""Monta uma subpasta de PDFs a partir da raiz informada."""
+    disciplina_entrada = str(disciplina or "")
     # Redirecionamento customizado para a professora Marta de Araújo
     prof_norm = normalizar_para_pasta(professor)
     disc_norm = _normalizar_disciplina_para_pasta(disciplina)
@@ -566,10 +742,36 @@ def resolver_pasta_pdfs(
         if disc_norm == "EDUCACAO_FINANCEIRA" and turma_norm in {"2_ANO_A", "3_ANO_A"}:
             turma = "8º ANO"
 
-    if disc_norm == "HISTORIA":
-        if turma_norm in {"1O2O3_EM", "123_C", "123_E"}:
-            if (Path(base_dir) / "HISTÓRIACDP").exists() or (Path(base_dir) / "HISTORIACDP").exists():
-                disciplina = "HISTÓRIACDP"
+    if disc_norm in {"HISTORIA", "HISTORIA_CDP", "HISTORIACDP"}:
+        if (
+            "MULTISSERIAD" in disc_norm
+            or "MULTISSERIAD" in turma_norm
+            or "TURMA_E" in disc_norm
+            or "TURMA_J" in disc_norm
+            or "TURMA_E" in turma_norm
+            or "TURMA_J" in turma_norm
+            or "123" in turma_norm
+            or "1_2_3" in turma_norm
+            or turma_norm in {"1O2O3_EM", "123_C", "123_E"}
+        ) and (
+            (Path(base_dir) / "HISTORIA_CDP").exists()
+            or (Path(base_dir) / "HISTORIACDP").exists()
+            or (Path(base_dir) / "HISTÓRIACDP").exists()
+        ):
+            disciplina = "HISTORIA_CDP"
+
+    if disc_norm == "GEOGRAFIA":
+        if (
+            "TURMA_J" in turma_norm
+            or "TURMA_E" in turma_norm
+            or "123" in turma_norm
+            or "1_2_3" in turma_norm
+            or "MULTISSERIAD" in turma_norm
+        ) and (
+            (Path(base_dir) / "GEOGRAFIA_CDP").exists()
+            or (Path(base_dir) / "GEOGRAFIA-CDP").exists()
+        ):
+            disciplina = "GEOGRAFIA_CDP"
 
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
 
@@ -662,21 +864,77 @@ def resolver_pasta_pdfs(
             return pasta_aprofundamento
 
     # Caso especial: se a pasta organizada diretamente por turma existir, usá-la
-    caminho_direto = Path(base_dir) / disc_folder / turma_norm
-    if caminho_direto.exists():
-        return caminho_direto
+    if turma_norm:
+        caminho_direto = Path(base_dir) / disc_folder / turma_norm
+        if caminho_direto.exists():
+            return caminho_direto
 
-    nivel = "AF"
+    disc_norm_entrada = normalizar_para_pasta(disciplina_entrada)
+    if ("EF" in disc_norm_entrada or "FUNDAMENTAL" in disc_norm_entrada) and not ("EM" in turma_norm or "MEDIO" in turma_norm):
+        nivel = "EF"
+    else:
+        nivel = _nivel_preferido_para_turma(turma_norm)
+
+    raiz_resolvida = resolver_raiz_disciplina_pdfs(base_dir, disciplina)
+    if nivel == "AF" and (raiz_resolvida / "EF").exists() and not (raiz_resolvida / "AF").exists():
+        nivel = "EF"
+    elif nivel == "EF" and (raiz_resolvida / "AF").exists() and not (raiz_resolvida / "EF").exists():
+        nivel = "AF"
+
     serie = ""
-
-    if "EM" in turma_norm or "ENSINO_MEDIO" in turma_norm or "SERIE" in turma_norm or re.search(r"^[123]_ANO", turma_norm):
-        nivel = "EM"
 
     match_ano = re.search(r"(\d)_ANO", turma_norm)
     match_serie = re.search(r"(\d)_SERIE", turma_norm)
     serie_tokens = _tokens_serie_turma(turma_norm)
+    if not any(token.count("_ANO") > 1 or "_E_" in token for token in serie_tokens):
+        disc_tokens = _tokens_serie_turma(disc_norm_entrada)
+        for tok in disc_tokens:
+            if tok not in serie_tokens:
+                serie_tokens.append(tok)
+
+    if nivel == "EM" and (
+        "MULTISSERIAD" in disc_norm_entrada
+        or "MULTISSERIAD" in turma_norm
+        or "CDP" in disc_folder
+        or "TURMA_E" in turma_norm
+        or "TURMA_J" in turma_norm
+    ):
+        if "1_ANO_2_ANO_3_ANO" not in serie_tokens:
+            serie_tokens.append("1_ANO_2_ANO_3_ANO")
+    elif nivel in {"EF", "AF"} and (
+        "MULTISSERIAD" in disc_norm_entrada
+        or "MULTISSERIAD" in turma_norm
+        or "CDP" in disc_folder
+    ):
+        if (
+            "8" in disc_norm_entrada
+            or "9" in disc_norm_entrada
+            or "8" in turma_norm
+            or "9" in turma_norm
+            or "TURMA_J" in disc_norm_entrada
+            or "TURMA_J" in turma_norm
+            or "TURMA_E" in disc_norm_entrada
+            or "TURMA_E" in turma_norm
+        ):
+            for tok in ["8_E_9_ANO_MULTISSERIADO", "8_9_ANO_MULTISSERIADO", "8_ANO_9_ANO"]:
+                if tok not in serie_tokens:
+                    serie_tokens.append(tok)
+        if (
+            "6" in disc_norm_entrada
+            or "7" in disc_norm_entrada
+            or "6" in turma_norm
+            or "7" in turma_norm
+            or "TURMA_C" in disc_norm_entrada
+            or "TURMA_C" in turma_norm
+            or "TURMA_H" in disc_norm_entrada
+            or "TURMA_H" in turma_norm
+        ):
+            for tok in ["6_E_7_ANO_MULTISSERIADO", "6_7_ANO_MULTISSERIADO", "6_ANO_7_ANO"]:
+                if tok not in serie_tokens:
+                    serie_tokens.append(tok)
+
     serie_multisseriada = next(
-        (token for token in serie_tokens if token.count("_ANO") > 1),
+        (token for token in serie_tokens if token.count("_ANO") > 1 or "_E_" in token),
         "",
     )
     if serie_multisseriada:
@@ -686,16 +944,40 @@ def resolver_pasta_pdfs(
     elif match_serie:
         serie = match_serie.group(1) + "_ANO"
 
+    raiz_resolvida = resolver_raiz_disciplina_pdfs(base_dir, disciplina)
+
     # A turma multisseriada 1º/2º/3º E.M pertence ao fluxo CDP. Sem esta
     # prioridade, a busca flexível pode escolher uma pasta regular (por
     # exemplo, ``3_ANO``) porque ela coincide com um dos anos da turma.
     if nivel == "EM" and serie_multisseriada == "1_ANO_2_ANO_3_ANO":
-        caminho_bimestre = Path(base_dir) / disc_folder / nivel / bim
-        subpasta_cdp_em = _localizar_subpasta_cdp(caminho_bimestre, "EM")
-        if subpasta_cdp_em:
-            return subpasta_cdp_em
+        caminho_bimestre = raiz_resolvida / nivel / bim
+        if caminho_bimestre.exists():
+            caminho_serie_especifica = caminho_bimestre / "1_ANO_2_ANO_3_ANO"
+            if caminho_serie_especifica.exists() and _pasta_tem_pdfs(caminho_serie_especifica):
+                return caminho_serie_especifica
+            subpasta_cdp_em = _localizar_subpasta_cdp(caminho_bimestre, "EM")
+            if subpasta_cdp_em:
+                return subpasta_cdp_em
+            if _pasta_tem_pdfs(caminho_bimestre):
+                return caminho_bimestre
 
-    raiz_resolvida = resolver_raiz_disciplina_pdfs(base_dir, disciplina)
+    if serie_multisseriada:
+        candidatos_serie = [
+            s for s in [serie] + serie_tokens
+            if s and (s.count("_ANO") > 1 or "_E_" in s or "MULTISSERIADO" in s)
+        ]
+    else:
+        candidatos_serie = [s for s in [serie] + serie_tokens if s]
+
+    for candidata_serie in candidatos_serie:
+        caminho_candidato = raiz_resolvida / nivel / bim / candidata_serie
+        if caminho_candidato.exists():
+            if _pasta_tem_pdfs(caminho_candidato):
+                return caminho_candidato
+            subpasta_cdp = _localizar_subpasta_cdp(caminho_candidato, nivel)
+            if subpasta_cdp:
+                return subpasta_cdp
+            return caminho_candidato
 
     caminho_padrao = raiz_resolvida / nivel / bim / serie
     if caminho_padrao.exists():
@@ -712,14 +994,30 @@ def resolver_pasta_pdfs(
 
         return caminho_padrao
 
+    caminho_bimestre_direto = raiz_resolvida / nivel / bim
+    if caminho_bimestre_direto.exists() and _pasta_tem_pdfs(caminho_bimestre_direto):
+        return caminho_bimestre_direto
+
     caminho_flexivel = _buscar_pasta_pdf_flexivel(
         raiz_resolvida,
         nivel_preferido=_nivel_preferido_para_turma(turma_norm),
         bimestre_token=bim,
-        serie_tokens=_tokens_serie_turma(turma_norm),
+        serie_tokens=serie_tokens,
         turma_norm=turma_norm,
     )
-    return caminho_flexivel or caminho_padrao
+    if caminho_flexivel:
+        return caminho_flexivel
+
+    if caminho_bimestre_direto.exists():
+        subpasta_cdp = _localizar_subpasta_cdp(caminho_bimestre_direto, nivel)
+        if subpasta_cdp:
+            return subpasta_cdp
+        for sub in sorted(caminho_bimestre_direto.iterdir(), key=lambda x: str(x).casefold()):
+            if sub.is_dir() and _pasta_tem_pdfs(sub):
+                return sub
+        return caminho_bimestre_direto
+
+    return caminho_padrao
 
 
 def garantir_caminho_na_raiz(caminho: str | Path, raiz: str | Path) -> Path:

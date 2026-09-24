@@ -55,6 +55,8 @@ TURMAS_PADRAO += [
     "3º Termo",
     "MULTISSERIADO 1º, 2º e 3º ano",
     "MULTISSERIADO 4º e 5º ano",
+    "TURMA J",
+    "TURMA E",
 ]
 TURMAS_PADRAO += [turma for turma in TURMAS_CDP_MULTISSERIADA if turma not in TURMAS_PADRAO]
 TURMAS_PADRAO += ["Outra (digitar)"]

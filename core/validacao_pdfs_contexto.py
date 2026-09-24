@@ -148,12 +148,27 @@ def _contexto_tem_outro_bimestre(contexto_norm: str, numero: int) -> bool:
     )
 
 
-def _serie_esperada(turma: str) -> int | None:
-    match = re.search(r"(?<!\d)([1-9])\s*(?:o|a|º|ª)?\s*(?:ano|serie|série)\b", str(turma or ""), flags=re.I)
+def _series_esperadas(turma: str) -> set[int]:
+    """Retorna o conjunto de séries esperadas para a turma (suporta regulares e multisseriadas)."""
+    turma_str = str(turma or "").strip()
+    if not turma_str:
+        return set()
+
+    # Turmas multisseriadas com múltiplos dígitos: "1/2/3º", "1º/2º/3º", "1°/2°/3°", "6º/7º", "8º/9º", "1, 2 e 3"
+    digitos = re.findall(r"(?<!\d)([1-9])(?!\d)", turma_str)
+    if len(digitos) >= 2:
+        return {int(d) for d in digitos}
+
+    match = re.search(r"(?<!\d)([1-9])\s*(?:o|a|º|ª)?\s*(?:ano|serie|série|termo)\b", turma_str, flags=re.I)
     if match:
-        return int(match.group(1))
-    match = re.search(r"(?<!\d)([1-9])\s*(?:o|a|º|ª)?\b", str(turma or ""), flags=re.I)
-    return int(match.group(1)) if match else None
+        return {int(match.group(1))}
+    match = re.search(r"(?<!\d)([1-9])\s*(?:o|a|º|ª)?\b", turma_str, flags=re.I)
+    return {int(match.group(1))} if match else set()
+
+
+def _serie_esperada(turma: str) -> int | None:
+    series = _series_esperadas(turma)
+    return next(iter(series)) if len(series) == 1 else None
 
 
 def _serie_esta_no_contexto(contexto_norm: str, serie: int) -> bool:
@@ -180,38 +195,33 @@ def _remover_codigos_bncc_e_contextos_gerais(texto: str) -> str:
     return texto_limpo
 
 
-def _contexto_tem_outra_serie_real(texto_original: str, contexto_norm: str, serie: int) -> bool:
+def _contexto_tem_outra_serie_real(texto_original: str, contexto_norm: str, series_esperadas: set[int] | int) -> bool:
     """
-    Verifica se o texto contém EXPLICITAMENTE outra série, ignorando:
+    Verifica se o texto contém EXPLICITAMENTE outra série fora do conjunto esperado, ignorando:
     - Códigos BNCC (EF08HI16, EF09HI19, etc.)
     - Expressões genéricas como 'Anos Finais', '6º ao 9º ano'
     - Menções de série dentro do nome do arquivo (que já foi validado)
-
-    Só retorna True quando outra série aparece de forma inequívoca no
-    CONTEÚDO PEDAGÓGICO do PDF (ex: cabeçalho "9º ANO" em material de 9º ano).
     """
-    # Remove códigos BNCC e contextos gerais antes de verificar
+    if isinstance(series_esperadas, int):
+        series_set = {series_esperadas}
+    else:
+        series_set = set(series_esperadas or [])
+
+    if not series_set:
+        return False
+
     texto_limpo = _remover_codigos_bncc_e_contextos_gerais(texto_original)
     contexto_limpo = normalizar_texto(texto_limpo)
 
-    # Conta quantas séries diferentes aparecem no texto limpo
     series_encontradas = set()
     for outra in range(1, 10):
         if _serie_esta_no_contexto(contexto_limpo, outra):
             series_encontradas.add(outra)
 
-    # Só bloqueia se:
-    # 1. A série esperada NÃO aparece no texto limpo, E
-    # 2. Outra série aparece de forma explícita
-    # Isso evita bloquear PDFs que simplesmente não mencionam a série
-    # mas também não mencionam outra série conflitante.
-    serie_esperada_presente = _serie_esta_no_contexto(contexto_limpo, serie)
-    outras_series = series_encontradas - {serie}
+    serie_esperada_presente = any(_serie_esta_no_contexto(contexto_limpo, s) for s in series_set)
+    outras_series = series_encontradas - series_set
 
     if not serie_esperada_presente and outras_series:
-        # Confirmação adicional: a outra série deve aparecer no contexto
-        # ORIGINAL também (não apenas no limpo), para evitar artefatos
-        # da remoção de BNCC.
         for outra in outras_series:
             if _serie_esta_no_contexto(contexto_norm, outra):
                 return True
@@ -281,17 +291,11 @@ def validar_pdf_contexto_sem_ia(
             if not is_cdp:
                 motivos.append("bimestre do PDF nao confere com o selecionado")
 
-    serie = _serie_esperada(turma)
-    if serie:
-        if _serie_esta_no_contexto(contexto_norm, serie):
+    series_alvo = _series_esperadas(turma)
+    if series_alvo:
+        if any(_serie_esta_no_contexto(contexto_norm, s) for s in series_alvo):
             score += 10
-        elif _contexto_tem_outra_serie_real(contexto_original, contexto_norm, serie):
-            # ── CORREÇÃO APLICADA ──────────────────────────────────────────
-            # Versão anterior usava _contexto_tem_outra_serie() que bloqueava
-            # PDFs legítimos do 8º ANO porque encontrava "9" em códigos BNCC
-            # como EF09HI19 ou em expressões como "Anos Finais (6º ao 9º ano)".
-            # A nova função _contexto_tem_outra_serie_real() remove esses
-            # falsos positivos antes de verificar o conflito real de série.
+        elif _contexto_tem_outra_serie_real(contexto_original, contexto_norm, series_alvo):
             motivos.append("serie/turma do PDF nao confere com o cadastro")
 
     referencia = _referencia_para_pdf(caminho, numero, disciplina, turma)
