@@ -1837,13 +1837,72 @@ def _coletar_aulas_envio(
                 aulas_envio.append({"data": data_aula, "horario": f"Aula 1 ({horario_str})", "pdf": pdf_individual, "dividir_pdf": False})
                 aulas_envio.append({"data": data_aula, "horario": f"Aula 2 ({horario_str})", "pdf": pdf_individual_2, "dividir_pdf": False})
         else:
-            aulas_envio.append({
-                "data": data_aula,
-                "horario": horario_aula,
-                "pdf": None if eh_bloco_sem_pdf else pdf_individual,
-                "dividir_pdf": False if eh_bloco_sem_pdf else dividir_pdf,
-                "bloco_sem_pdf": eh_bloco_sem_pdf,
-            })
+            # Verificar se é aula dupla em dia sem PDF com modo "uma_aula":
+            # neste caso, gerar dois registros separados (1 com PDF + 1 sem PDF),
+            # para que o DOCX produza uma linha com conteúdo e uma linha em branco
+            # abaixo (para preenchimento manual pelo professor), assim como acontece
+            # quando o professor edita manualmente o plano.
+            eh_dia_sem_pdf_base = bool(
+                permitir_um_dia_sem_pdf
+                and dia_sem_pdf_semana is not None
+                and _eh_data_sem_pdf(
+                    data_aula,
+                    dia_sem_pdf_semana,
+                    datas_agenda=datas_cache,
+                    frequencia=frequencia_dia_sem_pdf,
+                )
+            )
+            eh_aula_dupla_splittavel = (
+                eh_dia_sem_pdf_base
+                and _eh_horario_duplo(horario_aula, tipo_horario)
+                and modo_aula_dupla == "uma_aula"
+                and not eh_antecipacao_vazia
+            )
+            if eh_aula_dupla_splittavel:
+                # Extrair os números individuais das aulas (ex: "1ª e 2ª aula" → "1" e "2")
+                horario_str_dupla = (
+                    horario_aula[1]
+                    if isinstance(horario_aula, tuple) and len(horario_aula) > 1
+                    else str(horario_aula)
+                )
+                match_dupla = re.search(
+                    r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula",
+                    horario_str_dupla,
+                    flags=re.IGNORECASE,
+                )
+                if match_dupla:
+                    aula1_num, aula2_num = match_dupla.groups()
+                    horario_com_pdf = f"{aula1_num}ª aula"
+                    horario_sem_pdf = f"{aula2_num}ª aula"
+                else:
+                    horario_com_pdf = horario_str_dupla
+                    horario_sem_pdf = horario_str_dupla
+                # Registro 1: aula com conteúdo pedagógico (PDF)
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_com_pdf,
+                    "pdf": pdf_individual,
+                    "dividir_pdf": False,
+                    "bloco_sem_pdf": False,
+                    "ordem_original": idx * 2,
+                })
+                # Registro 2: aula sem PDF (linha em branco para preenchimento manual)
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_sem_pdf,
+                    "pdf": None,
+                    "dividir_pdf": False,
+                    "bloco_sem_pdf": True,
+                    "ordem_original": idx * 2 + 1,
+                })
+            else:
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_aula,
+                    "pdf": None if eh_bloco_sem_pdf else pdf_individual,
+                    "dividir_pdf": False if eh_bloco_sem_pdf else dividir_pdf,
+                    "bloco_sem_pdf": eh_bloco_sem_pdf,
+                })
 
     if modo_upload_individual:
         # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
