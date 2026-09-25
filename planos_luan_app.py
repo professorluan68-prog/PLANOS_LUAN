@@ -1826,7 +1826,6 @@ def _coletar_aulas_envio(
                     st.caption(msg)
 
         if pdf_individual_2:
-            import re
             horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
             match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
             if match:
