@@ -34,7 +34,7 @@ class DependenciasContextoAulaPDF:
     detectar_contexto_metodologico_fn: Callable[..., str]
     buscar_item_projeto_vida_fn: Callable[[str, str, str], dict]
     montar_aprendizagem_projeto_vida_fn: Callable[[dict], str]
-    referencia_docx_por_perfil_fn: Callable[[str, str, str, str], dict | None]
+    referencia_docx_por_perfil_fn: Callable[..., dict | None]
     habilidade_referencia_docx_fn: Callable[[dict | None], str]
     material_aula_com_titulo_fn: Callable[[str, str], str]
     titulo_escopo_projeto_vida_confiavel_fn: Callable[[str], bool]
@@ -139,14 +139,30 @@ def _ajustar_contexto_por_perfil(
     aprendizagem_orientacao: str,
     escopo_pv: dict,
     dependencias: DependenciasContextoAulaPDF,
+    turma: str = "",
+    bimestre: str = "",
 ) -> tuple[str, str, str, list[str], str]:
     if perfil in {"ingles", "lingua_portuguesa_ef", "lingua_portuguesa_em", "leitura_redacao"}:
-        referencia_docx_perfil = dependencias.referencia_docx_por_perfil_fn(
-            caminho_pdf,
-            numero_aula,
-            tema,
-            disciplina if perfil == "orientacao_estudos" else perfil,
-        )
+        try:
+            referencia_docx_perfil = dependencias.referencia_docx_por_perfil_fn(
+                caminho_pdf,
+                numero_aula,
+                tema,
+                disciplina if perfil == "orientacao_estudos" else perfil,
+                disciplina,
+                turma=turma,
+                bimestre=bimestre,
+            )
+        except TypeError:
+            try:
+                referencia_docx_perfil = dependencias.referencia_docx_por_perfil_fn(
+                    caminho_pdf,
+                    numero_aula,
+                    tema,
+                    disciplina if perfil == "orientacao_estudos" else perfil,
+                )
+            except TypeError:
+                referencia_docx_perfil = None
         titulo_referencia = str((referencia_docx_perfil or {}).get("titulo") or "").strip()
         if titulo_referencia:
             if not numero_aula and (referencia_docx_perfil or {}).get("numero"):
@@ -155,12 +171,26 @@ def _ajustar_contexto_por_perfil(
             material_digital = dependencias.material_aula_com_titulo_fn(numero_aula, tema)
 
     if perfil == "orientacao_estudos":
-        referencia_docx_oe = dependencias.referencia_docx_por_perfil_fn(
-            caminho_pdf,
-            numero_aula,
-            tema,
-            disciplina if perfil == "orientacao_estudos" else perfil,
-        )
+        try:
+            referencia_docx_oe = dependencias.referencia_docx_por_perfil_fn(
+                caminho_pdf,
+                numero_aula,
+                tema,
+                disciplina if perfil == "orientacao_estudos" else perfil,
+                disciplina,
+                turma=turma,
+                bimestre=bimestre,
+            )
+        except TypeError:
+            try:
+                referencia_docx_oe = dependencias.referencia_docx_por_perfil_fn(
+                    caminho_pdf,
+                    numero_aula,
+                    tema,
+                    disciplina if perfil == "orientacao_estudos" else perfil,
+                )
+            except TypeError:
+                referencia_docx_oe = None
         titulo_referencia = str((referencia_docx_oe or {}).get("titulo") or "").strip()
         habilidade_referencia = dependencias.habilidade_referencia_docx_fn(
             referencia_docx_oe,
@@ -178,12 +208,26 @@ def _ajustar_contexto_por_perfil(
             aprendizagem_orientacao = habilidade_referencia
 
     if perfil == "projeto_de_vida":
-        referencia_docx_pv = dependencias.referencia_docx_por_perfil_fn(
-            caminho_pdf,
-            numero_aula,
-            tema,
-            disciplina if perfil == "orientacao_estudos" else perfil,
-        )
+        try:
+            referencia_docx_pv = dependencias.referencia_docx_por_perfil_fn(
+                caminho_pdf,
+                numero_aula,
+                tema,
+                disciplina if perfil == "orientacao_estudos" else perfil,
+                disciplina,
+                turma=turma,
+                bimestre=bimestre,
+            )
+        except TypeError:
+            try:
+                referencia_docx_pv = dependencias.referencia_docx_por_perfil_fn(
+                    caminho_pdf,
+                    numero_aula,
+                    tema,
+                    disciplina if perfil == "orientacao_estudos" else perfil,
+                )
+            except TypeError:
+                referencia_docx_pv = None
         titulo_referencia = str((referencia_docx_pv or {}).get("titulo") or "").strip()
         titulo_escopo = str((escopo_pv or {}).get("titulo") or "").strip()
         if titulo_referencia:
@@ -245,6 +289,7 @@ def preparar_contexto_aula_pdf(
                 caminho_pdf,
                 disciplina,
                 turma,
+                bimestre=bimestre,
             )
         except Exception:
             caminho_resolvido = None
@@ -375,7 +420,7 @@ def preparar_contexto_aula_pdf(
         objetivos_orientacao,
         aprendizagem_orientacao,
     ) = _ajustar_contexto_por_perfil(
-        caminho_pdf=caminho_pdf,
+        caminho_pdf=caminho_pdf_contextual or caminho_pdf,
         numero_aula=numero_aula,
         disciplina=disciplina_base,
         perfil=perfil,
@@ -385,6 +430,8 @@ def preparar_contexto_aula_pdf(
         aprendizagem_orientacao=aprendizagem_orientacao,
         escopo_pv=escopo_pv,
         dependencias=dependencias,
+        turma=turma,
+        bimestre=bimestre,
     )
 
     # O extrator principal já entrega as palavras-chave candidatas do PDF.

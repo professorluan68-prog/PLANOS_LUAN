@@ -262,18 +262,38 @@ def _extrair_base_pedagogica(
     caminho_pdf: str,
     dependencias: DependenciasResultadosAula,
 ) -> dict:
-    arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
-        caminho_pdf,
-        disciplina_base,
-        turma,
-    )
-    referencia_docx = dependencias.referencia_docx_por_perfil_fn(
-        caminho_pdf,
-        numero_aula,
-        tema,
-        perfil,
-        disciplina_base,
-    )
+    try:
+        arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
+            caminho_pdf,
+            disciplina_base,
+            turma,
+            bimestre=bimestre,
+        )
+    except TypeError:
+        arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
+            caminho_pdf,
+            disciplina_base,
+            turma,
+        )
+
+    try:
+        referencia_docx = dependencias.referencia_docx_por_perfil_fn(
+            caminho_pdf,
+            numero_aula,
+            tema,
+            perfil,
+            disciplina_base,
+            turma=turma,
+            bimestre=bimestre,
+        )
+    except TypeError:
+        referencia_docx = dependencias.referencia_docx_por_perfil_fn(
+            caminho_pdf,
+            numero_aula,
+            tema,
+            perfil,
+            disciplina_base,
+        )
     diagnostico_referencia_docx = _diagnosticar_referencia_docx(
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=str(arquivo_referencia_docx or ""),
@@ -570,6 +590,24 @@ def _montar_resultado_referencia_docx_exata(
             tema,
             perfil,
         )
+    titulo_ref = str(referencia_docx.get("titulo") or "").strip()
+    if titulo_ref:
+        tema_generico = not tema or tema.casefold() in {
+            disciplina_base.casefold(),
+            perfil.casefold(),
+            "aula",
+            "",
+        }
+        if tema_generico:
+            tema = titulo_ref
+        mat_generico = not material_digital or material_digital.casefold() in {
+            disciplina_base.casefold(),
+            f"aula {numero_aula} - {disciplina_base}".casefold(),
+            f"aula {numero_aula}".casefold(),
+        }
+        if mat_generico or tema_generico:
+            material_digital = f"AULA {numero_aula} - {titulo_ref}"
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,

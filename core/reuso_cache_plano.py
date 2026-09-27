@@ -96,7 +96,7 @@ def tentar_reutilizar_cache_plano(
     fingerprint_atual: str,
     versao_gerador_atual: str,
     perfil_metodologico: str,
-    referencia_docx_por_perfil_fn: Callable[[str, str, str, str], dict | None],
+    referencia_docx_por_perfil_fn: Callable[..., dict | None],
     referencia_docx_sobrescreve_metadados_fn: Callable[[str], bool],
     habilidade_referencia_docx_fn: Callable[[dict | None], str],
     material_aula_com_titulo_fn: Callable[[str, str], str],
@@ -104,6 +104,7 @@ def tentar_reutilizar_cache_plano(
     origem_metodologia_por_referencia_fn: Callable[[str], str],
     perfil_docx_somente_colunas_pedagogicas_fn: Callable[[str], bool],
     assinatura_conteudo_atual: str = "",
+    bimestre: str = "",
 ) -> ResultadoReusoCachePlano:
     if not caminho_pdf:
         return ResultadoReusoCachePlano(None, None)
@@ -137,13 +138,24 @@ def tentar_reutilizar_cache_plano(
         material_cache = dados_json.get("material") or Path(caminho_pdf).name
         numero_cache = dados_json.get("numero_aula") or ""
 
-        referencia_docx_cache = referencia_docx_por_perfil_fn(
-            caminho_pdf,
-            dados_json.get("numero_aula") or "",
-            dados_json.get("tema") or "",
-            perfil_cache,
-            disciplina,
-        )
+        try:
+            referencia_docx_cache = referencia_docx_por_perfil_fn(
+                caminho_pdf,
+                dados_json.get("numero_aula") or "",
+                dados_json.get("tema") or "",
+                perfil_cache,
+                disciplina,
+                turma=turma,
+                bimestre=bimestre,
+            )
+        except TypeError:
+            referencia_docx_cache = referencia_docx_por_perfil_fn(
+                caminho_pdf,
+                dados_json.get("numero_aula") or "",
+                dados_json.get("tema") or "",
+                perfil_cache,
+                disciplina,
+            )
         if (
             referencia_docx_cache
             and referencia_docx_sobrescreve_metadados_fn(perfil_cache)

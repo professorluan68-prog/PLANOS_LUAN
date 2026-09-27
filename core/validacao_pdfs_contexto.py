@@ -234,7 +234,14 @@ def _referencia_para_pdf(caminho_pdf: Path, numero: int | None, disciplina: str,
         return None
     perfil = perfil_disciplina(disciplina, turma=turma)
     try:
-        return referencia_docx_por_perfil(str(caminho_pdf), str(numero), "", perfil, disciplina)
+        return referencia_docx_por_perfil(
+            str(caminho_pdf),
+            str(numero),
+            "",
+            perfil,
+            disciplina,
+            turma=turma,
+        )
     except Exception:
         return None
 

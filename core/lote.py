@@ -2930,7 +2930,12 @@ def _aula_por_pdf(
 
     from core.revisao_final import VERSAO_GERADOR_ATUAL
 
-    assinatura_referencia_docx = _assinatura_docx_referencia(caminho_pdf, disciplina, turma)
+    assinatura_referencia_docx = _assinatura_docx_referencia(
+        caminho_pdf,
+        disciplina,
+        turma,
+        bimestre=bimestre,
+    )
     perfil_disciplina_cache = perfil_disciplina(disciplina, turma=turma)
     priorizar_docx_sobre_cache_json = bool(
         assinatura_referencia_docx
@@ -2986,6 +2991,7 @@ def _aula_por_pdf(
             origem_metodologia_por_referencia_fn=_origem_metodologia_por_referencia,
             perfil_docx_somente_colunas_pedagogicas_fn=_perfil_docx_somente_colunas_pedagogicas,
             assinatura_conteudo_atual=assinatura_conteudo_cache,
+            bimestre=bimestre,
         )
         dados_json_antigos = resultado_cache.dados_json_antigos
         if resultado_cache.aula_reutilizada is not None:
