@@ -126,8 +126,6 @@ def validar_aulas_geradas(
         aprendizagem = str(aula.get("aprendizagem", "")).strip()
         if not aprendizagem:
             problemas.append(f"Aula {idx}: campo de aprendizagem vazio.")
-        elif len(aprendizagem) < 20:
-            problemas.append(f"Aula {idx}: aprendizagem muito curta ({len(aprendizagem)} chars).")
 
         acompanhamento = aula.get("acompanhamento") or []
         if not acompanhamento:

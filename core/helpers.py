@@ -14,13 +14,20 @@ DISCIPLINA_PASTA_ALIASES = {
     "APROF_EM_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
     "APROFUNDAMENTO_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
     "APROFUNDAMENTO_EM_GEOGRAFIA": "APROFUNDAMENTO_EM_GEOGRAFIA",
+    "ORIENTACAO_ESTUDOS": "ORIENTACAO_DE_ESTUDOS",
+    "ORIENTACAO_DE_ESTUDOS": "ORIENTACAO_DE_ESTUDOS",
+    "ORIENTACAO_ESTUDOS_EF": "ORIENTACAO_DE_ESTUDOS",
+    "ORIENTACAO_ESTUDOS_EM": "ORIENTACAO_DE_ESTUDOS",
+    "ORIENTACAO_DE_ESTUDOS_EF": "ORIENTACAO_DE_ESTUDOS",
+    "ORIENTACAO_DE_ESTUDOS_EM": "ORIENTACAO_DE_ESTUDOS",
     "LIDERANCA_ORATORIA": "LIDERANCA_E_ORATORIA",
     "LIDERANCA_E_ORATORIA": "LIDERANCA_E_ORATORIA",
     "LIDERANCA_E_ORATORIAEJA": "LIDERANCA_E_ORATORIA",
     "LIDERANCA_ORATORIAEJA": "LIDERANCA_E_ORATORIA",
     "LIDERANA_E_ORATRIA": "LIDERANCA_E_ORATORIA",
     "LIDERANA_E_ORATRIAEJA": "LIDERANCA_E_ORATORIA",
-    "LIDERANCA_CDP": "LIDERANCA_E_ORATORIA",
+    "LIDERANCA_CDP": "LIDERANCA_E_ORATORIA_CDP",
+    "LIDERANCA_E_ORATORIA_CDP": "LIDERANCA_E_ORATORIA_CDP",
     "CDPENSINO_MEDIO": "CDP_ENSINO_MEDIO",
     "CDP_ENSINO_MEDIO": "CDP_ENSINO_MEDIO",
     "CDPENSINO_FUNDAMENTAL": "CDP_ENSINO_FUNDAMENTAL",
@@ -70,8 +77,9 @@ DISCIPLINA_PASTA_ALIASES = {
     "SOCIOLOGIA_CDP_MULTISSERIADA": "SOCIOLOGIA_CDP_MULTISSERIADO",
     "SOCIOLOGIA_MULTISSERIADO": "SOCIOLOGIA_CDP_MULTISSERIADO",
     "SOCIOLOGIA_MULTISSERIADA": "SOCIOLOGIA_CDP_MULTISSERIADO",
-    "LIDERANCA_E_ORATORIA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA",
-    "ORATORIA_E_LIDERANCA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA",
+    "LIDERANCA_E_ORATORIA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA_CDP",
+    "ORATORIA_E_LIDERANCA_CDP_EJA_MULTISSERIADO": "LIDERANCA_E_ORATORIA_CDP",
+    "LIDERANCA_E_ORATORIA_CDP_MULTISSERIADO": "LIDERANCA_E_ORATORIA_CDP",
     "LINGUA_PORTUGUESA_CDP_EJA_MULTISSERIADO": "LINGUA_PORTUGUESA",
     "ARTE_CDP_EJA_MULTISSERIADO": "ARTE",
 }
@@ -219,7 +227,9 @@ def _normalizar_disciplina_para_pasta(disciplina: str) -> str:
     if "MATEMATICA" in disciplina_norm and ("CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
         return "MATEMATICA_CDP"
     if ("LIDERANCA" in disciplina_norm or "ORATORIA" in disciplina_norm) and ("CDP" in disciplina_norm or "MULTISSERIAD" in disciplina_norm):
-        return "LIDERANCA_E_ORATORIA"
+        return "LIDERANCA_E_ORATORIA_CDP"
+    if "ORIENTACAO" in disciplina_norm and "ESTUDO" in disciplina_norm:
+        return "ORIENTACAO_DE_ESTUDOS"
     # O cadastro pode usar um rotulo descritivo, como
     # "HISTORIA - E.F - 8o/9o - TURMA H". Para localizar os materiais,
     # somente o componente curricular deve definir a raiz da disciplina.
@@ -390,7 +400,8 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
     match_ano = re.search(r"(\d)_ANO(?:_([A-Z]))?", turma_norm)
     match_serie = re.search(r"(\d)_SERIE(?:_([A-Z]))?", turma_norm)
     match_termo = re.search(r"(\d)_TERMO(?:_([A-Z]))?", turma_norm)
-    match = match_ano or match_serie or match_termo
+    match_simples = re.search(r"(?:^|_)([1-9])(?:_?([A-Z]))?$", turma_norm)
+    match = match_ano or match_serie or match_termo or match_simples
     if not match:
         if turma_norm in {"C", "TURMA_C"}:
             tokens.extend([
@@ -414,6 +425,9 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
             ])
         elif turma_norm in {"J", "E", "TURMA_J", "TURMA_E"}:
             tokens.extend([
+                "MULTISSERIADO_J",
+                "MULTISSERIADO_E",
+                "MULTISSERIADO",
                 "1_2_E_3_ANO_MULTISSERIADO",
                 "1_ANO_2_ANO_3_ANO",
                 "1_2_3_ANO_MULTISSERIADO",
@@ -430,6 +444,11 @@ def _tokens_serie_turma(turma_norm: str) -> list[str]:
                 "9_ANO",
             ])
         elif "MULTISSERIAD" in turma_norm:
+            tokens.extend([
+                "MULTISSERIADO",
+                "MULTISSERIADO_J",
+                "MULTISSERIADO_E",
+            ])
             if "EM" in turma_norm or "MEDIO" in turma_norm:
                 tokens.extend([
                     "1_ANO_2_ANO_3_ANO",
@@ -773,6 +792,23 @@ def resolver_pasta_pdfs(
         ):
             disciplina = "GEOGRAFIA_CDP"
 
+    if disc_norm in {"LIDERANCA_E_ORATORIA", "LIDERANCA_E_ORATORIA_CDP", "LIDERANCA_CDP", "LIDERANCA_ORATORIA"}:
+        if (
+            "CDP" in disc_norm
+            or "MULTISSERIAD" in disc_norm
+            or "CDP" in turma_norm
+            or "MULTISSERIAD" in turma_norm
+            or "TURMA_E" in disc_norm
+            or "TURMA_J" in disc_norm
+            or "TURMA_E" in turma_norm
+            or "TURMA_J" in turma_norm
+            or turma_norm in {"J", "E", "TURMA_J", "TURMA_E", "1O2O3_EM", "123_C", "123_E"}
+        ) and (
+            (Path(base_dir) / "LIDERANCA_E_ORATORIA_CDP").exists()
+            or (Path(base_dir) / "LIDERANCA-E-ORATORIA-CDP").exists()
+        ):
+            disciplina = "LIDERANCA_E_ORATORIA_CDP"
+
     disc_folder = _normalizar_disciplina_para_pasta(disciplina)
 
     eja_solicitado = bool(modalidade_eja or "EJA" in disc_folder)
@@ -845,7 +881,7 @@ def resolver_pasta_pdfs(
 
     turma_norm = normalizar_para_pasta(turma)
     bimestre_norm = normalizar_para_pasta(bimestre)
-    match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm)
+    match_bim = re.search(r"(\d)_BIMESTRE", bimestre_norm) or re.search(r"(\d)", bimestre_norm)
     bim = match_bim.group(1) + "_BIMESTRE" if match_bim else ""
 
     if disc_folder == "HISTORIA":
@@ -883,7 +919,7 @@ def resolver_pasta_pdfs(
 
     serie = ""
 
-    match_ano = re.search(r"(\d)_ANO", turma_norm)
+    match_ano = re.search(r"(\d)_ANO", turma_norm) or re.search(r"(?:^|_)([1-9])(?:_[A-Z])?$", turma_norm)
     match_serie = re.search(r"(\d)_SERIE", turma_norm)
     serie_tokens = _tokens_serie_turma(turma_norm)
     if not any(token.count("_ANO") > 1 or "_E_" in token for token in serie_tokens):
@@ -970,14 +1006,18 @@ def resolver_pasta_pdfs(
         candidatos_serie = [s for s in [serie] + serie_tokens if s]
 
     for candidata_serie in candidatos_serie:
-        caminho_candidato = raiz_resolvida / nivel / bim / candidata_serie
-        if caminho_candidato.exists():
-            if _pasta_tem_pdfs(caminho_candidato):
+        caminhos_tentativa = [
+            raiz_resolvida / nivel / bim / candidata_serie,
+            raiz_resolvida / bim / candidata_serie,
+        ]
+        for caminho_candidato in caminhos_tentativa:
+            if caminho_candidato.exists():
+                if _pasta_tem_pdfs(caminho_candidato):
+                    return caminho_candidato
+                subpasta_cdp = _localizar_subpasta_cdp(caminho_candidato, nivel)
+                if subpasta_cdp:
+                    return subpasta_cdp
                 return caminho_candidato
-            subpasta_cdp = _localizar_subpasta_cdp(caminho_candidato, nivel)
-            if subpasta_cdp:
-                return subpasta_cdp
-            return caminho_candidato
 
     caminho_padrao = raiz_resolvida / nivel / bim / serie
     if caminho_padrao.exists():
@@ -994,9 +1034,22 @@ def resolver_pasta_pdfs(
 
         return caminho_padrao
 
+    caminho_padrao_sem_nivel = raiz_resolvida / bim / serie
+    if caminho_padrao_sem_nivel.exists():
+        if _pasta_tem_pdfs(caminho_padrao_sem_nivel):
+            return caminho_padrao_sem_nivel
+        subpasta_cdp = _localizar_subpasta_cdp(caminho_padrao_sem_nivel, nivel)
+        if subpasta_cdp:
+            return subpasta_cdp
+        return caminho_padrao_sem_nivel
+
     caminho_bimestre_direto = raiz_resolvida / nivel / bim
     if caminho_bimestre_direto.exists() and _pasta_tem_pdfs(caminho_bimestre_direto):
         return caminho_bimestre_direto
+
+    caminho_bimestre_sem_nivel = raiz_resolvida / bim
+    if caminho_bimestre_sem_nivel.exists() and _pasta_tem_pdfs(caminho_bimestre_sem_nivel):
+        return caminho_bimestre_sem_nivel
 
     caminho_flexivel = _buscar_pasta_pdf_flexivel(
         raiz_resolvida,

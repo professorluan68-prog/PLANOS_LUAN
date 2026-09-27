@@ -91,6 +91,8 @@ from ui.shared import (
     _rotulo_data_aula_com_dia,
     _serializar_horarios_padronizados,
     _tipo_horario,
+    _turno_e_aulas_de_horario,
+    _montar_horario_flexivel,
     nome_arquivo_plano,
     _normalizar_texto_simples,
     _normalizar_label_aula,
@@ -1826,15 +1828,26 @@ def _coletar_aulas_envio(
                     st.caption(msg)
 
         if pdf_individual_2:
-            horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
-            match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
-            if match:
-                aula1, aula2 = match.groups()
-                aulas_envio.append({"data": data_aula, "horario": f"{aula1}ª aula", "pdf": pdf_individual, "dividir_pdf": False})
-                aulas_envio.append({"data": data_aula, "horario": f"{aula2}ª aula", "pdf": pdf_individual_2, "dividir_pdf": False})
+            turno, aulas_numeros = _turno_e_aulas_de_horario(horario_aula)
+            sugestoes = [_montar_horario_flexivel(turno, [a]) for a in aulas_numeros if a]
+            if len(sugestoes) >= 2:
+                h1, h2 = sugestoes[0], sugestoes[1]
             else:
-                aulas_envio.append({"data": data_aula, "horario": f"Aula 1 ({horario_str})", "pdf": pdf_individual, "dividir_pdf": False})
-                aulas_envio.append({"data": data_aula, "horario": f"Aula 2 ({horario_str})", "pdf": pdf_individual_2, "dividir_pdf": False})
+                horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
+                match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
+                a1, a2 = match.groups() if match else ("1", "2")
+                horas = re.findall(r"\b\d{1,2}h\d{0,2}\b", str(horario_aula), flags=re.IGNORECASE)
+                if len(horas) >= 2:
+                    h1, h2 = (horas[0], f"{a1}ª aula"), (horas[1], f"{a2}ª aula")
+                elif len(horas) == 1:
+                    h1, h2 = (horas[0], f"{a1}ª aula"), (horas[0], f"{a2}ª aula")
+                elif match:
+                    h1, h2 = f"{a1}ª aula", f"{a2}ª aula"
+                else:
+                    h1, h2 = f"Aula 1 ({horario_str})", f"Aula 2 ({horario_str})"
+
+            aulas_envio.append({"data": data_aula, "horario": h1, "pdf": pdf_individual, "dividir_pdf": False})
+            aulas_envio.append({"data": data_aula, "horario": h2, "pdf": pdf_individual_2, "dividir_pdf": False})
         else:
             # Verificar se é aula dupla em dia sem PDF com modo "uma_aula":
             # neste caso, gerar dois registros separados (1 com PDF + 1 sem PDF),
@@ -2658,43 +2671,27 @@ def _render_painel_pdfs(
     criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
     aulas_rotulo = total_aulas or necessarios
 
-    html = f"""<div class="pdf-dashboard">
-    <div class="pdf-dashboard__header">
-        <div>
-            <span class="pdf-dashboard__eyebrow">Painel dos PDFs</span>
-            <div class="pdf-dashboard__title">Organização das aulas</div>
-            <div class="pdf-dashboard__subtitle">{orientacao}</div>
-        </div>
-        <div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">
-            {status_texto}
-        </div>
-    </div>
-    
-    <div class="pdf-dashboard__stats">
-        <div class="pdf-stat">
-            <span>Modo</span>
-            <strong>{modo_texto}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Necessários</span>
-            <strong>{necessarios}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Agendados</span>
-            <strong>{carregados}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Encontrados</span>
-            <strong>{encontrados}</strong>
-        </div>
-    </div>
-    <div class="pdf-progress">
-        <div class="pdf-progress__bar" style="width: {progresso}%;"></div>
-    </div>
-</div>"""
+    html = (
+        f'<div class="pdf-dashboard">'
+        f'<div class="pdf-dashboard__header">'
+        f'<div>'
+        f'<span class="pdf-dashboard__eyebrow">Painel dos PDFs</span>'
+        f'<div class="pdf-dashboard__title">Organização das aulas</div>'
+        f'<div class="pdf-dashboard__subtitle">{orientacao}</div>'
+        f'</div>'
+        f'<div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">{status_texto}</div>'
+        f'</div>'
+        f'<div class="pdf-dashboard__stats">'
+        f'<div class="pdf-stat"><span>Modo</span><strong>{modo_texto}</strong></div>'
+        f'<div class="pdf-stat"><span>Necessários</span><strong>{necessarios}</strong></div>'
+        f'<div class="pdf-stat"><span>Agendados</span><strong>{carregados}</strong></div>'
+        f'<div class="pdf-stat"><span>Encontrados</span><strong>{encontrados}</strong></div>'
+        f'</div>'
+        f'<div class="pdf-progress"><div class="pdf-progress__bar" style="width: {progresso}%;"></div></div>'
+        f'</div>'
+    )
     st.markdown(html, unsafe_allow_html=True)
 
-    st.progress(progresso)
     st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
 
     if pasta:
@@ -2771,8 +2768,11 @@ semana = ""
 default_outubro = (
     "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
     "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
-    "identificadas, preservando os objetivos de aprendizagem estabelecidos.\n"
-    "12/10 – Feriado Nacional"
+    "identificadas, preservando os objetivos de aprendizagem estabelecidos, bem como "
+    "poderá fazer uso de tecnologias, quando achar necessário.\n"
+    "12/10 – Feriado Nacional\n"
+    "15/10 - Feriado (Dia do Professor)\n"
+    "16/10 - Conselho de Classe 3º Bimestre"
 )
 
 # Texto padrão fixo para AGOSTO

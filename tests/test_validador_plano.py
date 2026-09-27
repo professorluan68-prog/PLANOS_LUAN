@@ -260,3 +260,30 @@ def test_validador_coerencia_recursos():
     }
     avisos_exp = validar_aula_final(aula_sem_experimento)
     assert any("experimento" in a and "procedimento" in a for a in avisos_exp)
+
+
+def test_validador_aceita_aprendizagem_curta():
+    aulas = [
+        {
+            "tema": "Oratória e Voz",
+            "aprendizagem": "Oratória e fala.",  # 16 caracteres
+            "metodologia": [
+                {"titulo": "Para começar", "texto": "Apresentar a importância da entonação de voz."},
+                {"titulo": "Foco no conteúdo", "texto": "Exercitar técnicas de impostação vocal e respiração."},
+                {"titulo": "Encerramento", "texto": "Sistematizar os aprendizados e avaliar as falas."},
+            ],
+            "acompanhamento": [
+                "☑ Observar a participação e clareza na emissão vocal.",
+                "☑ Acompanhar os exercícios práticos de respiração.",
+                "☑ Verificar anotações reflexivas no caderno.",
+            ],
+            "acessibilidade": [
+                "☑ Permitir treino prévio individualizado antes da apresentação.",
+                "☑ Fornecer roteiro visual com passos de respiração e postura.",
+                "☑ Flexibilizar tempo e permitir respostas orais guiadas.",
+            ],
+        }
+    ]
+    problemas = validar_aulas_geradas(aulas)
+    assert problemas == []
+

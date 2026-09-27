@@ -66,3 +66,34 @@ def test_resolver_lingua_inglesa_eja_1_e_2_termo_4_bimestre(tmp_path: Path):
             ) == termo_2
 
 
+def test_resolver_lideranca_oratoria_cdp_eja_multisseriado_turma_j_4_bimestre(tmp_path: Path):
+    base = tmp_path / "PDF_AULAS"
+    pasta_cdp = base / "LIDERANCA_E_ORATORIA_CDP" / "4_BIMESTRE" / "MULTISSERIADO"
+    pasta_cdp.mkdir(parents=True)
+    (pasta_cdp / "AULA_01.pdf").write_bytes(b"%PDF-fake")
+
+    # Regular também existe para garantir que não cai nela por engano
+    pasta_regular = base / "LIDERANCA_E_ORATORIA" / "EM" / "4_BIMESTRE" / "2_TERMO"
+    pasta_regular.mkdir(parents=True)
+    (pasta_regular / "AULA_01.pdf").write_bytes(b"%PDF-fake")
+
+    nomes_disciplina = [
+        "Liderança e Oratória",
+        "Liderança e Oratória - CDP - EJA - MULTISSERIADO",
+        "LIDERANÇA E ORATÓRIA - CDP - EJA - MULTISSERIADO",
+        "LIDERANCA_E_ORATORIA_CDP",
+        "LIDERANCA_CDP",
+    ]
+    turmas = ["J", "TURMA J", "MULTISSERIADO", "MULTISSERIADO J"]
+
+    for disc in nomes_disciplina:
+        for turma in turmas:
+            assert resolver_pasta_pdfs(
+                str(base), disc, turma, "4º Bimestre", modalidade_eja=True
+            ) == pasta_cdp
+            assert resolver_pasta_pdfs(
+                str(base), disc, turma, "4º Bimestre", modalidade_eja=False
+            ) == pasta_cdp
+
+
+

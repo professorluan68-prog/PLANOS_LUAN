@@ -3,6 +3,8 @@ from datetime import date, timedelta
 
 DATAS_SEM_AULA_FIXAS = {
     date(2026, 8, 6),
+    date(2026, 10, 15),  # Dia do Professor — feriado estadual SP (sem PDF)
+    date(2026, 10, 16),  # Conselho de Classe 3º bimestre (sem PDF)
 }
 
 
