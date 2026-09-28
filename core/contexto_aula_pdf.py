@@ -330,9 +330,10 @@ def preparar_contexto_aula_pdf(
     # o texto interno pode misturar unidade, pagina e cabecalhos do livro.
     if cdp_contextual and cdp_caminho_pdf:
         from core.cdp.gerador_cdp import titulo_cdp_por_caminho
+        from core.qualidade_metodologica import extrair_conceito_central
 
         titulo_arquivo_cdp = titulo_cdp_por_caminho(caminho_pdf_contextual)
-        if titulo_arquivo_cdp:
+        if titulo_arquivo_cdp and extrair_conceito_central(titulo_arquivo_cdp):
             tema = titulo_arquivo_cdp
             material_digital = titulo_arquivo_cdp
 

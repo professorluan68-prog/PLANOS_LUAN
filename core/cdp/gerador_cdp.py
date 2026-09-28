@@ -133,13 +133,16 @@ def _titulo_cdp_por_caminho(caminho_pdf: str) -> str:
         return ""
     titulo = re.sub(r"^\s*\d{1,3}\s*[-_.]\s*", "", stem)
     titulo = re.sub(
-        r"^\s*(?:AULA|ATIVIDADE|ATIVIDADES)\s*\d+(?:\.\d+)?\s*[-:–—.]?\s*",
+        r"^\s*(?:AULA|ATIVIDADE|ATIVIDADES)[_\s-]*\d+(?:\.\d+)?[_\s-]*[-:–—.]?\s*",
         "",
         titulo,
         flags=re.I,
     )
-    titulo = re.sub(r"^\s*(?:UNIDADE|TEMA)\s*\d+\s*[-:–—.]?\s*", "", titulo, flags=re.I)
+    titulo = re.sub(r"^\s*(?:UNIDADE|TEMA)[_\s-]*\d+[_\s-]*[-:–—.]?\s*", "", titulo, flags=re.I)
     titulo = re.sub(r"[_\s]+", " ", titulo).strip(" -:.;")
+    from core.qualidade_metodologica import extrair_conceito_central
+    if not extrair_conceito_central(titulo):
+        return ""
     return titulo if len(titulo) >= 3 else ""
 
 

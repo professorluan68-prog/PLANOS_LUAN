@@ -310,7 +310,7 @@ def referencia_cdp_contextual_por_pdf(caminho_pdf: str | Path, numero_aula: Any,
 
 _PADRAO_REFERENCIA_CDP_INCOMPATIVEL = re.compile(
     r"\b(?:LEMOV|VIREM\s+E\s+CONVERSEM|TODO\s+MUNDO\s+ESCREVE|"
-    r"COM\s+SUAS\s+PALAVRAS|HORA\s+DA\s+LEITURA|DE\s+OLHO\s+NO\s+MODELO|"
+    r"(?:t[eé]cnica\s+[\"']?com\s+suas\s+palavras[\"']?)|HORA\s+DA\s+LEITURA|DE\s+OLHO\s+NO\s+MODELO|"
     r"PAUSE\s+E\s+RESPONDA|UM\s+PASSO\s+DE\s+CADA\s+VEZ|"
     r"em\s+(?:duplas?|grupos?|equipes?)|trabalho\s+em\s+grupo|"
     r"(?:internet|celular|computador|aplicativo|plataforma\s+digital|vídeo\s+online))\b",

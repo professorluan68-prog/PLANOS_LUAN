@@ -2337,15 +2337,6 @@ def _montar_resultado_cdp_contextual(
     bimestre: str = "",
 ) -> dict:
     referencia_docx = referencia_cdp_contextual_por_pdf(caminho_pdf, numero_aula, tema=tema)
-    if referencia_docx and not referencia_cdp_compativel(referencia_docx):
-        logger.warning(
-            "Referencia DOCX CDP incompatível com as regras restritivas; "
-            "seguindo para o gerador contextual."
-        )
-        referencia_docx = None
-    # Em CDP, a ausencia de um DOCX especifico nao autoriza fallback para a
-    # metodologia regular. O caminho sera usado apenas para provenance quando
-    # a referencia contextual existir.
     arquivo_referencia_docx = referencia_docx.get("fonte", "") if referencia_docx else ""
     if referencia_docx:
         titulo_referencia = str(referencia_docx.get("titulo") or "").strip()
@@ -2354,6 +2345,12 @@ def _montar_resultado_cdp_contextual(
             tema = titulo_referencia
         if numero_referencia:
             numero_aula = numero_referencia
+        if not referencia_cdp_compativel(referencia_docx):
+            logger.warning(
+                "Referencia DOCX CDP incompatível com as regras restritivas; "
+                "seguindo para o gerador contextual."
+            )
+            referencia_docx = None
 
     conceito_cdp = extracao_pdf.get("conceito_extraido", tema)
     habilidade_cdp = (
