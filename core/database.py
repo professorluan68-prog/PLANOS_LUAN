@@ -971,6 +971,23 @@ MIGRACOES = [
     """,
     # Versão 17
     "ALTER TABLE historico_planos ADD COLUMN ultimo_pdf TEXT",
+    # Versão 18
+    """
+    CREATE TABLE IF NOT EXISTS progresso_aulas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        professor_chave TEXT NOT NULL,
+        disciplina_chave TEXT NOT NULL,
+        turma_chave TEXT NOT NULL,
+        professor_nome TEXT,
+        disciplina TEXT,
+        turma TEXT,
+        ultima_aula INTEGER DEFAULT 0,
+        ultimo_pdf TEXT,
+        mes_referencia TEXT,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(professor_chave, disciplina_chave, turma_chave)
+    )
+    """,
 ]
 
 
@@ -1871,6 +1888,38 @@ def salvar_historico_plano(
                 ),
             )
 
+            if metadados.get("ultima_aula"):
+                cursor.execute(
+                    """
+                    INSERT INTO progresso_aulas (
+                        professor_chave, disciplina_chave, turma_chave,
+                        professor_nome, disciplina, turma,
+                        ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(professor_chave, disciplina_chave, turma_chave)
+                    DO UPDATE SET
+                        professor_nome=excluded.professor_nome,
+                        disciplina=excluded.disciplina,
+                        turma=excluded.turma,
+                        ultima_aula=excluded.ultima_aula,
+                        ultimo_pdf=CASE WHEN excluded.ultimo_pdf != '' THEN excluded.ultimo_pdf ELSE progresso_aulas.ultimo_pdf END,
+                        mes_referencia=CASE WHEN excluded.mes_referencia != '' THEN excluded.mes_referencia ELSE progresso_aulas.mes_referencia END,
+                        atualizado_em=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        metadados["professor_chave"],
+                        metadados["disciplina_chave"],
+                        metadados["turma_chave"],
+                        professor_nome,
+                        disciplina,
+                        turma,
+                        metadados["ultima_aula"],
+                        _normalizar_campo(ultimo_pdf),
+                        metadados.get("mes_plano") or "",
+                    ),
+                )
+
             if limite_retencao > 0:
                 _atualizar_metadados_historico(cursor)
                 cursor.execute(
@@ -2380,6 +2429,114 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
 def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     from core.gestao_aulas import obter_ultima_aula_gerada_sistema_impl
     return obter_ultima_aula_gerada_sistema_impl(professor, disciplina, turma, bimestre)
+
+
+def salvar_progresso_aula(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    ultima_aula: int,
+    ultimo_pdf: str = "",
+    mes: str = "",
+) -> None:
+    """
+    Grava ou atualiza o progresso da última aula gerada para o contexto
+    (professor, disciplina, turma), servindo de memória persistente entre gerações.
+    """
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    if not professor_nome or not disciplina or not turma:
+        return
+
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    disciplina_chave = _normalizar_campo_chave(disciplina)
+    turma_chave = _normalizar_turma_historico_chave(turma)
+    ultima_aula_int = max(0, int(ultima_aula or 0))
+    ultimo_pdf = str(ultimo_pdf or "").strip()
+    mes = str(mes or "").strip()
+
+    try:
+        with connection_scope() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO progresso_aulas (
+                    professor_chave, disciplina_chave, turma_chave,
+                    professor_nome, disciplina, turma,
+                    ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(professor_chave, disciplina_chave, turma_chave)
+                DO UPDATE SET
+                    professor_nome=excluded.professor_nome,
+                    disciplina=excluded.disciplina,
+                    turma=excluded.turma,
+                    ultima_aula=excluded.ultima_aula,
+                    ultimo_pdf=CASE WHEN excluded.ultimo_pdf != '' THEN excluded.ultimo_pdf ELSE progresso_aulas.ultimo_pdf END,
+                    mes_referencia=CASE WHEN excluded.mes_referencia != '' THEN excluded.mes_referencia ELSE progresso_aulas.mes_referencia END,
+                    atualizado_em=CURRENT_TIMESTAMP
+                """,
+                (
+                    professor_chave,
+                    disciplina_chave,
+                    turma_chave,
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    ultima_aula_int,
+                    ultimo_pdf,
+                    mes,
+                ),
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.error("Erro ao salvar progresso de aula no SQLite: %s", exc)
+
+
+def obter_progresso_aula(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+) -> dict | None:
+    """
+    Retorna o registro de progresso (ultima_aula, ultimo_pdf, etc.)
+    gravado na tabela progresso_aulas para o contexto informado.
+    """
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    if not professor_nome or not disciplina or not turma:
+        return None
+
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    disciplina_chave = _normalizar_campo_chave(disciplina)
+    turma_chave = _normalizar_turma_historico_chave(turma)
+
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                FROM progresso_aulas
+                WHERE professor_chave = ?
+                  AND disciplina_chave = ?
+                  AND turma_chave = ?
+                """,
+                (professor_chave, disciplina_chave, turma_chave),
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "ultima_aula": int(row[0] or 0),
+                    "ultimo_pdf": row[1] or "",
+                    "mes_referencia": row[2] or "",
+                    "atualizado_em": row[3] or "",
+                }
+    except Exception as exc:
+        logger.error("Erro ao obter progresso de aula do SQLite: %s", exc)
+    return None
 
 
 def verificar_plano_gerado_por_outro_professor(

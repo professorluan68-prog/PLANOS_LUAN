@@ -140,12 +140,92 @@ def obter_referencia_ultima_aula_historico(
     }
 
 
+def obter_referencia_ultima_aula_ampla(
+    professor: str,
+    disciplina: str,
+    turma: str,
+    bimestre: str = "",
+) -> dict:
+    """
+    Consulta a última aula identificada para o contexto (professor, disciplina, turma).
+    Ordem de busca:
+    1. Tabela dedicada progresso_aulas (SQLite)
+    2. historico_planos no bimestre informado
+    3. historico_planos em qualquer bimestre (mais recente por data de geração)
+    4. Inspeção de arquivos DOCX em Planos feitos/<PROFESSOR>/<DISCIPLINA>
+    """
+    from core.database import (
+        obter_progresso_aula,
+        salvar_progresso_aula,
+    )
+    from core.normalizacao import normalizar as normalizar_texto
+
+    # 1. Tabela progresso_aulas
+    prog = obter_progresso_aula(professor, disciplina, turma)
+    if prog and prog.get("ultima_aula", 0) > 0:
+        return {
+            "ultima_aula": prog["ultima_aula"],
+            "ultimo_pdf": prog.get("ultimo_pdf", ""),
+            "origem": "memoria_progresso",
+            "mes": prog.get("mes_referencia", ""),
+        }
+
+    # 2. Histórico no bimestre informado
+    if bimestre:
+        ref_bim = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre=bimestre)
+        if ref_bim and ref_bim.get("ultima_aula", 0) > 0:
+            return {
+                "ultima_aula": ref_bim["ultima_aula"],
+                "ultimo_pdf": ref_bim.get("ultimo_pdf", ""),
+                "origem": "historico_bimestre",
+                "mes": ref_bim.get("mes_plano", ""),
+            }
+
+    # 3. Histórico geral (qualquer bimestre, mais recente)
+    ref_geral = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre="")
+    if ref_geral and ref_geral.get("ultima_aula", 0) > 0:
+        return {
+            "ultima_aula": ref_geral["ultima_aula"],
+            "ultimo_pdf": ref_geral.get("ultimo_pdf", ""),
+            "origem": "historico_geral",
+            "mes": ref_geral.get("mes_plano", ""),
+        }
+
+    # 4. Fallback: procurar DOCX na pasta de finalizados
+    try:
+        from config import PLANOS_FINALIZADOS_DIR
+        from core.helpers import normalizar_para_pasta
+        pasta_prof = PLANOS_FINALIZADOS_DIR / normalizar_para_pasta(professor) / normalizar_para_pasta(disciplina)
+        if pasta_prof.exists():
+            arquivos = sorted(pasta_prof.rglob("*.docx"), key=lambda p: p.stat().st_mtime, reverse=True)
+            for arq in arquivos:
+                if arq.name.startswith("~$"):
+                    continue
+                if normalizar_texto(turma) in normalizar_texto(arq.name):
+                    resumo = detectar_resumo_aulas_de_docx_bytes(arq.read_bytes())
+                    if resumo.get("ultima_aula", 0) > 0:
+                        salvar_progresso_aula(professor, disciplina, turma, resumo["ultima_aula"])
+                        return {
+                            "ultima_aula": resumo["ultima_aula"],
+                            "ultimo_pdf": "",
+                            "origem": "arquivo_docx",
+                            "mes": "",
+                        }
+    except Exception:
+        pass
+
+    return {
+        "ultima_aula": 0,
+        "ultimo_pdf": "",
+        "origem": "nenhuma",
+        "mes": "",
+    }
+
+
 def obter_ultima_aula_gerada_sistema_impl(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     """
-    Retorna o número da última aula gerada do histórico para servir de ponto
+    Retorna o número da última aula gerada para servir de ponto
     de partida e continuidade na nova geração.
     """
-    ref = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre)
-    if ref:
-        return int(ref.get("ultima_aula") or 0)
-    return 0
+    ref = obter_referencia_ultima_aula_ampla(professor, disciplina, turma, bimestre)
+    return int(ref.get("ultima_aula") or 0)

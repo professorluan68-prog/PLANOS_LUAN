@@ -460,6 +460,17 @@ def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, profess
             with open(caminho_completo, "wb") as f:
                 f.write(plano["docx_bytes"].getvalue())
             caminhos_salvos.append(str(caminho_completo))
+
+            # Atualiza a memória de progresso para a turma deste plano
+            if professor and plano.get("turma"):
+                try:
+                    from core.gestao_aulas import detectar_ultima_aula_de_docx_bytes
+                    from core.database import salvar_progresso_aula
+                    ua = detectar_ultima_aula_de_docx_bytes(plano["docx_bytes"].getvalue())
+                    if ua > 0:
+                        salvar_progresso_aula(professor, disciplina, plano["turma"], ua, mes=mes)
+                except Exception:
+                    pass
     except Exception as e:
         destino_mensagem = str(dir_destino) if 'dir_destino' in locals() else str(PLANOS_FINALIZADOS_DIR)
         st.warning(f"Não foi possível salvar os arquivos localmente em {destino_mensagem}: {e}")
@@ -2413,31 +2424,60 @@ else:
             erro_pasta_pdfs_auto = str(exc)
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
-    from core.gestao_aulas import obter_referencia_ultima_aula_historico
+    from core.gestao_aulas import obter_referencia_ultima_aula_ampla
+    from core.database import salvar_progresso_aula
 
-    referencia_historico = obter_referencia_ultima_aula_historico(
+    referencia_historico = obter_referencia_ultima_aula_ampla(
         professor,
         disciplina,
         turma,
         bimestre,
     )
-    if referencia_historico and referencia_historico["ultima_aula"] > 0:
-        proxima_aula = referencia_historico["ultima_aula"] + 1
-        ultimo_pdf_info = ""
-        if referencia_historico.get("ultimo_pdf"):
-            ultimo_pdf_info = f" (PDF: `{referencia_historico['ultimo_pdf']}`)"
-        st.info(
-            "📚 **Continuidade dos PDFs:** no último plano salvo no histórico "
-            f"para este professor, disciplina, turma e bimestre, a geração foi até a "
-            f"**Aula {referencia_historico['ultima_aula']}**{ultimo_pdf_info}. Para continuar, "
-            f"o sistema sugere começar a partir do PDF da **Aula {proxima_aula}**."
+    ultima_aula_sugerida = int(referencia_historico.get("ultima_aula") or 0)
+
+    # Campo interativo para definir ou confirmar a última aula utilizada
+    col_ua1, col_ua2 = st.columns([1, 2])
+    chave_input_ua = f"input_ultima_aula_{_slug_key(professor)}_{_slug_key(disciplina)}_{_slug_key(turma)}"
+    with col_ua1:
+        ultima_aula_digitada = st.number_input(
+            "🔢 Última aula usada no mês anterior",
+            min_value=0,
+            max_value=300,
+            value=ultima_aula_sugerida,
+            key=chave_input_ua,
+            help="Informe ou ajuste o número da última aula utilizada no mês anterior. O sistema começará a seleção a partir da aula seguinte.",
         )
-    elif referencia_historico:
-        st.warning(
-            "Há um plano salvo no histórico para este contexto, mas não foi possível "
-            "identificar o número da última aula no arquivo. Confira-o na aba Histórico "
-            "antes de escolher os PDFs."
-        )
+    with col_ua2:
+        if ultima_aula_digitada > 0:
+            detalhe_origem = ""
+            if referencia_historico.get("origem") == "memoria_progresso":
+                detalhe_origem = " (gravada na memória do sistema)"
+            elif referencia_historico.get("origem") in ("historico_bimestre", "historico_geral"):
+                detalhe_origem = " (identificada no plano anterior)"
+            elif referencia_historico.get("origem") == "arquivo_docx":
+                detalhe_origem = " (detectada no último DOCX da pasta)"
+
+            ultimo_pdf_info = ""
+            if referencia_historico.get("ultimo_pdf"):
+                ultimo_pdf_info = f" • PDF: `{referencia_historico['ultimo_pdf']}`"
+
+            st.markdown(
+                f'<div style="padding-top: 26px; font-weight: 600; color: #1e7e34; font-size: 0.95rem;">'
+                f'🟢 Iniciando a seleção a partir da <strong>AULA {ultima_aula_digitada + 1}</strong>{detalhe_origem}{ultimo_pdf_info}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="padding-top: 26px; color: #6c757d; font-size: 0.95rem;">'
+                'ℹ️ Iniciando da <strong>AULA 1</strong> (ou digite o número da última aula ao lado)'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    # Se o usuário alterou manualmente o número da última aula na tela, atualiza imediatamente a memória
+    if ultima_aula_digitada != ultima_aula_sugerida:
+        salvar_progresso_aula(professor, disciplina, turma, ultima_aula_digitada, mes=mes)
 
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
@@ -2564,10 +2604,8 @@ else:
 
             if pdf_files_disponiveis:
                 default_selection = []
-                from core.database import obter_ultima_aula_gerada_sistema
-                ultima_aula = obter_ultima_aula_gerada_sistema(professor, disciplina, turma, bimestre)
+                ultima_aula = int(ultima_aula_digitada or 0)
                 
-                # A continuidade automática foi desativada; a seleção padrão volta à Aula 1.
                 pdf_files_filtrados = []
                 for p in pdf_files_disponiveis:
                     num_aula = numero_aula_pdf(p)
