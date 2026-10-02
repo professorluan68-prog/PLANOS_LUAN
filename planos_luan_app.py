@@ -1585,6 +1585,7 @@ def _extrair_aulas_dos_pdfs(
 
         aulas_vazias = []
         for aula_envio in aulas_antecipacao + aulas_sem_pdf:
+            eh_sem_pdf = bool(aula_envio.get("bloco_sem_pdf", False))
             horario_vazio = (
                 disciplina and turma_atual and disciplina.lower() == "matemática" and (
                     "6º/7º" in turma_atual.lower()
@@ -1594,7 +1595,8 @@ def _extrair_aulas_dos_pdfs(
                 )
             )
             aulas_vazias.append({
-                "tema": "",
+                "tema": "RECOMPOSIÇÃO DA APRENDIZAGEM" if eh_sem_pdf else "",
+                "material": "RECOMPOSIÇÃO DA APRENDIZAGEM\n\nAULA: \nBIMESTRE" if eh_sem_pdf else "",
                 "conteudo": "",
                 "aprendizagem": "",
                 "metodologia": [],
@@ -1604,6 +1606,7 @@ def _extrair_aulas_dos_pdfs(
                 "data": aula_envio["data"].strftime("%d/%m"),
                 "horario": "" if horario_vazio else horario_para_plano(aula_envio["horario"]),
                 "aula_vazia": True,
+                "bloco_sem_pdf": eh_sem_pdf,
                 "ordem_original": aula_envio.get("ordem_original", 0),
             })
 

@@ -395,11 +395,52 @@ def _preencher_celula_centralizada(celula, texto: str, bold: bool = False, color
     _aplicar_fonte(run, tamanho=_tamanho_por_texto(texto), bold=bold, color=color)
 
 
+def _preencher_celula_recomposicao(celula, texto: str = "") -> None:
+    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+    from docx.shared import Pt
+
+    _limpar_celula(celula)
+
+    # 1º Parágrafo: RECOMPOSIÇÃO DA APRENDIZAGEM (vermelho, negrito, highlight amarelo, Arial 9)
+    p1 = _paragrafo_base(celula)
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_before = Pt(0)
+    p1.paragraph_format.space_after = Pt(0)
+    run1 = p1.add_run("RECOMPOSIÇÃO DA APRENDIZAGEM")
+    _aplicar_fonte(run1, tamanho=Pt(9), bold=True, color=_COR_VERMELHA)
+    run1.font.highlight_color = WD_COLOR_INDEX.YELLOW
+
+    # 2º Parágrafo: Espaçamento / vazio
+    p2 = celula.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_before = Pt(0)
+    p2.paragraph_format.space_after = Pt(0)
+
+    # Linhas de conteúdo: AULA: e BIMESTRE
+    linhas = [l.strip() for l in str(texto or "").splitlines() if l.strip()]
+    linhas_conteudo = [l for l in linhas if not ("RECOMPOSI" in l.upper() and "APRENDIZAGEM" in l.upper())]
+    if not linhas_conteudo:
+        linhas_conteudo = ["AULA: ", "BIMESTRE"]
+
+    for linha in linhas_conteudo:
+        p = celula.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        run = p.add_run(linha)
+        _aplicar_fonte(run, tamanho=Pt(9), bold=True, color=_COR_VERMELHA)
+
+
 def _preencher_celula_tema_material(celula, texto: str) -> None:
     bruto = str(texto or "").strip()
     if not bruto:
         _limpar_celula(celula)
         return
+
+    if "RECOMPOSIÇÃO DA APRENDIZAGEM" in bruto.upper() or "RECOMPOSICAO DA APRENDIZAGEM" in bruto.upper():
+        _preencher_celula_recomposicao(celula, bruto)
+        return
+
     if not _polir_texto_docx(bruto).upper().startswith("TEMA:"):
         _preencher_celula_centralizada(celula, bruto, bold=True, color=_COR_VERMELHA)
         return
@@ -997,6 +1038,9 @@ def _semana_atual_cabecalho(tabela) -> str:
 
 
 def _titulo_aula(aula: dict, numero: int) -> str:
+    if aula.get("bloco_sem_pdf") or (aula.get("aula_vazia") and "RECOMPOSI" in str(aula.get("material") or aula.get("tema") or "").upper()):
+        return "RECOMPOSIÇÃO DA APRENDIZAGEM\n\nAULA: \nBIMESTRE"
+
     if aula.get("aula_vazia"):
         return ""
         
