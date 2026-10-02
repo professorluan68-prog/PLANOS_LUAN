@@ -56,3 +56,33 @@ def test_obter_referencia_ultima_aula_ampla():
     # Função de sistema impl deve retornar 18
     num = obter_ultima_aula_gerada_sistema_impl(professor, disciplina, turma, bimestre="4º Bimestre")
     assert num == 18
+
+
+def test_obter_referencia_turmas_espelho_mesma_serie(tmp_path, monkeypatch):
+    from docx import Document
+    import config
+
+    pasta_prof = tmp_path / "PROF_TESTE_ESPELHO" / "ARTE"
+    pasta_prof.mkdir(parents=True, exist_ok=True)
+
+    doc_a = Document()
+    doc_a.add_paragraph("AULA 1 - Introdução")
+    doc_a.add_paragraph("AULA 2 - Cores")
+    doc_a.add_paragraph("AULA 3 - Formas")
+    doc_a.save(pasta_prof / "Plano_1o_ANO_A_Arte.docx")
+
+    doc_b = Document()
+    doc_b.add_paragraph("AULA 1 - Introdução")
+    doc_b.add_paragraph("AULA 2 - Cores")
+    doc_b.add_paragraph("AULA 3 - Formas")
+    doc_b.add_paragraph("AULA 4 - Movimento")
+    doc_b.save(pasta_prof / "Plano_1o_ANO_B_Arte.docx")
+
+    monkeypatch.setattr(config, "PLANOS_FEITOS_DIR", tmp_path)
+
+    ref_a = obter_referencia_ultima_aula_ampla("PROF TESTE ESPELHO", "ARTE", "1º ANO A")
+    ref_b = obter_referencia_ultima_aula_ampla("PROF TESTE ESPELHO", "ARTE", "1º ANO B")
+
+    assert ref_a["ultima_aula"] == 4
+    assert ref_b["ultima_aula"] == 4
+

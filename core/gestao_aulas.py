@@ -140,6 +140,73 @@ def obter_referencia_ultima_aula_historico(
     }
 
 
+def _buscar_ultima_aula_em_arquivos_docx(
+    professor: str,
+    disciplina: str,
+    turma: str,
+) -> dict:
+    from config import PLANOS_FEITOS_DIR, PLANOS_FINALIZADOS_DIR
+    from core.helpers import normalizar_para_pasta
+    from core.normalizacao import normalizar as normalizar_texto
+    from core.turmas import chave_serie_turma
+    from core.database import _inferir_turma_por_nome_arquivo
+
+    chave_serie_alvo = chave_serie_turma(turma)
+    turma_norm = normalizar_texto(turma)
+
+    diretorios = [PLANOS_FEITOS_DIR, PLANOS_FINALIZADOS_DIR]
+    max_aula_turma = 0
+    max_aula_serie = 0
+    mes_encontrado = ""
+
+    for diretorio_base in diretorios:
+        if not diretorio_base or not diretorio_base.exists():
+            continue
+        pasta_prof = diretorio_base / normalizar_para_pasta(professor) / normalizar_para_pasta(disciplina)
+        if not pasta_prof.exists():
+            pasta_prof_raiz = diretorio_base / normalizar_para_pasta(professor)
+            if not pasta_prof_raiz.exists():
+                continue
+            pastas_candidatas = [p for p in pasta_prof_raiz.iterdir() if p.is_dir() and normalizar_texto(disciplina) in normalizar_texto(p.name)]
+        else:
+            pastas_candidatas = [pasta_prof]
+
+        for pasta in pastas_candidatas:
+            arquivos = sorted(pasta.rglob("*.docx"), key=lambda p: p.stat().st_mtime, reverse=True)
+            for arq in arquivos:
+                if arq.name.startswith("~$"):
+                    continue
+                arq_norm = normalizar_texto(arq.name)
+                eh_turma_exata = turma_norm in arq_norm
+                eh_mesma_serie = False
+                if not eh_turma_exata and chave_serie_alvo:
+                    turma_inf = _inferir_turma_por_nome_arquivo(arq.name, disciplina)
+                    if chave_serie_turma(turma_inf) == chave_serie_alvo:
+                        eh_mesma_serie = True
+
+                if eh_turma_exata or eh_mesma_serie:
+                    try:
+                        resumo = detectar_resumo_aulas_de_docx_bytes(arq.read_bytes())
+                        u = int(resumo.get("ultima_aula") or 0)
+                        if u > 0:
+                            if eh_turma_exata:
+                                max_aula_turma = max(max_aula_turma, u)
+                            if eh_mesma_serie or eh_turma_exata:
+                                max_aula_serie = max(max_aula_serie, u)
+                    except Exception:
+                        pass
+
+    aula_final = max(max_aula_turma, max_aula_serie)
+    if aula_final > 0:
+        return {
+            "ultima_aula": aula_final,
+            "ultimo_pdf": "",
+            "origem": "arquivo_docx",
+            "mes": mes_encontrado,
+        }
+    return {}
+
+
 def obter_referencia_ultima_aula_ampla(
     professor: str,
     disciplina: str,
@@ -150,15 +217,17 @@ def obter_referencia_ultima_aula_ampla(
     Consulta a última aula identificada para o contexto (professor, disciplina, turma).
     Ordem de busca:
     1. Tabela dedicada progresso_aulas (SQLite)
-    2. historico_planos no bimestre informado
-    3. historico_planos em qualquer bimestre (mais recente por data de geração)
-    4. Inspeção de arquivos DOCX em Planos feitos/<PROFESSOR>/<DISCIPLINA>
+    2. Inspeção de arquivos DOCX em Planos feitos/<PROFESSOR>/<DISCIPLINA> (incluindo turmas espelho)
+    3. historico_planos no bimestre informado
+    4. historico_planos em qualquer bimestre (mais recente por data de geração)
+    5. Fallback por turmas espelho no histórico
     """
     from core.database import (
         obter_progresso_aula,
         salvar_progresso_aula,
+        listar_historico_planos,
     )
-    from core.normalizacao import normalizar as normalizar_texto
+    from core.turmas import chave_serie_turma
 
     # 1. Tabela progresso_aulas
     prog = obter_progresso_aula(professor, disciplina, turma)
@@ -170,7 +239,13 @@ def obter_referencia_ultima_aula_ampla(
             "mes": prog.get("mes_referencia", ""),
         }
 
-    # 2. Histórico no bimestre informado
+    # 2. Inspeção direta de arquivos DOCX reais em Planos feitos
+    ref_docx = _buscar_ultima_aula_em_arquivos_docx(professor, disciplina, turma)
+    if ref_docx and ref_docx.get("ultima_aula", 0) > 0:
+        salvar_progresso_aula(professor, disciplina, turma, ref_docx["ultima_aula"])
+        return ref_docx
+
+    # 3. Histórico no bimestre informado
     if bimestre:
         ref_bim = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre=bimestre)
         if ref_bim and ref_bim.get("ultima_aula", 0) > 0:
@@ -181,7 +256,7 @@ def obter_referencia_ultima_aula_ampla(
                 "mes": ref_bim.get("mes_plano", ""),
             }
 
-    # 3. Histórico geral (qualquer bimestre, mais recente)
+    # 4. Histórico geral (qualquer bimestre, mais recente)
     ref_geral = obter_referencia_ultima_aula_historico(professor, disciplina, turma, bimestre="")
     if ref_geral and ref_geral.get("ultima_aula", 0) > 0:
         return {
@@ -191,28 +266,29 @@ def obter_referencia_ultima_aula_ampla(
             "mes": ref_geral.get("mes_plano", ""),
         }
 
-    # 4. Fallback: procurar DOCX na pasta de finalizados
-    try:
-        from config import PLANOS_FINALIZADOS_DIR
-        from core.helpers import normalizar_para_pasta
-        pasta_prof = PLANOS_FINALIZADOS_DIR / normalizar_para_pasta(professor) / normalizar_para_pasta(disciplina)
-        if pasta_prof.exists():
-            arquivos = sorted(pasta_prof.rglob("*.docx"), key=lambda p: p.stat().st_mtime, reverse=True)
-            for arq in arquivos:
-                if arq.name.startswith("~$"):
-                    continue
-                if normalizar_texto(turma) in normalizar_texto(arq.name):
-                    resumo = detectar_resumo_aulas_de_docx_bytes(arq.read_bytes())
-                    if resumo.get("ultima_aula", 0) > 0:
-                        salvar_progresso_aula(professor, disciplina, turma, resumo["ultima_aula"])
-                        return {
-                            "ultima_aula": resumo["ultima_aula"],
-                            "ultimo_pdf": "",
-                            "origem": "arquivo_docx",
-                            "mes": "",
-                        }
-    except Exception:
-        pass
+    # 5. Fallback por turmas espelho da mesma série no histórico SQLite
+    chave_serie_alvo = chave_serie_turma(turma)
+    if chave_serie_alvo:
+        try:
+            historico_prof = listar_historico_planos(
+                filtro_prof=professor,
+                filtro_disc=disciplina,
+                limite=30,
+            )
+            max_espelho = 0
+            for h in historico_prof:
+                if chave_serie_turma(h.get("turma", "")) == chave_serie_alvo:
+                    max_espelho = max(max_espelho, int(h.get("ultima_aula") or 0))
+            if max_espelho > 0:
+                salvar_progresso_aula(professor, disciplina, turma, max_espelho)
+                return {
+                    "ultima_aula": max_espelho,
+                    "ultimo_pdf": "",
+                    "origem": "historico_geral",
+                    "mes": "",
+                }
+        except Exception:
+            pass
 
     return {
         "ultima_aula": 0,

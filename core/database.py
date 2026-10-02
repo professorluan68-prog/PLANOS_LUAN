@@ -259,6 +259,10 @@ def _metadados_historico(
                 arquivo_docx_bytes,
                 bimestre,
             )
+            if (not ultima_aula or ultima_aula <= 0) and bimestre:
+                u_fb, t_fb = _extrair_resumo_aulas_historico(arquivo_docx_bytes, "")
+                if u_fb and u_fb > 0:
+                    ultima_aula, total_aulas = u_fb, t_fb
     elif arquivo_path:
         caminho = _resolver_caminho_arquivo_historico(arquivo_path)
         try:
@@ -269,6 +273,10 @@ def _metadados_historico(
             try:
                 arquivo_bytes = caminho.read_bytes()
                 ultima_aula, total_aulas = _extrair_resumo_aulas_historico(arquivo_bytes, bimestre)
+                if (not ultima_aula or ultima_aula <= 0) and bimestre:
+                    u_fb, t_fb = _extrair_resumo_aulas_historico(arquivo_bytes, "")
+                    if u_fb and u_fb > 0:
+                        ultima_aula, total_aulas = u_fb, t_fb
             except OSError:
                 ultima_aula, total_aulas = None, None
 
@@ -583,7 +591,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
         )
         mes_plano_inferido = ""
         if len(partes) >= 4:
-            from config import MESES
+            from core.constantes import MESES
             candidato = str(partes[2]).strip().upper()
             if candidato in MESES:
                 mes_plano_inferido = candidato
@@ -658,20 +666,20 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
                 cursor.execute(
                     """
                     UPDATE historico_planos
-                    SET bimestre = COALESCE(NULLIF(bimestre, ''), ?),
+                    SET bimestre = COALESCE(NULLIF(?, ''), bimestre),
                         data_geracao = ?,
                         arquivo_path = ?,
                         professor_chave = ?,
                         disciplina_chave = ?,
                         turma_chave = ?,
-                        bimestre_chave = COALESCE(NULLIF(bimestre_chave, ''), ?),
+                        bimestre_chave = COALESCE(NULLIF(?, ''), bimestre_chave),
                         mes_geracao = ?,
                         mes_plano = COALESCE(NULLIF(mes_plano, ''), ?),
                         arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
                         arquivo_tamanho = ?,
                         origem = ?,
-                        ultima_aula = COALESCE(ultima_aula, ?),
-                        total_aulas = COALESCE(total_aulas, ?)
+                        ultima_aula = COALESCE(NULLIF(?, 0), ultima_aula),
+                        total_aulas = COALESCE(NULLIF(?, 0), total_aulas)
                     WHERE id = ?
                     """,
                     (
@@ -902,8 +910,8 @@ def _atualizar_metadados_historico(cursor) -> None:
                 origem = ?,
                 arquivo_tamanho = COALESCE(arquivo_tamanho, ?),
                 arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
-                ultima_aula = COALESCE(ultima_aula, ?),
-                total_aulas = COALESCE(total_aulas, ?)
+                ultima_aula = COALESCE(NULLIF(?, 0), ultima_aula),
+                total_aulas = COALESCE(NULLIF(?, 0), total_aulas)
             WHERE id = ?
             """,
             (
