@@ -12,6 +12,10 @@ from core.constantes import (
     HORARIOS_SIMPLES,
     HORARIOS_DUPLAS,
     HORARIOS_INTEGRAIS,
+    HORARIOS_CDP_MANHA,
+    HORARIOS_CDP_TARDE,
+    HORARIOS_CDP,
+    TURNOS_CDP_AULAS,
     TURNOS_HORARIOS,
     TURNOS_AULAS_ESPECIAIS,
     MESES,
@@ -91,10 +95,18 @@ def _selecionar_mes() -> str:
 def _selecionar_aulas_semana(label: str, key_select: str, key_texto: str) -> str:
     valor_atual = str(st.session_state.get(key_texto, "") or "").strip()
     opcoes = list(AULAS_SEMANA_OPCOES)
+
     if valor_atual and valor_atual not in opcoes:
         opcoes.append(valor_atual)
-    indice = opcoes.index(valor_atual) if valor_atual in opcoes else 0
-    escolha = st.selectbox(label, opcoes, index=indice, key=key_select)
+
+    valor_widget = str(st.session_state.get(key_select, "") or "").strip()
+    if valor_widget and valor_widget not in opcoes:
+        opcoes.append(valor_widget)
+
+    if key_select not in st.session_state:
+        st.session_state[key_select] = valor_atual if valor_atual in opcoes else "(selecione)"
+
+    escolha = st.selectbox(label, opcoes, key=key_select)
     valor = "" if escolha == "(selecione)" else escolha
     st.session_state[key_texto] = valor
     return valor
@@ -259,6 +271,21 @@ def _montar_horario_flexivel(turno: str, aulas: list[int | str]):
     if not numeros:
         return None
 
+    if turno in TURNOS_CDP_AULAS:
+        tabela = TURNOS_CDP_AULAS[turno]
+        label = _formatar_label_aulas(numeros)
+        if len(numeros) == 1:
+            return (tabela[numeros[0]][0], label)
+        primeira = numeros[0]
+        ultima = numeros[-1]
+        consecutivas = numeros == list(range(primeira, ultima + 1))
+        if consecutivas:
+            inicio = tabela[primeira][0]
+            fim = tabela[ultima][1]
+            return (f"{inicio} - {fim}", label)
+        intervalos = [f"{tabela[n][0]} - {tabela[n][1]}" for n in numeros]
+        return (" | ".join(intervalos), label)
+
     aulas_especiais = TURNOS_AULAS_ESPECIAIS.get(turno)
     if aulas_especiais:
         if len(numeros) == 1:
@@ -306,9 +333,14 @@ def _turno_e_aulas_de_horario(horario, contexto: str = "") -> tuple[str, list[st
     texto = _rotulo_horario(horario)
     horario_integral = _horario_integral_por_texto(texto)
     if horario_integral:
-        turno_integral = next(iter(TURNOS_AULAS_ESPECIAIS))
+        turno_integral = "Integral - José Theodoro"
         numeros = _numeros_aulas_de_texto(texto)
         return turno_integral, [f"{numero}ª" for numero in numeros]
+    horario_cdp = _horario_cdp_por_texto(texto, contexto)
+    if horario_cdp:
+        turno_cdp = _turno_cdp_por_horario_ou_contexto(horario_cdp, contexto)
+        numeros = _numeros_aulas_de_texto(texto)
+        return turno_cdp, [f"{numero}ª" for numero in numeros]
     horarios_texto = _horarios_extraidos_texto(texto)
     turno = _turno_por_horario_inicio(horarios_texto[0], contexto) if horarios_texto else _turno_por_horario_inicio("", contexto)
     numeros = _numeros_aulas_de_texto(texto)
@@ -317,11 +349,43 @@ def _turno_e_aulas_de_horario(horario, contexto: str = "") -> tuple[str, list[st
 # ==========================================
 # UTILITÁRIOS ADICIONAIS DE DATAS E AULAS
 # ==========================================
+def _is_aula_dupla(aula_dict) -> bool:
+    if not isinstance(aula_dict, dict):
+        return False
+    horario = str(aula_dict.get("horario") or "").lower()
+    aula = str(aula_dict.get("aula") or "").lower()
+    if "/" in aula or " e " in aula or "&" in aula:
+        return True
+    if "/" in horario or "-" in horario:
+        return True
+    if " e " in horario or "dupla" in horario or "geminada" in horario:
+        return True
+    return False
+
+def _divisao_pdf_padrao(idx: int, total_aulas: int, lista_aulas: list = None) -> bool:
+    if lista_aulas and idx < len(lista_aulas):
+        if _is_aula_dupla(lista_aulas[idx]):
+            return False
+            
+        single_class_count = 0
+        for i in range(idx):
+            if not _is_aula_dupla(lista_aulas[i]):
+                single_class_count += 1
+                
+        if idx + 1 < len(lista_aulas):
+            if not _is_aula_dupla(lista_aulas[idx+1]) and single_class_count % 2 == 0:
+                return True
+                
+        return False
+
+    return bool(idx % 2 == 0 and idx < total_aulas - 1)
+
 def _sincronizar_divisao_pdf_padrao(
     num_rows: int,
     dividir_metodologia: bool,
     key_prefix: str = "",
     contexto: str = "",
+    lista_aulas: list = None,
 ) -> None:
     assinatura_chave = f"{key_prefix}dividir_metodologia_assinatura"
     assinatura_atual = f"v3|{bool(dividir_metodologia)}|{int(num_rows or 0)}|{contexto}"
@@ -335,7 +399,7 @@ def _sincronizar_divisao_pdf_padrao(
     for idx in range(int(num_rows or 0)):
         chave = f"{key_prefix}dividir_pdf_aula_{idx}"
         if acabou_de_ativar or chave not in st.session_state:
-            st.session_state[chave] = bool(idx % 2 == 0 and idx < int(num_rows or 0) - 1)
+            st.session_state[chave] = _divisao_pdf_padrao(idx, int(num_rows or 0), lista_aulas)
 
 def _proxima_data_pelo_dia(dia_nome: str, data_referencia: date) -> date:
     dias = {"segunda": 0, "terça": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "domingo": 6}
@@ -358,7 +422,7 @@ def _normalizar_horario_cadastro(trecho: str) -> str:
         return ""
     hora = int(match.group(1))
     minuto = match.group(2)
-    if minuto:
+    if minuto and minuto != "00":
         return f"{hora:02d}h{minuto}"
     return f"{hora:02d}h"
 
@@ -479,6 +543,10 @@ def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
     horario_integral = _horario_integral_por_texto(trecho_texto)
     if horario_integral:
         return horario_integral
+
+    horario_cdp = _horario_cdp_por_texto(trecho_texto, contexto)
+    if horario_cdp:
+        return horario_cdp
     
     # Horário Flexível
     numeros_a = []
@@ -490,6 +558,10 @@ def _sugerir_horario_cadastrado(trecho: str, contexto: str = ""):
     
     if numeros_a:
         turno = _turno_por_horario_inicio(horarios_no_texto[0], contexto) if horarios_no_texto else _turno_por_horario_inicio("", contexto)
+        if turno in TURNOS_CDP_AULAS:
+            sug = _montar_horario_flexivel(turno, numeros_a)
+            if sug:
+                return sug
         slots = TURNOS_HORARIOS.get(turno) or TURNOS_HORARIOS["Manhã"]
         max_aulas = len(slots) - 1
         numeros = [n for n in numeros_a if 1 <= n <= max_aulas]
@@ -559,6 +631,21 @@ def _prefixo_turno(contexto: str) -> str:
 
 def _turno_por_horario_inicio(horario: str, contexto: str = "") -> str:
     horario_norm = _normalizar_horario_cadastro(horario)
+    contexto_cdp = eh_cdp(contexto) or eh_cdp_contextual(contexto) or "CDP" in _normalizar_texto_simples(contexto)
+    marcas_cdp = {"07h30", "08h15", "09h45", "10h45", "13h45", "15h15", "15h30", "16h15"}
+    eh_cdp_horario = (horario_norm in marcas_cdp) or (
+        contexto_cdp
+        and horario_norm in {
+            "07h30", "08h15", "09h", "10h", "10h45", "11h30",
+            "13h", "13h45", "14h30", "15h30", "16h15", "17h"
+        }
+    )
+
+    if eh_cdp_horario:
+        if horario_norm.startswith(("13", "14", "15", "16", "17")) or "TARDE" in _normalizar_texto_simples(contexto):
+            return "CDP - Tarde"
+        return "CDP - Manhã"
+
     if horario_norm.startswith(("13", "14", "15", "16", "17")):
         return "Tarde"
     if horario_norm.startswith(("19", "20", "21", "22")):
@@ -629,6 +716,53 @@ def _horario_integral_por_texto(trecho: str):
             return candidato
     return None
 
+def _horario_cdp_por_texto(trecho: str, contexto: str = ""):
+    horarios_texto = [_normalizar_horario_cadastro(h) for h in _horarios_extraidos_texto(trecho)]
+    horarios_texto = [h for h in horarios_texto if h]
+    if not horarios_texto:
+        return None
+    numeros = _numeros_aulas_de_texto(trecho)
+    contexto_cdp = eh_cdp(contexto) or eh_cdp_contextual(contexto) or "CDP" in _normalizar_texto_simples(contexto)
+    marcas_cdp = {"07h30", "08h15", "09h45", "10h45", "13h45", "15h15", "15h30", "16h15"}
+    tem_marca_cdp = any(h in marcas_cdp for h in horarios_texto)
+    if not (tem_marca_cdp or contexto_cdp):
+        return None
+
+    for candidato in HORARIOS_CDP:
+        numeros_candidato = _numeros_aulas_de_texto(candidato[1])
+        if numeros and numeros_candidato != numeros:
+            continue
+        horarios_candidato = [_normalizar_horario_cadastro(h) for h in _horarios_extraidos_texto(candidato[0])]
+        horarios_candidato = [h for h in horarios_candidato if h]
+        if not horarios_candidato:
+            continue
+        if len(horarios_texto) == 1 and horarios_texto[0] == horarios_candidato[0]:
+            return candidato
+        if (
+            len(horarios_texto) >= 2
+            and horarios_texto[0] == horarios_candidato[0]
+            and horarios_texto[-1] == horarios_candidato[-1]
+        ):
+            return candidato
+    return None
+
+def _turno_cdp_por_horario_ou_contexto(horario_cdp, contexto: str = "") -> str:
+    texto = _rotulo_horario(horario_cdp)
+    if horario_cdp in HORARIOS_CDP_MANHA:
+        return "CDP - Manhã"
+    if horario_cdp in HORARIOS_CDP_TARDE:
+        return "CDP - Tarde"
+    horarios_texto = [_normalizar_horario_cadastro(h) for h in _horarios_extraidos_texto(texto)]
+    if horarios_texto:
+        primeiro = horarios_texto[0]
+        if primeiro.startswith(("13", "14", "15", "16", "17")):
+            return "CDP - Tarde"
+        return "CDP - Manhã"
+    texto_ctx = _normalizar_texto_simples(contexto)
+    if "TARDE" in texto_ctx:
+        return "CDP - Tarde"
+    return "CDP - Manhã"
+
 def _indice_horario(horario) -> int:
     if horario in HORARIOS_AULA:
         return HORARIOS_AULA.index(horario)
@@ -637,6 +771,8 @@ def _indice_horario(horario) -> int:
         return len(HORARIOS_AULA) + 99
     inicio = horarios_texto[0].lower()
     todos = [hora for slots in TURNOS_HORARIOS.values() for hora in slots[:-1]]
+    for slots_cdp in TURNOS_CDP_AULAS.values():
+        todos.extend([item[0].lower() for item in slots_cdp.values()])
     for idx, hora in enumerate(todos):
         if hora.lower() == inicio:
             return idx
@@ -722,11 +858,21 @@ def _mes_numero_app(mes: str) -> int:
     }
     return meses.get(_normalizar_texto_simples(mes), date.today().month)
 
-def _datas_do_mes_por_dia(mes: str, dia_semana: int, ano: int | None = None, extensao: int = 0) -> list[date]:
-    from core.calendario import fim_periodo_mes_com_extensao, datas_por_dia_ate_limite
+def _datas_do_mes_por_dia(
+    mes: str,
+    dia_semana: int,
+    ano: int | None = None,
+    extensao: int = 0,
+    antecipacao: int = 0,
+) -> list[date]:
+    from core.calendario import (
+        fim_periodo_mes_com_extensao,
+        inicio_periodo_mes_com_antecipacao,
+        datas_por_dia_ate_limite,
+    )
     ano = ano or date.today().year
     mes_num = _mes_numero_app(mes)
-    inicio = date(ano, mes_num, 1)
+    inicio = inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
     fim = fim_periodo_mes_com_extensao(ano, mes_num, extensao)
     return datas_por_dia_ate_limite(inicio, fim, dia_semana)
 
@@ -828,8 +974,14 @@ def _padroes_horario_config(config: dict, turma: str = "") -> list[dict]:
         padroes.append({"dia": dia, "horario": sugestao})
     return padroes
 
-def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: int = 0) -> list[dict]:
-    from core.calendario import fim_periodo_mes_com_extensao
+def _datas_horarios_do_mes(
+    config: dict,
+    mes: str,
+    turma: str = "",
+    extensao: int = 0,
+    antecipacao: int = 0,
+) -> list[dict]:
+    from core.calendario import fim_periodo_mes_com_extensao, inicio_periodo_mes_com_antecipacao
     if not config or not mes:
         return []
     if config.get("repetir_modelo_semanal"):
@@ -859,16 +1011,16 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: in
 
         ano = date.today().year
         mes_num = _mes_numero_app(mes)
-        inicio_mes = date(ano, mes_num, 1)
+        inicio_periodo = inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
         fim_periodo = fim_periodo_mes_com_extensao(ano, mes_num, extensao)
 
-        inicio_bloco = inicio_mes - timedelta(days=inicio_mes.weekday())
+        inicio_bloco = inicio_periodo - timedelta(days=inicio_periodo.weekday())
 
         itens = []
         while inicio_bloco <= fim_periodo:
             for entrada in molde:
                 nova_data = inicio_bloco + timedelta(days=entrada["offset_dias"])
-                if nova_data < date(ano, mes_num, 1) or nova_data > fim_periodo:
+                if nova_data < inicio_periodo or nova_data > fim_periodo:
                     continue
                 itens.append({
                     "data": nova_data,
@@ -880,6 +1032,76 @@ def _datas_horarios_do_mes(config: dict, mes: str, turma: str = "", extensao: in
 
     itens = []
     for padrao in _padroes_horario_config(config, turma):
-        for data_aula in _datas_do_mes_por_dia(mes, padrao["dia"], extensao=extensao):
+        for data_aula in _datas_do_mes_por_dia(
+            mes,
+            padrao["dia"],
+            extensao=extensao,
+            antecipacao=antecipacao,
+        ):
             itens.append({"data": data_aula, "horario": padrao["horario"]})
     return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
+
+
+def _texto_metodologia_app(aula: dict) -> str:
+    metodologia = aula.get("metodologia") or []
+    blocos = []
+    for item in metodologia:
+        if isinstance(item, dict):
+            titulo = item.get("titulo", "").strip()
+            texto = item.get("texto", "").strip()
+            if titulo:
+                blocos.append(f"{titulo}: {texto}")
+            else:
+                blocos.append(texto)
+        else:
+            blocos.append(str(item))
+    return "\n\n".join(blocos)
+
+
+_TITULOS_METODOLOGIA_APP = {
+    "para comecar": "Para comecar",
+    "para começar": "Para comecar",
+    "contextualizacao": "Contextualizacao",
+    "leitura analitica": "Leitura analitica",
+    "exploracao": "Exploracao",
+    "formalizacao": "Formalizacao",
+    "na pratica": "Na pratica",
+    "sistematizacao": "Sistematizacao",
+    "encerramento": "Encerramento",
+}
+
+
+def _normalizar_titulo_metodologia_app(texto: str) -> str:
+    texto = (texto or "").strip().lower()
+    mapa = str.maketrans("áàâãéêíóôõúç", "aaaaeeiooouc")
+    return re.sub(r"\s+", " ", texto.translate(mapa)).strip()
+
+
+def _metodologia_app_para_blocos(texto: str):
+    linhas = [linha.rstrip() for linha in str(texto or "").splitlines()]
+    blocos = []
+    atual = None
+    for linha in linhas:
+        limpa = linha.strip()
+        if not limpa:
+            continue
+        match = re.match(r"^([^:]{2,80}):\s*(.*)$", limpa)
+        titulo_chave = _normalizar_titulo_metodologia_app(match.group(1)) if match else ""
+        if match and titulo_chave in _TITULOS_METODOLOGIA_APP:
+            if atual:
+                atual["texto"] = " ".join(atual["texto"]).strip()
+                blocos.append(atual)
+            atual = {
+                "titulo": _TITULOS_METODOLOGIA_APP[titulo_chave],
+                "texto": [match.group(2).strip()] if match.group(2).strip() else [],
+            }
+            continue
+        if atual:
+            atual["texto"].append(limpa)
+        else:
+            blocos.append(limpa)
+    if atual:
+        atual["texto"] = " ".join(atual["texto"]).strip()
+        blocos.append(atual)
+    return blocos or [str(texto or "").strip()]
+

@@ -40,7 +40,7 @@ from ui.shared import (
     TURNOS_HORARIOS,
     TURNOS_AULAS_ESPECIAIS,
     TURNO_HORARIO_PERSONALIZADO,
-    PREFIXO_HORARIO_PERSONALIZADO,
+    _normalizar_texto_simples,
     _defaults_grade_horarios,
 )
 
@@ -277,7 +277,8 @@ def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto:
 
     for indice, dia in enumerate(DIAS_SEMANA_CADASTRO):
         default_dia = defaults.get(dia, {})
-        turno_default = str(default_dia.get("turno") or "Manhã")
+        turno_padrao_contexto = "CDP - Manhã" if (_eh_cadastro_cdp_eja(contexto) or "CDP" in _normalizar_texto_simples(contexto)) else "Manhã"
+        turno_default = str(default_dia.get("turno") or turno_padrao_contexto)
         horario_personalizado_default = str(default_dia.get("horario_personalizado") or "")
         aulas_opcoes_default = [f"{numero}ª" for numero in _aulas_disponiveis_turno(turno_default)]
         aulas_default = [aula for aula in default_dia.get("aulas", []) if aula in aulas_opcoes_default]
@@ -476,7 +477,7 @@ def _renderizar_editor_cadastro(cadastros: list[dict]) -> None:
             f"edit_grade_{chave_ui}",
             str(cadastro.get("dia_semana") or ""),
             str(cadastro.get("horario") or ""),
-            turma_edit,
+            f"{disciplina_edit} {turma_edit}",
         )
 
         salvar_edicao = st.form_submit_button("Salvar alteracoes", type="primary")
@@ -619,7 +620,7 @@ def _renderizar_novo_cadastro(professores_db) -> None:
 
         novo_dia, novo_horario, total_grade = _renderizar_grade_horarios(
             "cadastro_grade",
-            contexto=nova_turma,
+            contexto=f"{nova_disc_op} {nova_turma}",
         )
 
         submitted = st.form_submit_button("Salvar cadastro", type="primary")

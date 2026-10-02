@@ -148,6 +148,28 @@ _TURNOS_REFERENCIA_AULAS = (
     ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
     ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
 )
+_DURACOES_CDP_HORARIOS = {
+    ("07h30", "09h"): 2,
+    ("08h15", "09h45"): 2,
+    ("09h", "10h45"): 2,
+    ("10h", "11h30"): 2,
+    ("07h30", "09h45"): 3,
+    ("08h15", "10h45"): 3,
+    ("09h", "11h30"): 3,
+    ("07h30", "10h45"): 4,
+    ("08h15", "11h30"): 4,
+    ("07h30", "11h30"): 5,
+    ("13h", "14h30"): 2,
+    ("13h45", "15h15"): 2,
+    ("14h30", "16h15"): 2,
+    ("15h30", "17h"): 2,
+    ("13h", "15h15"): 3,
+    ("13h45", "16h15"): 3,
+    ("14h30", "17h"): 3,
+    ("13h", "16h15"): 4,
+    ("13h45", "17h"): 4,
+    ("13h", "17h"): 5,
+}
 _PADRAO_BNCC = re.compile(r'(\([A-Z]{2}\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\))')
 _PADRAO_TURMA_METODOLOGIA = re.compile(
     r"\b(da turma|com a turma)\s+\d{1,2}\s*[º°oªa?]?\s*(?:ano|s[ée]rie|em|ef)?\s*[A-Z]?\b",
@@ -813,9 +835,16 @@ def _quantidade_aulas_por_horario(horario) -> int:
     if not texto:
         return 0
 
+    if " | " in texto:
+        partes = [p.strip() for p in texto.split("|") if p.strip()]
+        if len(partes) >= 2:
+            return sum(_quantidade_aulas_por_horario(p) for p in partes)
+
     horarios = _extrair_horarios_do_texto(texto)
     if len(horarios) >= 2:
         inicio, fim = horarios[0], horarios[1]
+        if (inicio, fim) in _DURACOES_CDP_HORARIOS:
+            return _DURACOES_CDP_HORARIOS[(inicio, fim)]
         for slots in _TURNOS_REFERENCIA_AULAS:
             if inicio in slots and fim in slots:
                 inicio_idx = slots.index(inicio)

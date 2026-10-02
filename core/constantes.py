@@ -63,9 +63,84 @@ HORARIOS_INTEGRAIS = [
     ("14h20 - 16h", "8ª e 9ª aula"),
 ]
 
-HORARIOS_SIMPLES = HORARIOS_AULA[:17] + HORARIOS_INTEGRAIS[:7]
-HORARIOS_DUPLAS = HORARIOS_AULA[17:] + HORARIOS_INTEGRAIS[7:]
-HORARIOS_AULA = HORARIOS_AULA + HORARIOS_INTEGRAIS
+HORARIOS_CDP_MANHA = [
+    ("07h30", "1ª aula"),
+    ("08h15", "2ª aula"),
+    ("09h", "3ª aula"),
+    ("10h", "4ª aula"),
+    ("10h45", "5ª aula"),
+    # Duplas
+    ("07h30 - 09h", "1ª e 2ª aula"),
+    ("08h15 - 09h45", "2ª e 3ª aula"),
+    ("09h - 10h45", "3ª e 4ª aula"),
+    ("10h - 11h30", "4ª e 5ª aula"),
+    # Triplas / maiores
+    ("07h30 - 09h45", "1ª, 2ª e 3ª aula"),
+    ("08h15 - 10h45", "2ª, 3ª e 4ª aula"),
+    ("09h - 11h30", "3ª, 4ª e 5ª aula"),
+    ("07h30 - 10h45", "1ª a 4ª aula"),
+    ("08h15 - 11h30", "2ª a 5ª aula"),
+    ("07h30 - 11h30", "1ª a 5ª aula"),
+    # Alternadas
+    ("07h30 - 10h45", "1ª e 4ª aula"),
+    ("08h15 - 11h30", "2ª e 5ª aula"),
+]
+
+HORARIOS_CDP_TARDE = [
+    ("13h", "1ª aula"),
+    ("13h45", "2ª aula"),
+    ("14h30", "3ª aula"),
+    ("15h30", "4ª aula"),
+    ("16h15", "5ª aula"),
+    # Duplas
+    ("13h - 14h30", "1ª e 2ª aula"),
+    ("13h45 - 15h15", "2ª e 3ª aula"),
+    ("14h30 - 16h15", "3ª e 4ª aula"),
+    ("15h30 - 17h", "4ª e 5ª aula"),
+    # Triplas / maiores
+    ("13h - 15h15", "1ª, 2ª e 3ª aula"),
+    ("13h45 - 16h15", "2ª, 3ª e 4ª aula"),
+    ("14h30 - 17h", "3ª, 4ª e 5ª aula"),
+    ("13h - 16h15", "1ª a 4ª aula"),
+    ("13h45 - 17h", "2ª a 5ª aula"),
+    ("13h - 17h", "1ª a 5ª aula"),
+    # Alternadas
+    ("13h - 16h15", "1ª e 4ª aula"),
+    ("13h45 - 17h", "2ª e 5ª aula"),
+]
+
+HORARIOS_CDP = HORARIOS_CDP_MANHA + HORARIOS_CDP_TARDE
+
+TURNOS_CDP_AULAS = {
+    "CDP - Manhã": {
+        1: ("07h30", "08h15"),
+        2: ("08h15", "09h"),
+        3: ("09h", "09h45"),
+        4: ("10h", "10h45"),
+        5: ("10h45", "11h30"),
+    },
+    "CDP - Tarde": {
+        1: ("13h", "13h45"),
+        2: ("13h45", "14h30"),
+        3: ("14h30", "15h15"),
+        4: ("15h30", "16h15"),
+        5: ("16h15", "17h"),
+    },
+}
+
+HORARIOS_SIMPLES = (
+    HORARIOS_AULA[:17]
+    + HORARIOS_INTEGRAIS[:7]
+    + HORARIOS_CDP_MANHA[:5]
+    + HORARIOS_CDP_TARDE[:5]
+)
+HORARIOS_DUPLAS = (
+    HORARIOS_AULA[17:]
+    + HORARIOS_INTEGRAIS[7:]
+    + HORARIOS_CDP_MANHA[5:]
+    + HORARIOS_CDP_TARDE[5:]
+)
+HORARIOS_AULA = HORARIOS_AULA + HORARIOS_INTEGRAIS + HORARIOS_CDP
 
 TURNOS_HORARIOS = {
     "Manhã": ["07h", "07h50", "08h40", "09h50", "10h40", "11h30", "12h20", "13h10", "14h00", "14h50"],
@@ -75,6 +150,14 @@ TURNOS_HORARIOS = {
 }
 
 TURNOS_AULAS_ESPECIAIS = {
+    "CDP - Manhã": {
+        numero: HORARIOS_CDP_MANHA[numero - 1]
+        for numero in range(1, 6)
+    },
+    "CDP - Tarde": {
+        numero: HORARIOS_CDP_TARDE[numero - 1]
+        for numero in range(1, 6)
+    },
     "Integral - José Theodoro": {
         numero: horario
         for numero, horario in zip(range(3, 10), HORARIOS_INTEGRAIS[:7])

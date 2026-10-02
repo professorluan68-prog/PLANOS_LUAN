@@ -581,11 +581,19 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
         data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
+        mes_plano_inferido = ""
+        if len(partes) >= 4:
+            from config import MESES
+            candidato = str(partes[2]).strip().upper()
+            if candidato in MESES:
+                mes_plano_inferido = candidato
+
         metadados = _metadados_historico(
             professor_nome=professor_nome,
             disciplina=disciplina,
             turma=turma,
             bimestre="",
+            mes_plano=mes_plano_inferido,
             data_geracao=data_geracao,
             arquivo_path=caminho_str,
             extrair_resumo_aulas=True,
