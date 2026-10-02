@@ -451,3 +451,77 @@ def test_metodologia_educacao_financeira_fica_compacta_no_docx():
     assert "Pause e responda" in desenvolvimento
     assert "Socialização extra" not in desenvolvimento
     assert desenvolvimento.count(":") == 5
+
+
+def test_preserva_bloco_semana_sem_aula_por_feriado():
+    # Modelo com datas de maio (nao casam com novembro)
+    modelo = _modelo_com_semanas(["04/05 a 08/05", "11/05 a 15/05", "18/05 a 22/05", "25/05 a 29/05"], linhas_aulas=4)
+    # Aulas somente nas sextas de novembro: 06/11, 13/11, 27/11 (20/11 feriado)
+    aulas = [
+        _aula(date(2026, 11, 6), "Aula Semana 1"),
+        _aula(date(2026, 11, 13), "Aula Semana 2"),
+        _aula(date(2026, 11, 27), "Aula Semana 4"),
+    ]
+    doc = Document(
+        preencher_documento(
+            modelo,
+            aulas,
+            professor="ADRIANA",
+            disciplina="Arte",
+            turma="8o ANO B",
+            mes="Novembro",
+            bimestre="4o Bimestre",
+            observacao="20/11 - Feriado Nacional: Consciencia Negra",
+            aulas_previstas_manual="2",
+        )
+    )
+
+    # Devem existir 4 pares (8 tabelas) no documento
+    assert len(doc.tables) == 8
+
+    # Cabecalhos de semana
+    assert doc.tables[0].rows[3].cells[1].text == "02/11 a 06/11"
+    assert doc.tables[2].rows[3].cells[1].text == "09/11 a 13/11"
+    assert doc.tables[4].rows[3].cells[1].text == "16/11 a 20/11"
+    assert doc.tables[6].rows[3].cells[1].text == "23/11 a 27/11"
+
+    # Aulas previstas: semana de feriado (16/11 a 20/11) deve ter "0"
+    assert doc.tables[4].rows[3].cells[3].text == "0"
+    assert doc.tables[4].rows[3].cells[5].text == "20/11 - Feriado Nacional: Consciencia Negra"
+
+    # A tabela da semana vazia nao deve ter sido apagada: mantem linhas em branco
+    tabela_vazia = doc.tables[5]
+    assert len(tabela_vazia.rows) == 5  # 1 cabecalho + 4 linhas em branco
+    for row in tabela_vazia.rows[1:]:
+        for cell in row.cells:
+            assert cell.text.strip() == ""
+
+
+def test_preserva_bloco_semana_inicial_sem_aula_por_feriado():
+    modelo = _modelo_com_semanas(["04/05 a 08/05", "11/05 a 15/05", "18/05 a 22/05", "25/05 a 29/05"], linhas_aulas=4)
+    # Aulas nas segundas de novembro, exceto 02/11 (Finados)
+    aulas = [
+        _aula(date(2026, 11, 9), "Aula Semana 2"),
+        _aula(date(2026, 11, 16), "Aula Semana 3"),
+        _aula(date(2026, 11, 23), "Aula Semana 4"),
+        _aula(date(2026, 11, 30), "Aula Semana 5"),
+    ]
+    doc = Document(
+        preencher_documento(
+            modelo,
+            aulas,
+            professor="ADRIANA",
+            disciplina="Arte",
+            turma="1o ANO A",
+            mes="Novembro",
+            bimestre="4o Bimestre",
+            observacao="02/11 - Finados",
+        )
+    )
+
+    # 5 pares (10 tabelas): 02/11, 09/11, 16/11, 23/11, 30/11
+    assert len(doc.tables) == 10
+    assert doc.tables[0].rows[3].cells[1].text == "02/11 a 06/11"
+    assert doc.tables[0].rows[3].cells[3].text == "0"
+    assert doc.tables[2].rows[3].cells[1].text == "09/11 a 13/11"
+

@@ -1225,36 +1225,152 @@ def _preencher_tabelas_modelo(
                 break
 
     sobras = [(indice + 1, aula) for indice, aula in enumerate(aulas) if indice not in usadas]
-    grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
-    for grupo in grupos_sobra_por_semana:
-        par_livre = next(
-            (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
-            None,
-        )
-        if par_livre is None:
-            novo_par = _clonar_par_semana(pares)
-            pares.append(novo_par)
-            aulas_por_par.append(grupo)
+    semanas_cabecalho_por_par = []
+
+    if not usadas and sobras:
+        aulas_por_semana = {}
+        sem_data = []
+        for numero, aula in sobras:
+            inicio = _inicio_semana_aula(aula)
+            if inicio is None:
+                sem_data.append((numero, aula))
+                continue
+            if inicio not in aulas_por_semana:
+                aulas_por_semana[inicio] = []
+            aulas_por_semana[inicio].append((numero, aula))
+
+        if aulas_por_semana:
+            min_segunda = min(aulas_por_semana.keys())
+            max_segunda = max(aulas_por_semana.keys())
+
+            if mes:
+                from ui.shared import _mes_numero_app
+                from core.calendario import datas_sem_aula_calendario
+
+                mes_num = _mes_numero_app(mes)
+                ano = min_segunda.year
+                feriados = datas_sem_aula_calendario(ano)
+                dias_semana_turma = {
+                    _data_para_semana(aula["data"]).weekday()
+                    for _, aula in sobras
+                    if isinstance(aula, dict) and _data_para_semana(aula.get("data"))
+                }
+
+                seg_check = min_segunda - timedelta(days=7)
+                while True:
+                    teve_feriado = any(
+                        (seg_check + timedelta(days=d)).month == mes_num
+                        and (seg_check + timedelta(days=d)) in feriados
+                        for d in dias_semana_turma
+                    )
+                    if teve_feriado:
+                        min_segunda = seg_check
+                        seg_check -= timedelta(days=7)
+                    else:
+                        break
+
+                seg_check = max_segunda + timedelta(days=7)
+                while True:
+                    teve_feriado = any(
+                        (seg_check + timedelta(days=d)).month == mes_num
+                        and (seg_check + timedelta(days=d)) in feriados
+                        for d in dias_semana_turma
+                    )
+                    if teve_feriado:
+                        max_segunda = seg_check
+                        seg_check += timedelta(days=7)
+                    else:
+                        break
+
+            grupos = []
+            semanas_cabecalho_por_par = []
+            curr = min_segunda
+            while curr <= max_segunda:
+                grupo = aulas_por_semana.get(curr, [])
+                grupo.sort(key=_chave_ordenacao_aula_semana)
+                grupos.append(grupo)
+                sexta = curr + timedelta(days=4)
+                semanas_cabecalho_por_par.append(f"{curr.strftime('%d/%m')} a {sexta.strftime('%d/%m')}")
+                curr += timedelta(days=7)
+
+            num_semanas = len(grupos)
+            while len(pares) < num_semanas:
+                novo_par = _clonar_par_semana(pares)
+                pares.append(novo_par)
+            if len(pares) > num_semanas:
+                for cabecalho, tabela_aulas in pares[num_semanas:]:
+                    _remover_tabela(cabecalho)
+                    _remover_tabela(tabela_aulas)
+                pares = pares[:num_semanas]
+
+            aulas_por_par = list(grupos)
+            for par_indice, (_, tabela_aulas) in enumerate(pares):
+                vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+                if vagas and sem_data:
+                    aulas_por_par[par_indice].extend(sem_data[:vagas])
+                    sem_data = sem_data[vagas:]
         else:
-            aulas_por_par[par_livre] = grupo
+            grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
+            for grupo in grupos_sobra_por_semana:
+                par_livre = next(
+                    (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
+                    None,
+                )
+                if par_livre is None:
+                    novo_par = _clonar_par_semana(pares)
+                    pares.append(novo_par)
+                    aulas_por_par.append(grupo)
+                else:
+                    aulas_por_par[par_livre] = grupo
 
-    for par_indice, (_, tabela_aulas) in enumerate(pares):
-        vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
-        if vagas and sobras:
-            aulas_por_par[par_indice].extend(sobras[:vagas])
-            sobras = sobras[vagas:]
+            for par_indice, (_, tabela_aulas) in enumerate(pares):
+                vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+                if vagas and sobras:
+                    aulas_por_par[par_indice].extend(sobras[:vagas])
+                    sobras = sobras[vagas:]
 
-    ultimo_par_com_aula = None
-    for par_indice, aulas_do_par in enumerate(aulas_por_par):
-        if aulas_do_par:
-            ultimo_par_com_aula = par_indice
+            ultimo_par_com_aula = None
+            for par_indice, aulas_do_par in enumerate(aulas_por_par):
+                if aulas_do_par:
+                    ultimo_par_com_aula = par_indice
 
-    if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
-        for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
-            _remover_tabela(cabecalho)
-            _remover_tabela(tabela_aulas)
-        pares = pares[: ultimo_par_com_aula + 1]
-        aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
+            if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
+                for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
+                    _remover_tabela(cabecalho)
+                    _remover_tabela(tabela_aulas)
+                pares = pares[: ultimo_par_com_aula + 1]
+                aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
+    else:
+        grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
+        for grupo in grupos_sobra_por_semana:
+            par_livre = next(
+                (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
+                None,
+            )
+            if par_livre is None:
+                novo_par = _clonar_par_semana(pares)
+                pares.append(novo_par)
+                aulas_por_par.append(grupo)
+            else:
+                aulas_por_par[par_livre] = grupo
+
+        for par_indice, (_, tabela_aulas) in enumerate(pares):
+            vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+            if vagas and sobras:
+                aulas_por_par[par_indice].extend(sobras[:vagas])
+                sobras = sobras[vagas:]
+
+        ultimo_par_com_aula = None
+        for par_indice, aulas_do_par in enumerate(aulas_por_par):
+            if aulas_do_par:
+                ultimo_par_com_aula = par_indice
+
+        if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
+            for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
+                _remover_tabela(cabecalho)
+                _remover_tabela(tabela_aulas)
+            pares = pares[: ultimo_par_com_aula + 1]
+            aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
 
     for par_indice, (cabecalho, tabela_aulas) in enumerate(pares):
         if not is_cdp_ctx:
@@ -1277,12 +1393,11 @@ def _preencher_tabelas_modelo(
             aulas_previstas = str(quantidade_semana)
         elif aulas_da_semana:
             aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
-        elif aulas_previstas_manual and str(aulas_previstas_manual).strip():
-            aulas_previstas = str(aulas_previstas_manual).strip()
         else:
             aulas_previstas = "0"
         semana_cabecalho = (
-            _semana_automatica_por_aulas(aulas_da_semana)
+            (semanas_cabecalho_por_par[par_indice] if par_indice < len(semanas_cabecalho_por_par) else "")
+            or _semana_automatica_por_aulas(aulas_da_semana)
             or _semana_atual_cabecalho(cabecalho)
             or semana
         )
@@ -1307,8 +1422,9 @@ def _preencher_tabelas_modelo(
         for linha, (numero, aula) in zip(linhas_conteudo, aulas_da_semana):
             _preencher_linha_aula(linha, aula, numero, cabecalho_aulas)
 
-        for linha in linhas_conteudo[len(aulas_da_semana) :]:
-            _remover_linha(linha)
+        if aulas_da_semana:
+            for linha in linhas_conteudo[len(aulas_da_semana) :]:
+                _remover_linha(linha)
         if not is_cdp_ctx:
             _normalizar_layout_tabela_aulas(tabela_aulas)
 
