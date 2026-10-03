@@ -1,110 +1,94 @@
-# [GitHub Desktop](https://desktop.github.com)
+# Planos Luan
 
-[GitHub Desktop](https://desktop.github.com/) is an open-source [Electron](https://www.electronjs.org/)-based
-GitHub app. It is written in [TypeScript](https://www.typescriptlang.org) and
-uses [React](https://reactjs.org/).
+Sistema em **Python/Streamlit** que gera **planos de aula mensais em Word (.docx)** para o Professor Luan e sua equipe. Ele organiza o calendário real de cada professor, localiza os PDFs pedagógicos, extrai conteúdos e habilidades (BNCC / Currículo Paulista), aplica metodologia ativa com ou sem IA, preenche os modelos Word padronizados e registra tudo em um banco SQLite local.
 
-<picture>
-  <source
-    srcset="https://user-images.githubusercontent.com/634063/202742848-63fa1488-6254-49b5-af7c-96a6b50ea8af.png"
-    media="(prefers-color-scheme: dark)"
-  />
-  <img
-    width="1072"
-    src="https://user-images.githubusercontent.com/634063/202742985-bb3b3b94-8aca-404a-8d8a-fd6a6f030672.png"
-    alt="A screenshot of the GitHub Desktop application showing changes being viewed and committed with two attributed co-authors"
-  />
-</picture>
+- **Versão do gerador:** `1.2.14` (`core/revisao_final.py`)
+- **Última atualização desta documentação:** 03/10/2026
+- **Testes:** 853 coletados (828 aprovados e 25 ignorados na última execução completa, em 03/10/2026)
 
-## Where can I get it?
+## Abas da interface
 
-Download the official installer for your operating system:
+| Aba | Para que serve |
+|---|---|
+| **Planos gerais** | Geração de planos de salas regulares (Ensino Fundamental e Médio) |
+| **CDP-EF/EM** | Planos do Centro de Detenção Provisória (turmas C, H, J e E) |
+| **EJA** | Educação de Jovens e Adultos (Língua Inglesa, Biologia, Liderança e Oratória) |
+| **Cadastro** | Professores, turmas, horários e dados administrativos |
+| **Diagnóstico** | Inspeção técnica dos modelos e da qualidade metodológica |
+| **Histórico** | Consulta e download dos planos já gerados |
+| **Conferência Mensal** | Escolha o professor e o mês: ✅ planos feitos × ⬜ pendentes |
 
- - [macOS](https://central.github.com/deployments/desktop/desktop/latest/darwin)
- - [macOS (Apple silicon)](https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64)
- - [Windows](https://central.github.com/deployments/desktop/desktop/latest/win32)
- - [Windows machine-wide install](https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi)
+> A **pasta do mês** em `Planos feitos\PROFESSOR\DISCIPLINA\MES\` define o mês de cada plano, e não a data em que ele foi gerado.
 
-Linux is not officially supported; however, you can find installers created for Linux from a fork of GitHub Desktop in the [Community Releases](https://github.com/desktop/desktop#community-releases) section.
+## Como executar
 
-### Beta Channel
+```powershell
+# Ativar o ambiente virtual
+.\.venv\Scripts\Activate.ps1
 
-Want to test out new features and get fixes before everyone else? Install the
-beta channel to get access to early builds of Desktop:
+# Instalar dependências (primeira vez)
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
- - [macOS](https://central.github.com/deployments/desktop/desktop/latest/darwin?env=beta)
- - [macOS (Apple silicon)](https://central.github.com/deployments/desktop/desktop/latest/darwin-arm64?env=beta)
- - [Windows](https://central.github.com/deployments/desktop/desktop/latest/win32?env=beta)
- - [Windows (ARM64)](https://central.github.com/deployments/desktop/desktop/latest/win32-arm64?env=beta)
+# Abrir o sistema
+.\.venv\Scripts\streamlit.exe run planos_luan_app.py
+```
 
-The release notes for the latest beta versions are available [here](https://desktop.github.com/release-notes/?env=beta).
+Atalhos para o dia a dia (Windows): `AbrirPLANOS_LUAN.ps1`, `ABRIR_PLANOS_LUAN.vbs`, `ReiniciarPLANOS_LUAN.bat`, `FecharPLANOS_LUAN.bat` e `InstalarPLANOS_LUAN.bat`.
 
-### Past Releases
-You can find past releases at https://desktop.githubusercontent.com. After installation of a past version, the auto update functionality will attempt to download the latest version. 
+## Testes
 
-### Community Releases
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/ -q
+```
 
-There are several community-supported package managers that can be used to
-install GitHub Desktop:
- - Windows users can install using [winget](https://docs.microsoft.com/en-us/windows/package-manager/winget/) `c:\> winget install github-desktop` or [Chocolatey](https://chocolatey.org/) `c:\> choco install github-desktop`
- - macOS users can install using [Homebrew](https://brew.sh/) package manager:
-      `$ brew install --cask github`
+## Estrutura do repositório
 
-Installers for various Linux distributions can be found on the
-[`shiftkey/desktop`](https://github.com/shiftkey/desktop) fork.
+```text
+planos_luan_app.py      Ponto de entrada (Streamlit), menu e estado
+config.py               Caminhos oficiais e configurações
+core/                   Regras, pipeline de geração, IA, banco e calendário
+core/lib/               Inteligência pedagógica (metodologia, acompanhamento, acessibilidade...)
+ui/                     Telas modulares (cadastro, histórico, conferência mensal...)
+docx_generator/         Preenchimento dos modelos Word (regular e CDP/EJA)
+templates/              Modelos Word (MODELOEGLE, MODELOPADRE, MODELOCDP)
+tests/                  Testes automatizados (pytest), inclusive tests/unit/
+```
 
-## Is GitHub Desktop right for me? What are the primary areas of focus?
+## Pastas de dados (fora do Git)
 
-[This document](https://github.com/desktop/desktop/blob/development/docs/process/what-is-desktop.md) describes the focus of GitHub Desktop and who the product is most useful for.
+Os dados ficam em `C:\Users\LuanDias\PLANOS_LUAN_DADOS`, definidos em `config.py`:
 
-## I have a problem with GitHub Desktop
+| Pasta / arquivo | Conteúdo |
+|---|---|
+| `planos_luan.db` | Banco SQLite (modo WAL) |
+| `PDF_AULAS` | PDFs e DOCX pedagógicos por disciplina e ano |
+| `Planos feitos` | DOCX finais: `PROFESSOR\DISCIPLINA\MES\arquivo.docx` |
+| `historico_docx` | Cópias de arquivos do histórico |
+| `REFERENCIAS_METODOLOGICAS` | Referências metodológicas |
 
-Note: The [GitHub Desktop Code of Conduct](https://github.com/desktop/desktop/blob/development/CODE_OF_CONDUCT.md) applies in all interactions relating to the GitHub Desktop project.
+> Nunca crie fallbacks para OneDrive, Documentos ou pastas antigas.
 
-First, please search the [open issues](https://github.com/desktop/desktop/issues?q=is%3Aopen)
-and [closed issues](https://github.com/desktop/desktop/issues?q=is%3Aclosed)
-to see if your issue hasn't already been reported (it may also be fixed).
+## Regras pedagógicas principais
 
-There is also a list of [known issues](https://github.com/desktop/desktop/blob/development/docs/known-issues.md)
-that are being tracked against Desktop, and some of these issues have workarounds.
+- Metodologia em 4 etapas (`list[dict]` com `titulo` e `texto`): *Para começar*, *Foco no conteúdo*, *Na prática* e *Encerramento*.
+- Limite por etapa: **300 caracteres** (sala regular sem IA) e **350** (EJA e DOCX de referência), sempre com corte natural (`limitar_texto_natural()`).
+- **CDP:** sem internet, celular ou computador; foco em quadro, material impresso e caderno.
+- **EJA:** linguagem adulta, ligada ao mundo do trabalho.
+- O DOCX pedagógico na pasta dos PDFs é a fonte prioritária da metodologia, do acompanhamento e da acessibilidade.
 
-If you can't find an issue that matches what you're seeing, open a [new issue](https://github.com/desktop/desktop/issues/new/choose),
-choose the right template and provide us with enough information to investigate
-further.
+## Documentação do projeto
 
-## The issue I reported isn't fixed yet. What can I do?
+| Arquivo | Conteúdo |
+|---|---|
+| [AGENTS.md](AGENTS.md) | Regras operacionais completas para agentes e mantenedores |
+| [GEMINI.md](GEMINI.md) | Contexto resumido para o agente Gemini |
+| [CHANGELOG.md](CHANGELOG.md) | Histórico de atualizações |
+| [AUDITORIA_SISTEMA_2026-10-03.md](AUDITORIA_SISTEMA_2026-10-03.md) | Auditoria do sistema e pendências conhecidas |
+| `DOCUMENTACAO_SISTEMA_PLANOS_LUAN.docx` | Manual de arquitetura, funcionalidades e regras de negócio |
+| `DOCUMENTACAO_ESTRUTURA_CORE_PLANOS_LUAN.docx` | Referência técnica da estrutura `core/` |
+| [PLANOS_LUAN_ENTERPRISE_LITE.md](PLANOS_LUAN_ENTERPRISE_LITE.md) | Proposta de evolução arquitetural gradual |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Código de conduta |
 
-If nobody has responded to your issue in a few days, you're welcome to respond to it with a friendly ping in the issue. Please do not respond more than a second time if nobody has responded. The GitHub Desktop maintainers are constrained in time and resources, and diagnosing individual configurations can be difficult and time consuming. While we'll try to at least get you pointed in the right direction, we can't guarantee we'll be able to dig too deeply into any one person's issue.
+## Licença
 
-## How can I contribute to GitHub Desktop?
-
-The [CONTRIBUTING.md](./.github/CONTRIBUTING.md) document will help you get setup and
-familiar with the source. The [documentation](docs/) folder also contains more
-resources relevant to the project.
-
-If you're looking for something to work on, check out the [help wanted](https://github.com/desktop/desktop/issues?q=is%3Aissue+is%3Aopen+label%3A%22help%20wanted%22) label.
-
-## Building Desktop
-
-To setup your development environment for building Desktop, check out: [`setup.md`](./docs/contributing/setup.md).
-
-## More Resources
-
-See [desktop.github.com](https://desktop.github.com) for more product-oriented
-information about GitHub Desktop.
-
-See our [getting started documentation](https://docs.github.com/en/desktop/overview/getting-started-with-github-desktop) for more information on how to set up, authenticate, and configure GitHub Desktop.
-
-## License
-
-**[MIT](LICENSE)**
-
-The MIT license grant is not for GitHub's trademarks, which include the logo
-designs. GitHub reserves all trademark and copyright rights in and to all
-GitHub trademarks. GitHub's logos include, for instance, the stylized
-Invertocat designs that include "logo" in the file title in the following
-folder: [logos](app/static/logos).
-
-GitHub® and its stylized versions and the Invertocat mark are GitHub's
-Trademarks or registered Trademarks. When using GitHub's logos, be sure to
-follow the GitHub [logo guidelines](https://github.com/logos).
+Consulte o arquivo [LICENSE](LICENSE).

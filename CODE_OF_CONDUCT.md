@@ -1,76 +1,54 @@
-# Contributor Covenant Code of Conduct
+# Código de Conduta — Planos Luan
 
-## Our Pledge
+> Atualizado em 03/10/2026. Baseado no [Contributor Covenant](http://contributor-covenant.org), versão 1.4, adaptado ao contexto escolar deste projeto.
 
-In the interest of fostering an open and welcoming environment, we as
-contributors and maintainers pledge to making participation in our project and
-our community a harassment-free experience for everyone, regardless of age, body
-size, disability, ethnicity, gender identity and expression, level of experience,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
+## Nosso compromisso
 
-## Our Standards
+Para manter um ambiente aberto, acolhedor e respeitoso, nós, mantenedores e colaboradores do **Planos Luan** (professores, coordenadores, desenvolvedores e agentes de IA que trabalham no sistema), nos comprometemos a fazer da participação neste projeto uma experiência livre de assédio para todas as pessoas, independentemente de idade, porte físico, deficiência, etnia, identidade e expressão de gênero, nível de experiência, nacionalidade, aparência pessoal, raça, religião ou orientação sexual.
 
-Examples of behavior that contributes to creating a positive environment
-include:
+## Nossos padrões
 
-* Using welcoming and inclusive language
-* Being respectful of differing viewpoints and experiences
-* Gracefully accepting constructive criticism
-* Focusing on what is best for the community
-* Showing empathy towards other community members
+Comportamentos que contribuem para um ambiente positivo:
 
-Examples of unacceptable behavior by participants include:
+* Usar linguagem acolhedora e inclusiva.
+* Respeitar pontos de vista e experiências diferentes.
+* Aceitar críticas construtivas com tranquilidade.
+* Focar no que é melhor para os professores, alunos e para a comunidade escolar.
+* Demonstrar empatia com os demais colaboradores.
+* Preservar a dignidade de alunos, professores e demais pessoas citadas em planos, cadastros e históricos.
 
-* The use of sexualized language or imagery and unwelcome sexual attention or
-advances
-* Trolling, insulting/derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or electronic
-  address, without explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
-* Attempting to contact maintainers outside of GitHub.com without an explicit
-  invitation to do so.
+Comportamentos inaceitáveis:
 
-## Our Responsibilities
+* Linguagem ou imagens sexualizadas e atenção sexual indesejada.
+* Provocações, insultos, comentários depreciativos e ataques pessoais ou políticos.
+* Assédio, público ou privado.
+* Divulgar informações privadas de terceiros (endereço, CPF, telefone, e-mail, dados de alunos ou professores) sem permissão expressa.
+* Incluir em planos de aula conteúdo discriminatório, vexatório ou desrespeitoso com alunos, inclusive com pessoas em privação de liberdade (CDP) ou com alunos da EJA.
+* Qualquer outra conduta que possa ser considerada inadequada em um ambiente profissional.
 
-Project maintainers are responsible for clarifying the standards of acceptable
-behavior and are expected to take appropriate and fair corrective action in
-response to any instances of unacceptable behavior.
+## Proteção de dados
 
-Project maintainers have the right and responsibility to remove, edit, or
-reject comments, commits, code, wiki edits, issues, and other contributions
-that are not aligned to this Code of Conduct, or to ban temporarily or
-permanently any contributor for other behaviors that they deem inappropriate,
-threatening, offensive, or harmful.
+O sistema armazena dados de professores (nome, CPF, e-mail, telefone, valores) no banco local `planos_luan.db`, na pasta `PLANOS_LUAN_DADOS`, que **não é enviada ao GitHub**. Colaboradores não devem publicar esse banco, os PDFs pedagógicos nem os planos gerados em repositórios, issues ou conversas públicas.
 
-## Scope
+## Responsabilidades dos mantenedores
 
-This Code of Conduct applies both within project spaces and in public spaces
-when an individual is representing the project or its community. Examples of
-representing a project or community include using an official project e-mail
-address, posting via an official social media account, or acting as an appointed
-representative at an online or offline event. Representation of a project may be
-further defined and clarified by project maintainers.
+Os mantenedores são responsáveis por esclarecer os padrões de conduta aceitável e tomar ações corretivas justas diante de qualquer comportamento inaceitável.
 
-## Enforcement
+Eles têm o direito e a responsabilidade de remover, editar ou rejeitar comentários, commits, códigos, edições de documentação, issues e outras contribuições que não estejam alinhadas a este Código de Conduta, e de banir, temporária ou permanentemente, quem adotar comportamentos considerados impróprios, ameaçadores, ofensivos ou prejudiciais.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at opensource@github.com. All
-complaints will be reviewed and investigated and will result in a response that
-is deemed necessary and appropriate to the circumstances. The project team is
-obligated to maintain confidentiality with regard to the reporter of an incident.
-Further details of specific enforcement policies may be posted separately.
+## Escopo
 
-Project maintainers who do not follow or enforce the Code of Conduct in good
-faith may face temporary or permanent repercussions as determined by other
-members of the project's leadership.
+Este Código de Conduta vale dentro dos espaços do projeto (repositório, issues, mensagens de commit, documentação e conversas de trabalho) e em espaços públicos quando alguém representa o projeto ou sua comunidade.
 
-## Attribution
+## Aplicação
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4,
-available at [http://contributor-covenant.org/version/1/4][version]
+Casos de comportamento abusivo, de assédio ou de outra forma inaceitável podem ser comunicados ao responsável pelo projeto, **Professor Luan**, pelo repositório [professorluan68-prog/PLANOS_LUAN](https://github.com/professorluan68-prog/PLANOS_LUAN) (abra uma *issue* sem expor dados sensíveis ou use o contato direto na escola). Todas as denúncias serão analisadas com cuidado e imparcialidade, e a confidencialidade de quem relatou será preservada.
+
+Mantenedores que não seguirem ou não aplicarem este Código de Conduta de boa-fé poderão sofrer consequências temporárias ou permanentes, conforme decisão da liderança do projeto.
+
+## Atribuição
+
+Este Código de Conduta é adaptado do [Contributor Covenant][homepage], versão 1.4, disponível em [http://contributor-covenant.org/version/1/4][version].
 
 [homepage]: http://contributor-covenant.org
 [version]: http://contributor-covenant.org/version/1/4/
