@@ -903,6 +903,8 @@ def _quantidade_aulas_por_horario(horario) -> int:
 def _quantidade_aulas_semana(aulas_da_semana) -> int:
     total = 0
     for _, aula in aulas_da_semana or []:
+        if (aula or {}).get("eh_feriado"):
+            continue
         total += _quantidade_aulas_por_horario((aula or {}).get("horario"))
     return total
 
@@ -1038,6 +1040,9 @@ def _semana_atual_cabecalho(tabela) -> str:
 
 
 def _titulo_aula(aula: dict, numero: int) -> str:
+    if aula.get("eh_feriado"):
+        return ""
+
     if aula.get("bloco_sem_pdf") or (aula.get("aula_vazia") and "RECOMPOSI" in str(aula.get("material") or aula.get("tema") or "").upper()):
         return "RECOMPOSIÇÃO DA APRENDIZAGEM\n\nAULA: \nBIMESTRE"
 
@@ -1166,6 +1171,17 @@ def _preencher_linha_aula(linha, aula: dict, numero: int, cabecalho=None) -> Non
         usadas.add(tc_id)
 
 
+    if aula.get("eh_feriado"):
+        _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
+        texto_feriado = str(aula.get("metodologia") or "").strip()
+        celula_dev = celulas[indices["desenvolvimento"]]
+        _limpar_celula(celula_dev)
+        p = _paragrafo_base(celula_dev)
+        p.text = ""
+        run = p.add_run(texto_feriado)
+        run.bold = True
+        return
+
     # Col 0: Data/Horário — vermelho, centralizado, Arial 10
     _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
     # Col 1: Título — vermelho + bold, centralizado, Arial 10
@@ -1245,7 +1261,7 @@ def _preencher_tabelas_modelo(
 
             if mes:
                 from ui.shared import _mes_numero_app
-                from core.calendario import datas_sem_aula_calendario
+                from core.calendario import datas_sem_aula_calendario, descricao_feriado
 
                 mes_num = _mes_numero_app(mes)
                 ano = min_segunda.year
@@ -1255,6 +1271,17 @@ def _preencher_tabelas_modelo(
                     for _, aula in sobras
                     if isinstance(aula, dict) and _data_para_semana(aula.get("data"))
                 }
+                horarios_por_dia = {}
+                for _, aula in sobras:
+                    if isinstance(aula, dict) and aula.get("data"):
+                        dt = _data_para_semana(aula["data"])
+                        if dt:
+                            w = dt.weekday()
+                            h = aula.get("horario") or ""
+                            if w not in horarios_por_dia:
+                                horarios_por_dia[w] = []
+                            if h and h not in horarios_por_dia[w]:
+                                horarios_por_dia[w].append(h)
 
                 seg_check = min_segunda - timedelta(days=7)
                 while True:
@@ -1286,7 +1313,35 @@ def _preencher_tabelas_modelo(
             semanas_cabecalho_por_par = []
             curr = min_segunda
             while curr <= max_segunda:
-                grupo = aulas_por_semana.get(curr, [])
+                grupo = list(aulas_por_semana.get(curr, []))
+
+                if mes:
+                    datas_com_aula = {
+                        _data_para_semana(aula.get("data"))
+                        for _, aula in grupo
+                        if isinstance(aula, dict) and aula.get("data")
+                    }
+                    for d in sorted(dias_semana_turma):
+                        data_dia = curr + timedelta(days=d)
+                        if (
+                            data_dia.month == mes_num
+                            and data_dia in feriados
+                            and data_dia not in datas_com_aula
+                        ):
+                            horarios = horarios_por_dia.get(d) or [""]
+                            for h in horarios:
+                                aula_feriado = {
+                                    "data": data_dia,
+                                    "horario": h,
+                                    "tema": "",
+                                    "aprendizagem": "",
+                                    "metodologia": descricao_feriado(data_dia, observacao),
+                                    "acompanhamento": "",
+                                    "acessibilidade": "",
+                                    "eh_feriado": True,
+                                }
+                                grupo.append((0, aula_feriado))
+
                 grupo.sort(key=_chave_ordenacao_aula_semana)
                 grupos.append(grupo)
                 sexta = curr + timedelta(days=4)
@@ -1391,8 +1446,8 @@ def _preencher_tabelas_modelo(
         quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
         if quantidade_semana > 0:
             aulas_previstas = str(quantidade_semana)
-        elif aulas_da_semana:
-            aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
+        elif [a for _, a in aulas_da_semana if not (a or {}).get("eh_feriado")]:
+            aulas_previstas = str(len([a for _, a in aulas_da_semana if not (a or {}).get("eh_feriado")])).strip()
         else:
             aulas_previstas = "0"
         semana_cabecalho = (
@@ -1423,8 +1478,9 @@ def _preencher_tabelas_modelo(
             _preencher_linha_aula(linha, aula, numero, cabecalho_aulas)
 
         if aulas_da_semana:
-            for linha in linhas_conteudo[len(aulas_da_semana) :]:
-                _remover_linha(linha)
+            if any(not (a or {}).get("eh_feriado") for _, a in aulas_da_semana):
+                for linha in linhas_conteudo[len(aulas_da_semana) :]:
+                    _remover_linha(linha)
         if not is_cdp_ctx:
             _normalizar_layout_tabela_aulas(tabela_aulas)
 

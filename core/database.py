@@ -161,6 +161,37 @@ def _normalizar_mes_plano_historico(valor: str = "", data_geracao: str = "") -> 
     return f"{ano}-{mes_num}"
 
 
+def _mes_plano_pela_pasta(arquivo_path: str = "", data_geracao: str = "") -> str:
+    """Mês (YYYY-MM) indicado pela pasta do plano em 'Planos feitos'.
+
+    Estrutura: PROFESSOR/DISCIPLINA/MES/arquivo.docx. A pasta do mês é a fonte
+    de verdade; a data de geração só ajuda a resolver o ano.
+    """
+    texto = str(arquivo_path or "").strip()
+    if not texto:
+        return ""
+    try:
+        relativo = Path(texto).resolve(strict=False).relative_to(
+            Path(PLANOS_FEITOS_DIR).resolve(strict=False)
+        )
+    except (ValueError, OSError):
+        return ""
+    partes = relativo.parts
+    if len(partes) < 4:
+        return ""
+    mes_num = _MESES_HISTORICO.get(_normalizar_campo_chave(partes[2]))
+    if not mes_num:
+        return ""
+    base = _mes_geracao_historico(data_geracao) or datetime.now().strftime("%Y-%m")
+    ano, mes_ger = int(base[:4]), int(base[5:7])
+    diferenca = int(mes_num) - mes_ger
+    if diferenca <= -6:
+        ano += 1
+    elif diferenca >= 6:
+        ano -= 1
+    return f"{ano}-{mes_num}"
+
+
 def _extrair_contexto_docx_historico(
     arquivo_docx_bytes: bytes | None,
     data_geracao: str = "",
@@ -291,6 +322,10 @@ def _metadados_historico(
                 contexto_docx.get("mes_plano", ""),
                 data_geracao,
             )
+
+    mes_pasta = _mes_plano_pela_pasta(arquivo_path, data_geracao)
+    if mes_pasta:
+        mes_plano_final = mes_pasta
 
     return {
         "bimestre": bimestre_final,
@@ -2166,6 +2201,97 @@ def buscar_historico_planos(professor_nome: str, mes: str = "") -> list[dict]:
             }
             for row in cursor.fetchall()
         ]
+
+
+def _mes_efetivo_plano(plano: dict) -> str:
+    """Mês real do plano: a pasta manda; depois mes_plano; por fim a geração."""
+    return (
+        _mes_plano_pela_pasta(plano.get("arquivo_path", ""), plano.get("data_geracao", ""))
+        or _normalizar_campo(plano.get("mes_plano"))
+        or str(plano.get("data_geracao") or "")[:7]
+    )
+
+
+def obter_meses_conferencia() -> list[str]:
+    """Meses (YYYY-MM) existentes no histórico, usando o mês efetivo (pasta primeiro)."""
+    with get_connection() as conn:
+        linhas = conn.execute(
+            "SELECT arquivo_path, data_geracao, mes_plano FROM historico_planos"
+        ).fetchall()
+    meses = {
+        _mes_efetivo_plano(
+            {"arquivo_path": r[0] or "", "data_geracao": r[1] or "", "mes_plano": r[2] or ""}
+        )
+        for r in linhas
+    }
+    return sorted((m for m in meses if re.match(r"^\d{4}-\d{2}$", m)), reverse=True)
+
+
+def obter_conferencia_mensal(professor_nome: str, mes: str) -> list[dict]:
+    """Cruza as turmas cadastradas do professor com os planos do mês (YYYY-MM).
+
+    Um item só é ``feito`` quando existe registro no histórico E o arquivo DOCX
+    está presente em disco. Vínculos repetidos (vários horários da mesma
+    disciplina/turma) são agrupados em uma única linha.
+    """
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    mes = _normalizar_campo(mes)
+    if not professor_chave or not mes:
+        return []
+
+    itens: dict[tuple[str, str], dict] = {}
+    for vinculo in listar_vinculos_professores():
+        if _normalizar_campo_chave(vinculo["professor"]) != professor_chave:
+            continue
+        chave = (
+            _normalizar_campo_chave(vinculo["disciplina"]),
+            _normalizar_campo_chave(vinculo["turma"]),
+        )
+        itens.setdefault(
+            chave,
+            {
+                "disciplina": vinculo["disciplina"],
+                "turma": vinculo["turma"],
+                "feito": False,
+                "registro_sem_arquivo": False,
+                "plano_id": None,
+                "arquivo_nome": "",
+                "data_geracao": "",
+            },
+        )
+
+    for plano in buscar_historico_planos(professor_nome):
+        if _mes_efetivo_plano(plano) != mes:
+            continue
+        chave = (
+            _normalizar_campo_chave(plano["disciplina"]),
+            _normalizar_campo_chave(plano["turma"]),
+        )
+        item = itens.get(chave)
+        if item is None or item["feito"]:
+            continue
+        caminho = plano.get("arquivo_path") or ""
+        arquivo_existe = False
+        if caminho:
+            try:
+                arquivo_existe = _resolver_caminho_arquivo_historico(caminho).exists()
+            except Exception:
+                arquivo_existe = False
+        if arquivo_existe:
+            item.update(
+                feito=True,
+                registro_sem_arquivo=False,
+                plano_id=plano["id"],
+                arquivo_nome=plano["arquivo_nome"],
+                data_geracao=plano["data_geracao"],
+            )
+        else:
+            item["registro_sem_arquivo"] = True
+
+    return sorted(
+        itens.values(),
+        key=lambda i: (normalizar_texto(i["disciplina"]), normalizar_texto(i["turma"])),
+    )
 
 
 def buscar_historico_planos_avancado(

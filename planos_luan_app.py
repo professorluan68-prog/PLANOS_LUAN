@@ -139,6 +139,7 @@ from ui.painel_pdfs import _render_painel_pdfs
 from ui.revisao_aulas import renderizar_passo_revisao
 from ui.cadastro import _renderizar_cadastro_professor
 from ui.historico import _renderizar_historico
+from ui.conferencia_mensal import _renderizar_conferencia_mensal
 from ui.diagnostico import _renderizar_diagnostico_modelos
 from ui.reescrita_cdp import _renderizar_reescrita_cdp_em
 
@@ -1679,7 +1680,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
+modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro", "Diagnóstico", "Histórico", "Conferência Mensal"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -1692,7 +1693,7 @@ idx_default = modos_disponiveis.index(default_modo)
 modo_tela = option_menu(
     menu_title=None,
     options=modos_disponiveis,
-    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history"],
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history", "check2-square"],
     menu_icon="cast",
     default_index=idx_default,
     orientation="horizontal",
@@ -1706,10 +1707,12 @@ modo_eja = modo_tela == "EJA"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
 modo_historico = modo_tela == "Histórico"
+modo_conferencia_mensal = modo_tela == "Conferência Mensal"
 
 if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_historico: _renderizar_historico(PROFESSORES_DB); st.stop()
+if modo_conferencia_mensal: _renderizar_conferencia_mensal(PROFESSORES_DB); st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
 TEMPLATES_DIR.mkdir(exist_ok=True)
@@ -2208,8 +2211,22 @@ default_outubro = (
     "poderá fazer uso de tecnologias, quando achar necessário.\n"
     "12/10 – Feriado Nacional\n"
     "15/10 - Feriado (Dia do Professor)\n"
+    "16/10 - Conselho de Classe 3º Bimestre\n"
+    "Simulado SARESP;\n"
+    "Jornada da Aprendizagem;\n"
+    "Simulado ENEM;\n"
+    "Devolutivas e feedbacks dos simulados"
+)
+default_outubro_legado = (
+    "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
+    "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
+    "identificadas, preservando os objetivos de aprendizagem estabelecidos, bem como "
+    "poderá fazer uso de tecnologias, quando achar necessário.\n"
+    "12/10 – Feriado Nacional\n"
+    "15/10 - Feriado (Dia do Professor)\n"
     "16/10 - Conselho de Classe 3º Bimestre"
 )
+observacoes_automaticas_outubro = {default_outubro, default_outubro_legado}
 
 # Texto padrão fixo para AGOSTO
 default_agosto = (
@@ -2224,8 +2241,9 @@ observacoes_automaticas_agosto = {default_agosto, default_agosto_legado}
 # Conjunto de todos os textos automáticos conhecidos (para detectar troca de mês)
 _obs_automaticas_conhecidas = (
     observacoes_automaticas_agosto
-    | {default_outubro, default_novembro}
-    | {obs.strip() for obs in (default_outubro, default_novembro)}
+    | observacoes_automaticas_outubro
+    | {default_novembro}
+    | {obs.strip() for obs in (default_outubro, default_outubro_legado, default_novembro)}
     | {default_novembro.replace("13//1", "13/11"), default_novembro.replace("13//1", "13/11").strip()}
 )
 
@@ -2242,8 +2260,13 @@ elif (
 ):
     st.session_state["observacao"] = default_agosto
 elif (
+    mes.strip().upper() == "OUTUBRO"
+    and str(st.session_state.get("observacao", "") or "").strip() in {default_outubro_legado, default_outubro_legado.strip()}
+):
+    st.session_state["observacao"] = default_outubro
+elif (
     mes.strip().upper() == "NOVEMBRO"
-    and str(st.session_state.get("observacao", "") or "").strip() in (observacoes_automaticas_agosto | {default_outubro})
+    and str(st.session_state.get("observacao", "") or "").strip() in (observacoes_automaticas_agosto | observacoes_automaticas_outubro)
 ):
     st.session_state["observacao"] = default_novembro
 

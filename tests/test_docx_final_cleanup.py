@@ -35,10 +35,10 @@ def _modelo_com_semanas(semanas, linhas_aulas=1):
     return saida
 
 
-def _aula(data, tema="Tema da aula"):
+def _aula(data, tema="Tema da aula", horario="14h40 - 16h40"):
     return {
         "data": data,
-        "horario": "14h40 - 16h40",
+        "horario": horario,
         "material": f"AULA 5 - {tema}",
         "aprendizagem": "Habilidade: manter BNCC como veio.",
         "metodologia": [
@@ -489,10 +489,12 @@ def test_preserva_bloco_semana_sem_aula_por_feriado():
     assert doc.tables[4].rows[3].cells[3].text == "0"
     assert doc.tables[4].rows[3].cells[5].text == "20/11 - Feriado Nacional: Consciencia Negra"
 
-    # A tabela da semana vazia nao deve ter sido apagada: mantem linhas em branco
+    # A tabela da semana de feriado mantem a linha do feriado preenchida e as demais em branco
     tabela_vazia = doc.tables[5]
-    assert len(tabela_vazia.rows) == 5  # 1 cabecalho + 4 linhas em branco
-    for row in tabela_vazia.rows[1:]:
+    assert len(tabela_vazia.rows) == 5  # 1 cabecalho + 4 linhas (1 feriado + 3 em branco)
+    assert "20/11" in tabela_vazia.rows[1].cells[0].text
+    assert tabela_vazia.rows[1].cells[3].text == "20/11 - Feriado Nacional: Consciencia Negra"
+    for row in tabela_vazia.rows[2:]:
         for cell in row.cells:
             assert cell.text.strip() == ""
 
@@ -523,5 +525,58 @@ def test_preserva_bloco_semana_inicial_sem_aula_por_feriado():
     assert len(doc.tables) == 10
     assert doc.tables[0].rows[3].cells[1].text == "02/11 a 06/11"
     assert doc.tables[0].rows[3].cells[3].text == "0"
+    assert "02/11" in doc.tables[1].rows[1].cells[0].text
+    assert doc.tables[1].rows[1].cells[3].text == "02/11 - Finados"
     assert doc.tables[2].rows[3].cells[1].text == "09/11 a 13/11"
+
+
+def test_preserva_bloco_semana_meio_mes_feriado_dia_do_professor():
+    modelo = _modelo_com_semanas(["04/05 a 08/05", "11/05 a 15/05", "18/05 a 22/05", "25/05 a 29/05"], linhas_aulas=4)
+    # Aulas nas quintas de outubro: 01/10, 08/10, 22/10, 29/10 (15/10 é Dia do Professor)
+    aulas = [
+        _aula(date(2026, 10, 1), "Aula 1", horario="08h40 - 3ª aula"),
+        _aula(date(2026, 10, 8), "Aula 2", horario="08h40 - 3ª aula"),
+        _aula(date(2026, 10, 22), "Aula 3", horario="08h40 - 3ª aula"),
+        _aula(date(2026, 10, 29), "Aula 4", horario="08h40 - 3ª aula"),
+    ]
+    observacao = (
+        "12/10 – Feriado Nacional\n"
+        "15/10 - Feriado (Dia do Professor)\n"
+        "16/10 - Conselho de Classe 3º Bimestre"
+    )
+    doc = Document(
+        preencher_documento(
+            modelo,
+            aulas,
+            professor="DANIELA DO AMARAL",
+            disciplina="Projeto de Vida",
+            turma="3º ANO B",
+            mes="Outubro",
+            bimestre="4º Bimestre",
+            observacao=observacao,
+        )
+    )
+
+    # 5 pares (10 tabelas): 28/09 a 02/10, 05/10 a 09/10, 12/10 a 16/10, 19/10 a 23/10, 26/10 a 30/10
+    assert len(doc.tables) == 10
+    # Par 3 (Tabelas 4 e 5) é a semana de 12/10 a 16/10
+    assert doc.tables[4].rows[3].cells[1].text == "12/10 a 16/10"
+    assert doc.tables[4].rows[3].cells[3].text == "0"
+
+    tabela_feriado = doc.tables[5]
+    assert len(tabela_feriado.rows) == 5
+    # Linha 1 deve conter a data/horário e a descrição do feriado na metodologia
+    assert "15/10" in tabela_feriado.rows[1].cells[0].text
+    assert "8h40" in tabela_feriado.rows[1].cells[0].text
+    assert tabela_feriado.rows[1].cells[1].text.strip() == ""
+    assert tabela_feriado.rows[1].cells[2].text.strip() == ""
+    assert tabela_feriado.rows[1].cells[3].text == "15/10 - Feriado (Dia do Professor)"
+    assert tabela_feriado.rows[1].cells[4].text.strip() == ""
+    assert tabela_feriado.rows[1].cells[5].text.strip() == ""
+
+    # Linhas 2, 3 e 4 devem estar vazias
+    for row in tabela_feriado.rows[2:]:
+        for cell in row.cells:
+            assert cell.text.strip() == ""
+
 
