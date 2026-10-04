@@ -127,3 +127,18 @@ def test_validar_pdf_contexto_sem_ia_suporta_pdf_dividido_em_pasta():
     assert resultado.valido is True
     assert resultado.motivos == ()
 
+
+def test_validar_pdf_contexto_sem_ia_aprofundamento_biologia_2ano_aceita_3ano():
+    # No 4º bimestre de Aprofundamento em Biologia, materiais de 3º ano são usados para turmas do 2º ano
+    caminho = Path(r"C:\Users\LuanDias\PLANOS_LUAN_DADOS\PDF_AULAS\APROFUNDAMENTO_EM_BIOLOGIA\EM\4_BIMESTRE\3_ANO\AULA_01.pdf")
+    resultado = validacao.validar_pdf_contexto_sem_ia(
+        caminho,
+        disciplina="Aprofundamento em Biologia",
+        turma="2º ANO A",
+        bimestre="4º Bimestre",
+        texto_pdf="Ensino Médio – 3ª Série Biologia Aprofundamento 4º Bimestre Aula 1",
+    )
+
+    assert resultado.valido is True
+    assert resultado.motivos == ()
+

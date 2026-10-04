@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 from core.helpers import numero_aula_pdf
+from core.lib.aprofundamento import eh_aprofundamento_biologia
 from core.lib.classificador import normalizar_texto, perfil_disciplina
 from core.seletor_referencias import referencia_docx_por_perfil
 
@@ -299,6 +300,9 @@ def validar_pdf_contexto_sem_ia(
                 motivos.append("bimestre do PDF nao confere com o selecionado")
 
     series_alvo = _series_esperadas(turma)
+    if eh_aprofundamento_biologia(disciplina) and 2 in series_alvo:
+        # No 4º bimestre (e aprofundamento), materiais de 3º ano são utilizados também para turmas de 2º ano.
+        series_alvo = set(series_alvo) | {3}
     if series_alvo:
         if any(_serie_esta_no_contexto(contexto_norm, s) for s in series_alvo):
             score += 10

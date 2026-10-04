@@ -2,8 +2,13 @@
 
 Este arquivo registra as alterações do sistema **Planos Luan** para que professores, mantenedores e outros agentes saibam o que foi corrigido ou implementado. Versão atual do gerador: **1.2.14** (`core/revisao_final.py`). As entradas mais recentes ficam no topo.
 
-## [2026-10-03] - Conferência Mensal, mês pela pasta e auditoria documental
-### Adicionado
+## [2026-10-03] - Conferência Mensal, mês pela pasta e ajuste de Aprofundamento em Biologia
+### Adicionado / Corrigido
+- **core/validacao_pdfs_contexto.py**: aceita materiais de 3º ano para turmas de 2º ano na disciplina **Aprofundamento em Biologia** (no 4º bimestre o material pedagógico é compartilhado). Evita falso bloqueio de série na interface.
+- **PLANOS_LUAN_DADOS/PDF_AULAS/APROFUNDAMENTO_EM_BIOLOGIA**: concisão das etapas de "FOCO NO CONTEÚDO" nas aulas 5, 7, 8, 12 e 13 para respeitar o teto estrito de 350 caracteres por etapa nos DOCX de referência (pastas `2_ANO` e `3_ANO`).
+- **tests/test_validacao_pdfs_contexto.py**: teste automatizado para validação de PDFs de 3º ano aplicados a turmas de 2º ano em Aprofundamento em Biologia.
+
+### Adicionado (Conferência Mensal)
 - **ui/conferencia_mensal.py** e **planos_luan_app.py**: nova aba **Conferência Mensal**. O professor escolhe, em listas de seleção, o **professor** e o **mês**; o sistema lista todas as turmas/disciplinas cadastradas dele, marcando ✅ os planos feitos e ⬜ os pendentes, com barra de progresso, filtro "somente pendentes" e botão **Baixar** do DOCX. Um plano só conta como feito se existir registro no histórico **e** o arquivo `.docx` estiver em disco (registro sem arquivo aparece como ⚠️).
 - **core/database.py**: `obter_conferencia_mensal()`, `obter_meses_conferencia()` e `_mes_efetivo_plano()`. Vínculos repetidos (vários horários da mesma disciplina/turma) são agrupados em uma única linha.
 - **tests/test_conferencia_mensal.py**: testes do cruzamento turmas × planos, da regra de arquivo existente e da regra de mês pela pasta.
