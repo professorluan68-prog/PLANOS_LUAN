@@ -1,0 +1,152 @@
+from dataclasses import dataclass
+import unicodedata
+
+
+BIMESTRES = ["1º Bimestre", "2º Bimestre", "3º Bimestre", "4º Bimestre"]
+MODO_PDF = "pdf"
+MODO_CDP = "cdp"
+MODO_CDP_FUNDAMENTAL = "cdp_fundamental"
+
+DISCIPLINA_CDP_MULTISSERIADA = "CDP- Multisseriada"
+DISCIPLINA_CDP_CICLO_I = "CDP - Ciclo I"
+DISCIPLINA_CDP_FUNDAMENTAL = "CDP-ENSINO FUNDAMENTAL"
+DISCIPLINA_CDP_MEDIO = "CDP-ENSINO MÉDIO"
+DISCIPLINA_GEOGRAFIA_CDP_MEDIO = "Geografia CDP Ensino Médio"
+COMPONENTES_CURRICULARES_CDP_CICLO_I = [
+    "ANOS INICIAIS 4º e 5º ANO- EJA TURMA D",
+    "ANOS INICIAIS 1º, 2º e 3º ANO- EJA TURMA C",
+]
+
+
+@dataclass(frozen=True)
+class DisciplinaConfig:
+    nome: str
+    modo: str = MODO_PDF
+    exige_pdf: bool = True
+    habilitado: bool = True
+    aprendizagem_padrao: str = (
+        "Desenvolver habilidades relacionadas ao tema da aula, participando das "
+        "atividades propostas e registrando as principais aprendizagens."
+    )
+
+
+_DISCIPLINAS = [
+    "Arte",
+    "Arte e Mídias Digitais",
+    "Biologia",
+    "Aprofundamento em Biologia",
+    "Ciências",
+    "Ciências-CDP",
+    "Educação Financeira",
+    "Educação Física",
+    "Filosofia",
+    "Física",
+    "Geografia",
+    "Geografia_EM-CDP",
+    "Aprofundamento em Geografia",
+    "História",
+    "História_EF-CDP",
+    "História_EM-CDP",
+    "Liderança e Oratória",
+    "Liderança-CDP",
+    "Língua Inglesa",
+    "Língua Portuguesa",
+    "Matemática",
+    "Matemática_EF-CDP",
+    "Matemática_EM-CDP",
+    "Orientação de Estudos",
+    "Orientação de Estudos Matemática",
+    "Projeto de Vida",
+    "Química",
+    "Química-EJA",
+    "Redação e Leitura",
+    "Robótica",
+    "Sociologia",
+    "Sociologia-CDP",
+    "Tecnologia e Inovação",
+    DISCIPLINA_CDP_CICLO_I,
+    "Outra",
+]
+
+TURMAS_CDP = [
+    "MULTISSERIADO 1º, 2º e 3º ano",
+    "MULTISSERIADO 4º e 5º ano",
+    "6º/7ºANO-TURMA C",
+    "6º/7ºANO-TURMA H",
+    "8º/9°ANO-TURMA J",
+    "8º/9°ANO-TURMA E",
+    "1°/2°/3°-TURMA J",
+    "1°/2°/3°-TURMA E",
+    "1º/2º/3º E.M",
+]
+TURMAS_CDP_MULTISSERIADA = TURMAS_CDP
+
+
+def _normalizar_nome_disciplina(nome: str) -> str:
+    valor = unicodedata.normalize("NFKD", str(nome or "").strip().upper())
+    valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+    return " ".join(valor.split())
+
+
+def nomes_disciplinas() -> list[str]:
+    return [nome for nome in _DISCIPLINAS if obter_config(nome).habilitado]
+
+
+def componentes_curriculares_por_disciplina(disciplina: str) -> list[str]:
+    if _normalizar_nome_disciplina(disciplina) == _normalizar_nome_disciplina(
+        DISCIPLINA_CDP_CICLO_I
+    ):
+        return list(COMPONENTES_CURRICULARES_CDP_CICLO_I)
+    return []
+
+
+def obter_config(disciplina: str) -> DisciplinaConfig:
+    nome = (disciplina or "Outra").strip() or "Outra"
+    nome_normalizado = _normalizar_nome_disciplina(nome)
+
+    if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_MULTISSERIADA):
+        return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
+    if nome_normalizado == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
+        return DisciplinaConfig(
+            nome=nome,
+            modo=MODO_CDP_FUNDAMENTAL,
+            exige_pdf=False,
+            habilitado=False,
+        )
+    if nome.upper().endswith("_CDP") or nome.upper().endswith("-CDP"):
+        return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
+    return DisciplinaConfig(nome=nome)
+
+
+def eh_cdp(nome: str) -> bool:
+    return obter_config(nome).modo in {MODO_CDP, MODO_CDP_FUNDAMENTAL}
+
+
+def eh_cdp_multisseriada(nome: str) -> bool:
+    return obter_config(nome).modo == MODO_CDP
+
+
+def eh_cdp_fundamental(nome: str) -> bool:
+    return obter_config(nome).modo == MODO_CDP_FUNDAMENTAL
+
+
+def eh_cdp_contextual(nome: str) -> bool:
+    chave = _normalizar_nome_disciplina(nome)
+    chave_compacta = chave.replace(" ", "")
+    return chave in {
+        _normalizar_nome_disciplina(DISCIPLINA_CDP_FUNDAMENTAL),
+        _normalizar_nome_disciplina(DISCIPLINA_CDP_MEDIO),
+    } or (
+        "CDP" in chave_compacta
+        and (
+            "ENSINOMEDIO" in chave_compacta
+            or "ENSINOFUNDAMENTAL" in chave_compacta
+            or "CDP_EJA" in chave
+            or "CDPEJA" in chave_compacta
+            or chave_compacta.endswith("CDPEM")
+            or chave_compacta.endswith("CDPEF")
+            or chave_compacta.endswith("CDPEJA")
+            or chave_compacta.endswith("_CDP")
+            or chave_compacta.endswith("-CDP")
+        )
+    )
