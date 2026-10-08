@@ -1,0 +1,117 @@
+﻿import re
+import sys
+from pathlib import Path
+from docx import Document
+from docx.shared import Pt
+import config
+
+def extrair_dados_para_pei(caminho_docx_plano):
+    doc = Document(str(caminho_docx_plano))
+    texto_completo = []
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                texto = cell.text.strip()
+                if texto:
+                    texto_completo.append(texto)
+                    
+    texto_limpo = []
+    for t in texto_completo:
+        if not texto_limpo or texto_limpo[-1] != t:
+            texto_limpo.append(t)
+            
+    texto_str = "\n".join(texto_limpo)
+    habilidades = re.findall(r'\(?EF\d{2}[A-Z]{2}\d{2}[A-Z]?\)?', texto_str)
+    aes = re.findall(r'AE\d+\s*-\s*[^\n|]+', texto_str)
+    
+    temas = []
+    for linha in texto_str.split('\n'):
+        if 'TEMA:' in linha:
+            temas.append(linha.replace('TEMA:', '').strip())
+        elif 'AULA ' in linha and ' - ' in linha:
+             temas.append(linha.strip())
+             
+    habilidades = list(dict.fromkeys([h.replace('(', '').replace(')', '') for h in habilidades]))
+    aes = list(dict.fromkeys([a.strip() for a in aes]))
+    temas = list(dict.fromkeys([t.strip() for t in temas]))
+    
+    return {
+        "habilidades": habilidades,
+        "aprendizagens_essenciais": aes,
+        "temas": temas
+    }
+
+def ler_textos_adaptados(caminho_md):
+    with open(caminho_md, 'r', encoding='utf-8') as f:
+        conteudo = f.read()
+        
+    p2 = re.search(r'## PERGUNTA 2[^\n]*\n(.*?)(?=## PERGUNTA 3)', conteudo, re.DOTALL)
+    p3 = re.search(r'## PERGUNTA 3[^\n]*\n(.*?)(?=## PERGUNTA 4)', conteudo, re.DOTALL)
+    p4 = re.search(r'## PERGUNTA 4[^\n]*\n(.*)', conteudo, re.DOTALL)
+    
+    return {
+        "pergunta_2": p2.group(1).strip() if p2 else "Texto não encontrado.",
+        "pergunta_3": p3.group(1).strip() if p3 else "Texto não encontrado.",
+        "pergunta_4": p4.group(1).strip() if p4 else "Texto não encontrado."
+    }
+
+def limpar_celula(cell):
+    for paragraph in cell.paragraphs:
+        p = paragraph._element
+        p.getparent().remove(p)
+        p._p = p._element = None
+
+def adicionar_paragrafo_celula(cell, texto, bold=False):
+    p = cell.add_paragraph()
+    run = p.add_run(texto)
+    run.font.name = 'Arial'
+    run.font.size = Pt(11)
+    if bold:
+        run.bold = True
+    return p
+
+def gerar_docx_pei(aluno, prof, componente, bimestre, caminho_md, caminho_plano, saida_path):
+    base_mestre = Path(config.PLANOS_LUAN_DADOS_DIR) / "PASTA MESTRE - PLANOS PEI"
+    modelo_path = base_mestre / "MODELO EM BRANCO PEI (3).docx"
+    
+    if not modelo_path.exists():
+        modelo_path = Path(config.PLANOS_LUAN_DADOS_DIR) / "PEI-IMPLEMENTAR" / "MODELO EM BRANCO PEI (3).docx"
+        
+    dados_plano = extrair_dados_para_pei(caminho_plano)
+    textos_adaptados = ler_textos_adaptados(caminho_md)
+    
+    doc = Document(str(modelo_path))
+    t0 = doc.tables[0]
+    t0.cell(1, 0).text = f"Nome do estudante: {aluno}"
+    t0.cell(2, 0).text = f"Nome professor regente: {prof}"
+    t0.cell(4, 0).text = f"Componente curricular: {componente}"
+    
+    texto_bim = "Período: ( ) 1º Bimestre  ( ) 2º Bimestre  ( ) 3º Bimestre  ( ) 4º Bimestre"
+    texto_bim = texto_bim.replace(f"( ) {bimestre}º", f"( X ) {bimestre}º")
+    t0.cell(5, 0).text = texto_bim
+    
+    t1 = doc.tables[1]
+    limpar_celula(t1.cell(0, 0))
+    adicionar_paragrafo_celula(t1.cell(0, 0), "1-Quais conteúdos e habilidades do Currículo da Rede Estadual Paulista serão desenvolvidos no bimestre?", bold=True)
+    texto_q1 = "• Eixo cognitivo e Habilidades:\n"
+    texto_q1 += ", ".join(dados_plano['habilidades']) + "\n\n"
+    texto_q1 += "• Aprendizagens Essenciais:\n"
+    texto_q1 += "\n".join(f"  - {ae}" for ae in dados_plano['aprendizagens_essenciais']) + "\n\n"
+    texto_q1 += "• Temas do plano geral da turma:\n"
+    texto_q1 += "\n".join(f"  - {t}" for t in dados_plano['temas'])
+    adicionar_paragrafo_celula(t1.cell(0, 0), texto_q1)
+    
+    limpar_celula(t1.cell(1, 0))
+    adicionar_paragrafo_celula(t1.cell(1, 0), "2-Quais estratégias, intervenções pedagógicas e recursos de acessibilidade serão utilizados para favorecer o acesso, a participação e a aprendizagem do estudante?", bold=True)
+    adicionar_paragrafo_celula(t1.cell(1, 0), textos_adaptados["pergunta_2"])
+
+    limpar_celula(t1.cell(2, 0))
+    adicionar_paragrafo_celula(t1.cell(2, 0), "3-Quais instrumentos serão utilizados para acompanhar o aprendizado do estudante de forma inclusiva e individualizada?", bold=True)
+    adicionar_paragrafo_celula(t1.cell(2, 0), textos_adaptados["pergunta_3"])
+
+    limpar_celula(t1.cell(3, 0))
+    adicionar_paragrafo_celula(t1.cell(3, 0), "4-Quais vídeos, livros, jogos, exercícios ou outras atividades podem ser indicados para apoiar, complementar, suplementar e fortalecer o aprendizado do estudante neste componente curricular, considerando suas potencialidades, especiﬁcidades e ritmo de aprendizagem?", bold=True)
+    adicionar_paragrafo_celula(t1.cell(3, 0), textos_adaptados["pergunta_4"])
+    
+    doc.save(str(saida_path))
+    return saida_path

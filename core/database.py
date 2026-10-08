@@ -12,7 +12,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime
 
-from config import DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR, PLANOS_FEITOS_DIR
+from config import BASE_DIR, DB_PATH, REGISTRO_PROXIMA_GERACAO_PATH, HISTORICO_DOCX_DIR, PLANOS_FEITOS_DIR
 from core.lib.classificador import normalizar_texto
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,17 @@ def get_connection(db_path=None):
     Retorna uma nova conexão SQLite configurada para concorrência (WAL).
     Cada worker/thread deve abrir sua própria conexão via esta função.
     """
-    db_path = DB_PATH if db_path is None else db_path
+    if db_path is None:
+        db_path = DB_PATH
+        banco_raiz = BASE_DIR / "planos_luan.db"
+        if banco_raiz.exists() and banco_raiz.resolve() != Path(DB_PATH).resolve():
+            logger.warning(
+                "Detectado banco residual na raiz ('%s'). O sistema opera com o banco oficial em '%s'.",
+                banco_raiz,
+                DB_PATH,
+            )
+
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     # Pragmas aplicadas por conexão para garantir comportamento consistente
     conn.execute("PRAGMA journal_mode=WAL;")
@@ -148,6 +158,37 @@ def _normalizar_mes_plano_historico(valor: str = "", data_geracao: str = "") -> 
 
     if not (ano and mes_num):
         return ""
+    return f"{ano}-{mes_num}"
+
+
+def _mes_plano_pela_pasta(arquivo_path: str = "", data_geracao: str = "") -> str:
+    """Mês (YYYY-MM) indicado pela pasta do plano em 'Planos feitos'.
+
+    Estrutura: PROFESSOR/DISCIPLINA/MES/arquivo.docx. A pasta do mês é a fonte
+    de verdade; a data de geração só ajuda a resolver o ano.
+    """
+    texto = str(arquivo_path or "").strip()
+    if not texto:
+        return ""
+    try:
+        relativo = Path(texto).resolve(strict=False).relative_to(
+            Path(PLANOS_FEITOS_DIR).resolve(strict=False)
+        )
+    except (ValueError, OSError):
+        return ""
+    partes = relativo.parts
+    if len(partes) < 4:
+        return ""
+    mes_num = _MESES_HISTORICO.get(_normalizar_campo_chave(partes[2]))
+    if not mes_num:
+        return ""
+    base = _mes_geracao_historico(data_geracao) or datetime.now().strftime("%Y-%m")
+    ano, mes_ger = int(base[:4]), int(base[5:7])
+    diferenca = int(mes_num) - mes_ger
+    if diferenca <= -6:
+        ano += 1
+    elif diferenca >= 6:
+        ano -= 1
     return f"{ano}-{mes_num}"
 
 
@@ -249,6 +290,10 @@ def _metadados_historico(
                 arquivo_docx_bytes,
                 bimestre,
             )
+            if (not ultima_aula or ultima_aula <= 0) and bimestre:
+                u_fb, t_fb = _extrair_resumo_aulas_historico(arquivo_docx_bytes, "")
+                if u_fb and u_fb > 0:
+                    ultima_aula, total_aulas = u_fb, t_fb
     elif arquivo_path:
         caminho = _resolver_caminho_arquivo_historico(arquivo_path)
         try:
@@ -259,6 +304,10 @@ def _metadados_historico(
             try:
                 arquivo_bytes = caminho.read_bytes()
                 ultima_aula, total_aulas = _extrair_resumo_aulas_historico(arquivo_bytes, bimestre)
+                if (not ultima_aula or ultima_aula <= 0) and bimestre:
+                    u_fb, t_fb = _extrair_resumo_aulas_historico(arquivo_bytes, "")
+                    if u_fb and u_fb > 0:
+                        ultima_aula, total_aulas = u_fb, t_fb
             except OSError:
                 ultima_aula, total_aulas = None, None
 
@@ -273,6 +322,10 @@ def _metadados_historico(
                 contexto_docx.get("mes_plano", ""),
                 data_geracao,
             )
+
+    mes_pasta = _mes_plano_pela_pasta(arquivo_path, data_geracao)
+    if mes_pasta:
+        mes_plano_final = mes_pasta
 
     return {
         "bimestre": bimestre_final,
@@ -571,11 +624,19 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
         data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
+        mes_plano_inferido = ""
+        if len(partes) >= 4:
+            from core.constantes import MESES
+            candidato = str(partes[2]).strip().upper()
+            if candidato in MESES:
+                mes_plano_inferido = candidato
+
         metadados = _metadados_historico(
             professor_nome=professor_nome,
             disciplina=disciplina,
             turma=turma,
             bimestre="",
+            mes_plano=mes_plano_inferido,
             data_geracao=data_geracao,
             arquivo_path=caminho_str,
             extrair_resumo_aulas=True,
@@ -640,20 +701,20 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
                 cursor.execute(
                     """
                     UPDATE historico_planos
-                    SET bimestre = COALESCE(NULLIF(bimestre, ''), ?),
+                    SET bimestre = COALESCE(NULLIF(?, ''), bimestre),
                         data_geracao = ?,
                         arquivo_path = ?,
                         professor_chave = ?,
                         disciplina_chave = ?,
                         turma_chave = ?,
-                        bimestre_chave = COALESCE(NULLIF(bimestre_chave, ''), ?),
+                        bimestre_chave = COALESCE(NULLIF(?, ''), bimestre_chave),
                         mes_geracao = ?,
                         mes_plano = COALESCE(NULLIF(mes_plano, ''), ?),
                         arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
                         arquivo_tamanho = ?,
                         origem = ?,
-                        ultima_aula = COALESCE(ultima_aula, ?),
-                        total_aulas = COALESCE(total_aulas, ?)
+                        ultima_aula = COALESCE(NULLIF(?, 0), ultima_aula),
+                        total_aulas = COALESCE(NULLIF(?, 0), total_aulas)
                     WHERE id = ?
                     """,
                     (
@@ -884,8 +945,8 @@ def _atualizar_metadados_historico(cursor) -> None:
                 origem = ?,
                 arquivo_tamanho = COALESCE(arquivo_tamanho, ?),
                 arquivo_hash = COALESCE(NULLIF(arquivo_hash, ''), ?),
-                ultima_aula = COALESCE(ultima_aula, ?),
-                total_aulas = COALESCE(total_aulas, ?)
+                ultima_aula = COALESCE(NULLIF(?, 0), ultima_aula),
+                total_aulas = COALESCE(NULLIF(?, 0), total_aulas)
             WHERE id = ?
             """,
             (
@@ -953,6 +1014,23 @@ MIGRACOES = [
     """,
     # Versão 17
     "ALTER TABLE historico_planos ADD COLUMN ultimo_pdf TEXT",
+    # Versão 18
+    """
+    CREATE TABLE IF NOT EXISTS progresso_aulas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        professor_chave TEXT NOT NULL,
+        disciplina_chave TEXT NOT NULL,
+        turma_chave TEXT NOT NULL,
+        professor_nome TEXT,
+        disciplina TEXT,
+        turma TEXT,
+        ultima_aula INTEGER DEFAULT 0,
+        ultimo_pdf TEXT,
+        mes_referencia TEXT,
+        atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(professor_chave, disciplina_chave, turma_chave)
+    )
+    """,
 ]
 
 
@@ -1368,6 +1446,40 @@ def salvar_dados_administrativos_professor(
         )
 
     return obter_dados_administrativos_professor(nome)
+
+
+def listar_todos_dados_administrativos() -> list[dict[str, str]]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                p.nome,
+                COALESCE(d.cpf, ''),
+                COALESCE(d.email, ''),
+                COALESCE(d.valor_mensal, ''),
+                COALESCE(d.telefone, ''),
+                COALESCE(d.observacoes, ''),
+                COALESCE(d.atualizado_em, '')
+            FROM professores p
+            LEFT JOIN professor_dados d ON d.professor_id = p.id
+            ORDER BY p.nome
+            """
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "professor": row[0],
+            "cpf": row[1] or "",
+            "email": row[2] or "",
+            "valor_mensal": row[3] or "",
+            "telefone": row[4] or "",
+            "observacoes": row[5] or "",
+            "atualizado_em": row[6] or "",
+        }
+        for row in rows
+    ]
 
 
 def obter_professores_db():
@@ -1819,6 +1931,38 @@ def salvar_historico_plano(
                 ),
             )
 
+            if metadados.get("ultima_aula"):
+                cursor.execute(
+                    """
+                    INSERT INTO progresso_aulas (
+                        professor_chave, disciplina_chave, turma_chave,
+                        professor_nome, disciplina, turma,
+                        ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(professor_chave, disciplina_chave, turma_chave)
+                    DO UPDATE SET
+                        professor_nome=excluded.professor_nome,
+                        disciplina=excluded.disciplina,
+                        turma=excluded.turma,
+                        ultima_aula=excluded.ultima_aula,
+                        ultimo_pdf=CASE WHEN excluded.ultimo_pdf != '' THEN excluded.ultimo_pdf ELSE progresso_aulas.ultimo_pdf END,
+                        mes_referencia=CASE WHEN excluded.mes_referencia != '' THEN excluded.mes_referencia ELSE progresso_aulas.mes_referencia END,
+                        atualizado_em=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        metadados["professor_chave"],
+                        metadados["disciplina_chave"],
+                        metadados["turma_chave"],
+                        professor_nome,
+                        disciplina,
+                        turma,
+                        metadados["ultima_aula"],
+                        _normalizar_campo(ultimo_pdf),
+                        metadados.get("mes_plano") or "",
+                    ),
+                )
+
             if limite_retencao > 0:
                 _atualizar_metadados_historico(cursor)
                 cursor.execute(
@@ -2057,6 +2201,97 @@ def buscar_historico_planos(professor_nome: str, mes: str = "") -> list[dict]:
             }
             for row in cursor.fetchall()
         ]
+
+
+def _mes_efetivo_plano(plano: dict) -> str:
+    """Mês real do plano: a pasta manda; depois mes_plano; por fim a geração."""
+    return (
+        _mes_plano_pela_pasta(plano.get("arquivo_path", ""), plano.get("data_geracao", ""))
+        or _normalizar_campo(plano.get("mes_plano"))
+        or str(plano.get("data_geracao") or "")[:7]
+    )
+
+
+def obter_meses_conferencia() -> list[str]:
+    """Meses (YYYY-MM) existentes no histórico, usando o mês efetivo (pasta primeiro)."""
+    with get_connection() as conn:
+        linhas = conn.execute(
+            "SELECT arquivo_path, data_geracao, mes_plano FROM historico_planos"
+        ).fetchall()
+    meses = {
+        _mes_efetivo_plano(
+            {"arquivo_path": r[0] or "", "data_geracao": r[1] or "", "mes_plano": r[2] or ""}
+        )
+        for r in linhas
+    }
+    return sorted((m for m in meses if re.match(r"^\d{4}-\d{2}$", m)), reverse=True)
+
+
+def obter_conferencia_mensal(professor_nome: str, mes: str) -> list[dict]:
+    """Cruza as turmas cadastradas do professor com os planos do mês (YYYY-MM).
+
+    Um item só é ``feito`` quando existe registro no histórico E o arquivo DOCX
+    está presente em disco. Vínculos repetidos (vários horários da mesma
+    disciplina/turma) são agrupados em uma única linha.
+    """
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    mes = _normalizar_campo(mes)
+    if not professor_chave or not mes:
+        return []
+
+    itens: dict[tuple[str, str], dict] = {}
+    for vinculo in listar_vinculos_professores():
+        if _normalizar_campo_chave(vinculo["professor"]) != professor_chave:
+            continue
+        chave = (
+            _normalizar_campo_chave(vinculo["disciplina"]),
+            _normalizar_campo_chave(vinculo["turma"]),
+        )
+        itens.setdefault(
+            chave,
+            {
+                "disciplina": vinculo["disciplina"],
+                "turma": vinculo["turma"],
+                "feito": False,
+                "registro_sem_arquivo": False,
+                "plano_id": None,
+                "arquivo_nome": "",
+                "data_geracao": "",
+            },
+        )
+
+    for plano in buscar_historico_planos(professor_nome):
+        if _mes_efetivo_plano(plano) != mes:
+            continue
+        chave = (
+            _normalizar_campo_chave(plano["disciplina"]),
+            _normalizar_campo_chave(plano["turma"]),
+        )
+        item = itens.get(chave)
+        if item is None or item["feito"]:
+            continue
+        caminho = plano.get("arquivo_path") or ""
+        arquivo_existe = False
+        if caminho:
+            try:
+                arquivo_existe = _resolver_caminho_arquivo_historico(caminho).exists()
+            except Exception:
+                arquivo_existe = False
+        if arquivo_existe:
+            item.update(
+                feito=True,
+                registro_sem_arquivo=False,
+                plano_id=plano["id"],
+                arquivo_nome=plano["arquivo_nome"],
+                data_geracao=plano["data_geracao"],
+            )
+        else:
+            item["registro_sem_arquivo"] = True
+
+    return sorted(
+        itens.values(),
+        key=lambda i: (normalizar_texto(i["disciplina"]), normalizar_texto(i["turma"])),
+    )
 
 
 def buscar_historico_planos_avancado(
@@ -2328,6 +2563,114 @@ def obter_ultimo_plano_docx(professor_nome: str, disciplina: str, turma: str) ->
 def obter_ultima_aula_gerada_sistema(professor: str, disciplina: str, turma: str, bimestre: str = "") -> int:
     from core.gestao_aulas import obter_ultima_aula_gerada_sistema_impl
     return obter_ultima_aula_gerada_sistema_impl(professor, disciplina, turma, bimestre)
+
+
+def salvar_progresso_aula(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+    ultima_aula: int,
+    ultimo_pdf: str = "",
+    mes: str = "",
+) -> None:
+    """
+    Grava ou atualiza o progresso da última aula gerada para o contexto
+    (professor, disciplina, turma), servindo de memória persistente entre gerações.
+    """
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    if not professor_nome or not disciplina or not turma:
+        return
+
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    disciplina_chave = _normalizar_campo_chave(disciplina)
+    turma_chave = _normalizar_turma_historico_chave(turma)
+    ultima_aula_int = max(0, int(ultima_aula or 0))
+    ultimo_pdf = str(ultimo_pdf or "").strip()
+    mes = str(mes or "").strip()
+
+    try:
+        with connection_scope() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO progresso_aulas (
+                    professor_chave, disciplina_chave, turma_chave,
+                    professor_nome, disciplina, turma,
+                    ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(professor_chave, disciplina_chave, turma_chave)
+                DO UPDATE SET
+                    professor_nome=excluded.professor_nome,
+                    disciplina=excluded.disciplina,
+                    turma=excluded.turma,
+                    ultima_aula=excluded.ultima_aula,
+                    ultimo_pdf=CASE WHEN excluded.ultimo_pdf != '' THEN excluded.ultimo_pdf ELSE progresso_aulas.ultimo_pdf END,
+                    mes_referencia=CASE WHEN excluded.mes_referencia != '' THEN excluded.mes_referencia ELSE progresso_aulas.mes_referencia END,
+                    atualizado_em=CURRENT_TIMESTAMP
+                """,
+                (
+                    professor_chave,
+                    disciplina_chave,
+                    turma_chave,
+                    professor_nome,
+                    disciplina,
+                    turma,
+                    ultima_aula_int,
+                    ultimo_pdf,
+                    mes,
+                ),
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.error("Erro ao salvar progresso de aula no SQLite: %s", exc)
+
+
+def obter_progresso_aula(
+    professor_nome: str,
+    disciplina: str,
+    turma: str,
+) -> dict | None:
+    """
+    Retorna o registro de progresso (ultima_aula, ultimo_pdf, etc.)
+    gravado na tabela progresso_aulas para o contexto informado.
+    """
+    professor_nome = _normalizar_campo(professor_nome)
+    disciplina = _normalizar_campo(disciplina)
+    turma = _normalizar_campo(turma)
+    if not professor_nome or not disciplina or not turma:
+        return None
+
+    professor_chave = _normalizar_campo_chave(professor_nome)
+    disciplina_chave = _normalizar_campo_chave(disciplina)
+    turma_chave = _normalizar_turma_historico_chave(turma)
+
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT ultima_aula, ultimo_pdf, mes_referencia, atualizado_em
+                FROM progresso_aulas
+                WHERE professor_chave = ?
+                  AND disciplina_chave = ?
+                  AND turma_chave = ?
+                """,
+                (professor_chave, disciplina_chave, turma_chave),
+            )
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "ultima_aula": int(row[0] or 0),
+                    "ultimo_pdf": row[1] or "",
+                    "mes_referencia": row[2] or "",
+                    "atualizado_em": row[3] or "",
+                }
+    except Exception as exc:
+        logger.error("Erro ao obter progresso de aula do SQLite: %s", exc)
+    return None
 
 
 def verificar_plano_gerado_por_outro_professor(

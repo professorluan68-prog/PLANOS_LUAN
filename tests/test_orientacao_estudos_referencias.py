@@ -181,3 +181,19 @@ def test_resolver_pasta_pdfs_orientacao_estudos_em_sem_pasta_bimestre(tmp_path):
     )
 
     assert resolvida == pasta
+
+
+def test_resolver_pasta_pdfs_orientacao_estudos_ef_4_bimestre_6_ano(tmp_path):
+    pasta = tmp_path / "ORIENTACAO_DE_ESTUDOS" / "EF" / "4_BIMESTRE" / "6_ANO"
+    pasta.mkdir(parents=True)
+    (pasta / "AULA_01.pdf").write_bytes(b"%PDF-1.4\n")
+
+    resolvida = resolver_pasta_pdfs(
+        str(tmp_path),
+        "Orientação de Estudos",
+        "6º Ano A",
+        "4º Bimestre",
+    )
+
+    assert resolvida == pasta
+

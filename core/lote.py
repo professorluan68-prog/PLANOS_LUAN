@@ -206,25 +206,35 @@ def _disciplina_base_cdp_por_cadastro(disciplina: str) -> str:
             return nome
     return ""
 
+# [CORREÇÃO M4] Lock para inicialização thread-safe do cache global.
+# Em ambiente Streamlit com múltiplas threads (geração em lote paralela),
+# duas threads podem entrar simultaneamente no bloco 'if None', causando
+# dupla leitura do JSON e estado inconsistente.
 _ORIENTACAO_ESTUDOS_TITULOS_CACHE = None
+_ORIENTACAO_ESTUDOS_TITULOS_LOCK = __import__('threading').Lock()
 
 def _get_orientacao_estudos_titulos():
     global _ORIENTACAO_ESTUDOS_TITULOS_CACHE
-    if _ORIENTACAO_ESTUDOS_TITULOS_CACHE is None:
-        from config import BASE_DIR
-        caminho_json = BASE_DIR / "data" / "catalogos" / "orientacao_estudos_titulos.json"
-        try:
-            with open(caminho_json, "r", encoding="utf-8") as f:
-                dados_json = json.load(f)
-            _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
-            for k, v in dados_json.items():
-                if "_" in k:
-                    familia, num = k.split("_", 1)
-                    _ORIENTACAO_ESTUDOS_TITULOS_CACHE[(familia, int(num))] = v
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).error("Erro ao carregar catalogo orientacao_estudos: %s", e)
-            _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
+    # Verificação rápida sem lock (fast path)
+    if _ORIENTACAO_ESTUDOS_TITULOS_CACHE is not None:
+        return _ORIENTACAO_ESTUDOS_TITULOS_CACHE
+    with _ORIENTACAO_ESTUDOS_TITULOS_LOCK:
+        # Segunda verificação dentro do lock (double-checked locking)
+        if _ORIENTACAO_ESTUDOS_TITULOS_CACHE is None:
+            from config import BASE_DIR
+            caminho_json = BASE_DIR / "data" / "catalogos" / "orientacao_estudos_titulos.json"
+            try:
+                with open(caminho_json, "r", encoding="utf-8") as f:
+                    dados_json = json.load(f)
+                _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
+                for k, v in dados_json.items():
+                    if "_" in k:
+                        familia, num = k.split("_", 1)
+                        _ORIENTACAO_ESTUDOS_TITULOS_CACHE[(familia, int(num))] = v
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error("Erro ao carregar catalogo orientacao_estudos: %s", e)
+                _ORIENTACAO_ESTUDOS_TITULOS_CACHE = {}
     return _ORIENTACAO_ESTUDOS_TITULOS_CACHE
 
 
@@ -529,6 +539,18 @@ def _perguntas_orientadoras(tipo: str, tema: str, conceito: str) -> str:
 
 
 
+# [CORREÇÃO M9] Extraída como frozenset para evitar verificação dupla da mesma lista.
+_TERMOS_PRODUCAO_FINAL = frozenset([
+    "producao de textos",
+    "versao final",
+    "revisao orientada",
+    "redacao paulista",
+    "submissao",
+    "reescrita",
+    "rascunho",
+])
+
+
 def _eh_producao_final_redacao(texto_base: str, tema: str = "") -> bool:
     # Check top lines of the text_base for reading indicators
     linhas_topo = _limpar_linhas(texto_base)[:6]
@@ -540,31 +562,11 @@ def _eh_producao_final_redacao(texto_base: str, tema: str = "") -> bool:
             return False
 
     base = normalizar_texto_lote(f"{tema} {texto_base}")
-    if "pratica de linguagem" in base and "leitura" in base and not any(
-        termo in base
-        for termo in [
-            "producao de textos",
-            "versao final",
-            "revisao orientada",
-            "redacao paulista",
-            "submissao",
-            "reescrita",
-            "rascunho",
-        ]
-    ):
+    # [CORREÇÃO M9] Usa frozenset _TERMOS_PRODUCAO_FINAL — elimina verificação dupla
+    tem_producao = any(termo in base for termo in _TERMOS_PRODUCAO_FINAL)
+    if "pratica de linguagem" in base and "leitura" in base and not tem_producao:
         return False
-    return any(
-        termo in base
-        for termo in [
-            "producao de textos",
-            "versao final",
-            "revisao orientada",
-            "redacao paulista",
-            "submissao",
-            "reescrita",
-            "rascunho",
-        ]
-    )
+    return tem_producao
 
 
 
@@ -2335,15 +2337,6 @@ def _montar_resultado_cdp_contextual(
     bimestre: str = "",
 ) -> dict:
     referencia_docx = referencia_cdp_contextual_por_pdf(caminho_pdf, numero_aula, tema=tema)
-    if referencia_docx and not referencia_cdp_compativel(referencia_docx):
-        logger.warning(
-            "Referencia DOCX CDP incompatível com as regras restritivas; "
-            "seguindo para o gerador contextual."
-        )
-        referencia_docx = None
-    # Em CDP, a ausencia de um DOCX especifico nao autoriza fallback para a
-    # metodologia regular. O caminho sera usado apenas para provenance quando
-    # a referencia contextual existir.
     arquivo_referencia_docx = referencia_docx.get("fonte", "") if referencia_docx else ""
     if referencia_docx:
         titulo_referencia = str(referencia_docx.get("titulo") or "").strip()
@@ -2352,6 +2345,12 @@ def _montar_resultado_cdp_contextual(
             tema = titulo_referencia
         if numero_referencia:
             numero_aula = numero_referencia
+        if not referencia_cdp_compativel(referencia_docx):
+            logger.warning(
+                "Referencia DOCX CDP incompatível com as regras restritivas; "
+                "seguindo para o gerador contextual."
+            )
+            referencia_docx = None
 
     conceito_cdp = extracao_pdf.get("conceito_extraido", tema)
     habilidade_cdp = (
@@ -2928,7 +2927,12 @@ def _aula_por_pdf(
 
     from core.revisao_final import VERSAO_GERADOR_ATUAL
 
-    assinatura_referencia_docx = _assinatura_docx_referencia(caminho_pdf, disciplina, turma)
+    assinatura_referencia_docx = _assinatura_docx_referencia(
+        caminho_pdf,
+        disciplina,
+        turma,
+        bimestre=bimestre,
+    )
     perfil_disciplina_cache = perfil_disciplina(disciplina, turma=turma)
     priorizar_docx_sobre_cache_json = bool(
         assinatura_referencia_docx
@@ -2984,6 +2988,7 @@ def _aula_por_pdf(
             origem_metodologia_por_referencia_fn=_origem_metodologia_por_referencia,
             perfil_docx_somente_colunas_pedagogicas_fn=_perfil_docx_somente_colunas_pedagogicas,
             assinatura_conteudo_atual=assinatura_conteudo_cache,
+            bimestre=bimestre,
         )
         dados_json_antigos = resultado_cache.dados_json_antigos
         if resultado_cache.aula_reutilizada is not None:
@@ -3131,6 +3136,7 @@ def _aula_por_pdf(
             resultado_candidato = None
             referencia_docx_disponivel = bool(
                 rascunho_local.get("fonte_referencia_metodologia")
+                and rascunho_local.get("status_referencia_docx") not in {"metodologia_incompleta", "etapa_acima_do_limite"}
             )
 
             if usar_ia and not referencia_docx_disponivel:

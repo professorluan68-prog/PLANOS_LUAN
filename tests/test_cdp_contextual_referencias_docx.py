@@ -411,3 +411,24 @@ def test_resultado_cdp_contextual_falha_da_ia_preserva_docx(monkeypatch, tmp_pat
     assert resultado["ia_usada"] is False
     assert "falha simulada" in resultado["ia_erro"]
     assert "circulacao cultural" in resultado["metodologia"][1]["texto"].lower()
+
+
+def test_referencia_cdp_compativel_permite_explicar_com_suas_palavras():
+    from core.referencias_cdp_contextual import referencia_cdp_compativel
+    from core.cdp.gerador_cdp import titulo_cdp_por_caminho
+
+    ref = {
+        "titulo": "Problemas de adição",
+        "metodologia": [
+            {"titulo": "Encerramento", "texto": "Estimular que os estudantes expliquem com suas palavras como conferir o troco."}
+        ],
+        "acompanhamento": ["Verificar o raciocínio."],
+        "acessibilidade": ["Apoiar individualmente."],
+    }
+    assert referencia_cdp_compativel(ref) is True
+
+    # Nomes de arquivo como AULA_02.pdf não devem virar tema genérico
+    assert titulo_cdp_por_caminho(r"C:\caminho\AULA_02.pdf") == ""
+    assert titulo_cdp_por_caminho(r"C:\caminho\AULA_17.pdf") == ""
+    assert titulo_cdp_por_caminho(r"C:\caminho\AULA_01_GLOBALIZACAO.pdf") == "GLOBALIZACAO"
+

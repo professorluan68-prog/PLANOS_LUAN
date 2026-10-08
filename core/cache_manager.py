@@ -89,3 +89,26 @@ class CacheManager:
                     os.remove(os.path.join(self.cache_dir, fname))
                 except Exception:
                     pass
+
+    def limpar_arquivos_expirados(self, max_idade_segundos: int = 86400) -> int:
+        """
+        Remove arquivos no diretório de cache com idade superior a max_idade_segundos.
+        Retorna o número de arquivos limpos.
+        """
+        agora = time.time()
+        removidos = 0
+        if not os.path.exists(self.cache_dir):
+            return 0
+        for fname in os.listdir(self.cache_dir):
+            fpath = os.path.join(self.cache_dir, fname)
+            if not os.path.isfile(fpath):
+                continue
+            try:
+                mtime = os.path.getmtime(fpath)
+                if (agora - mtime) > max_idade_segundos:
+                    os.remove(fpath)
+                    removidos += 1
+            except Exception:
+                pass
+        return removidos
+

@@ -25,6 +25,9 @@ from docx_generator.preencher import (
     _preencher_celula_metodologia,
     _preencher_celula_tema_material,
 )
+# [CORREÇÃO A2] Importar validar_docx_gerado centralizado de utils
+# em vez de duplicar a implementação neste módulo.
+from docx_generator.utils import validar_docx_gerado as _validar_docx_gerado
 
 logger = logging.getLogger(__name__)
 
@@ -148,11 +151,8 @@ def _material(disciplina: str, item: Dict[str, str]) -> str:
     return f"TEMA:\n{titulo}"
 
 
-def _validar_docx_gerado(buffer: BytesIO) -> BytesIO:
-    conteudo = buffer.getvalue()
-    Document(BytesIO(conteudo))
-    buffer.seek(0)
-    return buffer
+# [CORREÇÃO A2] _validar_docx_gerado removida deste módulo.
+# Usar a versão centralizada importada de docx_generator.utils acima.
 
 
 def _metodologia_dict(texto: str):

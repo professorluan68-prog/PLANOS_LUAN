@@ -31,6 +31,9 @@ DOCX_AUXILIARES_EXTRACAO/
 temp_*.txt
 scratch_doc_output.txt
 planos_luan_app_backup.py
+~$*.docx
+/*.docx
+
 
 # Planilhas e bases locais
 CADASTRO_ANTIGO_PROFESSORES.xlsx

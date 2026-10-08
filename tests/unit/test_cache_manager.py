@@ -44,3 +44,21 @@ def test_corrupted_cache_file_is_removed(tmp_path):
 
     assert cm.get(k) is None
     assert not os.path.exists(path)
+
+
+def test_limpar_arquivos_expirados(tmp_path):
+    import time
+    cm = CacheManager(str(tmp_path), schema_version="v1")
+    arq_antigo = tmp_path / "antigo.tmp"
+    arq_novo = tmp_path / "novo.tmp"
+    arq_antigo.write_text("old", encoding="utf-8")
+    arq_novo.write_text("new", encoding="utf-8")
+
+    # Modifica o mtime do arquivo antigo para 100 segundos no passado
+    os.utime(arq_antigo, (time.time() - 100, time.time() - 100))
+
+    removidos = cm.limpar_arquivos_expirados(max_idade_segundos=50)
+    assert removidos == 1
+    assert not arq_antigo.exists()
+    assert arq_novo.exists()
+

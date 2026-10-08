@@ -115,20 +115,12 @@ def _substituir_em_tabela(tabela, substituicoes: dict[str, str]) -> None:
                 _substituir_em_tabela(tabela_interna, substituicoes)
 
 
-def _texto_metodologia(aula: dict) -> str:
-    metodologia = aula.get("metodologia") or []
-    blocos = []
-    for item in metodologia:
-        if isinstance(item, dict):
-            titulo = item.get("titulo", "")
-            texto = item.get("texto", "")
-            blocos.append(f"{titulo}\n{texto}".strip())
-        else:
-            blocos.append(str(item))
-    return "\n\n".join(blocos)
-
-
 def _texto_metodologia_lista(metodologia) -> str:
+    """Formata lista de etapas metodológicas como texto.
+
+    [CORREÇÃO A6] Função canônica — _texto_metodologia() delega para cá,
+    eliminando a duplicação de corpo entre as duas funções.
+    """
     blocos = []
     for item in metodologia or []:
         if isinstance(item, dict):
@@ -136,6 +128,14 @@ def _texto_metodologia_lista(metodologia) -> str:
         else:
             blocos.append(str(item))
     return "\n\n".join(blocos)
+
+
+def _texto_metodologia(aula: dict) -> str:
+    """Extrai e formata metodologia de um dicionário de aula.
+
+    [CORREÇÃO A6] Delega para _texto_metodologia_lista() — corpo unificado.
+    """
+    return _texto_metodologia_lista(aula.get("metodologia"))
 
 
 # ── Constantes de formatação ────────────────────────────────────────────────
@@ -148,6 +148,28 @@ _TURNOS_REFERENCIA_AULAS = (
     ["13h", "13h50", "14h40", "15h50", "16h40", "17h30", "18h20"],
     ["19h", "19h45", "20h30", "21h30", "22h15", "23h"],
 )
+_DURACOES_CDP_HORARIOS = {
+    ("07h30", "09h"): 2,
+    ("08h15", "09h45"): 2,
+    ("09h", "10h45"): 2,
+    ("10h", "11h30"): 2,
+    ("07h30", "09h45"): 3,
+    ("08h15", "10h45"): 3,
+    ("09h", "11h30"): 3,
+    ("07h30", "10h45"): 4,
+    ("08h15", "11h30"): 4,
+    ("07h30", "11h30"): 5,
+    ("13h", "14h30"): 2,
+    ("13h45", "15h15"): 2,
+    ("14h30", "16h15"): 2,
+    ("15h30", "17h"): 2,
+    ("13h", "15h15"): 3,
+    ("13h45", "16h15"): 3,
+    ("14h30", "17h"): 3,
+    ("13h", "16h15"): 4,
+    ("13h45", "17h"): 4,
+    ("13h", "17h"): 5,
+}
 _PADRAO_BNCC = re.compile(r'(\([A-Z]{2}\d{2}[A-Z]{2,4}\d{0,3}[A-Z]?\))')
 _PADRAO_TURMA_METODOLOGIA = re.compile(
     r"\b(da turma|com a turma)\s+\d{1,2}\s*[º°oªa?]?\s*(?:ano|s[ée]rie|em|ef)?\s*[A-Z]?\b",
@@ -330,22 +352,15 @@ def _polir_texto_docx(texto: str) -> str:
     texto_final = re.sub(r"\bde o conceito\b", "do conceito", texto_final, flags=re.I)
     texto_final = re.sub(r"\b1o\b", "1º", texto_final, flags=re.I)
     texto_final = re.sub(r"\b1\s*o\s+grau\b", "1º grau", texto_final, flags=re.I)
-    for sem_acento, com_acento in _CORRECOES_TEXTO_FINAL.items():
-        texto_final = re.sub(
-            rf"\b{re.escape(sem_acento)}\b",
-            lambda m, novo=com_acento: _capitalizar_como(m.group(0), novo),
-            texto_final,
-            flags=re.I,
-        )
+    # [CORREÇÃO M7] Substituído loop O(n×m) de 80 re.sub() inline por
+    # corrigir_ortografia_basica() que usa regex pré-compilados do módulo.
+    # Reduz de ~9.600 para ~120 operações de regex por plano de 20 aulas.
     texto_final = corrigir_ortografia_basica(texto_final)
     return corrigir_mojibake(texto_final)
 
 
-def _validar_docx_gerado(buffer: BytesIO) -> BytesIO:
-    conteudo = buffer.getvalue()
-    Document(BytesIO(conteudo))
-    buffer.seek(0)
-    return buffer
+from docx_generator.utils import validar_docx_gerado as _validar_docx_gerado
+
 
 
 def _titulo_exibicao(titulo: str) -> str:
@@ -380,11 +395,52 @@ def _preencher_celula_centralizada(celula, texto: str, bold: bool = False, color
     _aplicar_fonte(run, tamanho=_tamanho_por_texto(texto), bold=bold, color=color)
 
 
+def _preencher_celula_recomposicao(celula, texto: str = "") -> None:
+    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+    from docx.shared import Pt
+
+    _limpar_celula(celula)
+
+    # 1º Parágrafo: RECOMPOSIÇÃO DA APRENDIZAGEM (vermelho, negrito, highlight amarelo, Arial 9)
+    p1 = _paragrafo_base(celula)
+    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p1.paragraph_format.space_before = Pt(0)
+    p1.paragraph_format.space_after = Pt(0)
+    run1 = p1.add_run("RECOMPOSIÇÃO DA APRENDIZAGEM")
+    _aplicar_fonte(run1, tamanho=Pt(9), bold=True, color=_COR_VERMELHA)
+    run1.font.highlight_color = WD_COLOR_INDEX.YELLOW
+
+    # 2º Parágrafo: Espaçamento / vazio
+    p2 = celula.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_before = Pt(0)
+    p2.paragraph_format.space_after = Pt(0)
+
+    # Linhas de conteúdo: AULA: e BIMESTRE
+    linhas = [l.strip() for l in str(texto or "").splitlines() if l.strip()]
+    linhas_conteudo = [l for l in linhas if not ("RECOMPOSI" in l.upper() and "APRENDIZAGEM" in l.upper())]
+    if not linhas_conteudo:
+        linhas_conteudo = ["AULA: ", "BIMESTRE"]
+
+    for linha in linhas_conteudo:
+        p = celula.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        run = p.add_run(linha)
+        _aplicar_fonte(run, tamanho=Pt(9), bold=True, color=_COR_VERMELHA)
+
+
 def _preencher_celula_tema_material(celula, texto: str) -> None:
     bruto = str(texto or "").strip()
     if not bruto:
         _limpar_celula(celula)
         return
+
+    if "RECOMPOSIÇÃO DA APRENDIZAGEM" in bruto.upper() or "RECOMPOSICAO DA APRENDIZAGEM" in bruto.upper():
+        _preencher_celula_recomposicao(celula, bruto)
+        return
+
     if not _polir_texto_docx(bruto).upper().startswith("TEMA:"):
         _preencher_celula_centralizada(celula, bruto, bold=True, color=_COR_VERMELHA)
         return
@@ -479,19 +535,16 @@ def _eh_aula_educacao_financeira(aula: dict) -> bool:
 
 
 def _limitar_texto_etapa_docx(texto: str, max_frases: int = 2, max_chars: int = 280) -> str:
-    texto = _polir_texto_docx(texto)
-    frases = re.split(r"(?<=[.!?])\s+", texto)
-    if len(frases) <= max_frases and len(texto) <= max_chars:
-        return texto
+    """Limita texto de etapa respeitando frases completas.
 
-    resumo = " ".join(frase.strip() for frase in frases[:max_frases] if frase.strip()).strip()
-    if not resumo:
-        resumo = texto[:max_chars].rsplit(" ", 1)[0].strip()
-    if len(resumo) > max_chars:
-        resumo = resumo[:max_chars].rsplit(" ", 1)[0].strip()
-    if resumo and resumo[-1] not in ".!?":
-        resumo += "."
-    return resumo
+    [CORREÇÃO B4] Delega para limitar_texto_natural() de qualidade_metodologica,
+    eliminando reimplementação duplicada do mesmo algoritmo.
+    O parâmetro max_frases é mantido na assinatura para retrocompatibilidade
+    mas o controle efetivo é feito por max_chars via limitar_texto_natural.
+    """
+    from core.qualidade_metodologica import limitar_texto_natural
+    texto_polido = _polir_texto_docx(texto)
+    return limitar_texto_natural(texto_polido, limite=max_chars)
 
 
 def _metodologia_compacta_educacao_financeira_docx(metodologia) -> list:
@@ -823,9 +876,16 @@ def _quantidade_aulas_por_horario(horario) -> int:
     if not texto:
         return 0
 
+    if " | " in texto:
+        partes = [p.strip() for p in texto.split("|") if p.strip()]
+        if len(partes) >= 2:
+            return sum(_quantidade_aulas_por_horario(p) for p in partes)
+
     horarios = _extrair_horarios_do_texto(texto)
     if len(horarios) >= 2:
         inicio, fim = horarios[0], horarios[1]
+        if (inicio, fim) in _DURACOES_CDP_HORARIOS:
+            return _DURACOES_CDP_HORARIOS[(inicio, fim)]
         for slots in _TURNOS_REFERENCIA_AULAS:
             if inicio in slots and fim in slots:
                 inicio_idx = slots.index(inicio)
@@ -843,6 +903,8 @@ def _quantidade_aulas_por_horario(horario) -> int:
 def _quantidade_aulas_semana(aulas_da_semana) -> int:
     total = 0
     for _, aula in aulas_da_semana or []:
+        if (aula or {}).get("eh_feriado"):
+            continue
         total += _quantidade_aulas_por_horario((aula or {}).get("horario"))
     return total
 
@@ -978,6 +1040,12 @@ def _semana_atual_cabecalho(tabela) -> str:
 
 
 def _titulo_aula(aula: dict, numero: int) -> str:
+    if aula.get("eh_feriado"):
+        return ""
+
+    if aula.get("bloco_sem_pdf") or (aula.get("aula_vazia") and "RECOMPOSI" in str(aula.get("material") or aula.get("tema") or "").upper()):
+        return "RECOMPOSIÇÃO DA APRENDIZAGEM\n\nAULA: \nBIMESTRE"
+
     if aula.get("aula_vazia"):
         return ""
         
@@ -1103,6 +1171,17 @@ def _preencher_linha_aula(linha, aula: dict, numero: int, cabecalho=None) -> Non
         usadas.add(tc_id)
 
 
+    if aula.get("eh_feriado"):
+        _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
+        texto_feriado = str(aula.get("metodologia") or "").strip()
+        celula_dev = celulas[indices["desenvolvimento"]]
+        _limpar_celula(celula_dev)
+        p = _paragrafo_base(celula_dev)
+        p.text = ""
+        run = p.add_run(texto_feriado)
+        run.bold = True
+        return
+
     # Col 0: Data/Horário — vermelho, centralizado, Arial 10
     _preencher_celula_data_horario(celulas[indices["data"]], _formatar_data_horario(aula))
     # Col 1: Título — vermelho + bold, centralizado, Arial 10
@@ -1162,36 +1241,191 @@ def _preencher_tabelas_modelo(
                 break
 
     sobras = [(indice + 1, aula) for indice, aula in enumerate(aulas) if indice not in usadas]
-    grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
-    for grupo in grupos_sobra_por_semana:
-        par_livre = next(
-            (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
-            None,
-        )
-        if par_livre is None:
-            novo_par = _clonar_par_semana(pares)
-            pares.append(novo_par)
-            aulas_por_par.append(grupo)
+    semanas_cabecalho_por_par = []
+
+    if not usadas and sobras:
+        aulas_por_semana = {}
+        sem_data = []
+        for numero, aula in sobras:
+            inicio = _inicio_semana_aula(aula)
+            if inicio is None:
+                sem_data.append((numero, aula))
+                continue
+            if inicio not in aulas_por_semana:
+                aulas_por_semana[inicio] = []
+            aulas_por_semana[inicio].append((numero, aula))
+
+        if aulas_por_semana:
+            min_segunda = min(aulas_por_semana.keys())
+            max_segunda = max(aulas_por_semana.keys())
+
+            if mes:
+                from ui.shared import _mes_numero_app
+                from core.calendario import datas_sem_aula_calendario, descricao_feriado
+
+                mes_num = _mes_numero_app(mes)
+                ano = min_segunda.year
+                feriados = datas_sem_aula_calendario(ano)
+                dias_semana_turma = {
+                    _data_para_semana(aula["data"]).weekday()
+                    for _, aula in sobras
+                    if isinstance(aula, dict) and _data_para_semana(aula.get("data"))
+                }
+                horarios_por_dia = {}
+                for _, aula in sobras:
+                    if isinstance(aula, dict) and aula.get("data"):
+                        dt = _data_para_semana(aula["data"])
+                        if dt:
+                            w = dt.weekday()
+                            h = aula.get("horario") or ""
+                            if w not in horarios_por_dia:
+                                horarios_por_dia[w] = []
+                            if h and h not in horarios_por_dia[w]:
+                                horarios_por_dia[w].append(h)
+
+                seg_check = min_segunda - timedelta(days=7)
+                while True:
+                    teve_feriado = any(
+                        (seg_check + timedelta(days=d)).month == mes_num
+                        and (seg_check + timedelta(days=d)) in feriados
+                        for d in dias_semana_turma
+                    )
+                    if teve_feriado:
+                        min_segunda = seg_check
+                        seg_check -= timedelta(days=7)
+                    else:
+                        break
+
+                seg_check = max_segunda + timedelta(days=7)
+                while True:
+                    teve_feriado = any(
+                        (seg_check + timedelta(days=d)).month == mes_num
+                        and (seg_check + timedelta(days=d)) in feriados
+                        for d in dias_semana_turma
+                    )
+                    if teve_feriado:
+                        max_segunda = seg_check
+                        seg_check += timedelta(days=7)
+                    else:
+                        break
+
+            grupos = []
+            semanas_cabecalho_por_par = []
+            curr = min_segunda
+            while curr <= max_segunda:
+                grupo = list(aulas_por_semana.get(curr, []))
+
+                if mes:
+                    datas_com_aula = {
+                        _data_para_semana(aula.get("data"))
+                        for _, aula in grupo
+                        if isinstance(aula, dict) and aula.get("data")
+                    }
+                    for d in sorted(dias_semana_turma):
+                        data_dia = curr + timedelta(days=d)
+                        if (
+                            data_dia.month == mes_num
+                            and data_dia in feriados
+                            and data_dia not in datas_com_aula
+                        ):
+                            horarios = horarios_por_dia.get(d) or [""]
+                            for h in horarios:
+                                aula_feriado = {
+                                    "data": data_dia,
+                                    "horario": h,
+                                    "tema": "",
+                                    "aprendizagem": "",
+                                    "metodologia": descricao_feriado(data_dia, observacao),
+                                    "acompanhamento": "",
+                                    "acessibilidade": "",
+                                    "eh_feriado": True,
+                                }
+                                grupo.append((0, aula_feriado))
+
+                grupo.sort(key=_chave_ordenacao_aula_semana)
+                grupos.append(grupo)
+                sexta = curr + timedelta(days=4)
+                semanas_cabecalho_por_par.append(f"{curr.strftime('%d/%m')} a {sexta.strftime('%d/%m')}")
+                curr += timedelta(days=7)
+
+            num_semanas = len(grupos)
+            while len(pares) < num_semanas:
+                novo_par = _clonar_par_semana(pares)
+                pares.append(novo_par)
+            if len(pares) > num_semanas:
+                for cabecalho, tabela_aulas in pares[num_semanas:]:
+                    _remover_tabela(cabecalho)
+                    _remover_tabela(tabela_aulas)
+                pares = pares[:num_semanas]
+
+            aulas_por_par = list(grupos)
+            for par_indice, (_, tabela_aulas) in enumerate(pares):
+                vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+                if vagas and sem_data:
+                    aulas_por_par[par_indice].extend(sem_data[:vagas])
+                    sem_data = sem_data[vagas:]
         else:
-            aulas_por_par[par_livre] = grupo
+            grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
+            for grupo in grupos_sobra_por_semana:
+                par_livre = next(
+                    (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
+                    None,
+                )
+                if par_livre is None:
+                    novo_par = _clonar_par_semana(pares)
+                    pares.append(novo_par)
+                    aulas_por_par.append(grupo)
+                else:
+                    aulas_por_par[par_livre] = grupo
 
-    for par_indice, (_, tabela_aulas) in enumerate(pares):
-        vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
-        if vagas and sobras:
-            aulas_por_par[par_indice].extend(sobras[:vagas])
-            sobras = sobras[vagas:]
+            for par_indice, (_, tabela_aulas) in enumerate(pares):
+                vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+                if vagas and sobras:
+                    aulas_por_par[par_indice].extend(sobras[:vagas])
+                    sobras = sobras[vagas:]
 
-    ultimo_par_com_aula = None
-    for par_indice, aulas_do_par in enumerate(aulas_por_par):
-        if aulas_do_par:
-            ultimo_par_com_aula = par_indice
+            ultimo_par_com_aula = None
+            for par_indice, aulas_do_par in enumerate(aulas_por_par):
+                if aulas_do_par:
+                    ultimo_par_com_aula = par_indice
 
-    if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
-        for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
-            _remover_tabela(cabecalho)
-            _remover_tabela(tabela_aulas)
-        pares = pares[: ultimo_par_com_aula + 1]
-        aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
+            if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
+                for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
+                    _remover_tabela(cabecalho)
+                    _remover_tabela(tabela_aulas)
+                pares = pares[: ultimo_par_com_aula + 1]
+                aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
+    else:
+        grupos_sobra_por_semana, sobras = _agrupar_sobras_por_semana(sobras)
+        for grupo in grupos_sobra_por_semana:
+            par_livre = next(
+                (indice for indice, aulas_do_par in enumerate(aulas_por_par) if not aulas_do_par),
+                None,
+            )
+            if par_livre is None:
+                novo_par = _clonar_par_semana(pares)
+                pares.append(novo_par)
+                aulas_por_par.append(grupo)
+            else:
+                aulas_por_par[par_livre] = grupo
+
+        for par_indice, (_, tabela_aulas) in enumerate(pares):
+            vagas = max(0, len(tabela_aulas.rows) - 1 - len(aulas_por_par[par_indice]))
+            if vagas and sobras:
+                aulas_por_par[par_indice].extend(sobras[:vagas])
+                sobras = sobras[vagas:]
+
+        ultimo_par_com_aula = None
+        for par_indice, aulas_do_par in enumerate(aulas_por_par):
+            if aulas_do_par:
+                ultimo_par_com_aula = par_indice
+
+        if ultimo_par_com_aula is not None and ultimo_par_com_aula < len(pares) - 1:
+            for cabecalho, tabela_aulas in pares[ultimo_par_com_aula + 1 :]:
+                _remover_tabela(cabecalho)
+                _remover_tabela(tabela_aulas)
+            pares = pares[: ultimo_par_com_aula + 1]
+            aulas_por_par = aulas_por_par[: ultimo_par_com_aula + 1]
 
     for par_indice, (cabecalho, tabela_aulas) in enumerate(pares):
         if not is_cdp_ctx:
@@ -1212,14 +1446,13 @@ def _preencher_tabelas_modelo(
         quantidade_semana = _quantidade_aulas_semana(aulas_da_semana)
         if quantidade_semana > 0:
             aulas_previstas = str(quantidade_semana)
-        elif aulas_da_semana:
-            aulas_previstas = str(len([a for a in aulas_da_semana if a])).strip()
-        elif aulas_previstas_manual and str(aulas_previstas_manual).strip():
-            aulas_previstas = str(aulas_previstas_manual).strip()
+        elif [a for _, a in aulas_da_semana if not (a or {}).get("eh_feriado")]:
+            aulas_previstas = str(len([a for _, a in aulas_da_semana if not (a or {}).get("eh_feriado")])).strip()
         else:
             aulas_previstas = "0"
         semana_cabecalho = (
-            _semana_automatica_por_aulas(aulas_da_semana)
+            (semanas_cabecalho_por_par[par_indice] if par_indice < len(semanas_cabecalho_por_par) else "")
+            or _semana_automatica_por_aulas(aulas_da_semana)
             or _semana_atual_cabecalho(cabecalho)
             or semana
         )
@@ -1244,8 +1477,10 @@ def _preencher_tabelas_modelo(
         for linha, (numero, aula) in zip(linhas_conteudo, aulas_da_semana):
             _preencher_linha_aula(linha, aula, numero, cabecalho_aulas)
 
-        for linha in linhas_conteudo[len(aulas_da_semana) :]:
-            _remover_linha(linha)
+        if aulas_da_semana:
+            if any(not (a or {}).get("eh_feriado") for _, a in aulas_da_semana):
+                for linha in linhas_conteudo[len(aulas_da_semana) :]:
+                    _remover_linha(linha)
         if not is_cdp_ctx:
             _normalizar_layout_tabela_aulas(tabela_aulas)
 

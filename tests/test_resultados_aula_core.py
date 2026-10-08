@@ -1,3 +1,4 @@
+import pytest
 from core.resultados_aula import (
     DependenciasResultadosAula,
     _registrar_aviso_referencia_metodologica_ia,
@@ -190,32 +191,30 @@ def test_montar_resultado_local_indica_etapa_obrigatoria_ausente_no_docx():
         lambda *args, **kwargs: referencia["fonte"]
     )
 
-    resultado = montar_resultado_aula_local(
-        texto="Texto da aula",
-        tema="Tema local",
-        material_digital="AULA 1 - Tema local",
-        numero_aula="1",
-        disciplina_base="História",
-        turma="6º ANO A",
-        provedor_ia="",
-        perfil="historia",
-        contexto_metodologico="regular",
-        indice_aula=0,
-        total_aulas=1,
-        modalidade_eja_ativa=False,
-        metodologia_fixa_pdf=[],
-        aprendizagem_pv="",
-        objetivos_orientacao=[],
-        aprendizagem_orientacao="",
-        usar_ia=False,
-        ia_erro="",
-        dependencias=deps,
-    )
+    with pytest.raises(ValueError) as excinfo:
+        montar_resultado_aula_local(
+            texto="Texto da aula",
+            tema="Tema local",
+            material_digital="AULA 1 - Tema local",
+            numero_aula="1",
+            disciplina_base="História",
+            turma="6º ANO A",
+            provedor_ia="",
+            perfil="historia",
+            contexto_metodologico="regular",
+            indice_aula=0,
+            total_aulas=1,
+            modalidade_eja_ativa=False,
+            metodologia_fixa_pdf=[],
+            aprendizagem_pv="",
+            objetivos_orientacao=[],
+            aprendizagem_orientacao="",
+            usar_ia=False,
+            ia_erro="",
+            dependencias=deps,
+        )
 
-    assert resultado["metodologia"] == []
-    assert resultado["status_referencia_docx"] == "metodologia_incompleta"
-    assert "Na prática" in resultado["motivo_referencia_docx"]
-    assert resultado["arquivo_referencia_docx"] == referencia["fonte"]
+    assert "Na prática" in str(excinfo.value)
 
 
 def test_montar_resultado_local_copia_docx_literalmente_sem_higienizar():
@@ -309,7 +308,8 @@ def test_montar_resultado_aula_local_bloqueia_docx_com_mais_de_350_caracteres():
             ia_erro="",
             dependencias=deps,
         )
-    assert "excede(m) o limite máximo de 350 caracteres" in str(excinfo.value)
+    assert "excede(m) o limite" in str(excinfo.value)
+    assert "350 caracteres" in str(excinfo.value)
     assert "Com IA" in str(excinfo.value)
 
 

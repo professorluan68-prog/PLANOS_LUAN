@@ -20,7 +20,7 @@ except ImportError:
     genai = None
     types = None
 
-from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO
+from config import IA_TIMEOUT_SEGUNDOS, MODELO_GEMINI_PADRAO, MODELO_OPENAI_PADRAO
 from core.lib.classificador import normalizar_texto, perfil_disciplina
 from core.models import EtapaMetodologia, PlanoAulaIA
 from core.prompts_por_disciplina import get_orientacao_disciplina, get_system_prompt
@@ -1129,6 +1129,7 @@ def processar_plano_ia(
     palavras_chave_esperadas: list[str] | None = None,
     esboco_pdf: list[str] | None = None,
     contexto_cdp: bool = False,
+    _eh_fallback: bool = False,
 ) -> dict:
     diagnostico_referencia = diagnosticar_referencia_metodologica(disciplina, turma)
     prompt = _montar_prompt(
@@ -1147,57 +1148,109 @@ def processar_plano_ia(
     system_prompt = get_system_prompt(disciplina, turma)
 
     if provedor.lower() == "openai":
-        if not OpenAI or not os.getenv("OPENAI_API_KEY"):
-            raise Exception("Chave OPENAI_API_KEY nao configurada ou biblioteca ausente.")
-        client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            timeout=IA_TIMEOUT_SEGUNDOS,
-        )
-        response = _chamar_openai_com_retry(
-            client,
-            modelo or "gpt-4o-mini",
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            PlanoAulaIA,
-        )
-        data = _extrair_json_openai(response)
-        saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
-        return _registrar_aviso_referencia_metodologica_na_saida(
-            saida,
-            diagnostico_referencia.aviso,
-        )
+        try:
+            if not OpenAI or not os.getenv("OPENAI_API_KEY"):
+                raise Exception("Chave OPENAI_API_KEY nao configurada ou biblioteca ausente.")
+            client = OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                timeout=IA_TIMEOUT_SEGUNDOS,
+            )
+            response = _chamar_openai_com_retry(
+                client,
+                modelo or MODELO_OPENAI_PADRAO,
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                PlanoAulaIA,
+            )
+            data = _extrair_json_openai(response)
+            saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            return _registrar_aviso_referencia_metodologica_na_saida(
+                saida,
+                diagnostico_referencia.aviso,
+            )
+        except Exception as exc_openai:
+            if not _eh_fallback and genai and os.getenv("GEMINI_API_KEY"):
+                logger.warning(
+                    "Falha na API OpenAI (%s). Tentando fallback automatico para Gemini...",
+                    exc_openai,
+                )
+                try:
+                    return processar_plano_ia(
+                        texto_pdf=texto_pdf,
+                        disciplina=disciplina,
+                        turma=turma,
+                        provedor="gemini",
+                        modelo=MODELO_GEMINI_PADRAO,
+                        modalidade_eja=modalidade_eja,
+                        permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
+                        rascunho_base=rascunho_base,
+                        contexto_geracao=contexto_geracao,
+                        palavras_chave_esperadas=palavras_chave_esperadas,
+                        esboco_pdf=esboco_pdf,
+                        contexto_cdp=contexto_cdp,
+                        _eh_fallback=True,
+                    )
+                except Exception as exc_fallback:
+                    logger.error("Fallback automatico para Gemini tambem falhou: %s", exc_fallback)
+            raise
 
     if provedor.lower() == "gemini":
-        if not genai or not os.getenv("GEMINI_API_KEY"):
-            raise Exception("Chave GEMINI_API_KEY nao configurada ou biblioteca ausente.")
+        try:
+            if not genai or not os.getenv("GEMINI_API_KEY"):
+                raise Exception("Chave GEMINI_API_KEY nao configurada ou biblioteca ausente.")
 
-        timeout_milisegundos = int(IA_TIMEOUT_SEGUNDOS) * 1000
-        client = genai.Client(
-            api_key=os.getenv("GEMINI_API_KEY"),
-            http_options=types.HttpOptions(timeout=timeout_milisegundos),
-        )
-        prompt_json = system_prompt + "\n\n" + prompt
-
-        response = _chamar_gemini_com_retry(
-            client,
-            modelo or MODELO_GEMINI_PADRAO,
-            prompt_json,
-            types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=PlanoAulaIA,
+            timeout_milisegundos = int(IA_TIMEOUT_SEGUNDOS) * 1000
+            client = genai.Client(
+                api_key=os.getenv("GEMINI_API_KEY"),
                 http_options=types.HttpOptions(timeout=timeout_milisegundos),
-            ),
-        )
+            )
+            prompt_json = system_prompt + "\n\n" + prompt
 
-        text = response.text.strip()
-        text = _limpar_json_markdown(text)
-        data = json.loads(text or "{}")
-        saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
-        return _registrar_aviso_referencia_metodologica_na_saida(
-            saida,
-            diagnostico_referencia.aviso,
-        )
+            response = _chamar_gemini_com_retry(
+                client,
+                modelo or MODELO_GEMINI_PADRAO,
+                prompt_json,
+                types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=PlanoAulaIA,
+                    http_options=types.HttpOptions(timeout=timeout_milisegundos),
+                ),
+            )
+
+            text = response.text.strip()
+            text = _limpar_json_markdown(text)
+            data = json.loads(text or "{}")
+            saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            return _registrar_aviso_referencia_metodologica_na_saida(
+                saida,
+                diagnostico_referencia.aviso,
+            )
+        except Exception as exc_gemini:
+            if not _eh_fallback and OpenAI and os.getenv("OPENAI_API_KEY"):
+                logger.warning(
+                    "Falha na API Gemini (%s). Tentando fallback automatico para OpenAI...",
+                    exc_gemini,
+                )
+                try:
+                    return processar_plano_ia(
+                        texto_pdf=texto_pdf,
+                        disciplina=disciplina,
+                        turma=turma,
+                        provedor="openai",
+                        modelo=MODELO_OPENAI_PADRAO,
+                        modalidade_eja=modalidade_eja,
+                        permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
+                        rascunho_base=rascunho_base,
+                        contexto_geracao=contexto_geracao,
+                        palavras_chave_esperadas=palavras_chave_esperadas,
+                        esboco_pdf=esboco_pdf,
+                        contexto_cdp=contexto_cdp,
+                        _eh_fallback=True,
+                    )
+                except Exception as exc_fallback:
+                    logger.error("Fallback automatico para OpenAI tambem falhou: %s", exc_fallback)
+            raise
 
     raise Exception(f"Provedor {provedor} desconhecido.")

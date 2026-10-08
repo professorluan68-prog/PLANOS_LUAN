@@ -1,6 +1,69 @@
-# Histórico de Atualizações Recentes (CHANGELOG)
+# Histórico de Atualizações (CHANGELOG)
 
-Este arquivo serve como um registro de alterações recentes feitas no sistema, para que outros agentes possam consultar e saber o que foi corrigido ou implementado.
+Este arquivo registra as alterações do sistema **Planos Luan** para que professores, mantenedores e outros agentes saibam o que foi corrigido ou implementado. Versão atual do gerador: **1.2.14** (`core/revisao_final.py`). As entradas mais recentes ficam no topo.
+
+## [2026-10-03] - Conferência Mensal, mês pela pasta e ajuste de Aprofundamento em Biologia
+### Adicionado / Corrigido
+- **core/validacao_pdfs_contexto.py**: aceita materiais de 3º ano para turmas de 2º ano na disciplina **Aprofundamento em Biologia** (no 4º bimestre o material pedagógico é compartilhado). Evita falso bloqueio de série na interface.
+- **PLANOS_LUAN_DADOS/PDF_AULAS/APROFUNDAMENTO_EM_BIOLOGIA**: concisão das etapas de "FOCO NO CONTEÚDO" nas aulas 5, 7, 8, 12 e 13 para respeitar o teto estrito de 350 caracteres por etapa nos DOCX de referência (pastas `2_ANO` e `3_ANO`).
+- **tests/test_validacao_pdfs_contexto.py**: teste automatizado para validação de PDFs de 3º ano aplicados a turmas de 2º ano em Aprofundamento em Biologia.
+
+### Adicionado (Conferência Mensal)
+- **ui/conferencia_mensal.py** e **planos_luan_app.py**: nova aba **Conferência Mensal**. O professor escolhe, em listas de seleção, o **professor** e o **mês**; o sistema lista todas as turmas/disciplinas cadastradas dele, marcando ✅ os planos feitos e ⬜ os pendentes, com barra de progresso, filtro "somente pendentes" e botão **Baixar** do DOCX. Um plano só conta como feito se existir registro no histórico **e** o arquivo `.docx` estiver em disco (registro sem arquivo aparece como ⚠️).
+- **core/database.py**: `obter_conferencia_mensal()`, `obter_meses_conferencia()` e `_mes_efetivo_plano()`. Vínculos repetidos (vários horários da mesma disciplina/turma) são agrupados em uma única linha.
+- **tests/test_conferencia_mensal.py**: testes do cruzamento turmas × planos, da regra de arquivo existente e da regra de mês pela pasta.
+- A aba indexa automaticamente os DOCX novos de `Planos feitos` na primeira abertura de cada sessão (botão "Atualizar índice de arquivos" continua disponível).
+
+### Alterado
+- **core/database.py**: a **pasta do mês manda**. Em `PLANOS_FEITOS_DIR/PROFESSOR/DISCIPLINA/MÊS/arquivo.docx`, o mês do plano é lido da pasta (`_mes_plano_pela_pasta()`), e não da data de geração; a data só resolve o ano (com virada de ano, ex.: JANEIRO gerado em dezembro). `_metadados_historico()` aplica a regra em novas indexações; registros antigos são lidos pela pasta sem alteração dos dados gravados.
+- **core/calendario.py / docx_generator/preencher.py**: feriados passam a ter descrição (`feriados_com_descricao`, `descricao_feriado`) e semanas sem aula por feriado são preservadas no DOCX com linhas em branco e **0 aulas previstas** (`eh_feriado`).
+
+### Documentação
+- Auditoria completa do sistema e atualização de `AGENTS.md`, `GEMINI.md`, `CHANGELOG.md`, `README.md`, `CODE_OF_CONDUCT.md`, `DOCUMENTACAO_SISTEMA_PLANOS_LUAN.docx` e `DOCUMENTACAO_ESTRUTURA_CORE_PLANOS_LUAN.docx`. Criado `AUDITORIA_SISTEMA_2026-10-03.md` com o diagnóstico do repositório.
+
+## [2026-10-02] - Modularização da interface, bloco sem PDF e memória da última aula
+### Adicionado
+- **ui/** (modularização do `planos_luan_app.py`): telas separadas em `cadastro.py`, `historico.py`, `diagnostico.py`, `geracao_lote.py`, `revisao_aulas.py`, `painel_pdfs.py`, `acompanhamento.py`, `reescrita_cdp.py`, `relatorio_conferencia.py`, `shared.py`, `ui_components.py` e `tela_inicial_moderna.py`.
+- **Subpastas por mês** em `Planos feitos` (`PROFESSOR/DISCIPLINA/MES/`) e observação específica de novembro (feriados).
+- **Campo editável e memória persistente da última aula trabalhada** (tabela `progresso_aulas`), permitindo continuar a sequência de PDFs de onde parou.
+- **docx_generator/preencher.py**: bloco "sem PDF" é preenchido automaticamente com *Recomposição da Aprendizagem* formatada.
+
+### Corrigido
+- **core/gestao_aulas.py**: detecção da última aula a partir dos DOCX reais; turmas espelho da mesma série são unificadas.
+
+## [2026-09-20 a 2026-09-27] - CDP padronizado, EJA Inglês e aulas duplas
+### Adicionado
+- **CDP**: padronização completa do módulo (turmas oficiais C, H, J, E; disciplinas no formato `<DISCIPLINA> - CDP - EJA - MULTISSERIADO`; banco consolidado com deduplicação de vínculos). Documentações DOCX atualizadas em 23/09.
+- **EJA**: rotas de 1º e 2º Termo de Língua Inglesa EJA (`LINGUA_INGLESA_EJA\EM`) e cadastro atualizado.
+- **Calendário**: feriado/evento de 15/10 e 16/10 (Dia do Professor e Conselho de Classe).
+- **Aulas duplas**: horários duplos com 2 PDFs; 1 PDF + 1 sem PDF gera duas linhas separadas no DOCX.
+
+### Corrigido
+- Preenchimento de **AE priorizado** e restauração de todas as semanas no lote do Word.
+- Resolução de turma e bimestre em DOCX de referência para títulos das aulas.
+- Compatibilidade de linguagem e extração de títulos nas referências CDP.
+- `UnboundLocalError` causado por `import re` local.
+
+## [2026-08-26 a 2026-09-06] - Dia sem PDF, continuidade pedagógica e Ciências
+### Adicionado
+- **Um dia sem PDF** por disciplina (semanal ou quinzenal), inclusive para Ciências e para aulas duplas (1 com PDF + 1 sem PDF, ou ambas sem PDF).
+- Continuidade pedagógica e padronização da grade de horários; seleção de escolas vinculada à constante global `ESCOLAS`.
+- Aba **CDP-EF/EM** e disciplinas Ciências/Matemática CDP, com parser de DOCX mais robusto.
+
+### Corrigido
+- Remoção do bloqueio de PDFs sem texto para Orientação de Estudos; resolução da referência de Orientação de Estudos de Matemática.
+- Validador permite desenvolvimento curto quando há indicação de divisão/continuação.
+
+## [2026-08-08] - Histórico mais completo
+### Alterado
+- **Histórico**: novos metadados (chaves normalizadas, `mes_plano`, hash e tamanho do arquivo, última aula e total de aulas), índices de consulta e progresso por contexto. PDFs automáticos protegidos. Dados administrativos piloto no cadastro (`professor_dados`).
+
+## [2026-07-24 a 2026-07-30] - Fluxo pedagógico unificado e referências DOCX
+### Alterado
+- **Fluxo unificado**: DOCX literal sem IA; refinamento por IA até 350 caracteres. Limite padrão de 300 caracteres por etapa (350 em EJA e DOCX de referência); regra de bloqueio quando o DOCX tem etapas > 350 caracteres sem IA.
+- Referências metodológicas centralizadas e flexibilizadas; cache por PDF/conteúdo reutilizado entre turmas paralelas; refino de DOCX pela IA protegido.
+- DOCX restaurado como fonte dos planos regulares; continuidade de aulas informada pelo histórico.
+
 
 ## [2026-07-21] - Correção do Bug de Pydantic, Fallback de Leitura de Metodologia e Redução do Tamanho via IA
 ### Corrigido

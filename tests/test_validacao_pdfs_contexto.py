@@ -103,7 +103,7 @@ def test_validar_lote_pdfs_contexto_sem_ia_separa_validos_e_suspeitos(monkeypatc
 def test_validar_pdf_contexto_sem_ia_ignora_bimestre_errado_para_cdp():
     resultado = validacao.validar_pdf_contexto_sem_ia(
         Path("AULA_003__ENERGIA__MATEMATICA__EM__B2__1_ANO.pdf"),
-        disciplina="Matemática-CDP",
+        disciplina="Matemática_EM-CDP",
         turma="1º ANO A",
         bimestre="3º Bimestre",
         texto_pdf="Matemática Energia 2o bimestre Ensino Médio",
@@ -111,3 +111,34 @@ def test_validar_pdf_contexto_sem_ia_ignora_bimestre_errado_para_cdp():
 
     assert resultado.valido is True
     assert resultado.motivos == ()
+
+
+def test_validar_pdf_contexto_sem_ia_suporta_pdf_dividido_em_pasta():
+    # PDF par de um slide deck dividido (ex: AULA_2.pdf), sem a capa que continha o nome da disciplina no texto
+    caminho = Path(r"C:\Users\LuanDias\PLANOS_LUAN_DADOS\PDF_AULAS\ROBOTICA\EM\4_BIMESTRE\2_ANO\AULA_2.pdf")
+    resultado = validacao.validar_pdf_contexto_sem_ia(
+        caminho,
+        disciplina="ROBOTICA",
+        turma="2º ANO",
+        bimestre="4º Bimestre",
+        texto_pdf="Na prática. Monte as peças conforme o gabarito 2.",
+    )
+
+    assert resultado.valido is True
+    assert resultado.motivos == ()
+
+
+def test_validar_pdf_contexto_sem_ia_aprofundamento_biologia_2ano_aceita_3ano():
+    # No 4º bimestre de Aprofundamento em Biologia, materiais de 3º ano são usados para turmas do 2º ano
+    caminho = Path(r"C:\Users\LuanDias\PLANOS_LUAN_DADOS\PDF_AULAS\APROFUNDAMENTO_EM_BIOLOGIA\EM\4_BIMESTRE\3_ANO\AULA_01.pdf")
+    resultado = validacao.validar_pdf_contexto_sem_ia(
+        caminho,
+        disciplina="Aprofundamento em Biologia",
+        turma="2º ANO A",
+        bimestre="4º Bimestre",
+        texto_pdf="Ensino Médio – 3ª Série Biologia Aprofundamento 4º Bimestre Aula 1",
+    )
+
+    assert resultado.valido is True
+    assert resultado.motivos == ()
+

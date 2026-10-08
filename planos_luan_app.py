@@ -24,9 +24,12 @@ def _monitorar_sessoes_ativas():
     consecutive_zero_sessions = 0
     while True:
         try:
+            # [CORREÇÃO A4] Proteger acesso à API privada do Streamlit.
+            # runtime._session_mgr é API interna que pode mudar entre versões.
+            # Se indisponível, count=-1 impede encerramento indevido do servidor.
             from streamlit.runtime import get_instance
             runtime = get_instance()
-            if runtime:
+            if runtime and hasattr(runtime, "_session_mgr"):
                 active_sessions = runtime._session_mgr.list_active_sessions()
                 count = len(active_sessions)
                 if count > 0:
@@ -36,8 +39,14 @@ def _monitorar_sessoes_ativas():
                     if has_connected:
                         consecutive_zero_sessions += 1
             else:
+                count = -1  # API indisponível — não encerrar
                 consecutive_zero_sessions = 0
-        except Exception:
+        except Exception as _monitor_exc:
+            import logging as _log
+            _log.getLogger(__name__).debug(
+                "Monitor de sessões: API Streamlit indisponível (%s)", _monitor_exc
+            )
+            count = -1  # API indisponível — não encerrar
             consecutive_zero_sessions = 0
         
         if has_connected and consecutive_zero_sessions >= 5:
@@ -77,11 +86,14 @@ from core.constantes import (
     ESCOLAS,
 )
 
+from ui.pei import _renderizar_pei
 from ui.shared import (
     _rotulo_horario,
     _rotulo_data_aula_com_dia,
     _serializar_horarios_padronizados,
     _tipo_horario,
+    _turno_e_aulas_de_horario,
+    _montar_horario_flexivel,
     nome_arquivo_plano,
     _normalizar_texto_simples,
     _normalizar_label_aula,
@@ -90,10 +102,13 @@ from ui.shared import (
     _eh_cadastro_cdp_eja,
     _arquivo_existe,
     _ler_bytes_arquivo_cache,
+    _obter_professores_db_cache,
     _carregar_professores_dos_planos_cache,
     _diagnosticar_modelos_professores_cache,
     carregar_css,
     carregar_chaves_locais,
+    _is_aula_dupla,
+    _divisao_pdf_padrao,
     _sincronizar_divisao_pdf_padrao,
     _proxima_data_pelo_dia,
     _sugerir_horario_e_tipo,
@@ -116,9 +131,16 @@ from ui.shared import (
     _padroes_horario_config,
     _mes_numero_app,
     DIAS_SEMANA_COMPLETOS,
+    TURMAS_PADRAO,
+    _texto_metodologia_app,
+    _metodologia_app_para_blocos,
 )
+from ui.relatorio_conferencia import _salvar_relatorios_conferencia
+from ui.painel_pdfs import _render_painel_pdfs
+from ui.revisao_aulas import renderizar_passo_revisao
 from ui.cadastro import _renderizar_cadastro_professor
 from ui.historico import _renderizar_historico
+from ui.conferencia_mensal import _renderizar_conferencia_mensal
 from ui.diagnostico import _renderizar_diagnostico_modelos
 from ui.reescrita_cdp import _renderizar_reescrita_cdp_em
 
@@ -214,13 +236,20 @@ from core.lib.classificador import perfil_disciplina
 APP_ICON_PNG = BASE_DIR / "assets" / "planos_luan_icon.png"
 
 st.set_page_config(
-    page_title="PLANOS_LUAN",
-    page_icon="🎓",
+    page_title="Planos de Aula — SEDUC",
+    page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 carregar_css(BASE_DIR)
+
+try:
+    from core.cache_manager import CacheManager
+    CacheManager().limpar_arquivos_expirados()
+except Exception:
+    pass
+
 
 CAMPOS_TELA = {
     "modelo_file",
@@ -283,6 +312,8 @@ CAMPOS_TELA = {
     "erro_processamento",
     "erro_processamento_detalhe",
     "permitir_dia_sem_pdf_portugues",
+    "frequencia_dia_sem_pdf_opcao",
+    "modo_aula_dupla_sem_pdf_opcao",
     "dia_sem_pdf_portugues",
 }
 
@@ -342,8 +373,7 @@ def _assinatura_pdfs_automaticos(arquivos) -> str:
     base = "\n".join(partes)
     return hashlib.md5(base.encode("utf-8")).hexdigest()[:12] if base else "sem_pdfs"
 
-import unicodedata
-
+# [CORREÇÃO B1] import unicodedata removido aqui — já importado no topo do arquivo.
 def _remover_acentos(texto: str) -> str:
     if not texto:
         return ""
@@ -359,9 +389,15 @@ def _normalizar_nome_diretorio(nome: str) -> str:
     res = "".join(c for c in res if c not in r'\/:*?"<>|')
     return res
 
-def _resolver_caminho_professor_disciplina(professor: str, disciplina: str) -> Path:
+def _resolver_caminho_professor_disciplina(professor: str, disciplina: str, mes: str = "") -> Path:
     if not professor:
-        return PLANOS_FINALIZADOS_DIR
+        base = PLANOS_FINALIZADOS_DIR
+        if mes:
+            mes_norm = _normalizar_nome_diretorio(mes)
+            caminho_mes = base / mes_norm
+            caminho_mes.mkdir(parents=True, exist_ok=True)
+            return caminho_mes
+        return base
         
     prof_norm = _normalizar_nome_diretorio(professor)
     prof_norm_sem_acento = _remover_acentos(prof_norm)
@@ -392,16 +428,33 @@ def _resolver_caminho_professor_disciplina(professor: str, disciplina: str) -> P
                 break
                 
     caminho_disc.mkdir(parents=True, exist_ok=True)
+
+    if mes:
+        mes_norm = _normalizar_nome_diretorio(mes)
+        mes_norm_sem_acento = _remover_acentos(mes_norm)
+        caminho_mes = caminho_disc / mes_norm
+        for m_child in caminho_disc.iterdir():
+            if m_child.is_dir():
+                child_norm_sem_acento = _remover_acentos(m_child.name.upper())
+                if child_norm_sem_acento == mes_norm_sem_acento:
+                    caminho_mes = m_child
+                    break
+        caminho_mes.mkdir(parents=True, exist_ok=True)
+        return caminho_mes
+
     return caminho_disc
 
-def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, professor: str = None) -> list[str]:
+def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, professor: str = None, mes: str = "") -> list[str]:
     caminhos_salvos = []
     try:
         if professor:
-            dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina)
+            dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina, mes=mes)
         else:
             PLANOS_FINALIZADOS_DIR.mkdir(parents=True, exist_ok=True)
             dir_destino = PLANOS_FINALIZADOS_DIR
+            if mes:
+                dir_destino = dir_destino / _normalizar_nome_diretorio(mes)
+                dir_destino.mkdir(parents=True, exist_ok=True)
             
         for plano in planos_gerados or []:
             nome_arq = nome_arquivo_plano(plano["turma"], disciplina, ia_usada=plano.get("ia_usada", False))
@@ -409,6 +462,17 @@ def _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina: str, profess
             with open(caminho_completo, "wb") as f:
                 f.write(plano["docx_bytes"].getvalue())
             caminhos_salvos.append(str(caminho_completo))
+
+            # Atualiza a memória de progresso para a turma deste plano
+            if professor and plano.get("turma"):
+                try:
+                    from core.gestao_aulas import detectar_ultima_aula_de_docx_bytes
+                    from core.database import salvar_progresso_aula
+                    ua = detectar_ultima_aula_de_docx_bytes(plano["docx_bytes"].getvalue())
+                    if ua > 0:
+                        salvar_progresso_aula(professor, disciplina, plano["turma"], ua, mes=mes)
+                except Exception:
+                    pass
     except Exception as e:
         destino_mensagem = str(dir_destino) if 'dir_destino' in locals() else str(PLANOS_FINALIZADOS_DIR)
         st.warning(f"Não foi possível salvar os arquivos localmente em {destino_mensagem}: {e}")
@@ -460,211 +524,7 @@ def _registrar_mensagem_memoria_plano(salvou_historico: bool) -> None:
         )
 
 
-def _texto_lista_conferencia(itens) -> str:
-    linhas = []
-    for item in itens or []:
-        texto = str(item or "").strip()
-        if texto:
-            linhas.append(texto)
-    return "\n".join(linhas)
 
-
-def _texto_metodologia_conferencia(aula: dict) -> str:
-    return _texto_metodologia_app(aula)
-
-
-def _linhas_relatorio_tecnico_conferencia(aula: dict) -> list[str]:
-    return [
-        "Relatório Técnico da Geração",
-        f"Provedor da IA: {aula.get('ia_provedor') or 'Sem IA'}",
-        f"Cache Reutilizado: {'Sim' if aula.get('cache_reutilizado') else 'Não'}",
-        f"Versão do Gerador: {aula.get('versao_gerador') or '1.2.9'}",
-        f"Origem da Metodologia: {aula.get('origem_metodologia') or 'Desconhecida'}",
-        f"Score de Confiança: {aula.get('confidence_score', 100)}%",
-    ]
-
-
-def _texto_diagnostico_conferencia(aula: dict) -> str:
-    diag = aula.get("diagnostico_geracao") or {}
-    if not diag:
-        return "Sem diagnóstico técnico detalhado."
-
-    secoes = [
-        ("1. Rascunho Local Heurístico", diag.get("metodologia_local") or []),
-        ("2. Resposta IA Crua", diag.get("metodologia_ia_crua") or []),
-        ("3. Higienização/Polimento", diag.get("metodologia_higienizada") or []),
-        ("4. Metodologia Final", diag.get("metodologia_final") or []),
-    ]
-    partes = []
-    for titulo, valor in secoes:
-        partes.append(titulo)
-        if isinstance(valor, str):
-            partes.append(valor.strip() or "Nenhum conteúdo registrado.")
-        elif valor:
-            partes.append(_texto_metodologia_app({"metodologia": valor}))
-        else:
-            partes.append("Nenhum conteúdo registrado.")
-        partes.append("")
-    return "\n".join(partes).strip()
-
-
-def _montar_texto_conferencia_aula(aula: dict, numero_aula: int, frases_redundantes=None) -> str:
-    frases_redundantes = [str(frase).strip() for frase in (frases_redundantes or []) if str(frase).strip()]
-    avisos_val = [str(aviso).strip() for aviso in (aula.get("avisos_validacao") or []) if str(aviso).strip()]
-    score = aula.get("confidence_score")
-    linhas = [
-        f"Aula {numero_aula} - {aula.get('tema', '')}",
-        "",
-    ]
-
-    if score is not None and score < 70:
-        linhas.extend(
-            [
-                f"Baixo Score de Confiança ({score}%): Este plano de aula pode necessitar de ajustes manuais significativos.",
-                "",
-            ]
-        )
-
-    if avisos_val:
-        linhas.append("Alertas de Qualidade Pedagógica:")
-        linhas.extend(f"- {aviso}" for aviso in avisos_val)
-        linhas.append("")
-
-    if frases_redundantes:
-        linhas.append("Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):")
-        linhas.extend(f'- "{frase}"' for frase in frases_redundantes)
-        linhas.append("")
-
-    linhas.extend(
-        [
-            "Tema",
-            str(aula.get("tema", "") or ""),
-            "",
-            "Aprendizagem",
-            str(aula.get("aprendizagem", "") or ""),
-            "",
-            "Acompanhamento",
-            _texto_lista_conferencia(aula.get("acompanhamento") or []),
-            "",
-            "Acessibilidade",
-            _texto_lista_conferencia(aula.get("acessibilidade") or []),
-            "",
-            "Metodologia",
-            _texto_metodologia_conferencia(aula),
-            "",
-        ]
-    )
-    linhas.extend(_linhas_relatorio_tecnico_conferencia(aula))
-    linhas.extend(["", "Transformação da Metodologia (Pipeline)", _texto_diagnostico_conferencia(aula), ""])
-    return "\n".join(linhas).strip() + "\n"
-
-
-def _resolver_pasta_base_conferencia(pasta_pdfs_auto: str = "", pdfs_selecionados=None) -> Path:
-    if pasta_pdfs_auto:
-        pasta = Path(pasta_pdfs_auto)
-        if pasta.exists():
-            return pasta
-
-    for arquivo in pdfs_selecionados or []:
-        caminho = getattr(arquivo, "path", None)
-        if caminho:
-            caminho = Path(caminho)
-            if caminho.exists():
-                return caminho.parent
-
-    return BASE_DIR
-
-
-def _salvar_relatorios_conferencia(
-    *,
-    turmas_processadas,
-    duplicadas_por_aula,
-    professor: str,
-    disciplina: str,
-    turma: str,
-    mes: str,
-    bimestre: str,
-    modo_ia: str,
-    modo_upload_pdf: str,
-    pasta_pdfs_auto: str = "",
-    pdfs_selecionados=None,
-):
-    token = st.session_state.get("revisao_token", 0)
-    resumo_chave = {
-        "token": token,
-        "professor": professor,
-        "disciplina": disciplina,
-        "turma": turma,
-        "mes": mes,
-        "bimestre": bimestre,
-        "modo_ia": modo_ia,
-        "modo_upload_pdf": modo_upload_pdf,
-        "aulas": [
-            [aula.get("tema", ""), aula.get("confidence_score"), aula.get("avisos_validacao") or []]
-            for bloco in (turmas_processadas or [])
-            for aula in (bloco.get("aulas") or [])
-        ],
-    }
-    chave = hashlib.md5(json.dumps(resumo_chave, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
-    if st.session_state.get("relatorio_conferencia_chave") == chave:
-        paths_salvos = st.session_state.get("relatorio_conferencia_paths") or []
-        if paths_salvos and all(Path(caminho).exists() for caminho in paths_salvos):
-            return paths_salvos
-
-    pasta_base = _resolver_pasta_base_conferencia(pasta_pdfs_auto, pdfs_selecionados)
-    pasta_relatorios = pasta_base / "RELATORIOS_CONFERENCIA_PLANOS"
-    carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_execucao = "_".join(
-        parte
-        for parte in [
-            carimbo,
-            normalizar_para_pasta(disciplina) or "DISCIPLINA",
-            normalizar_para_pasta(turma) or "TURMA",
-            normalizar_para_pasta(modo_ia) or "MODO",
-        ]
-        if parte
-    )
-    pasta_execucao = pasta_relatorios / nome_execucao
-    pasta_execucao.mkdir(parents=True, exist_ok=True)
-
-    cabecalho = [
-        "RELATÓRIO DE CONFERÊNCIA DO PLANO",
-        f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-        f"Professor: {professor}",
-        f"Disciplina: {disciplina}",
-        f"Turma selecionada: {turma}",
-        f"Mês: {mes}",
-        f"Bimestre: {bimestre}",
-        f"Modo IA: {modo_ia}",
-        f"Modo de envio dos PDFs: {modo_upload_pdf}",
-        f"Pasta dos relatórios: {pasta_execucao}",
-        "Observação: esta pasta é apenas para conferência e pode ser apagada depois sem afetar o sistema.",
-        "",
-    ]
-
-    relatorio_lote = list(cabecalho)
-    arquivos_salvos = []
-    for t_idx, bloco in enumerate(turmas_processadas or []):
-        turma_bloco = str(bloco.get("turma") or "").strip() or turma
-        relatorio_lote.extend([f"TURMA: {turma_bloco}", ""])
-        for a_idx, aula in enumerate(bloco.get("aulas") or [], start=1):
-            texto_aula = _montar_texto_conferencia_aula(
-                aula,
-                a_idx,
-                duplicadas_por_aula.get((t_idx, a_idx - 1), []),
-            )
-            relatorio_lote.append(texto_aula)
-            nome_aula = f"aula_{a_idx:02d}_{normalizar_para_pasta(aula.get('tema') or 'sem_tema')[:60]}.txt"
-            caminho_aula = pasta_execucao / nome_aula
-            caminho_aula.write_text("\n".join(cabecalho) + f"TURMA: {turma_bloco}\n\n" + texto_aula, encoding="utf-8")
-            arquivos_salvos.append(str(caminho_aula))
-
-    caminho_lote = pasta_execucao / "relatorio_conferencia_lote.md"
-    caminho_lote.write_text("\n".join(relatorio_lote), encoding="utf-8")
-    paths = [str(caminho_lote)] + arquivos_salvos
-    st.session_state["relatorio_conferencia_chave"] = chave
-    st.session_state["relatorio_conferencia_paths"] = paths
-    return paths
 
 
 def _registrar_erro_processamento(exc: Exception) -> None:
@@ -675,43 +535,6 @@ def _registrar_erro_processamento(exc: Exception) -> None:
     )
     st.session_state["erro_processamento_detalhe"] = traceback.format_exc()
 
-
-def _asset_data_uri(nome_arquivo: str, mime_type: str = "image/svg+xml") -> str:
-    caminho = BASE_DIR / "assets" / nome_arquivo
-    if not caminho.exists():
-        return ""
-    dados = base64.b64encode(caminho.read_bytes()).decode("ascii")
-    return f"data:{mime_type};base64,{dados}"
-
-
-TURMAS_PADRAO = ["(selecione a turma)"]
-TURMAS_PADRAO += [f"{ano}º ANO {letra}" for ano in range(1, 10) for letra in ["A", "B", "C", "D", "E", "F"]]
-TURMAS_PADRAO += [f"{ano}º ANO" for ano in range(1, 10)]
-TURMAS_PADRAO += [
-    "8º e 9º ano",
-    "1º Termo",
-    "2º Termo",
-    "3º Termo",
-    "MULTISSERIADO 1º, 2º e 3º ano",
-    "MULTISSERIADO 4º e 5º ano",
-]
-TURMAS_PADRAO += [turma for turma in TURMAS_CDP_MULTISSERIADA if turma not in TURMAS_PADRAO]
-TURMAS_PADRAO += ["Outra (digitar)"]
-
-def _selecionar_turma(label: str, key_select: str, key_texto: str, placeholder: str = "Ex.: 7º ANO A") -> str:
-    valor_atual = str(st.session_state.get(key_texto, "") or "").strip()
-    opcoes = list(TURMAS_PADRAO)
-    if valor_atual and valor_atual not in opcoes:
-        opcoes.insert(-1, valor_atual)
-    indice = opcoes.index(valor_atual) if valor_atual in opcoes else 0
-    escolha = st.selectbox(label, opcoes, index=indice, key=key_select)
-    if escolha == "Outra (digitar)":
-        return st.text_input("Digite a turma", key=key_texto, placeholder=placeholder, autocomplete="off").strip()
-    if escolha == "(selecione a turma)":
-        st.session_state[key_texto] = ""
-        return ""
-    st.session_state[key_texto] = escolha
-    return escolha
 
 
 def _selecionar_turma_espelho(turma_principal: str, turmas_cadastradas: list[str]) -> str:
@@ -746,40 +569,13 @@ def _selecionar_turma_espelho(turma_principal: str, turmas_cadastradas: list[str
     return escolha
 
 
-def _selecionar_mes() -> str:
-    valor_atual = str(st.session_state.get("mes", "") or "").strip().upper()
-    mes_padrao = MESES[date.today().month - 1]
-    indice = MESES.index(valor_atual) if valor_atual in MESES else MESES.index(mes_padrao)
-    mes_escolhido = st.selectbox("Mês", MESES, index=indice, key="mes_select")
-    st.session_state["mes"] = mes_escolhido
-    return mes_escolhido
-
-def _selecionar_aulas_semana(label: str, key_select: str, key_texto: str) -> str:
-    valor_atual = str(st.session_state.get(key_texto, "") or "").strip()
-    opcoes = list(AULAS_SEMANA_OPCOES)
-
-    if valor_atual and valor_atual not in opcoes:
-        opcoes.append(valor_atual)
-
-    valor_widget = str(st.session_state.get(key_select, "") or "").strip()
-    if valor_widget and valor_widget not in opcoes:
-        opcoes.append(valor_widget)
-
-    if key_select not in st.session_state:
-        st.session_state[key_select] = valor_atual if valor_atual in opcoes else "(selecione)"
-
-    escolha = st.selectbox(label, opcoes, key=key_select)
-    valor = "" if escolha == "(selecione)" else escolha
-    st.session_state[key_texto] = valor
-    return valor
-
 # ── Banco de Dados e Cadastro ──────────────────────────────────────────
 inicializar_pastas()
 carregar_chaves_locais(BASE_DIR)
 init_db()
 migrar_json_para_sqlite()
 PROFESSORES_DB = mesclar_professores(
-    obter_professores_db(),
+    _obter_professores_db_cache(),
     _carregar_professores_dos_planos_cache(),
 )
 
@@ -793,31 +589,6 @@ for prof, dados_prof in PROFESSORES_DB.items():
     PROFESSORES[prof] = disciplinas_unicas
 
 _NOMES_PROFESSORES = ["(selecione o professor)"] + sorted(PROFESSORES.keys()) + ["Outro (digitar)"]
-
-def _slug_key(texto: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_]+", "_", str(texto or "")).strip("_") or "item"
-
-def _chave_cadastro(
-    professor: str,
-    disciplina: str,
-    turma: str,
-    componente_curricular: str = "",
-) -> tuple[str, str, str, str]:
-    def norm(valor: str) -> str:
-        valor = unicodedata.normalize("NFKD", str(valor or ""))
-        valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
-        return re.sub(r"\s+", " ", valor).strip().upper()
-    return norm(professor), norm(disciplina), norm(turma), norm(componente_curricular)
-
-def _eh_cadastro_cdp_eja(disciplina: str, componente_curricular: str = "") -> bool:
-    base = f"{disciplina} {componente_curricular}".upper()
-    return eh_cdp(disciplina) or eh_cdp_contextual(disciplina) or "CDP" in base or "EJA" in base
-
-def _arquivo_existe(caminho: str) -> bool:
-    try:
-        return bool(caminho and Path(caminho).exists())
-    except OSError:
-        return False
 
 
 def _pontuacao_config_cadastro(config: dict | None) -> int:
@@ -860,21 +631,8 @@ def _abrir_cadastro_com_filtros(professor: str, disciplina: str, turma: str) -> 
     st.session_state["cadastro_filtro_disciplina"] = disciplina
     st.session_state["cadastro_busca"] = turma
 
-def _falhas_ia(aulas, exigir_ia: bool = True) -> list[str]:
-    falhas = []
-    if not exigir_ia:
-        return falhas
-    for idx, aula in enumerate(aulas or [], start=1):
-        if aula.get("ia_usada"):
-            continue
-        erro = str(aula.get("ia_erro") or "").strip()
-        tema = str(aula.get("tema") or f"Aula {idx}").strip()
-        if erro:
-            falhas.append(f"Aula {idx} ({tema}): {erro}")
-        else:
-            falhas.append(f"Aula {idx} ({tema}): a IA não retornou desenvolvimento completo.")
-    return falhas
-
+# [CORREÇÃO B2] Definição morta de _falhas_ia() removida.
+# A versão canônica é _falhas_ia_atualizadas que delega para listar_falhas_ia().
 def _falhas_ia_atualizadas(aulas, exigir_ia: bool = True) -> list[str]:
     return listar_falhas_ia(aulas, exigir_ia=exigir_ia)
 
@@ -920,49 +678,6 @@ def _preparar_pdf_para_processamento(pdf_file) -> tuple[str, bool]:
     return _salvar_pdf_temporario(pdf_file), True
 
 
-def _proxima_data_pelo_dia(dia_nome: str, data_referencia: date) -> date:
-    dias = {"segunda": 0, "terça": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "domingo": 6}
-    dia_alvo = dias.get(dia_nome.lower().strip(), 0)
-    dias_para_frente = (dia_alvo - data_referencia.weekday() + 7) % 7
-    if dias_para_frente == 0: dias_para_frente = 7
-    return data_referencia + timedelta(days=dias_para_frente)
-
-def _sugerir_horario_e_tipo(horario_str: str) -> tuple:
-    horario_str = (horario_str or "").strip().lower()
-    for h, label in HORARIOS_AULA:
-        if h.lower() in horario_str:
-            return h, label
-    return HORARIOS_AULA[0]
-
-def _normalizar_horario_cadastro(trecho: str) -> str:
-    texto = (trecho or "").strip().lower()
-    match = re.search(r"\b(\d{1,2})\s*(?:h|:)?\s*(\d{2})?\b", texto)
-    if not match:
-        return ""
-    hora = int(match.group(1))
-    minuto = match.group(2)
-    if minuto:
-        return f"{hora:02d}h{minuto}"
-    return f"{hora:02d}h"
-
-def _horarios_extraidos_texto(texto: str) -> list[str]:
-    horarios = []
-    for hora, minuto in re.findall(r"\b0?(\d{1,2})\s*(?:h|:)\s*(\d{2})?\b", str(texto or ""), flags=re.I):
-        valor = f"{int(hora):02d}h{minuto or ''}"
-        horarios.append(valor)
-    return horarios
-
-def _normalizar_label_aula(texto: str) -> str:
-    texto = (texto or "").lower()
-    texto = texto.replace("º", "ª").replace("°", "ª")
-    texto = re.sub(r"\s+", " ", texto)
-    return texto.strip()
-
-def _normalizar_texto_simples(texto: str) -> str:
-    texto = unicodedata.normalize("NFD", texto or "")
-    texto = "".join(ch for ch in texto if unicodedata.category(ch) != "Mn")
-    return texto.upper()
-
 def _disciplina_suporta_modalidade_eja(disciplina: str) -> bool:
     texto = _normalizar_texto_simples(disciplina).replace("-", " ")
     texto = re.sub(r"\s+", " ", texto).strip()
@@ -973,107 +688,10 @@ def _disciplina_suporta_modalidade_eja(disciplina: str) -> bool:
         "LINGUA INGLESA",
         "LIDERANCA E ORATORIA",
         "LIDERANCA ORATORIA",
+        "QUIMICA",
+        "QUIMICA EJA",
     }
 
-
-def _mes_numero_app(mes: str) -> int:
-    meses = {
-        "JANEIRO": 1, "FEVEREIRO": 2, "MARCO": 3, "ABRIL": 4, "MAIO": 5, "JUNHO": 6,
-        "JULHO": 7, "AGOSTO": 8, "SETEMBRO": 9, "OUTUBRO": 10, "NOVEMBRO": 11, "DEZEMBRO": 12,
-    }
-    return meses.get(_normalizar_texto_simples(mes), date.today().month)
-
-def _dia_semana_numero(texto: str):
-    dias = {
-        "SEGUNDA": 0, "SEGUNDA FEIRA": 0, "TERCA": 1, "TERCA FEIRA": 1,
-        "QUARTA": 2, "QUARTA FEIRA": 2, "QUINTA": 3, "QUINTA FEIRA": 3,
-        "SEXTA": 4, "SEXTA FEIRA": 4, "SABADO": 5, "DOMINGO": 6,
-    }
-    return dias.get(_normalizar_texto_simples(texto).replace("-", " "))
-
-def _datas_do_mes_por_dia(
-    mes: str,
-    dia_semana: int,
-    ano: int | None = None,
-    extensao: int = 0,
-    antecipacao: int = 0,
-) -> list[date]:
-    ano = ano or date.today().year
-    mes_num = _mes_numero_app(mes)
-    inicio = _inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
-    fim = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
-    return _datas_por_dia_ate_limite(inicio, fim, dia_semana)
-
-
-def _datas_horarios_do_mes(
-    config: dict,
-    mes: str,
-    turma: str = "",
-    extensao: int = 0,
-    antecipacao: int = 0,
-) -> list[dict]:
-    if not config or not mes:
-        return []
-    if config.get("repetir_modelo_semanal"):
-        base = list(config.get("datas_horarios") or [])
-        if not base:
-            return []
-        primeira_data = next((item.get("data") for item in base if hasattr(item.get("data"), "weekday")), None)
-        if not primeira_data:
-            return []
-        inicio_semana_base = primeira_data - timedelta(days=primeira_data.weekday())
-
-        # Construir molde a partir dos dias-da-semana únicos presentes em TODOS os registros
-        # (não apenas da 1ª semana, que pode ter feriados omitindo dias)
-        molde_por_dia: dict[int, dict] = {}  # dia_semana -> item de referência
-        for item in base:
-            data_aula = item.get("data")
-            if not hasattr(data_aula, "weekday"):
-                continue
-            dia = data_aula.weekday()
-            if dia not in molde_por_dia:
-                # Guardar o deslocamento em dias desde o início da semana e o horário
-                molde_por_dia[dia] = {
-                    "offset_dias": dia,  # offset a partir de segunda (0=seg, 3=qui, etc.)
-                    "horario": item.get("horario") or "",
-                    "aula": item.get("aula") or "",
-                }
-        if not molde_por_dia:
-            return []
-        molde = sorted(molde_por_dia.values(), key=lambda m: m["offset_dias"])
-
-        ano = date.today().year
-        mes_num = _mes_numero_app(mes)
-        inicio_periodo = _inicio_periodo_mes_com_antecipacao(ano, mes_num, antecipacao)
-        fim_periodo = _fim_periodo_mes_com_extensao(ano, mes_num, extensao)
-
-        # Encontrar a segunda-feira da semana em que o período começa
-        inicio_bloco = inicio_periodo - timedelta(days=inicio_periodo.weekday())
-
-        itens = []
-        while inicio_bloco <= fim_periodo:
-            for entrada in molde:
-                nova_data = inicio_bloco + timedelta(days=entrada["offset_dias"])
-                if nova_data < inicio_periodo or nova_data > fim_periodo:
-                    continue
-                itens.append({
-                    "data": nova_data,
-                    "horario": entrada["horario"],
-                    "aula": entrada["aula"],
-                })
-            inicio_bloco += timedelta(days=7)
-        return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
-
-    itens = []
-    for padrao in _padroes_horario_config(config, turma):
-        for data_aula in _datas_do_mes_por_dia(
-            mes,
-            padrao["dia"],
-            extensao=extensao,
-            antecipacao=antecipacao,
-        ):
-            itens.append({"data": data_aula, "horario": padrao["horario"]})
-    return sorted(itens, key=lambda item: (item["data"], _indice_horario(item["horario"])))
 
 def _sincronizar_datas_horarios_mes(
     config: dict,
@@ -1233,22 +851,195 @@ _PERFIS_PORTUGUES_PERMITEM_SEM_PDF = {
     "leitura_redacao",
     "matematica",
     "ciencias_ef",
+    "biologia",
+    "quimica",
+    "fisica",
+    "historia",
+    "geografia",
+    "ingles",
+    "arte",
+    "educacao_financeira",
+    "tecnologia_inovacao",
+    "sociologia",
+    "orientacao_estudos",
+    "lideranca_oratoria",
+    "geral",
 }
 
 
-def _permite_um_dia_sem_pdf_portugues(disciplina: str, turma: str = "") -> bool:
+def _permite_um_dia_sem_pdf(
+    disciplina: str,
+    turma: str = "",
+    modo_eja: bool = False,
+    modo_cdp: bool = False,
+) -> bool:
+    """Verifica se a disciplina/modalidade permite a opção de deixar 1 dia da semana sem PDF.
+
+    Permitido em Artes e demais disciplinas regulares, EXCETO:
+    - Projeto de Vida
+    - Aprofundamento em Biologia
+    - Aprofundamento em Geografia
+    - Nenhuma disciplina do CDP
+    - Nenhuma disciplina do EJA
+    """
+    if modo_eja or modo_cdp:
+        return False
+
+    disc_str = str(disciplina or "").strip()
+    if not disc_str:
+        return False
+
+    disc_norm = re.sub(r"\s+", " ", disc_str).lower()
+    disc_norm_sem_acento = (
+        unicodedata.normalize("NFKD", disc_norm).encode("ASCII", "ignore").decode("ascii")
+    )
+
+    # 1. Bloquear CDP ou EJA no nome da disciplina
+    if "cdp" in disc_norm_sem_acento or "eja" in disc_norm_sem_acento:
+        return False
+
+    # 2. Bloquear Projeto de Vida
+    if "projeto" in disc_norm_sem_acento and "vida" in disc_norm_sem_acento:
+        return False
     try:
-        return perfil_disciplina(disciplina, turma=turma) in _PERFIS_PORTUGUES_PERMITEM_SEM_PDF
+        if perfil_disciplina(disc_str, turma=turma) == "projeto_de_vida":
+            return False
+    except Exception:
+        pass
+
+    # 3. Bloquear Aprofundamento em Biologia
+    if "aprofundamento" in disc_norm_sem_acento and "biologia" in disc_norm_sem_acento:
+        return False
+
+    # 4. Bloquear Aprofundamento em Geografia
+    if "aprofundamento" in disc_norm_sem_acento and "geografia" in disc_norm_sem_acento:
+        return False
+
+    return True
+
+
+def _permite_um_dia_sem_pdf_portugues(disciplina: str, turma: str = "") -> bool:
+    return _permite_um_dia_sem_pdf(disciplina, turma=turma)
+
+
+_PERFIS_SEMANAIS_SEM_PDF = {
+    "lingua_portuguesa_ef",
+    "lingua_portuguesa_em",
+    "leitura_redacao",
+    "matematica",
+    "ciencias_ef",
+}
+
+
+def _frequencia_dia_sem_pdf(disciplina: str, turma: str = "") -> str:
+    """Retorna 'semanal' se a disciplina usa 1 dia sem PDF por semana (ex: Português, Matemática, Ciências),
+
+    ou 'quinzenal' se a disciplina usa 1 dia sem PDF a cada 15 dias (ex: Arte, Biologia, Geografia, etc.).
+    """
+    try:
+        if perfil_disciplina(disciplina, turma=turma) in _PERFIS_SEMANAIS_SEM_PDF:
+            return "semanal"
     except Exception:
         disciplina_norm = re.sub(r"\s+", " ", str(disciplina or "")).strip().lower()
-        return (
-            "portugu" in disciplina_norm
-            or "reda" in disciplina_norm
-            or "leitura" in disciplina_norm
-            or "matem" in disciplina_norm
-            or "cienc" in disciplina_norm
-            or "cien" in disciplina_norm
-        )
+        if any(term in disciplina_norm for term in ["portugu", "reda", "leitura", "matem", "cienc", "cien"]):
+            return "semanal"
+
+    return "quinzenal"
+
+
+def _eh_data_sem_pdf(
+    data_aula: date | None,
+    dia_sem_pdf_semana: int | None,
+    datas_agenda: list[date] | None = None,
+    frequencia: str = "semanal",
+) -> bool:
+    """Verifica se uma data de aula específica deve ficar sem PDF conforme a frequência (semanal ou quinzenal)."""
+    if not isinstance(data_aula, date) or dia_sem_pdf_semana is None:
+        return False
+
+    if data_aula.weekday() != dia_sem_pdf_semana:
+        return False
+
+    if frequencia != "quinzenal":
+        return True
+
+    # Para frequência quinzenal (a cada 15 dias):
+    # Identificar a ordem relativa dessa data entre todas as datas da agenda no mesmo dia da semana
+    if not datas_agenda:
+        return True
+
+    datas_dia = sorted(
+        list(dict.fromkeys(d for d in datas_agenda if isinstance(d, date) and d.weekday() == dia_sem_pdf_semana))
+    )
+    if data_aula not in datas_dia:
+        return True
+
+    idx_data = datas_dia.index(data_aula)
+    # A cada 15 dias (semanas alternadas): ocorrências em índices 0, 2, 4... ficam sem PDF
+    return idx_data % 2 == 0
+
+
+def _eh_horario_duplo(item=None, tipo_horario_str: str | None = None) -> bool:
+    """Verifica se um item de horário ou string representa uma aula dupla."""
+    if tipo_horario_str == "Dupla":
+        return True
+    if item in HORARIOS_DUPLAS:
+        return True
+    if isinstance(item, (tuple, list)):
+        texto = " ".join(str(x) for x in item).lower()
+        if " e " in texto or "dupla" in texto:
+            return True
+    elif isinstance(item, str):
+        texto = item.lower()
+        if " e " in texto or "dupla" in texto or "1ª e 2ª" in texto or "3ª e 4ª" in texto or "6ª e 7ª" in texto or "8ª e 9ª" in texto:
+            return True
+    return False
+
+
+def _eh_aula_sem_pdf(
+    idx: int,
+    data_aula: date | None,
+    dia_sem_pdf_semana: int | None,
+    datas_agenda: list[date] | None = None,
+    frequencia: str = "semanal",
+    modo_aula_dupla: str = "uma_aula",
+    eh_horario_duplo: bool = False,
+) -> bool:
+    """Verifica se uma aula específica (pelo índice e data) deve ficar sem PDF."""
+    if not isinstance(data_aula, date) or dia_sem_pdf_semana is None:
+        return False
+
+    if not _eh_data_sem_pdf(data_aula, dia_sem_pdf_semana, datas_agenda=datas_agenda, frequencia=frequencia):
+        return False
+
+    if not datas_agenda:
+        return not (eh_horario_duplo and modo_aula_dupla == "uma_aula")
+
+    # Identificar todas as aulas registradas no mesmo dia de data_aula
+    indices_do_dia = [i for i, d in enumerate(datas_agenda) if d == data_aula]
+
+    # Caso 1: Há múltiplos cards/linhas na mesma data (ex: 2 cards na mesma terça-feira)
+    if len(indices_do_dia) > 1:
+        if modo_aula_dupla == "uma_aula":
+            # A 1ª aula do dia (posição 0) fica COM PDF (False)
+            # As demais aulas do dia (posição > 0) ficam SEM PDF (True)
+            posicao_no_dia = indices_do_dia.index(idx) if idx in indices_do_dia else 0
+            return posicao_no_dia > 0
+        else:
+            return True
+
+    # Caso 2: Há apenas UM card/linha nesta data (len(indices_do_dia) == 1)
+    # Se este card for uma AULA DUPLA (horário duplo) e o modo for "uma_aula":
+    if eh_horario_duplo:
+        if modo_aula_dupla == "uma_aula":
+            # 1 das 2 aulas é com PDF -> este card PRECISA receber PDF (retorna False)
+            return False
+        else:
+            # Ambas as aulas da aula dupla ficam sem PDF (retorna True)
+            return True
+
+    # Aula simples e única no dia: fica sem PDF (retorna True)
+    return True
 
 
 def _eh_bloco_sem_pdf(aula: dict) -> bool:
@@ -1356,55 +1147,6 @@ def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files, replicar_p
     return aulas_envio, len(grupos)
 
 
-def _is_aula_dupla(item: dict) -> bool:
-    if not item: return False
-    horario = str(item.get("horario") or "").lower()
-    aulas_list = item.get("aulas")
-    if isinstance(aulas_list, list) and len(aulas_list) > 1:
-        return True
-    if " e " in horario or "dupla" in horario or "geminada" in horario:
-        return True
-    return False
-
-def _divisao_pdf_padrao(idx: int, total_aulas: int, lista_aulas: list = None) -> bool:
-    if lista_aulas and idx < len(lista_aulas):
-        if _is_aula_dupla(lista_aulas[idx]):
-            return False
-            
-        single_class_count = 0
-        for i in range(idx):
-            if not _is_aula_dupla(lista_aulas[i]):
-                single_class_count += 1
-                
-        if idx + 1 < len(lista_aulas):
-            if not _is_aula_dupla(lista_aulas[idx+1]) and single_class_count % 2 == 0:
-                return True
-                
-        return False
-
-    return bool(idx % 2 == 0 and idx < total_aulas - 1)
-
-
-def _sincronizar_divisao_pdf_padrao(
-    num_rows: int,
-    dividir_metodologia: bool,
-    key_prefix: str = "",
-    contexto: str = "",
-    lista_aulas: list = None,
-) -> None:
-    assinatura_chave = f"{key_prefix}dividir_metodologia_assinatura"
-    assinatura_atual = f"v3|{bool(dividir_metodologia)}|{int(num_rows or 0)}|{contexto}"
-    assinatura_anterior = st.session_state.get(assinatura_chave)
-    acabou_de_ativar = bool(dividir_metodologia) and assinatura_anterior != assinatura_atual
-
-    st.session_state[assinatura_chave] = assinatura_atual
-    if not dividir_metodologia:
-        return
-
-    for idx in range(int(num_rows or 0)):
-        chave = f"{key_prefix}dividir_pdf_aula_{idx}"
-        if acabou_de_ativar or chave not in st.session_state:
-            st.session_state[chave] = _divisao_pdf_padrao(idx, int(num_rows or 0), lista_aulas)
 
 
 def _estimar_pdfs_por_estado(num_rows: int, dividir_metodologia: bool, key_prefix: str = "", lista_aulas: list = None) -> int:
@@ -1453,6 +1195,8 @@ def _coletar_aulas_envio(
     antecipacao_mes: int = 0,
     permitir_um_dia_sem_pdf: bool = False,
     dia_sem_pdf_semana: int | None = None,
+    frequencia_dia_sem_pdf: str = "semanal",
+    modo_aula_dupla: str = "uma_aula",
 ):
     aulas_envio = []
     datas_cache = []
@@ -1582,7 +1326,15 @@ def _coletar_aulas_envio(
         eh_bloco_sem_pdf = bool(
             permitir_um_dia_sem_pdf
             and dia_sem_pdf_semana is not None
-            and data_aula.weekday() == dia_sem_pdf_semana
+            and _eh_aula_sem_pdf(
+                idx,
+                data_aula,
+                dia_sem_pdf_semana,
+                datas_agenda=datas_cache,
+                frequencia=frequencia_dia_sem_pdf,
+                modo_aula_dupla=modo_aula_dupla,
+                eh_horario_duplo=_eh_horario_duplo(horario_aula, tipo_horario),
+            )
         )
         st.divider()
         dividir_pdf = False
@@ -1630,24 +1382,93 @@ def _coletar_aulas_envio(
                     st.caption(msg)
 
         if pdf_individual_2:
-            import re
-            horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
-            match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
-            if match:
-                aula1, aula2 = match.groups()
-                aulas_envio.append({"data": data_aula, "horario": f"{aula1}ª aula", "pdf": pdf_individual, "dividir_pdf": False})
-                aulas_envio.append({"data": data_aula, "horario": f"{aula2}ª aula", "pdf": pdf_individual_2, "dividir_pdf": False})
+            turno, aulas_numeros = _turno_e_aulas_de_horario(horario_aula)
+            sugestoes = [_montar_horario_flexivel(turno, [a]) for a in aulas_numeros if a]
+            if len(sugestoes) >= 2:
+                h1, h2 = sugestoes[0], sugestoes[1]
             else:
-                aulas_envio.append({"data": data_aula, "horario": f"Aula 1 ({horario_str})", "pdf": pdf_individual, "dividir_pdf": False})
-                aulas_envio.append({"data": data_aula, "horario": f"Aula 2 ({horario_str})", "pdf": pdf_individual_2, "dividir_pdf": False})
+                horario_str = horario_aula[1] if isinstance(horario_aula, tuple) and len(horario_aula) > 1 else str(horario_aula)
+                match = re.search(r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula", horario_str, flags=re.IGNORECASE)
+                a1, a2 = match.groups() if match else ("1", "2")
+                horas = re.findall(r"\b\d{1,2}h\d{0,2}\b", str(horario_aula), flags=re.IGNORECASE)
+                if len(horas) >= 2:
+                    h1, h2 = (horas[0], f"{a1}ª aula"), (horas[1], f"{a2}ª aula")
+                elif len(horas) == 1:
+                    h1, h2 = (horas[0], f"{a1}ª aula"), (horas[0], f"{a2}ª aula")
+                elif match:
+                    h1, h2 = f"{a1}ª aula", f"{a2}ª aula"
+                else:
+                    h1, h2 = f"Aula 1 ({horario_str})", f"Aula 2 ({horario_str})"
+
+            aulas_envio.append({"data": data_aula, "horario": h1, "pdf": pdf_individual, "dividir_pdf": False})
+            aulas_envio.append({"data": data_aula, "horario": h2, "pdf": pdf_individual_2, "dividir_pdf": False})
         else:
-            aulas_envio.append({
-                "data": data_aula,
-                "horario": horario_aula,
-                "pdf": None if eh_bloco_sem_pdf else pdf_individual,
-                "dividir_pdf": False if eh_bloco_sem_pdf else dividir_pdf,
-                "bloco_sem_pdf": eh_bloco_sem_pdf,
-            })
+            # Verificar se é aula dupla em dia sem PDF com modo "uma_aula":
+            # neste caso, gerar dois registros separados (1 com PDF + 1 sem PDF),
+            # para que o DOCX produza uma linha com conteúdo e uma linha em branco
+            # abaixo (para preenchimento manual pelo professor), assim como acontece
+            # quando o professor edita manualmente o plano.
+            eh_dia_sem_pdf_base = bool(
+                permitir_um_dia_sem_pdf
+                and dia_sem_pdf_semana is not None
+                and _eh_data_sem_pdf(
+                    data_aula,
+                    dia_sem_pdf_semana,
+                    datas_agenda=datas_cache,
+                    frequencia=frequencia_dia_sem_pdf,
+                )
+            )
+            eh_aula_dupla_splittavel = (
+                eh_dia_sem_pdf_base
+                and _eh_horario_duplo(horario_aula, tipo_horario)
+                and modo_aula_dupla == "uma_aula"
+                and not eh_antecipacao_vazia
+            )
+            if eh_aula_dupla_splittavel:
+                # Extrair os números individuais das aulas (ex: "1ª e 2ª aula" → "1" e "2")
+                horario_str_dupla = (
+                    horario_aula[1]
+                    if isinstance(horario_aula, tuple) and len(horario_aula) > 1
+                    else str(horario_aula)
+                )
+                match_dupla = re.search(
+                    r"(\d+)(?:[ªºoa])?\s*e\s*(\d+)(?:[ªºoa])?\s*aula",
+                    horario_str_dupla,
+                    flags=re.IGNORECASE,
+                )
+                if match_dupla:
+                    aula1_num, aula2_num = match_dupla.groups()
+                    horario_com_pdf = f"{aula1_num}ª aula"
+                    horario_sem_pdf = f"{aula2_num}ª aula"
+                else:
+                    horario_com_pdf = horario_str_dupla
+                    horario_sem_pdf = horario_str_dupla
+                # Registro 1: aula com conteúdo pedagógico (PDF)
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_com_pdf,
+                    "pdf": pdf_individual,
+                    "dividir_pdf": False,
+                    "bloco_sem_pdf": False,
+                    "ordem_original": idx * 2,
+                })
+                # Registro 2: aula sem PDF (linha em branco para preenchimento manual)
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_sem_pdf,
+                    "pdf": None,
+                    "dividir_pdf": False,
+                    "bloco_sem_pdf": True,
+                    "ordem_original": idx * 2 + 1,
+                })
+            else:
+                aulas_envio.append({
+                    "data": data_aula,
+                    "horario": horario_aula,
+                    "pdf": None if eh_bloco_sem_pdf else pdf_individual,
+                    "dividir_pdf": False if eh_bloco_sem_pdf else dividir_pdf,
+                    "bloco_sem_pdf": eh_bloco_sem_pdf,
+                })
 
     if modo_upload_individual:
         # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
@@ -1678,50 +1499,6 @@ def _coletar_aulas_envio(
         aula["ordem_original"] = ordem_original
     return aulas_envio
 
-def _texto_metodologia_app(aula: dict) -> str:
-    metodologia = aula.get("metodologia") or []
-    blocos = []
-    for item in metodologia:
-        if isinstance(item, dict):
-            titulo = item.get("titulo", "").strip()
-            texto = item.get("texto", "").strip()
-            if titulo: blocos.append(f"{titulo}: {texto}")
-            else: blocos.append(texto)
-        else: blocos.append(str(item))
-    return "\n\n".join(blocos)
-
-_TITULOS_METODOLOGIA_APP = {
-    "para comecar": "Para comecar", "para começar": "Para comecar", "contextualizacao": "Contextualizacao",
-    "leitura analitica": "Leitura analitica", "exploracao": "Exploracao", "formalizacao": "Formalizacao",
-    "na pratica": "Na pratica", "sistematizacao": "Sistematizacao", "encerramento": "Encerramento",
-}
-
-def _normalizar_titulo_metodologia_app(texto: str) -> str:
-    texto = (texto or "").strip().lower()
-    mapa = str.maketrans("áàâãéêíóôõúç", "aaaaeeiooouc")
-    return re.sub(r"\s+", " ", texto.translate(mapa)).strip()
-
-def _metodologia_app_para_blocos(texto: str):
-    linhas = [linha.rstrip() for linha in str(texto or "").splitlines()]
-    blocos = []
-    atual = None
-    for linha in linhas:
-        limpa = linha.strip()
-        if not limpa: continue
-        match = re.match(r"^([^:]{2,80}):\s*(.*)$", limpa)
-        titulo_chave = _normalizar_titulo_metodologia_app(match.group(1)) if match else ""
-        if match and titulo_chave in _TITULOS_METODOLOGIA_APP:
-            if atual:
-                atual["texto"] = " ".join(atual["texto"]).strip()
-                blocos.append(atual)
-            atual = {"titulo": _TITULOS_METODOLOGIA_APP[titulo_chave], "texto": [match.group(2).strip()] if match.group(2).strip() else []}
-            continue
-        if atual: atual["texto"].append(limpa)
-        else: blocos.append(limpa)
-    if atual:
-        atual["texto"] = " ".join(atual["texto"]).strip()
-        blocos.append(atual)
-    return blocos or [str(texto or "").strip()]
 
 def _extrair_aulas_dos_pdfs(
     aulas_envio, disciplina: str, turma_atual: str, bimestre: str, modo_ia: str,
@@ -1799,12 +1576,18 @@ def _extrair_aulas_dos_pdfs(
             )
             problemas_plano = validar_aulas_geradas(aulas, permitir_temas_repetidos=cdp_contextual, permitir_metodologia_simples=cdp_contextual or dividir_metodologia)
             
+            problemas_bloqueantes = []
             for problema in problemas_plano:
-                if "repetido de aula anterior" in str(problema).lower(): avisos_repeticao.append(problema)
-                else: raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_plano))
+                if "repetido de aula anterior" in str(problema).lower():
+                    avisos_repeticao.append(problema)
+                else:
+                    problemas_bloqueantes.append(problema)
+            if problemas_bloqueantes:
+                raise ValueError("Problemas encontrados:\n" + "\n".join(problemas_bloqueantes))
 
         aulas_vazias = []
         for aula_envio in aulas_antecipacao + aulas_sem_pdf:
+            eh_sem_pdf = bool(aula_envio.get("bloco_sem_pdf", False))
             horario_vazio = (
                 disciplina and turma_atual and disciplina.lower() == "matemática" and (
                     "6º/7º" in turma_atual.lower()
@@ -1814,7 +1597,8 @@ def _extrair_aulas_dos_pdfs(
                 )
             )
             aulas_vazias.append({
-                "tema": "",
+                "tema": "RECOMPOSIÇÃO DA APRENDIZAGEM" if eh_sem_pdf else "",
+                "material": "RECOMPOSIÇÃO DA APRENDIZAGEM\n\nAULA: \nBIMESTRE" if eh_sem_pdf else "",
                 "conteudo": "",
                 "aprendizagem": "",
                 "metodologia": [],
@@ -1824,6 +1608,7 @@ def _extrair_aulas_dos_pdfs(
                 "data": aula_envio["data"].strftime("%d/%m"),
                 "horario": "" if horario_vazio else horario_para_plano(aula_envio["horario"]),
                 "aula_vazia": True,
+                "bloco_sem_pdf": eh_sem_pdf,
                 "ordem_original": aula_envio.get("ordem_original", 0),
             })
 
@@ -1896,7 +1681,7 @@ st.markdown(SECTION_HEADER_HTML, unsafe_allow_html=True)
 
 from streamlit_option_menu import option_menu
 
-modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro", "Diagnóstico", "Histórico"]
+modos_disponiveis = ["Planos gerais", "CDP-EF/EM", "EJA", "Cadastro", "Diagnóstico", "Histórico", "Conferência Mensal", "PEI Inclusão"]
 if st.session_state.get("modo_tela") == "Geração em Lote":
     st.session_state["modo_tela"] = "Planos gerais"
 
@@ -1909,7 +1694,7 @@ idx_default = modos_disponiveis.index(default_modo)
 modo_tela = option_menu(
     menu_title=None,
     options=modos_disponiveis,
-    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history"],
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history", "check2-square"],
     menu_icon="cast",
     default_index=idx_default,
     orientation="horizontal",
@@ -1923,10 +1708,14 @@ modo_eja = modo_tela == "EJA"
 modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
 modo_historico = modo_tela == "Histórico"
+modo_conferencia_mensal = modo_tela == "Conferência Mensal"
+modo_pei = modo_tela == "PEI Inclusão"
 
 if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()
 if modo_historico: _renderizar_historico(PROFESSORES_DB); st.stop()
+if modo_conferencia_mensal: _renderizar_conferencia_mensal(PROFESSORES_DB); st.stop()
+if modo_pei: _renderizar_pei(PROFESSORES_DB); st.stop()
 
 TEMPLATES_DIR = TEMPLATES_DOCX_DIR
 TEMPLATES_DIR.mkdir(exist_ok=True)
@@ -1947,7 +1736,7 @@ if modo_cdp_ef_em:
 
 if modo_eja:
     st.info(
-        "Modalidade EJA: escolha Língua Inglesa, Biologia ou Liderança e Oratória. "
+        "Modalidade EJA: escolha Língua Inglesa, Biologia, Liderança e Oratória ou Química. "
         "A geração usará linguagem adulta, direta e ligada ao mundo do trabalho.",
         icon="👥",
     )
@@ -2250,7 +2039,7 @@ def _resolver_pasta_pdfs_oficial(
             f"Pasta oficial de PDFs indisponivel: {raiz_oficial}"
         )
 
-    disciplinas_busca = [f"{disciplina}-EJA", disciplina] if modo_eja else [disciplina]
+    disciplinas_busca = [f"{disciplina} EJA", disciplina] if modo_eja else [disciplina]
     candidatos = []
     for disciplina_busca in disciplinas_busca:
         pasta = resolver_pasta_pdfs(
@@ -2348,109 +2137,6 @@ def _limitar_sequencia_ae(numeros: list[int], limite: int | None = None) -> list
     return list(numeros or [])[:limite_int]
 
 
-def _nome_pdf_para_tela(arquivo) -> str:
-    return html.escape(str(getattr(arquivo, "name", None) or Path(str(arquivo)).name))
-
-
-def _render_painel_pdfs(
-    *,
-    modo: str,
-    necessarios: int,
-    carregados: int,
-    total_aulas: int = 0,
-    dividir_metodologia: bool = False,
-    encontrados: int = 0,
-    pasta: str = "",
-    selecionados=None,
-    faltantes_ae=None,
-) -> None:
-    selecionados = list(selecionados or [])
-    faltantes_ae = list(faltantes_ae or [])
-    necessarios = max(0, int(necessarios or 0))
-    carregados = max(0, int(carregados or 0))
-    total_aulas = max(0, int(total_aulas or 0))
-    encontrados = max(0, int(encontrados or 0))
-    modo_texto = str(modo or "-").strip()
-    if modo_texto != "Automatico":
-        pasta = ""
-        encontrados = 0
-        faltantes_ae = []
-    faltam = max(necessarios - carregados, 0)
-    excedentes = max(carregados - necessarios, 0)
-    progresso = 0 if necessarios <= 0 else min(100, int(round((carregados / necessarios) * 100)))
-
-    if necessarios <= 0:
-        status_texto = "Aguardando modelo"
-        status_classe = "neutral"
-        orientacao = "Selecione professor, turma e modelo para o sistema calcular quantos PDFs serao usados."
-    elif faltam > 0:
-        status_texto = f"Faltam {faltam}"
-        status_classe = "warning"
-        orientacao = f"Adicione mais {faltam} PDF(s) para completar o plano."
-    elif excedentes > 0:
-        status_texto = f"{excedentes} a mais"
-        status_classe = "warning"
-        orientacao = "Revise a selecao: ha mais PDFs do que a organizacao atual exige."
-    else:
-        status_texto = "Completo"
-        status_classe = "success"
-        orientacao = "Tudo certo: a quantidade de PDFs bate com a organizacao escolhida."
-
-    criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
-    aulas_rotulo = total_aulas or necessarios
-
-    html = f"""<div class="pdf-dashboard">
-    <div class="pdf-dashboard__header">
-        <div>
-            <span class="pdf-dashboard__eyebrow">Painel dos PDFs</span>
-            <div class="pdf-dashboard__title">Organização das aulas</div>
-            <div class="pdf-dashboard__subtitle">{orientacao}</div>
-        </div>
-        <div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">
-            {status_texto}
-        </div>
-    </div>
-    
-    <div class="pdf-dashboard__stats">
-        <div class="pdf-stat">
-            <span>Modo</span>
-            <strong>{modo_texto}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Necessários</span>
-            <strong>{necessarios}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Agendados</span>
-            <strong>{carregados}</strong>
-        </div>
-        <div class="pdf-stat">
-            <span>Encontrados</span>
-            <strong>{encontrados}</strong>
-        </div>
-    </div>
-    <div class="pdf-progress">
-        <div class="pdf-progress__bar" style="width: {progresso}%;"></div>
-    </div>
-</div>"""
-    st.markdown(html, unsafe_allow_html=True)
-
-    st.progress(progresso)
-    st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
-
-    if pasta:
-        st.caption(f"Pasta automatica: {pasta}")
-
-    if faltantes_ae:
-        faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
-        st.warning(f"PDFs AE nao encontrados: {faltantes_txt}")
-
-    st.markdown("**Ordem que sera processada**")
-    if selecionados:
-        for indice, item in enumerate(selecionados, start=1):
-            st.write(f"{indice}. {_nome_pdf_para_tela(item)}")
-    else:
-        st.caption("Nenhum PDF selecionado ainda.")
 
 
 sequencia_ae_contexto = []
@@ -2508,7 +2194,44 @@ def _render_previa_aulas_cdp(preview: list[dict]):
 
 semana = ""
 
-# Pre-populate observation for August with the current fixed calendar text
+# Texto padrão fixo para NOVEMBRO
+default_novembro = (
+    "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
+    "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
+    "identificadas, preservando os objetivos de aprendizagem estabelecidos.\n"
+    "02/11 - FERIADO (FINADOS)   15/11 - FERIADO (Proclamação da República)\n"
+    "20/11 - FERIADO (Dia da Consciência Negra)\n"
+    "04/11 e 05/11 Provão Paulista - 3º Série   06/11 a 09/11 SARESP ENSINO MÉDIO\n"
+    "10/11 a 13//1 - PROVÃO PAULISTA 1ª e 2ª SÉRIE ENSINO MÉDIO \n"
+    "18/11 E 19/11 SARESP - 6º ANO   26/11 E 27/11 SARESP 7ºANO  30/11 - SARESP 8º ANO "
+)
+
+# Texto padrão fixo para OUTUBRO
+default_outubro = (
+    "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
+    "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
+    "identificadas, preservando os objetivos de aprendizagem estabelecidos, bem como "
+    "poderá fazer uso de tecnologias, quando achar necessário.\n"
+    "12/10 – Feriado Nacional\n"
+    "15/10 - Feriado (Dia do Professor)\n"
+    "16/10 - Conselho de Classe 3º Bimestre\n"
+    "Simulado SARESP;\n"
+    "Jornada da Aprendizagem;\n"
+    "Simulado ENEM;\n"
+    "Devolutivas e feedbacks dos simulados"
+)
+default_outubro_legado = (
+    "O professor poderá realizar adequações neste plano de aula, sempre que necessário, "
+    "em função do andamento das aulas, do ritmo da turma e das necessidades pedagógicas "
+    "identificadas, preservando os objetivos de aprendizagem estabelecidos, bem como "
+    "poderá fazer uso de tecnologias, quando achar necessário.\n"
+    "12/10 – Feriado Nacional\n"
+    "15/10 - Feriado (Dia do Professor)\n"
+    "16/10 - Conselho de Classe 3º Bimestre"
+)
+observacoes_automaticas_outubro = {default_outubro, default_outubro_legado}
+
+# Texto padrão fixo para AGOSTO
 default_agosto = (
     "Replanejamento – 22 e 23.07;\n"
     "Período do plano – 24.07 até 31.08;\n"
@@ -2518,25 +2241,54 @@ default_agosto = (
 default_agosto_legado = "06/08 - Aniversário da cidade\n07/08 - Ponto facultativo"
 observacoes_automaticas_agosto = {default_agosto, default_agosto_legado}
 
+# Conjunto de todos os textos automáticos conhecidos (para detectar troca de mês)
+_obs_automaticas_conhecidas = (
+    observacoes_automaticas_agosto
+    | observacoes_automaticas_outubro
+    | {default_novembro}
+    | {obs.strip() for obs in (default_outubro, default_outubro_legado, default_novembro)}
+    | {default_novembro.replace("13//1", "13/11"), default_novembro.replace("13//1", "13/11").strip()}
+)
+
 if "observacao" not in st.session_state or not st.session_state["observacao"]:
     if mes.strip().upper() == "AGOSTO":
         st.session_state["observacao"] = default_agosto
+    elif mes.strip().upper() == "OUTUBRO":
+        st.session_state["observacao"] = default_outubro
+    elif mes.strip().upper() == "NOVEMBRO":
+        st.session_state["observacao"] = default_novembro
 elif (
     mes.strip().upper() == "AGOSTO"
     and str(st.session_state.get("observacao", "") or "").strip() == default_agosto_legado
 ):
     st.session_state["observacao"] = default_agosto
+elif (
+    mes.strip().upper() == "OUTUBRO"
+    and str(st.session_state.get("observacao", "") or "").strip() in {default_outubro_legado, default_outubro_legado.strip()}
+):
+    st.session_state["observacao"] = default_outubro
+elif (
+    mes.strip().upper() == "NOVEMBRO"
+    and str(st.session_state.get("observacao", "") or "").strip() in (observacoes_automaticas_agosto | observacoes_automaticas_outubro)
+):
+    st.session_state["observacao"] = default_novembro
 
 if "last_mes_for_obs" not in st.session_state:
     st.session_state["last_mes_for_obs"] = mes
 
 if st.session_state["last_mes_for_obs"] != mes:
-    current_obs = st.session_state.get("observacao", "")
+    current_obs = st.session_state.get("observacao", "").strip()
     if mes.strip().upper() == "AGOSTO":
-        if not current_obs or current_obs.strip() in {"", default_agosto_legado}:
+        if not current_obs or current_obs in {"", default_agosto_legado} or current_obs in _obs_automaticas_conhecidas:
             st.session_state["observacao"] = default_agosto
+    elif mes.strip().upper() == "OUTUBRO":
+        if not current_obs or current_obs in _obs_automaticas_conhecidas:
+            st.session_state["observacao"] = default_outubro
+    elif mes.strip().upper() == "NOVEMBRO":
+        if not current_obs or current_obs in _obs_automaticas_conhecidas:
+            st.session_state["observacao"] = default_novembro
     else:
-        if current_obs.strip() in observacoes_automaticas_agosto:
+        if current_obs in _obs_automaticas_conhecidas:
             st.session_state["observacao"] = ""
     st.session_state["last_mes_for_obs"] = mes
 
@@ -2579,11 +2331,18 @@ else:
     linhas_modelo = len(datas_horarios_mes or []) or len((config_turma_selecionada or {}).get("datas_horarios") or [])
     sequencia_pdf_esperada_ae = []
     contexto_divisao_pdf = "|".join(str(valor or "") for valor in [professor, disciplina, turma, mes, bimestre])
+    frequencia_dia_sem_pdf = _frequencia_dia_sem_pdf(disciplina, turma=turma)
     permitir_dia_sem_pdf_portugues = bool(
-        not disciplina_cdp and _permite_um_dia_sem_pdf_portugues(disciplina, turma=turma)
+        _permite_um_dia_sem_pdf(
+            disciplina,
+            turma=turma,
+            modo_eja=modo_eja,
+            modo_cdp=disciplina_cdp or modo_cdp_dedicado or modo_cdp_ef_em,
+        )
     )
     usar_dia_sem_pdf_portugues = False
     dia_sem_pdf_portugues = None
+    modo_aula_dupla = "uma_aula"
 
     deixar_ant_vazia = bool(st.session_state.get("deixar_antecipacao_vazia", False))
     if deixar_ant_vazia and datas_horarios_mes:
@@ -2611,24 +2370,51 @@ else:
     dividir_metodologia = st.checkbox("Dividir metodologia em dois dias", value=False, key="dividir_metodologia")
     if permitir_dia_sem_pdf_portugues:
         st.checkbox(
-            "Permitir 1 dia da semana sem PDF",
+            "Permitir 1 dia sem PDF",
             key="permitir_dia_sem_pdf_portugues",
-            help="Use esta opção para deixar um dos dias semanais de Português, Matemática ou Ciências em branco no plano, mantendo apenas a data.",
+            help="Use esta opção para deixar um dos dias da disciplina em branco no plano (sem PDF), mantendo apenas a data.",
         )
         usar_dia_sem_pdf_portugues = bool(st.session_state.get("permitir_dia_sem_pdf_portugues", False))
         if usar_dia_sem_pdf_portugues:
             opcoes_dia_sem_pdf = _opcoes_dia_sem_pdf(datas_horarios_mes)
             valores_dia_sem_pdf = [dia for dia, _ in opcoes_dia_sem_pdf]
             if valores_dia_sem_pdf:
-                chave_dia_sem_pdf = "dia_sem_pdf_portugues"
-                if st.session_state.get(chave_dia_sem_pdf) not in valores_dia_sem_pdf:
-                    st.session_state[chave_dia_sem_pdf] = valores_dia_sem_pdf[0]
-                dia_sem_pdf_portugues = st.selectbox(
-                    "Dia da semana que ficará sem PDF",
-                    valores_dia_sem_pdf,
-                    key=chave_dia_sem_pdf,
-                    format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
-                )
+                col_freq, col_dia, col_dupla = st.columns([1, 1, 1])
+                with col_freq:
+                    opcoes_freq = ["A cada 15 dias (semanas alternadas)", "Toda semana (semanal)"]
+                    default_freq_idx = 0 if _frequencia_dia_sem_pdf(disciplina, turma=turma) == "quinzenal" else 1
+                    chave_freq_opcao = "frequencia_dia_sem_pdf_opcao"
+                    if st.session_state.get(chave_freq_opcao) not in opcoes_freq:
+                        st.session_state[chave_freq_opcao] = opcoes_freq[default_freq_idx]
+                    freq_selecionada = st.selectbox(
+                        "Frequência do dia sem PDF",
+                        opcoes_freq,
+                        key=chave_freq_opcao,
+                        help="Escolha se a isenção de PDF ocorrerá a cada 15 dias ou toda semana.",
+                    )
+                    frequencia_dia_sem_pdf = "quinzenal" if "15 dias" in str(freq_selecionada) else "semanal"
+                with col_dia:
+                    chave_dia_sem_pdf = "dia_sem_pdf_portugues"
+                    if st.session_state.get(chave_dia_sem_pdf) not in valores_dia_sem_pdf:
+                        st.session_state[chave_dia_sem_pdf] = valores_dia_sem_pdf[0]
+                    dia_sem_pdf_portugues = st.selectbox(
+                        "Dia da semana que ficará sem PDF",
+                        valores_dia_sem_pdf,
+                        key=chave_dia_sem_pdf,
+                        format_func=lambda valor: DIAS_SEMANA_COMPLETOS[int(valor)],
+                    )
+                with col_dupla:
+                    opcoes_dupla = ["1 aula com PDF + 1 sem PDF", "Ambas as aulas sem PDF"]
+                    chave_dupla_opcao = "modo_aula_dupla_sem_pdf_opcao"
+                    if st.session_state.get(chave_dupla_opcao) not in opcoes_dupla:
+                        st.session_state[chave_dupla_opcao] = opcoes_dupla[0]
+                    dupla_selecionada = st.selectbox(
+                        "Em dias com aula dupla",
+                        opcoes_dupla,
+                        key=chave_dupla_opcao,
+                        help="Escolha se apenas 1 das aulas duplas fica sem PDF ou se ambas ficam sem PDF.",
+                    )
+                    modo_aula_dupla = "uma_aula" if "1 aula" in str(dupla_selecionada) else "ambas"
     _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
@@ -2667,42 +2453,80 @@ else:
             erro_pasta_pdfs_auto = str(exc)
     faltantes_ae_auto = []
     pdfs_selecionados_tela = []
-    from core.gestao_aulas import obter_referencia_ultima_aula_historico
+    from core.gestao_aulas import obter_referencia_ultima_aula_ampla
+    from core.database import salvar_progresso_aula
 
-    referencia_historico = obter_referencia_ultima_aula_historico(
+    referencia_historico = obter_referencia_ultima_aula_ampla(
         professor,
         disciplina,
         turma,
         bimestre,
     )
-    if referencia_historico and referencia_historico["ultima_aula"] > 0:
-        proxima_aula = referencia_historico["ultima_aula"] + 1
-        ultimo_pdf_info = ""
-        if referencia_historico.get("ultimo_pdf"):
-            ultimo_pdf_info = f" (PDF: `{referencia_historico['ultimo_pdf']}`)"
-        st.info(
-            "📚 **Continuidade dos PDFs:** no último plano salvo no histórico "
-            f"para este professor, disciplina, turma e bimestre, a geração foi até a "
-            f"**Aula {referencia_historico['ultima_aula']}**{ultimo_pdf_info}. Para continuar, "
-            f"o sistema sugere começar a partir do PDF da **Aula {proxima_aula}**."
+    ultima_aula_sugerida = int(referencia_historico.get("ultima_aula") or 0)
+
+    # Campo interativo para definir ou confirmar a última aula utilizada
+    col_ua1, col_ua2 = st.columns([1, 2])
+    chave_input_ua = f"input_ultima_aula_{_slug_key(professor)}_{_slug_key(disciplina)}_{_slug_key(turma)}"
+    with col_ua1:
+        ultima_aula_digitada = st.number_input(
+            "🔢 Última aula usada no mês anterior",
+            min_value=0,
+            max_value=300,
+            value=ultima_aula_sugerida,
+            key=chave_input_ua,
+            help="Informe ou ajuste o número da última aula utilizada no mês anterior. O sistema começará a seleção a partir da aula seguinte.",
         )
-    elif referencia_historico:
-        st.warning(
-            "Há um plano salvo no histórico para este contexto, mas não foi possível "
-            "identificar o número da última aula no arquivo. Confira-o na aba Histórico "
-            "antes de escolher os PDFs."
-        )
+    with col_ua2:
+        if ultima_aula_digitada > 0:
+            detalhe_origem = ""
+            if referencia_historico.get("origem") == "memoria_progresso":
+                detalhe_origem = " (gravada na memória do sistema)"
+            elif referencia_historico.get("origem") in ("historico_bimestre", "historico_geral"):
+                detalhe_origem = " (identificada no plano anterior)"
+            elif referencia_historico.get("origem") == "arquivo_docx":
+                detalhe_origem = " (detectada no último DOCX da pasta)"
+
+            ultimo_pdf_info = ""
+            if referencia_historico.get("ultimo_pdf"):
+                ultimo_pdf_info = f" • PDF: `{referencia_historico['ultimo_pdf']}`"
+
+            st.markdown(
+                f'<div style="padding-top: 26px; font-weight: 600; color: #1e7e34; font-size: 0.95rem;">'
+                f'🟢 Iniciando a seleção a partir da <strong>AULA {ultima_aula_digitada + 1}</strong>{detalhe_origem}{ultimo_pdf_info}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="padding-top: 26px; color: #6c757d; font-size: 0.95rem;">'
+                'ℹ️ Iniciando da <strong>AULA 1</strong> (ou digite o número da última aula ao lado)'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    # Se o usuário alterou manualmente o número da última aula na tela, atualiza imediatamente a memória
+    if ultima_aula_digitada != ultima_aula_sugerida:
+        salvar_progresso_aula(professor, disciplina, turma, ultima_aula_digitada, mes=mes)
 
     if not modo_upload_individual:
         # Calcular PDFs necessários estimados para o rótulo do uploader
         est_necessarios = 0
+        datas_modelo_base = [a.get("data") for a in aulas_oficiais_modelo if isinstance(a.get("data"), date)]
         aulas_oficiais_modelo_pdf = [
-            aula for aula in aulas_oficiais_modelo
+            aula for idx_a, aula in enumerate(aulas_oficiais_modelo)
             if not (
                 usar_dia_sem_pdf_portugues
                 and dia_sem_pdf_portugues is not None
                 and isinstance(aula.get("data"), date)
-                and aula["data"].weekday() == dia_sem_pdf_portugues
+                and _eh_aula_sem_pdf(
+                    idx_a,
+                    aula["data"],
+                    dia_sem_pdf_portugues,
+                    datas_agenda=datas_modelo_base,
+                    frequencia=frequencia_dia_sem_pdf,
+                    modo_aula_dupla=modo_aula_dupla,
+                    eh_horario_duplo=_eh_horario_duplo(aula.get("horario")),
+                )
             )
         ]
         if linhas_modelo_pdf > 0:
@@ -2713,13 +2537,22 @@ else:
             )
             
         if gerar_turma_espelho and len(aulas_oficiais_modelo_espelho) > 0:
+            datas_modelo_espelho = [a.get("data") for a in aulas_oficiais_modelo_espelho if isinstance(a.get("data"), date)]
             aulas_oficiais_modelo_espelho_pdf = [
-                aula for aula in aulas_oficiais_modelo_espelho
+                aula for idx_a, aula in enumerate(aulas_oficiais_modelo_espelho)
                 if not (
                     usar_dia_sem_pdf_portugues
                     and dia_sem_pdf_portugues is not None
                     and isinstance(aula.get("data"), date)
-                    and aula["data"].weekday() == dia_sem_pdf_portugues
+                    and _eh_aula_sem_pdf(
+                        idx_a,
+                        aula["data"],
+                        dia_sem_pdf_portugues,
+                        datas_agenda=datas_modelo_espelho,
+                        frequencia=frequencia_dia_sem_pdf,
+                        modo_aula_dupla=modo_aula_dupla,
+                        eh_horario_duplo=_eh_horario_duplo(aula.get("horario")),
+                    )
                 )
             ]
             est_necessarios_espelho = _estimar_pdfs_por_estado(
@@ -2800,10 +2633,8 @@ else:
 
             if pdf_files_disponiveis:
                 default_selection = []
-                from core.database import obter_ultima_aula_gerada_sistema
-                ultima_aula = obter_ultima_aula_gerada_sistema(professor, disciplina, turma, bimestre)
+                ultima_aula = int(ultima_aula_digitada or 0)
                 
-                # A continuidade automática foi desativada; a seleção padrão volta à Aula 1.
                 pdf_files_filtrados = []
                 for p in pdf_files_disponiveis:
                     num_aula = numero_aula_pdf(p)
@@ -2881,6 +2712,8 @@ else:
         antecipacao_mes=antecipacao_mes,
         permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
         dia_sem_pdf_semana=dia_sem_pdf_portugues,
+        frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
+        modo_aula_dupla=modo_aula_dupla,
     )
 
     aulas_mes_oficial = [a for a in aulas_envio if not _eh_data_antecipacao(a["data"], mes, antecipacao_mes)] if deixar_ant_vazia else list(aulas_envio)
@@ -2949,6 +2782,8 @@ else:
             sequencia_pdf_esperada=sequencia_pdf_esperada_ae,
             permitir_um_dia_sem_pdf=usar_dia_sem_pdf_portugues,
             dia_sem_pdf_semana=dia_sem_pdf_portugues,
+            frequencia_dia_sem_pdf=frequencia_dia_sem_pdf,
+            modo_aula_dupla=modo_aula_dupla,
         )
 
 st.markdown('<div class="section-title">🚀 Passo 1: Extração e Processamento</div>', unsafe_allow_html=True)
@@ -3105,7 +2940,7 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                     st.session_state["avisos_processamento"] = avisos
                     st.session_state.pop("revisao_token", None)
                     _limpar_revisao_aulas()
-                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
+                    _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor, mes=mes)
                     salvou_historico = _salvar_planos_gerados_se_configurado(
                         planos_gerados,
                         professor,
@@ -3119,389 +2954,31 @@ if st.button(rotulo_botao_geracao, disabled=geracao_em_andamento, type="primary"
                 _registrar_erro_processamento(e)
             st.session_state["geracao_em_andamento"] = False
             st.rerun()
-
+turmas_revisadas = []
 alteracoes_detectadas = False
 
 if st.session_state.get("turmas_processadas"):
-    avisos_processamento = st.session_state.get("avisos_processamento") or []
-    for bloco in avisos_processamento:
-        turma_aviso = str(bloco.get("turma") or "").strip()
-        avisos_turma = [str(aviso).strip() for aviso in bloco.get("avisos", []) if str(aviso).strip()]
-        if avisos_turma:
-            prefixo = f"{turma_aviso}: " if turma_aviso else ""
-            st.warning(prefixo + " | ".join(avisos_turma))
-    st.markdown('<div class="section-title">✏️ Passo 2: Revisão</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Ajuste tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes de montar o arquivo final.</div>', unsafe_allow_html=True)
-    total_turmas_revisao = len(st.session_state["turmas_processadas"])
-    total_aulas_revisao = sum(len(td.get("aulas", [])) for td in st.session_state["turmas_processadas"])
-    st.markdown(
-        f"""
-        <div class="review-shell">
-            <div class="panel-title">Revisão pedagógica centralizada</div>
-            <div class="panel-text">Você está revisando <strong>{total_aulas_revisao}</strong> aula(s) distribuídas em <strong>{total_turmas_revisao}</strong> turma(s). Abra apenas os blocos que quiser ajustar.</div>
-            <div class="panel-pills">
-                <span class="panel-pill">Tema</span>
-                <span class="panel-pill">Metodologia</span>
-                <span class="panel-pill">Acompanhamento</span>
-                <span class="panel-pill">Acessibilidade</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    turmas_revisadas = []
-    rev_tok = st.session_state.get("revisao_token", 0)
-
-    # Detecção de Frases Repetidas (Item 12/13)
-    from collections import defaultdict
-    import re
-    from core.normalizacao import normalizar as normalizar_texto_aux
-
-    contagem_sentencas = defaultdict(list)
-    for t_idx_dup, td_dup in enumerate(st.session_state.get("turmas_processadas", [])):
-        for a_idx_dup, aula_dup in enumerate(td_dup.get("aulas", [])):
-            metodologia_dup = aula_dup.get("metodologia") or []
-            textos_etapas = []
-            for item in metodologia_dup:
-                if isinstance(item, dict):
-                    textos_etapas.append(item.get("texto", ""))
-                else:
-                    textos_etapas.append(str(item))
-            texto_completo = " ".join(textos_etapas)
-            # Divide por sentenças usando pontuação simples
-            sentencas = re.split(r'[.!?\n]', texto_completo)
-            vistas_nesta_aula = set()
-            for s in sentencas:
-                s_limpa = re.sub(r'\s+', ' ', s).strip()
-                palavras = s_limpa.split()
-                if len(palavras) > 8:
-                    s_norm = normalizar_texto_aux(s_limpa)
-                    if s_norm not in vistas_nesta_aula:
-                        vistas_nesta_aula.add(s_norm)
-                        contagem_sentencas[s_norm].append((t_idx_dup, a_idx_dup, s_limpa))
-
-    duplicadas_por_aula = defaultdict(list)
-    for frase_norm, ocorrencias in contagem_sentencas.items():
-        if len(ocorrencias) > 2:
-            # Esta frase está repetida em mais de 2 aulas
-            for t_i, a_i, original_txt in ocorrencias:
-                duplicadas_por_aula[(t_i, a_i)].append(original_txt)
-
-    try:
-        caminhos_relatorio = _salvar_relatorios_conferencia(
-            turmas_processadas=st.session_state.get("turmas_processadas", []),
-            duplicadas_por_aula=duplicadas_por_aula,
-            professor=professor,
-            disciplina=disciplina,
-            turma=turma,
-            mes=mes,
-            bimestre=bimestre,
-            modo_ia=modo_ia,
-            modo_upload_pdf=modo_upload_pdf,
-            pasta_pdfs_auto=pasta_pdfs_auto,
-            pdfs_selecionados=pdfs_selecionados_tela,
-        )
-        if caminhos_relatorio:
-            pasta_relatorio = Path(caminhos_relatorio[0]).parent
-            st.info(
-                "Relatórios de conferência salvos em: "
-                f"{pasta_relatorio}. Esta pasta é só para análise e pode ser apagada depois sem afetar o sistema."
-            )
-    except Exception as err:
-        st.warning(f"Não consegui salvar os relatórios de conferência automaticamente: {err}")
-
-    for t_idx, td in enumerate(st.session_state["turmas_processadas"]):
-        total_aulas_turma = len(td.get("aulas", []))
-        st.markdown(f'<div class="review-class-title">{td["turma"]}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="review-class-meta">{total_aulas_turma} aula(s) prontas para conferência nesta turma.</div>', unsafe_allow_html=True)
-        aulas_edit = []
-        for a_idx, aula in enumerate(td["aulas"]):
-            score = aula.get("confidence_score", 100)
-            if score >= 80:
-                status_emoji = "🟢"
-            elif score >= 60:
-                status_emoji = "🟡"
-            else:
-                status_emoji = "🔴"
-            with st.expander(f"{status_emoji} Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
-                # Alertas de Qualidade e Redundância (Item 13)
-                if score < 60:
-                    st.error(f"🔴 **Qualidade Crítica ({score}%)**: Este plano possui baixíssima aderência ao PDF ou problemas pedagógicos graves.")
-                elif score < 80:
-                    st.warning(f"🟡 **Qualidade Aceitável ({score}%)**: O plano possui ressalvas ou desvios menores em relação ao PDF.")
-                else:
-                    st.success(f"🟢 **Alta Qualidade ({score}%)**: Plano totalmente aderente e validado.")
-                
-                avisos_val = aula.get("avisos_validacao") or []
-                if avisos_val:
-                    st.warning("**Alertas de Qualidade Pedagógica:**\n" + "\n".join([f"- {aviso}" for aviso in avisos_val]))
-                
-                frases_dupl = duplicadas_por_aula.get((t_idx, a_idx))
-                if frases_dupl:
-                    st.warning("**Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):**\n" + "\n".join([f"- \"{frase}\"" for frase in frases_dupl]))
-
-                # Validação dinâmica de palavras-chave destacadas em amarelo (DOCX)
-                t_val = st.session_state.get(f"tema_{rev_tok}_{t_idx}_{a_idx}")
-                a_val = st.session_state.get(f"apr_{rev_tok}_{t_idx}_{a_idx}")
-                acomp_val = st.session_state.get(f"acomp_{rev_tok}_{t_idx}_{a_idx}")
-                aces_val = st.session_state.get(f"acess_{rev_tok}_{t_idx}_{a_idx}")
-                m_val = st.session_state.get(f"met_{rev_tok}_{t_idx}_{a_idx}")
-                
-                if t_val is None: t_val = aula.get("tema", "")
-                if a_val is None: a_val = aula.get("aprendizagem", "")
-                if acomp_val is None: acomp_val = "\n".join(aula.get("acompanhamento", []))
-                if aces_val is None: aces_val = "\n".join(aula.get("acessibilidade", []))
-                if m_val is None: m_val = _texto_metodologia_app(aula)
-                
-                palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
-                if palavras_chave_esperadas:
-                    aula_temp = {
-                        "metodologia": _metodologia_app_para_blocos(m_val),
-                        "acompanhamento": [x.strip() for x in acomp_val.split("\n") if x.strip()],
-                        "acessibilidade": [x.strip() for x in aces_val.split("\n") if x.strip()]
-                    }
-                    from core.validador_plano import validar_aderencia_palavras_chave
-                    resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
-                    
-                    cobertura_atual = resultado_pc["cobertura"]
-                    valido_atual = resultado_pc["valido"]
-                    palavras_ausentes_atuais = resultado_pc["palavras_ausentes"]
-                    
-                    if valido_atual:
-                        st.success(f"🎯 **Aderência de Palavras-Chave Validada ({cobertura_atual:.1f}%)**: Pelo menos 85% das palavras-chave obrigatórias estão presentes.")
-                    else:
-                        st.error(f"❌ **Plano Não Confiável - Aderência de Palavras-Chave Baixa ({cobertura_atual:.1f}%)**: O plano gerado não possui pelo menos 85% das palavras-chave obrigatórias.")
-                        st.markdown("**Palavras-chave ausentes que devem ser incluídas no texto:**")
-                        termos_ausentes_html = " ".join([f'<span style="background-color: #ffe6e6; color: #cc0000; padding: 2px 6px; border: 1px solid #ffcccc; border-radius: 4px; margin-right: 6px; font-family: monospace; font-size: 0.9em; display: inline-block; margin-bottom: 4px;">{palavra}</span>' for palavra in palavras_ausentes_atuais])
-                        st.markdown(termos_ausentes_html, unsafe_allow_html=True)
-                        st.caption("Dica: Edite os campos de Metodologia, Acompanhamento ou Acessibilidade abaixo e reinsira estes termos. O validador será atualizado instantaneamente.")
-                else:
-                    st.info("ℹ️ **Validação de Palavras-Chave**: Desativada no momento.")
-
-                motivo_referencia_docx = str(
-                    aula.get("motivo_referencia_docx") or ""
-                ).strip()
-                if motivo_referencia_docx:
-                    st.warning(
-                        "Referência DOCX desta aula: " + motivo_referencia_docx
-                    )
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    t = st.text_input("Tema", value=aula.get("tema",""), key=f"tema_{rev_tok}_{t_idx}_{a_idx}")
-                    a = st.text_area("Aprendizagem", value=aula.get("aprendizagem",""), key=f"apr_{rev_tok}_{t_idx}_{a_idx}")
-                with col2:
-                    acomp = st.text_area("Acompanhamento", value="\n".join(aula.get("acompanhamento",[])), key=f"acomp_{rev_tok}_{t_idx}_{a_idx}")
-                    aces = st.text_area("Acessibilidade", value="\n".join(aula.get("acessibilidade",[])), key=f"acess_{rev_tok}_{t_idx}_{a_idx}")
-                m = st.text_area("Metodologia", value=_texto_metodologia_app(aula), height=150, key=f"met_{rev_tok}_{t_idx}_{a_idx}")
-                
-                # Relatório Técnico (Item 12/14)
-                if st.checkbox("🛠️ Exibir Relatório Técnico da Geração", value=False, key=f"tech_rep_{rev_tok}_{t_idx}_{a_idx}"):
-                    st.markdown(
-                        f"""
-                        | Parâmetro | Valor |
-                        |---|---|
-                        | **Provedor da IA** | {aula.get("ia_provedor") or "Sem IA"} |
-                        | **Cache Reutilizado** | {"Sim" if aula.get("cache_reutilizado") else "Não"} |
-                        | **Versão do Gerador** | {aula.get("versao_gerador") or "1.2.9"} |
-                        | **Origem da Metodologia** | {aula.get("origem_metodologia") or "Desconhecida"} |
-                        | **Score de Confiança** | {aula.get('confidence_score', 100)}% |
-                        """
-                    )
-                    
-                    diag = aula.get("diagnostico_geracao") or {}
-                    if diag:
-                        st.markdown("#### Transformação da Metodologia (Pipeline)")
-                        tabs = st.tabs(["1. Rascunho Local Heurístico", "2. Resposta IA Crua", "3. Higienização/Polimento", "4. Metodologia Final"])
-                        with tabs[0]:
-                            met_local = diag.get("metodologia_local") or []
-                            if met_local:
-                                st.write(_texto_metodologia_app({"metodologia": met_local}))
-                            else:
-                                st.info("Nenhuma etapa heurística local gerada.")
-                        with tabs[1]:
-                            met_ia = diag.get("metodologia_ia_crua") or []
-                            if isinstance(met_ia, str):
-                                st.text(met_ia)
-                            elif met_ia:
-                                st.write(_texto_metodologia_app({"metodologia": met_ia}))
-                            else:
-                                st.info("Sem resposta direta de IA (gerado localmente ou cached).")
-                        with tabs[2]:
-                            met_hig = diag.get("metodologia_higienizada") or []
-                            if met_hig:
-                                st.write(_texto_metodologia_app({"metodologia": met_hig}))
-                            else:
-                                st.info("Nenhum estágio higienizado intermediário.")
-                        with tabs[3]:
-                            met_fin = diag.get("metodologia_final") or []
-                            if met_fin:
-                                st.write(_texto_metodologia_app({"metodologia": met_fin}))
-                            else:
-                                st.info("Nenhuma metodologia final.")
-                
-                ae = aula.copy()
-                ae.update({
-                    "tema": t,
-                    "aprendizagem": a,
-                    "acompanhamento": [x.strip() for x in acomp.split("\n") if x.strip()],
-                    "acessibilidade": [x.strip() for x in aces.split("\n") if x.strip()],
-                    "metodologia": _metodologia_app_para_blocos(m)
-                })
-                # Recalcula a aderência das palavras-chave para o salvamento final
-                palavras_chave_esperadas = ae.get("palavras_chave_esperadas") or []
-                if palavras_chave_esperadas:
-                    from core.validador_plano import validar_aderencia_palavras_chave
-                    resultado_pc_final = validar_aderencia_palavras_chave(ae, palavras_chave_esperadas)
-                    ae.update({
-                        "valido_palavras_chave": resultado_pc_final["valido"],
-                        "cobertura_palavras_chave": resultado_pc_final["cobertura"],
-                        "palavras_chave_encontradas": resultado_pc_final["palavras_encontradas"],
-                        "palavras_chave_ausentes": resultado_pc_final["palavras_ausentes"]
-                    })
-                aulas_edit.append(ae)
-        turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
-
-    # Botão para salvar alterações de volta nos arquivos de referência DOCX
-    referencias_para_atualizar = {}
-    for tr in turmas_revisadas:
-        for aula in tr["aulas"]:
-            ref_path = aula.get("fonte_referencia_metodologia")
-            if ref_path and os.path.exists(ref_path):
-                referencias_para_atualizar.setdefault(ref_path, []).append(aula)
-                
-    if referencias_para_atualizar:
-        st.markdown('<div class="section-card"></div><div class="section-title">💾 Atualizar Arquivos de Referência</div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-subtitle">Grave os ajustes e correções feitos nesta tela diretamente no arquivo DOCX de referência original.</div>', unsafe_allow_html=True)
-        
-        for ref_path, aulas_ref in referencias_para_atualizar.items():
-            nome_ref_simpl = os.path.basename(ref_path)
-            # Remove duplicatas de aulas_ref
-            aulas_ref_unicas = {}
-            for a in aulas_ref:
-                num = a.get("numero_aula") or a.get("numero") or 0
-                aulas_ref_unicas[num] = a
-                
-            btn_key = f"save_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
-            confirmar_ref_key = f"confirm_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
-            confirmar_ref = st.checkbox(
-                f"Confirmo que desejo sobrescrever o DOCX de referência '{nome_ref_simpl}'.",
-                key=confirmar_ref_key,
-            )
-            if st.button(
-                f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela",
-                key=btn_key,
-                type="secondary",
-                disabled=not confirmar_ref,
-            ):
-                try:
-                    from docx import Document
-                    doc = Document()
-                    aulas_ordenadas = sorted(aulas_ref_unicas.values(), key=lambda x: int(x.get("numero_aula") or x.get("numero") or 0))
-                    for aula in aulas_ordenadas:
-                        num = aula.get("numero_aula") or aula.get("numero") or 0
-                        tit = aula.get("tema") or ""
-                        # Aula Heading
-                        doc.add_paragraph(f"AULA {num} - {tit}")
-                        doc.add_paragraph()
-                        # Metodologia
-                        doc.add_paragraph("METODOLOGIA")
-                        for etapa in (aula.get("metodologia") or []):
-                            if isinstance(etapa, dict):
-                                doc.add_paragraph(f"{etapa.get('titulo', '')}: {etapa.get('texto', '')}")
-                            else:
-                                doc.add_paragraph(str(etapa))
-                        doc.add_paragraph()
-                        # Acompanhamento
-                        doc.add_paragraph("ACOMPANHAMENTO DA APRENDIZAGEM")
-                        for item in (aula.get("acompanhamento") or []):
-                            item_limpo = str(item).replace("☑", "").strip()
-                            if item_limpo:
-                                doc.add_paragraph(f"☑ {item_limpo}")
-                        doc.add_paragraph()
-                        # Acessibilidade
-                        doc.add_paragraph("ACESSIBILIDADE")
-                        for item in (aula.get("acessibilidade") or []):
-                            item_limpo = str(item).replace("☑", "").strip()
-                            if item_limpo:
-                                doc.add_paragraph(f"☑ {item_limpo}")
-                        doc.add_paragraph()
-                    
-                    doc.save(ref_path)
-                    st.success(f"✓ O arquivo '{nome_ref_simpl}' foi atualizado e agora contém as versões corrigidas dos planos!")
-                except Exception as err:
-                    st.error(f"Erro ao salvar arquivo de referência: {err}")
-
-    # Sempre disponibilizar a opção de atualizar o cache de metodologia base do PDF original (sidecar JSON)
-    planos_com_pdf = []
-    for tr in turmas_revisadas:
-        for aula in tr["aulas"]:
-            caminho_pdf_original = aula.get("caminho_pdf")
-            if caminho_pdf_original and os.path.exists(caminho_pdf_original):
-                planos_com_pdf.append(aula)
-                
-    if planos_com_pdf:
-        st.markdown('<div class="section-card"></div><div class="section-title">🔄 Salvar no Cache de Metodologia Base (PDF)</div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-subtitle">Grave os ajustes feitos nesta tela no cache de metodologia base da aula original. As próximas gerações desta aula usarão esta versão corrigida automaticamente.</div>', unsafe_allow_html=True)
-        
-        confirmar_cache = st.checkbox(
-            "Confirmo que desejo salvar as edições no cache de metodologia base permanente para estes PDFs.",
-            key="confirmar_salvar_cache_base",
-        )
-        if st.button(
-            "Salvar Alterações no Cache Base de Metodologias",
-            key="btn_salvar_cache_base",
-            type="secondary",
-            disabled=not confirmar_cache,
-        ):
-            try:
-                from core.revisao_final import gravar_sidecar_json, calcular_sha256
-                for aula in planos_com_pdf:
-                    caminho_pdf_original = aula.get("caminho_pdf")
-                    hash_pdf = aula.get("hash_pdf") or calcular_sha256(caminho_pdf_original)
-                    gravar_sidecar_json(caminho_pdf_original, aula, hash_pdf)
-                st.success("✓ O cache de metodologia base permanente foi atualizado com sucesso para todos os PDFs editados nesta tela!")
-            except Exception as err:
-                st.error(f"Erro ao salvar cache de metodologia base: {err}")
-        
-    st.markdown(
-        """
-        <div class="download-panel">
-            <div class="panel-title">Última conferência antes do arquivo final</div>
-            <div class="panel-text">Se estiver tudo certo na revisão, gere o documento final para liberar os botões de download logo abaixo.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.checkbox(
-        "Salvar este plano no histórico",
-        key="salvar_historico_geracao",
-        value=bool(st.session_state.get("salvar_historico_geracao", True)),
-        help="Mantenha marcado para salvar este plano no histórico e habilitar a continuidade da sequência de PDFs na próxima geração.",
-    )
-    if st.button("GERAR DOCX", type="primary"):
-        planos_gerados = []
-        for tr in turmas_revisadas:
-            planos_gerados.append(_gerar_docx_final(modelo_bytes, tr["aulas"], escola, professor, disciplina, componente_curricular, tr["turma"], mes, bimestre, semana, observacao, aulas_previstas_manual))
-        st.session_state["planos_gerados"] = planos_gerados
-        
-        # Salva fisicamente na pasta do professor/disciplina
-        _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
-        
-        salvou_historico = _salvar_planos_gerados_se_configurado(
-            planos_gerados,
-            professor,
-            disciplina_saida,
-            bimestre,
-            mes,
-        )
-        _registrar_mensagem_memoria_plano(salvou_historico)
-        st.success("Planos gerados!")
-
-    # Checa se houve alterações na tela após a geração do DOCX
-    alteracoes_detectadas = detectar_alteracoes_planos_revisados(
-        st.session_state.get("planos_gerados") or [],
-        turmas_revisadas,
+    turmas_revisadas, alteracoes_detectadas = renderizar_passo_revisao(
+        professor=professor,
+        disciplina=disciplina,
+        disciplina_saida=disciplina_saida,
+        turma=turma,
+        mes=mes,
+        bimestre=bimestre,
+        modo_ia=modo_ia,
+        modo_upload_pdf=modo_upload_pdf,
+        pasta_pdfs_auto=pasta_pdfs_auto,
+        pdfs_selecionados_tela=pdfs_selecionados_tela,
+        modelo_bytes=modelo_bytes,
+        escola=escola,
+        componente_curricular=componente_curricular,
+        semana=semana,
+        observacao=observacao,
+        aulas_previstas_manual=aulas_previstas_manual,
+        fn_gerar_docx_final=_gerar_docx_final,
+        fn_salvar_planos_na_pasta_finalizados=_salvar_planos_na_pasta_finalizados,
+        fn_salvar_planos_gerados_se_configurado=_salvar_planos_gerados_se_configurado,
+        fn_registrar_mensagem_memoria_plano=_registrar_mensagem_memoria_plano,
     )
 
 if st.session_state.get("planos_gerados"):
@@ -3514,14 +2991,18 @@ if st.session_state.get("planos_gerados"):
             st.session_state["planos_gerados"] = planos_gerados
             
             # Salva localmente e no histórico
-            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor)
+            _salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor, mes=mes)
             if st.session_state.get("salvar_historico_geracao", False):
                 _salvar_planos_gerados_se_configurado(planos_gerados, professor, disciplina_saida, bimestre, mes)
             st.success("✓ Arquivos finais atualizados e salvos com as novas correções da tela!")
             st.rerun()
 
     planos_gerados = st.session_state["planos_gerados"]
-    dir_destino = _resolver_caminho_professor_disciplina(professor, disciplina_saida) if professor else PLANOS_FINALIZADOS_DIR
+    dir_destino = (
+        _resolver_caminho_professor_disciplina(professor, disciplina_saida, mes=mes)
+        if professor
+        else (PLANOS_FINALIZADOS_DIR / _normalizar_nome_diretorio(mes) if mes else PLANOS_FINALIZADOS_DIR)
+    )
     st.info(f"📂 Os arquivos `.docx` estão salvos e atualizados na pasta: `{dir_destino}`")
 
     resumo_docx = resumir_proveniencia_docx(

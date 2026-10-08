@@ -122,7 +122,12 @@ _PERFIS_PORTUGUES = {
 _PERFIS_DOCX_SOMENTE_COLUNAS = set()
 
 
-def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) -> Path | None:
+def _resolver_caminho_original(
+    caminho_pdf: str,
+    disciplina: str,
+    turma: str = "",
+    bimestre: str = "",
+) -> Path | None:
     caminho = Path(caminho_pdf)
     caminho_temporario = (
         caminho.parent.name.startswith(PREFIXO_PDF_TEMPORARIO)
@@ -165,6 +170,12 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
         anos_turma = list(dict.fromkeys(re.findall(r"[1-9]", turma_norm)))
         tokens_anos = [f"{ano}_ANO" for ano in anos_turma]
         
+        token_bimestre = ""
+        if bimestre:
+            match_bim = re.search(r"(\d)_BIMESTRE", normalizar_para_pasta(bimestre)) or re.search(r"(\d)", normalizar_para_pasta(bimestre))
+            if match_bim:
+                token_bimestre = f"{match_bim.group(1)}_BIMESTRE"
+
         nomes_originais = {
             nome.casefold() for nome in nomes_pdf_original_possiveis(caminho.name)
         }
@@ -178,11 +189,26 @@ def _resolver_caminho_original(caminho_pdf: str, disciplina: str, turma: str) ->
             {arquivo.resolve(): arquivo for arquivo in candidatos}.values(),
             key=lambda arquivo: str(arquivo).casefold(),
         )
+
+        if token_bimestre and tokens_anos:
+            for arquivo in candidatos_unicos:
+                caminho_normalizado = str(arquivo).upper()
+                if token_bimestre in caminho_normalizado and any(token in caminho_normalizado for token in tokens_anos):
+                    return arquivo
+
+        if token_bimestre:
+            for arquivo in candidatos_unicos:
+                caminho_normalizado = str(arquivo).upper()
+                if token_bimestre in caminho_normalizado:
+                    if not tokens_anos or any(token in caminho_normalizado for token in tokens_anos):
+                        return arquivo
+
         if tokens_anos:
             for arquivo in candidatos_unicos:
                 caminho_normalizado = str(arquivo).upper()
-                if all(token in caminho_normalizado for token in tokens_anos):
+                if any(token in caminho_normalizado for token in tokens_anos):
                     return arquivo
+
         if candidatos_unicos:
             return candidatos_unicos[0]
     except Exception:
@@ -194,24 +220,26 @@ def resolver_caminho_pdf_original(
     caminho_pdf: str,
     disciplina: str,
     turma: str = "",
+    bimestre: str = "",
 ) -> Path | None:
     """Retorna o PDF oficial correspondente a um upload temporario, quando houver.
 
     A funcao e publica para que o pipeline possa recuperar o contexto da pasta
     (por exemplo, ``CDP_EM``) antes de selecionar referencias pedagogicas.
     """
-    return _resolver_caminho_original(caminho_pdf, disciplina, turma)
+    return _resolver_caminho_original(caminho_pdf, disciplina, turma, bimestre=bimestre)
 
 def localizar_docx_referencia_por_perfil(
     caminho_pdf: str,
     disciplina: str,
     turma: str = "",
+    bimestre: str = "",
 ):
     perfil = perfil_disciplina(disciplina, turma=turma)
     if not caminho_pdf:
         return None
 
-    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina, turma)
+    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina, turma, bimestre=bimestre)
     caminho_contexto = str(caminho_oficial or caminho_pdf)
     if caminho_oficial:
         caminho_pdf = caminho_contexto
@@ -285,6 +313,8 @@ def referencia_docx_por_perfil(
     tema: str,
     perfil: str,
     disciplina: str = "",
+    turma: str = "",
+    bimestre: str = "",
 ):
     if not caminho_pdf:
         return None
@@ -294,10 +324,11 @@ def referencia_docx_por_perfil(
     caminho_docx = localizar_docx_referencia_por_perfil(
         caminho_pdf,
         disciplina_busca,
-        "",
+        turma=turma,
+        bimestre=bimestre,
     )
 
-    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina_busca, "")
+    caminho_oficial = resolver_caminho_pdf_original(caminho_pdf, disciplina_busca, turma=turma, bimestre=bimestre)
     caminho_contexto = str(caminho_oficial or caminho_pdf)
     if eh_cdp_contextual_disciplina(caminho_contexto):
         # No contexto CDP, somente a referencia CDP pode ser usada. Se ela
@@ -323,11 +354,11 @@ def referencia_docx_por_perfil(
         return None
 
     if perfil in _PERFIS_PORTUGUES:
-        return referencia_portugues_por_pdf(caminho_pdf, numero_aula, tema=tema)
+        return referencia_portugues_por_pdf(caminho_contexto, numero_aula, tema=tema)
     resolvedor = _REFERENCIAS_POR_PERFIL.get(perfil)
     if not resolvedor:
         return None
-    return resolvedor(caminho_pdf, numero_aula, tema=tema)
+    return resolvedor(caminho_contexto, numero_aula, tema=tema)
 
 
 def origem_metodologia_por_referencia(perfil: str) -> str:
@@ -361,11 +392,17 @@ def assinatura_docx_referencia(
     caminho_pdf: str,
     disciplina: str,
     turma: str = "",
+    bimestre: str = "",
 ) -> str:
     if not caminho_pdf:
         return ""
     try:
-        docx = localizar_docx_referencia_por_perfil(caminho_pdf, disciplina, turma)
+        docx = localizar_docx_referencia_por_perfil(
+            caminho_pdf,
+            disciplina,
+            turma,
+            bimestre=bimestre,
+        )
         if not docx:
             return ""
         stat = docx.stat()

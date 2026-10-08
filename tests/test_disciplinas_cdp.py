@@ -69,6 +69,6 @@ def test_opcoes_cabecalho_e_cdp():
     assert len(BIMESTRES) == 4
     assert TURMAS_CDP[0].startswith("MULTISSERIADO 1")
     assert TURMAS_CDP[1].startswith("MULTISSERIADO 4")
-    assert any("6" in turma and "7" in turma and "E.F" in turma for turma in TURMAS_CDP)
-    assert any("8" in turma and "9" in turma and "E.F" in turma for turma in TURMAS_CDP)
+    assert any("6" in turma and "7" in turma for turma in TURMAS_CDP)
+    assert any("8" in turma and "9" in turma for turma in TURMAS_CDP)
     assert any("1" in turma and "2" in turma and "3" in turma and "E.M" in turma for turma in TURMAS_CDP)

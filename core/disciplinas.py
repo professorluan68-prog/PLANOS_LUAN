@@ -30,13 +30,23 @@ class DisciplinaConfig:
     )
 
 
+DISCIPLINAS_CDP_PADRONIZADAS = [
+    "HISTÓRIA - CDP - EJA - MULTISSERIADO",
+    "CIÊNCIAS - CDP - EJA - MULTISSERIADO",
+    "MATEMÁTICA - CDP - EJA - MULTISSERIADO",
+    "GEOGRAFIA - CDP - EJA - MULTISSERIADO",
+    "SOCIOLOGIA - CDP - EJA - MULTISSERIADO",
+    "LIDERANÇA E ORATÓRIA - CDP - EJA - MULTISSERIADO",
+    "LÍNGUA PORTUGUESA - CDP - EJA - MULTISSERIADO",
+    "ARTE - CDP - EJA - MULTISSERIADO",
+]
+
 _DISCIPLINAS = [
     "Arte",
     "Arte e Mídias Digitais",
     "Biologia",
     "Aprofundamento em Biologia",
     "Ciências",
-    "Ciências-CDP",
     "Educação Financeira",
     "Educação Física",
     "Filosofia",
@@ -48,25 +58,25 @@ _DISCIPLINAS = [
     "Língua Inglesa",
     "Língua Portuguesa",
     "Matemática",
-    "Matemática-CDP",
     "Orientação de Estudos",
     "Orientação de Estudos Matemática",
     "Projeto de Vida",
     "Química",
+    "Química-EJA",
     "Redação e Leitura",
     "Robótica",
     "Sociologia",
     "Tecnologia e Inovação",
+    *DISCIPLINAS_CDP_PADRONIZADAS,
     DISCIPLINA_CDP_CICLO_I,
     "Outra",
 ]
 
 TURMAS_CDP = [
-    "MULTISSERIADO 1º, 2º e 3º ano",
-    "MULTISSERIADO 4º e 5º ano",
-    "6º/7º E.F/ C",
-    "8º/9º E.F/ H",
-    "1º/2º/3º E.M",
+    "C",
+    "H",
+    "J",
+    "E",
 ]
 TURMAS_CDP_MULTISSERIADA = TURMAS_CDP
 
@@ -82,10 +92,15 @@ def nomes_disciplinas() -> list[str]:
 
 
 def componentes_curriculares_por_disciplina(disciplina: str) -> list[str]:
-    if _normalizar_nome_disciplina(disciplina) == _normalizar_nome_disciplina(
-        DISCIPLINA_CDP_CICLO_I
-    ):
+    disc_norm = _normalizar_nome_disciplina(disciplina)
+    if disc_norm == _normalizar_nome_disciplina(DISCIPLINA_CDP_CICLO_I):
         return list(COMPONENTES_CURRICULARES_CDP_CICLO_I)
+    if any(disc_norm == _normalizar_nome_disciplina(d) for d in DISCIPLINAS_CDP_PADRONIZADAS) or (
+        "CDP" in disc_norm and "MULTISSERIAD" in disc_norm
+    ):
+        return [disciplina]
+    if "MATEMATICA" in disc_norm and "CDP" in disc_norm:
+        return ["MATEMÁTICA - CDP - EJA - MULTISSERIADO"]
     return []
 
 
@@ -102,8 +117,6 @@ def obter_config(disciplina: str) -> DisciplinaConfig:
             exige_pdf=False,
             habilitado=False,
         )
-    if nome.upper().endswith("_CDP"):
-        return DisciplinaConfig(nome=nome, modo=MODO_CDP, exige_pdf=False)
     return DisciplinaConfig(nome=nome)
 
 
@@ -137,5 +150,8 @@ def eh_cdp_contextual(nome: str) -> bool:
             or chave_compacta.endswith("CDPEJA")
             or chave_compacta.endswith("_CDP")
             or chave_compacta.endswith("-CDP")
+            or "MULTISSERIAD" in chave_compacta
+            or "CIENCIAS" in chave_compacta
+            or "MATEMATICA" in chave_compacta
         )
     )

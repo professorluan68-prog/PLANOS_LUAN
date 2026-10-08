@@ -1,116 +1,90 @@
-# PLANOS_LUAN — Contexto do Sistema
+# GEMINI.md — Contexto do Sistema Planos Luan
 
-## O que é este projeto
-Sistema de montagem automatizada de planos de aula em Word (.docx) a partir de
-materiais digitais em PDF, modelos de plano existentes e cadastros de professores.
-Utiliza Streamlit como interface web e suporta IA (OpenAI/Gemini) para extração
-inteligente do conteúdo dos PDFs.
+> Atualizado em 03/10/2026 após auditoria completa. Versão do gerador: **1.2.14** (`core/revisao_final.py`).
 
-## Stack Tecnológica
-- **Python 3.x** com ambiente virtual em `.venv_PLANOS_LUAN`
-- **Streamlit 1.28.1** — interface web (`planos_luan_app.py`)
-- **pdfplumber 0.10.3** — leitura de PDFs
-- **python-docx 0.8.11** — geração de Word
-- **SQLite** — banco de dados (`planos_luan.db`)
-- **OpenAI / Google Gemini** — extração via IA
-- **pytest** — testes
+## 1. Visão Geral
+Sistema de montagem automatizada de planos de aula mensais em Word (.docx) a partir de materiais digitais (PDF/PPTX), modelos de plano pré-configurados e cadastros de professores.
+Interface web moderna desenvolvida em **Streamlit** com suporte a extração inteligente via **Google Gemini** ou **OpenAI** (ou **sem IA**, por regras determinísticas).
 
-## Como Executar
-```bash
+Abas do menu (ordem real): `Planos gerais`, `CDP-EF/EM`, `EJA`, `Cadastro`, `Diagnóstico`, `Histórico` e `Conferência Mensal`.
+
+---
+
+## 2. Stack Tecnológica
+- **Python 3.12** com ambiente virtual em `.venv`
+- **Streamlit** (+ `streamlit-option-menu`) — interface web (`planos_luan_app.py` e `ui/`)
+- **python-docx** — geração e preenchimento de documentos Word (.docx)
+- **pdfplumber** / **pytesseract** / **python-pptx** — extração de conteúdos e habilidades
+- **SQLite (WAL)** — banco relacional (`PLANOS_LUAN_DADOS/planos_luan.db`)
+- **Google Gemini API** e **OpenAI** (`core/ia.py`, `core/ia_client.py`) — extração e aprimoramento pedagógico com IA, com retry
+- **pytest** — suíte automatizada (`tests/` e `tests/unit/`, 853 testes coletados em 03/10/2026)
+
+---
+
+## 3. Comandos de Execução e Testes
+
+```powershell
 # Ativar ambiente virtual
-.venv_PLANOS_LUAN\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 
-# Rodar o sistema
-streamlit run planos_luan_app.py
+# Iniciar o sistema Streamlit
+.\.venv\Scripts\streamlit.exe run planos_luan_app.py
 
-# Rodar testes
-pytest tests/ -v
+# Executar testes rápidos
+.\.venv\Scripts\python.exe -m pytest tests/ -q
+
+# Validar sintaxe após alterações
+.\.venv\Scripts\python.exe -m py_compile planos_luan_app.py
 ```
 
-## Arquitetura Principal
+Atalhos de uso diário: `AbrirPLANOS_LUAN.ps1`, `ABRIR_PLANOS_LUAN.vbs`, `ReiniciarPLANOS_LUAN.bat/.ps1`, `FecharPLANOS_LUAN.bat/.ps1`, `InstalarPLANOS_LUAN.bat`.
 
-### Fluxo de Dados
-```
-PDFs → extrator_pdf.py → lote.py → ia.py (opcional) → preencher.py → .docx final
-```
+---
 
-### Módulos Críticos (NÃO modificar sem testes)
-- `core/lote.py` — Motor principal (6000+ linhas). Modificar com EXTREMO cuidado.
-- `core/ia.py` — Ponte com IA. `PlanoAulaIA` é Pydantic BaseModel com `EtapaMetodologia`.
-- `core/database.py` — Schema SQLite (professores, professor_turmas, historico_planos, configuracoes). Migrações manuais.
-- `docx_generator/preencher.py` — Preenche templates Word (.docx).
-- `docx_generator/preencher_cdp.py` — Preenche templates CDP/EJA.
+## 4. Diretórios Oficiais do Sistema
 
-### Módulos de Regras Pedagógicas (core/lib/)
-- `metodologia.py` (42KB) — Regras de metodologia por disciplina
-- `acompanhamento.py` (35KB) — Geração de acompanhamento da aprendizagem
-- `acessibilidade.py` (32KB) — Adaptações e inclusão
-- `classificador.py` (13KB) — 18 perfis disciplinares, tipos de aula, detecção de recursos
-- `extrator_pdf.py` (17KB) — Extração semântica (13 campos estruturados)
-- `progressao.py` (4KB) — Variação entre aulas para evitar repetição
-- `tecnicas.py` (10KB) — Banco de técnicas pedagógicas (LEMOV, etc.)
-
-### Outros Módulos Core
-- `core/cdp.py` (44KB) — Motor dos planos CDP com planilhas Excel/Word
-- `core/qualidade_metodologica.py` (22KB) — Revisão de qualidade com score mínimo
-- `core/validador_plano.py` (7KB) — Validação de aulas geradas
-- `core/disciplinas.py` — 23 disciplinas, 3 modos (pdf, cdp, cdp_fundamental)
-- `core/professores_planos.py` — Leitor das pastas dos professores
-- `core/referencias_metodologia.py` — Referências metodológicas por disciplina
-- `core/prompts_por_disciplina.py` — Orientações de prompt por disciplina para IA
-- `core/calendario.py` — Gerenciamento de datas e feriados
-
-### Configuração Central
-- `config.py` — Caminhos, limites, modelos de IA padrão
-
-## Regras para o Agente
-
-### SEMPRE faça:
-- Rodar `pytest tests/ -v` após qualquer mudança em `core/`
-- Usar o ambiente virtual: `.venv_PLANOS_LUAN\Scripts\python.exe`
-- Manter docstrings e comentários existentes em português
-- Testar encoding de arquivos (muitos CSV são latin-1/cp1252, não UTF-8)
-- Usar `processar_plano_ia()` como API pública para geração via IA
-- Usar `normalizar_texto()` de `core.lib.classificador` como função canônica de normalização
-
-### NUNCA faça:
-- Modificar `planos_luan.db` diretamente (use `core/database.py`)
-- Remover funções de `core/lote.py` sem verificar dependências
-- Alterar a estrutura de `PlanoAulaIA` sem atualizar todos os consumidores
-- Usar `_montar_prompt()` diretamente (é privada, use `processar_plano_ia()`)
-- Chamar `lote.py._normalizar()` em código novo (use `classificador.normalizar_texto()`)
-- Assumir encoding UTF-8 para CSVs — sempre detectar ou usar fallback
-
-### Atenção especial:
-- `lote.py` tem versões duplicadas de `_normalizar()` e `_perfil_disciplina()` — prefira `classificador.py`
-- Todos os PDFs em `D:\PDF novos` se chamam `AULA N.pdf` — diferenciar pela pasta (Disciplina/Turma)
-- Templates Word: EGLE (padrão), PADRE, CDP — seleção automática em `core/modelos_docx.py`
-- O CSV `mapa_arquivos.csv` tem 6 colunas: origem, destino, professor_inferido, disciplina, turma, aula_detectada
-
-## Pastas e Arquivos Importantes
-| Arquivo / Pasta | Conteúdo |
+| Diretório | Finalidade |
 |---|---|
-| `CHANGELOG.md` | **[MUITO IMPORTANTE]** Histórico de alterações recentes e resoluções de bugs feitas pelos agentes. Leia isso antes de iniciar grandes refatorações para não desfazer correções recentes. |
-| `D:\PLANOS DE JUNHO` | Pasta principal de trabalho dos professores |
-| `D:\PDF novos` | PDFs classificados por disciplina/turma (3978 arquivos, 20 disciplinas) |
-| `D:\PDF novos\mapa_arquivos.csv` | Mapeamento completo de PDFs (origem → destino, disciplina, professor) |
-| `D:\PDF novos\NAO_CLASSIFICADOS` | 388 PDFs ainda não classificados |
-| `D:\BACKUPS_PLANOS_LUAN` | Backups automáticos |
-| `D:\arquivonovo` | Módulo `improved_system.py` — orquestrador em lote via CSV |
-| `templates/` | Modelos Word (MODELOEGLE, MODELOPADRE, MODELOCDP) |
-| `Planos feitos/` | Planilhas CDP e habilidades |
-| `REFERENCIAS_METODOLOGIA/` | Textos de referência metodológica por disciplina |
-| `tests/` | Testes automatizados do sistema |
+| `C:\Users\LuanDias\PLANOS_LUAN` | Repositório de código da aplicação |
+| `C:\Users\LuanDias\PLANOS_LUAN_DADOS` | Dados locais, banco SQLite e históricos |
+| `...\PLANOS_LUAN_DADOS\PDF_AULAS` | PDFs pedagógicos organizados por disciplina e ano |
+| `...\PLANOS_LUAN_DADOS\Planos feitos` | DOCX finais, em `PROFESSOR\DISCIPLINA\MES\arquivo.docx` |
+| `...\PLANOS_LUAN_DADOS\historico_docx` | Cópias de arquivos do histórico |
+| `...\PLANOS_LUAN_DADOS\REFERENCIAS_METODOLOGICAS` | Referências metodológicas |
+| `...\PLANOS_LUAN_DADOS\planos_luan.db` | Banco SQLite principal |
+| `templates/` | Modelos Word (.docx) padronizados (MODELOEGLE, MODELOPADRE, MODELOCDP) |
 
-## Disciplinas do Sistema (23)
-Arte, Biologia, Ciências, Educação Financeira, Educação Física, Filosofia,
-Física, Geografia, História, Liderança e Oratória, Língua Inglesa,
-Língua Portuguesa, Matemática, Orientação de Estudos, CDP-ENSINO FUNDAMENTAL,
-CDP-ENSINO MÉDIO, CDP-Multisseriada, Projeto de Vida, Química,
-Redação e Leitura, Sociologia, Tecnologia e Inovação, Outra
+> **Atenção:** Nunca configure fallbacks para caminhos de OneDrive ou pastas antigas. Os caminhos oficiais são gerenciados dinamicamente via `config.py`.
 
-## Banco de Dados (SQLite)
-- `professores` — id, nome (UNIQUE)
-- `professor_turmas` — professor_id (FK), disciplina, turma, dia_semana, horario, aulas_semana, arquivo_modelo, template_id, componente_curricular
-- `historico_planos` — professor_nome, disciplina, turma, data_geracao, arquivo_nome, arquivo_docx (BLOB)
-- `configuracoes` — chave (PK), valor
+---
+
+## 5. Arquitetura e Módulos Críticos
+
+- `planos_luan_app.py` — Ponto de entrada da interface Streamlit, menu e gerenciamento de estado.
+- `ui/` — Telas modulares: `cadastro`, `historico`, `conferencia_mensal`, `diagnostico`, `geracao_lote`, `revisao_aulas`, `painel_pdfs`, `acompanhamento`, `reescrita_cdp`, `relatorio_conferencia`, `shared`, `ui_components`, `tela_inicial_moderna`.
+- `core/lote.py` — Orquestrador do processamento em lote.
+- `core/ia.py` — Integração com Google Gemini e OpenAI via Pydantic (`PlanoAulaIA`).
+- `core/database.py` — Conexões, migrações (20) e consultas SQLite. Usar sempre `connection_scope()`/`get_connection()`. Contém a conferência mensal e a regra do mês pela pasta.
+- `core/calendario.py` — Dias úteis, feriados com descrição e eventos escolares.
+- `core/gestao_aulas.py` — Detecção da última aula trabalhada a partir dos DOCX reais.
+- `core/lib/classificador.py` — Classificação por perfis disciplinares e normalização canônica (`normalizar_texto`).
+- `core/qualidade_metodologica.py` — Limites de caracteres e sanitização sem cortes crus.
+- `docx_generator/preencher.py` — Preenchimento dos modelos Word regulares.
+- `docx_generator/preencher_cdp.py` — Preenchimento dos modelos Word específicos para CDP e EJA.
+
+### Tabelas do banco
+`professores`, `professor_turmas`, `professor_dados`, `historico_planos` (colunas `*_chave`, `mes_plano`, hash, `ultima_aula`, `total_aulas`), `progresso_aulas`, `configuracoes`, `schema_version`.
+
+---
+
+## 6. Regras de Ouro para o Agente Gemini
+
+1. **Tratamento:** Chame o usuário sempre de **Professor**, com postura extrovertida, prestativa e bem-humorada.
+2. **Ambiente:** Use sempre o Python de `.\.venv\Scripts\python.exe`.
+3. **Preservação de Dados:** Nunca exclua registros do banco ou documentos sem confirmação e contagem prévia.
+4. **Metodologia:** Mantenha sempre a estrutura `list[dict]` com as chaves `titulo` e `texto`.
+5. **Limites de Texto:** Máximo de 300 caracteres por etapa em sala regular e 350 caracteres em EJA e referências DOCX, usando `limitar_texto_natural()`.
+6. **Git:** Respeite arquivos modificados localmente pelo usuário antes de qualquer alteração.
+7. **Mês do plano:** a **pasta do mês** em `Planos feitos` define o mês do plano, nunca a data de geração.
+8. **Conferência Mensal:** entradas só por listas de seleção; um plano só é "feito" se o `.docx` existir em disco.
+9. **Repositório:** o Git contém arquivos do *GitHub Desktop* (`app/`, `docs/`, `vendor/`, `script/`...) que não pertencem ao sistema; não mexer sem confirmação (ver `AUDITORIA_SISTEMA_2026-10-03.md`).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DB=${1:-planos_luan.db}
+DB=${1:-$(python -c "from config import DB_PATH; print(DB_PATH)" 2>/dev/null || echo "planos_luan.db")}
 if [ ! -f "$DB" ]; then
   echo "DB not found: $DB"
   exit 1

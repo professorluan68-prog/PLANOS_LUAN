@@ -47,21 +47,16 @@ _CDP_MAX_ITEM_CHARS = 180
 
 
 def _encurtar_texto_cdp(texto: str, limite: int) -> str:
-    """Mantem frases completas e evita colunas longas no modelo Word."""
+    """Mantem frases completas e evita colunas longas no modelo Word.
+
+    [CORREÇÃO A5] Substituído fallback com corte bruto por limitar_texto_natural(),
+    que respeita limites por frase completa conforme regra de negócio.
+    """
+    from core.qualidade_metodologica import limitar_texto_natural
     texto = re.sub(r"\s+", " ", str(texto or "")).strip(" ,;:-")
     if len(texto) <= limite:
         return texto
-    frases = re.split(r"(?<=[.!?])\s+", texto)
-    acumulado = ""
-    for frase in frases:
-        candidato = f"{acumulado} {frase}".strip()
-        if len(candidato) > limite:
-            break
-        acumulado = candidato
-    if acumulado:
-        return acumulado.rstrip(" ,;:-")
-    corte = texto[: max(1, limite - 1)].rsplit(" ", 1)[0].strip(" ,;:-")
-    return corte or texto[:limite].rstrip(" ,;:-")
+    return limitar_texto_natural(texto, limite=limite)
 
 
 def _sanitizar_agrupamento_cdp(texto: str) -> str:
@@ -267,18 +262,38 @@ def _extrair_base_pedagogica(
     caminho_pdf: str,
     dependencias: DependenciasResultadosAula,
 ) -> dict:
-    arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
-        caminho_pdf,
-        disciplina_base,
-        turma,
-    )
-    referencia_docx = dependencias.referencia_docx_por_perfil_fn(
-        caminho_pdf,
-        numero_aula,
-        tema,
-        perfil,
-        disciplina_base,
-    )
+    try:
+        arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
+            caminho_pdf,
+            disciplina_base,
+            turma,
+            bimestre=bimestre,
+        )
+    except TypeError:
+        arquivo_referencia_docx = dependencias.localizar_docx_referencia_por_perfil_fn(
+            caminho_pdf,
+            disciplina_base,
+            turma,
+        )
+
+    try:
+        referencia_docx = dependencias.referencia_docx_por_perfil_fn(
+            caminho_pdf,
+            numero_aula,
+            tema,
+            perfil,
+            disciplina_base,
+            turma=turma,
+            bimestre=bimestre,
+        )
+    except TypeError:
+        referencia_docx = dependencias.referencia_docx_por_perfil_fn(
+            caminho_pdf,
+            numero_aula,
+            tema,
+            perfil,
+            disciplina_base,
+        )
     diagnostico_referencia_docx = _diagnosticar_referencia_docx(
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=str(arquivo_referencia_docx or ""),
@@ -328,7 +343,7 @@ def _registrar_proveniencia_docx(
     diagnostico_referencia_docx: dict | None = None,
 ) -> dict:
     fonte = str((referencia_docx or {}).get("fonte") or arquivo_referencia_docx or "").strip()
-    if referencia_docx:
+    if referencia_docx and status_sucesso != "metodologia_incompleta":
         aula["status_referencia_docx"] = status_sucesso or "docx_literal"
         aula["arquivo_referencia_docx"] = fonte
         aula["motivo_referencia_docx"] = ""
@@ -349,7 +364,10 @@ def _registrar_proveniencia_docx(
             diagnostico.get("status") or "aula_ausente_ou_incompleta"
         )
         aula["motivo_referencia_docx"] = str(diagnostico.get("motivo") or "")
-        aula["diagnostico_referencia_docx"] = diagnostico
+        diagnostico_final = dict(diagnostico)
+        if not aula.get("ia_usada", False) and diagnostico.get("status") in {"metodologia_incompleta", "etapa_acima_do_limite", "aula_ausente_ou_incompleta"}:
+            diagnostico_final["bloqueia_geracao"] = True
+        aula["diagnostico_referencia_docx"] = diagnostico_final
     elif fonte:
         aula["status_referencia_docx"] = "aula_ausente_ou_incompleta"
         aula["motivo_referencia_docx"] = (
@@ -501,6 +519,7 @@ def _montar_resultado_referencia_docx_exata(
     dependencias: DependenciasResultadosAula,
     aviso_sucesso: str,
     modalidade_eja_ativa: bool = False,
+    diagnostico_referencia_docx: dict | None = None,
 ) -> dict:
     metodologia = list(referencia_docx.get("metodologia") or [])
     if not usar_ia:
@@ -523,10 +542,14 @@ def _montar_resultado_referencia_docx_exata(
             )
             raise ValueError(mensagem_limite.replace("350 caracteres", f"{limite_metodologia} caracteres"))
     metodologia_valida, motivo_metodologia = validar_etapas_obrigatorias(metodologia)
+    status_sucesso = "docx_refinado_eja" if modalidade_eja_ativa else "docx_literal"
     if not metodologia_valida:
-        raise ValueError(motivo_metodologia)
+        if not usar_ia:
+            raise ValueError(motivo_metodologia)
+        status_sucesso = "metodologia_incompleta"
     acompanhamento = list(referencia_docx.get("acompanhamento") or [])[:3]
     acessibilidade = list(referencia_docx.get("acessibilidade") or [])[:3]
+    recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
     listas_ausentes = len(acompanhamento) < 3 or len(acessibilidade) < 3
     if listas_ausentes:
         desenvolvimento = dependencias.texto_metodologia_fn(metodologia)
@@ -548,8 +571,8 @@ def _montar_resultado_referencia_docx_exata(
             disciplina=disciplina_base,
             perfil=perfil,
             tipo="regular",
-            habilidade=aprendizagem,
-            etapas_metodologia=etapas_titulos,
+            recursos_detectados=recursos_reais,
+            indice_aula=indice_aula,
         )
     literal = not modalidade_eja_ativa
     if modalidade_eja_ativa and dependencias.adaptar_listas_eja_fn:
@@ -567,7 +590,24 @@ def _montar_resultado_referencia_docx_exata(
             tema,
             perfil,
         )
-    recursos_reais = dependencias.detectar_recursos_reais_fn(texto)
+    titulo_ref = str(referencia_docx.get("titulo") or "").strip()
+    if titulo_ref:
+        tema_generico = not tema or tema.casefold() in {
+            disciplina_base.casefold(),
+            perfil.casefold(),
+            "aula",
+            "",
+        }
+        if tema_generico:
+            tema = titulo_ref
+        mat_generico = not material_digital or material_digital.casefold() in {
+            disciplina_base.casefold(),
+            f"aula {numero_aula} - {disciplina_base}".casefold(),
+            f"aula {numero_aula}".casefold(),
+        }
+        if mat_generico or tema_generico:
+            material_digital = f"AULA {numero_aula} - {titulo_ref}"
+
     aula_gerada = {
         "disciplina": disciplina_base,
         "tema": tema,
@@ -612,8 +652,9 @@ def _montar_resultado_referencia_docx_exata(
         aula_gerada,
         referencia_docx=referencia_docx,
         arquivo_referencia_docx=str(referencia_docx.get("fonte") or ""),
-        status_sucesso="docx_refinado_eja" if modalidade_eja_ativa else "docx_literal",
+        status_sucesso=status_sucesso,
         literal=literal,
+        diagnostico_referencia_docx=diagnostico_referencia_docx,
     )
 
 
@@ -1280,7 +1321,7 @@ def montar_resultado_aula_local(
     if (
         referencia_docx_obrigatoria
         and not metodologia_fixa_pdf
-        and diagnostico_referencia_docx.get("bloqueia_geracao", False)
+        and (diagnostico_referencia_docx.get("bloqueia_geracao", False) or diagnostico_referencia_docx.get("status") in {"docx_ausente", "aula_ausente_ou_incompleta"})
     ):
         return _resultado_referencia_docx_estrita(
             texto=texto,
@@ -1322,6 +1363,7 @@ def montar_resultado_aula_local(
                 "acessibilidade foram copiados literalmente do DOCX externo."
             ),
             modalidade_eja_ativa=modalidade_eja_ativa,
+            diagnostico_referencia_docx=diagnostico_referencia_docx,
         )
 
     colunas_planejamento = dependencias.tentar_gerador_colunas_pedagogicas_fn(
