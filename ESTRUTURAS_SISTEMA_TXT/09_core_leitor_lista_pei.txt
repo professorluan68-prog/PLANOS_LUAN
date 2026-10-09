@@ -1,0 +1,39 @@
+
+
+==================================================
+ARQUIVO: core/leitor_lista_pei.py
+==================================================
+﻿from docx import Document
+from pathlib import Path
+
+def ler_lista_alunos_pei(caminho_docx):
+    doc = Document(str(caminho_docx))
+    alunos = []
+    
+    for table in doc.tables:
+        header = [c.text.strip().lower() for c in table.rows[0].cells]
+        if 'nome do estudante' in header and 'turma' in header:
+            idx_nome = header.index('nome do estudante')
+            idx_turma = header.index('turma')
+            idx_segmento = header.index('segmento') if 'segmento' in header else -1
+            
+            for row in table.rows[1:]:
+                cells = row.cells
+                if len(cells) > max(idx_nome, idx_turma):
+                    nome = cells[idx_nome].text.strip()
+                    turma = cells[idx_turma].text.strip()
+                    turma = turma.replace('*', '').strip()
+                    
+                    segmento = "Ensino Fundamental"
+                    if idx_segmento != -1:
+                        segmento = cells[idx_segmento].text.strip()
+                    elif "1º" in turma or "2º" in turma or "3º" in turma:
+                        segmento = "Ensino Médio"
+                        
+                    if nome and nome.lower() != 'nome do estudante':
+                        alunos.append({
+                            "nome": nome,
+                            "turma_doc": turma,
+                            "segmento": segmento
+                        })
+    return alunos

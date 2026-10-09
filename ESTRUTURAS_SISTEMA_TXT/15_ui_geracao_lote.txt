@@ -1,3 +1,8 @@
+
+
+==================================================
+ARQUIVO: ui/geracao_lote.py
+==================================================
 import streamlit as st
 import re
 import os
@@ -180,9 +185,7 @@ def _renderizar_geracao_lote(
         
         os.makedirs(out_dir, exist_ok=True)
         
-        Path("lock_processamento.txt").touch()
-        try:
-            for idx, r in enumerate(a_gerar):
+        for idx, r in enumerate(a_gerar):
             pct = int((idx / len(a_gerar)) * 100)
             progress_bar.progress(pct, text=f"Gerando plano ({idx+1}/{len(a_gerar)}): {r['Professor']} - {r['Disciplina']} ({r['Turma']})")
             
@@ -346,9 +349,6 @@ def _renderizar_geracao_lote(
                 erros_list += 1
                 logs.append(f"❌ **{v['professor']} - {v['disciplina']} ({v['turma']})**: Falha ao gerar -> {str(exc)}")
                 
-        finally:
-            Path("lock_processamento.txt").unlink(missing_ok=True)
-            
         progress_bar.progress(100, text="Processamento em lote concluído!")
         
         st.subheader("📊 Relatório de Geração em Lote")

@@ -1,3 +1,9 @@
+
+
+==================================================
+ARQUIVO: planos_luan_app.py
+==================================================
+
 import streamlit as st
 import logging
 import re
@@ -23,12 +29,9 @@ def _monitorar_sessoes_ativas():
     consecutive_zero_sessions = 0
     while True:
         try:
-            # Proteção contra interrupção de processamentos longos em background
-            if Path("lock_processamento.txt").exists():
-                consecutive_zero_sessions = 0
-                time.sleep(1)
-                continue
-                
+            # [CORREÇÃO A4] Proteger acesso à API privada do Streamlit.
+            # runtime._session_mgr é API interna que pode mudar entre versões.
+            # Se indisponível, count=-1 impede encerramento indevido do servidor.
             from streamlit.runtime import get_instance
             runtime = get_instance()
             if runtime and hasattr(runtime, "_session_mgr"):
@@ -41,28 +44,26 @@ def _monitorar_sessoes_ativas():
                     if has_connected:
                         consecutive_zero_sessions += 1
             else:
-                count = -1
+                count = -1  # API indisponível — não encerrar
                 consecutive_zero_sessions = 0
         except Exception as _monitor_exc:
             import logging as _log
             _log.getLogger(__name__).debug(
                 "Monitor de sessões: API Streamlit indisponível (%s)", _monitor_exc
             )
-            count = -1
+            count = -1  # API indisponível — não encerrar
             consecutive_zero_sessions = 0
         
         if has_connected and consecutive_zero_sessions >= 5:
-            # Trava extra imediata
-            if Path("lock_processamento.txt").exists():
-                consecutive_zero_sessions = 0
-                time.sleep(1)
-                continue
-                
+            # Encerramento gracioso: usa SIGTERM para permitir que handlers de
+            # cleanup (finally, atexit, flush de arquivos) rodem antes de sair.
+            # NÃO usar os._exit(0) pois interrompe gravações sem liberar recursos.
             try:
                 signal.raise_signal(signal.SIGTERM)
             except (AttributeError, OSError):
+                # Fallback para Python < 3.8 ou plataformas sem raise_signal
                 os.kill(os.getpid(), signal.SIGTERM)
-            return
+            return  # Encerra a thread de monitoramento
         time.sleep(1)
 
 _monitor_thread = threading.Thread(target=_monitorar_sessoes_ativas, daemon=True)
@@ -1676,7 +1677,7 @@ st.markdown(HERO_CSS, unsafe_allow_html=True)
 
 st.markdown(HERO_HTML, unsafe_allow_html=True)
 st.markdown(STATS_HTML, unsafe_allow_html=True)
-render_sidebar(PROFESSORES_DB, st.session_state.get("modo_tela", "Planos gerais"))
+render_sidebar()
 
 col_limpar, _ = st.columns([1, 5])
 with col_limpar: st.button("Limpar dados da tela", type="secondary", on_click=limpar_dados_tela)
@@ -1697,62 +1698,12 @@ idx_default = modos_disponiveis.index(default_modo)
 
 modo_tela = option_menu(
     menu_title=None,
-    options=[
-        "Planos gerais",
-        "CDP-EF/EM",
-        "EJA",
-        "Cadastro",
-        "Diagnóstico",
-        "Histórico",
-        "Conferência Mensal",
-        "P. Inclus.",
-    ],
-    icons=[
-        "journal-bookmark-fill",  # Planos gerais
-        "building",               # CDP-EF/EM
-        "people-fill",            # EJA
-        "person-badge-fill",      # Cadastro
-        "clipboard2-pulse-fill",  # Diagnóstico
-        "clock-history",          # Histórico
-        "calendar2-check-fill",   # Conferência Mensal
-        "heart-pulse-fill",       # P. Inclus.
-    ],
-    menu_icon=None,
-    default_index=0,
+    options=modos_disponiveis,
+    icons=["file-earmark-text", "file-earmark-spreadsheet", "people", "person-badge", "tools", "clock-history", "check2-square"],
+    menu_icon="cast",
+    default_index=idx_default,
     orientation="horizontal",
-    styles={
-        "container": {
-            "padding": "8px 16px",
-            "background-color": "#0D1F3C",
-            "border-bottom": "1px solid #1A3A6B",
-            "position": "sticky",
-            "top": "0",
-            "z-index": "100",
-            "backdrop-filter": "blur(10px)",
-        },
-        "icon": {
-            "color": "#93C5FD",
-            "font-size": "15px",
-        },
-        "nav-link": {
-            "font-size": "0.78rem",
-            "font-weight": "500",
-            "color": "#9CA3AF",
-            "border-radius": "8px",
-            "padding": "8px 14px",
-            "margin": "0 2px",
-            "gap": "6px",
-            "--hover-color": "#112952",
-            "transition": "all 0.2s ease",
-        },
-        "nav-link-selected": {
-            "background": "linear-gradient(135deg, #1E4D8C, #2563EB)",
-            "color": "#FFFFFF",
-            "font-weight": "600",
-            "box-shadow": "0 4px 12px rgba(37,99,235,0.3)",
-        },
-    },
-    key="menu_principal",
+    styles=OPTION_MENU_STYLES,
 )
 st.session_state["modo_tela"] = modo_tela
 
@@ -1763,7 +1714,7 @@ modo_cadastro_professor = modo_tela == "Cadastro"
 modo_diagnostico_modelos = modo_tela == "Diagnóstico"
 modo_historico = modo_tela == "Histórico"
 modo_conferencia_mensal = modo_tela == "Conferência Mensal"
-modo_pei = modo_tela == "P. Inclus."
+modo_pei = modo_tela == "PEI Inclusão"
 
 if modo_cadastro_professor: _renderizar_cadastro_professor(PROFESSORES_DB); st.stop()
 if modo_diagnostico_modelos: _renderizar_diagnostico_modelos(); st.stop()

@@ -1,3 +1,8 @@
+
+
+==================================================
+ARQUIVO: core/database.py
+==================================================
 import json
 import os
 import sqlite3
@@ -598,29 +603,28 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
         if chave:
             paths_existentes.add(chave)
 
-    # Fase 3: Processamento em paralelo
+    # Fase 3: Processamento em memória
     dados_para_inserir = []
-    
-    def _processar_caminho(caminho):
+    for caminho in arquivos_docx:
         caminho_str = str(caminho.resolve())
         chave = _chave_caminho_historico(caminho_str)
         if chave in paths_existentes:
-            return None
+            continue
 
         try:
             relativo = caminho.relative_to(pasta_planos)
         except ValueError:
-            return None
+            continue
         partes = relativo.parts
         if len(partes) < 3:
-            return None
+            continue
 
         professor_nome = _resolver_nome_professor_por_pasta(partes[0], nomes_professores)
         disciplina = str(partes[1] or "").replace("_", " ").strip()
         arquivo_nome = caminho.name
         turma = _inferir_turma_por_nome_arquivo(arquivo_nome, disciplina)
         if not professor_nome or not disciplina or not turma:
-            return None
+            continue
 
         data_geracao = datetime.fromtimestamp(caminho.stat().st_mtime).strftime(
             "%Y-%m-%d %H:%M:%S"
@@ -642,7 +646,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
             arquivo_path=caminho_str,
             extrair_resumo_aulas=True,
         )
-        return (
+        dados_para_inserir.append((
             professor_nome,
             disciplina,
             turma,
@@ -661,15 +665,7 @@ def sincronizar_historico_planos_com_planos_feitos() -> int:
             metadados["origem"],
             metadados["ultima_aula"],
             metadados["total_aulas"],
-        )
-
-    import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, (os.cpu_count() or 1) * 4)) as executor:
-        resultados = executor.map(_processar_caminho, arquivos_docx)
-        
-    for res in resultados:
-        if res:
-            dados_para_inserir.append(res)
+        ))
 
     if not dados_para_inserir:
         return 0

@@ -1,0 +1,2782 @@
+
+
+==================================================
+ARQUIVO: ui/acompanhamento.py
+==================================================
+from __future__ import annotations
+
+from collections import defaultdict
+from io import StringIO
+import re
+import unicodedata
+
+import pandas as pd
+import streamlit as st
+
+import core.database as database
+from core.disciplinas import BIMESTRES
+
+
+def _normalizar_chave(valor: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", texto).strip().upper()
+
+
+def _formatar_data(data_texto: str) -> str:
+    texto = str(data_texto or "").strip()
+    if not texto:
+        return ""
+    partes = texto.split(" ")
+    data_parte = partes[0]
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", data_parte):
+        ano, mes, dia = data_parte.split("-")
+        hora = partes[1][:5] if len(partes) > 1 and ":" in partes[1] else ""
+        return f"{dia}/{mes}/{ano}" + (f" {hora}" if hora else "")
+    return texto
+
+
+def _rotulo_plano(disciplina: str, turma: str) -> str:
+    disciplina = str(disciplina or "").strip()
+    turma = str(turma or "").strip()
+    if disciplina and turma:
+        return f"{disciplina} - {turma}"
+    return disciplina or turma or "Plano sem identificação"
+
+
+def _csv_bytes(df: pd.DataFrame) -> bytes:
+    buffer = StringIO()
+    df.to_csv(buffer, index=False, sep=";", encoding="utf-8-sig")
+    return buffer.getvalue().encode("utf-8-sig")
+
+
+def _listar_ultimos_planos_por_contexto(bimestre: str = "") -> list[dict]:
+    if hasattr(database, "listar_ultimos_planos_por_contexto"):
+        return database.listar_ultimos_planos_por_contexto(bimestre)
+
+    bimestre = str(bimestre or "").strip()
+    with database.get_connection() as conn:
+        cursor = conn.cursor()
+        if bimestre:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    WHERE UPPER(TRIM(COALESCE(bimestre, ''))) = UPPER(TRIM(?))
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """,
+                (bimestre,),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    h.id,
+                    h.professor_nome,
+                    h.disciplina,
+                    h.turma,
+                    COALESCE(h.bimestre, ''),
+                    h.data_geracao,
+                    h.arquivo_nome
+                FROM historico_planos h
+                JOIN (
+                    SELECT
+                        UPPER(TRIM(professor_nome)) AS professor_chave,
+                        UPPER(TRIM(disciplina)) AS disciplina_chave,
+                        UPPER(TRIM(turma)) AS turma_chave,
+                        UPPER(TRIM(COALESCE(bimestre, ''))) AS bimestre_chave,
+                        MAX(id) AS ultimo_id
+                    FROM historico_planos
+                    GROUP BY
+                        UPPER(TRIM(professor_nome)),
+                        UPPER(TRIM(disciplina)),
+                        UPPER(TRIM(turma)),
+                        UPPER(TRIM(COALESCE(bimestre, '')))
+                ) ultimos
+                    ON h.id = ultimos.ultimo_id
+                ORDER BY
+                    UPPER(TRIM(h.professor_nome)),
+                    UPPER(TRIM(h.disciplina)),
+                    UPPER(TRIM(h.turma)),
+                    UPPER(TRIM(COALESCE(h.bimestre, ''))),
+                    h.data_geracao DESC,
+                    h.id DESC
+                """
+            )
+
+        return [
+            {
+                "id": int(row[0]),
+                "professor_nome": row[1] or "",
+                "disciplina": row[2] or "",
+                "turma": row[3] or "",
+                "bimestre": row[4] or "",
+                "data_geracao": row[5] or "",
+                "arquivo_nome": row[6] or "",
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+def _montar_linhas_acompanhamento(bimestre: str) -> tuple[list[dict], list[dict]]:
+    professores_db = database.obter_professores_db()
+    bimestre_filtro = "" if bimestre == "Todos" else bimestre
+    historico = _listar_ultimos_planos_por_contexto(bimestre_filtro)
+
+    historico_por_chave: dict[tuple[str, str, str], dict] = {}
+    for item in historico:
+        chave = (
+            _normalizar_chave(item.get("professor_nome", "")),
+            _normalizar_chave(item.get("disciplina", "")),
+            _normalizar_chave(item.get("turma", "")),
+        )
+        historico_por_chave[chave] = item
+
+    cadastros_por_chave: dict[tuple[str, str, str], dict] = {}
+    todos_professores = set()
+
+    for professor, dados in professores_db.items():
+        todos_professores.add(str(professor or "").strip())
+        for item in dados.get("disciplinas", []):
+            chave = (
+                _normalizar_chave(professor),
+                _normalizar_chave(item.get("disciplina", "")),
+                _normalizar_chave(item.get("turma", "")),
+            )
+            cadastro = cadastros_por_chave.setdefault(
+                chave,
+                {
+                    "professor": str(professor or "").strip(),
+                    "disciplina": str(item.get("disciplina") or "").strip(),
+                    "turma": str(item.get("turma") or "").strip(),
+                    "componente_curricular": str(item.get("componente_curricular") or "").strip(),
+                    "horario": str(item.get("horario") or "").strip().replace("\n", " | "),
+                    "aulas_semana": str(item.get("aulas_semana") or "").strip(),
+                    "origem": "Cadastro",
+                },
+            )
+            if not cadastro.get("componente_curricular") and item.get("componente_curricular"):
+                cadastro["componente_curricular"] = str(item.get("componente_curricular") or "").strip()
+            if not cadastro.get("horario") and item.get("horario"):
+                cadastro["horario"] = str(item.get("horario") or "").strip().replace("\n", " | ")
+            if not cadastro.get("aulas_semana") and item.get("aulas_semana"):
+                cadastro["aulas_semana"] = str(item.get("aulas_semana") or "").strip()
+
+    linhas_detalhe: list[dict] = []
+    chaves_processadas = set()
+
+    for chave, cadastro in sorted(
+        cadastros_por_chave.items(),
+        key=lambda item: (
+            _normalizar_chave(item[1].get("professor", "")),
+            _normalizar_chave(item[1].get("disciplina", "")),
+            _normalizar_chave(item[1].get("turma", "")),
+        ),
+    ):
+        item_hist = historico_por_chave.get(chave)
+        chaves_processadas.add(chave)
+        linhas_detalhe.append(
+            {
+                "Professor": cadastro.get("professor", ""),
+                "Disciplina": cadastro.get("disciplina", ""),
+                "Turma": cadastro.get("turma", ""),
+                "Componente": cadastro.get("componente_curricular", ""),
+                "Bimestre": str(item_hist.get("bimestre") if item_hist else bimestre_filtro or bimestre).strip(),
+                "Status": "Gerado" if item_hist else "Pendente",
+                "Gerado em": _formatar_data(str(item_hist.get("data_geracao") or "")) if item_hist else "",
+                "_data_sort": str(item_hist.get("data_geracao") or "") if item_hist else "",
+                "Arquivo": str(item_hist.get("arquivo_nome") or "") if item_hist else "",
+                "Horario": cadastro.get("horario", ""),
+                "Aulas/semana": cadastro.get("aulas_semana", ""),
+                "Origem": cadastro.get("origem", "Cadastro"),
+            }
+        )
+
+    for item_hist in historico:
+        chave = (
+            _normalizar_chave(item_hist.get("professor_nome", "")),
+            _normalizar_chave(item_hist.get("disciplina", "")),
+            _normalizar_chave(item_hist.get("turma", "")),
+        )
+        if chave in chaves_processadas:
+            continue
+        professor = str(item_hist.get("professor_nome") or "").strip()
+        todos_professores.add(professor)
+        linhas_detalhe.append(
+            {
+                "Professor": professor,
+                "Disciplina": str(item_hist.get("disciplina") or "").strip(),
+                "Turma": str(item_hist.get("turma") or "").strip(),
+                "Componente": "",
+                "Bimestre": str(item_hist.get("bimestre") or "").strip(),
+                "Status": "Gerado",
+                "Gerado em": _formatar_data(str(item_hist.get("data_geracao") or "")),
+                "_data_sort": str(item_hist.get("data_geracao") or ""),
+                "Arquivo": str(item_hist.get("arquivo_nome") or "").strip(),
+                "Horario": "",
+                "Aulas/semana": "",
+                "Origem": "Histórico",
+            }
+        )
+
+    resumo_por_professor: dict[str, dict] = defaultdict(
+        lambda: {
+            "Professor": "",
+            "Cadastros": 0,
+            "Gerados": 0,
+            "Pendentes": 0,
+            "Última geração": "",
+            "_ultima_geracao_sort": "",
+            "Planos do bimestre": [],
+        }
+    )
+
+    for professor in todos_professores:
+        resumo_por_professor[professor]["Professor"] = professor
+
+    for linha in linhas_detalhe:
+        professor = str(linha.get("Professor") or "").strip()
+        resumo = resumo_por_professor[professor]
+        resumo["Professor"] = professor
+        if str(linha.get("Origem") or "") != "Histórico":
+            resumo["Cadastros"] += 1
+        if str(linha.get("Status") or "") == "Gerado":
+            resumo["Gerados"] += 1
+            resumo["Planos do bimestre"].append(
+                _rotulo_plano(linha.get("Disciplina", ""), linha.get("Turma", ""))
+            )
+            data_sort = str(linha.get("_data_sort") or "").strip()
+            data_geracao = str(linha.get("Gerado em") or "").strip()
+            if data_sort and data_sort >= str(resumo.get("_ultima_geracao_sort") or ""):
+                resumo["_ultima_geracao_sort"] = data_sort
+                resumo["Última geração"] = data_geracao
+        elif str(linha.get("Origem") or "") != "Histórico":
+            resumo["Pendentes"] += 1
+
+    linhas_resumo = []
+    for professor in sorted(resumo_por_professor, key=_normalizar_chave):
+        item = resumo_por_professor[professor]
+        planos = item.pop("Planos do bimestre", [])
+        item.pop("_ultima_geracao_sort", None)
+        item["Planos do bimestre"] = " | ".join(planos) if planos else ""
+        if item["Cadastros"] == 0 and item["Gerados"] == 0:
+            situacao = "Sem cadastro"
+        elif item["Cadastros"] == 0 and item["Gerados"] > 0:
+            situacao = "Somente histórico"
+        elif item["Pendentes"] == 0:
+            situacao = "Concluído"
+        elif item["Gerados"] == 0:
+            situacao = "Nada gerado"
+        else:
+            situacao = "Parcial"
+        item["Situação"] = situacao
+        linhas_resumo.append(item)
+
+    linhas_detalhe_limpo = []
+    for linha in linhas_detalhe:
+        linha_limpa = dict(linha)
+        linha_limpa.pop("_data_sort", None)
+        linhas_detalhe_limpo.append(linha_limpa)
+
+    return linhas_resumo, linhas_detalhe_limpo
+
+
+def _filtrar_linhas(
+    linhas_resumo: list[dict],
+    linhas_detalhe: list[dict],
+    busca_professor: str,
+    somente_pendentes: bool,
+) -> tuple[list[dict], list[dict]]:
+    busca_norm = _normalizar_chave(busca_professor)
+
+    def professor_ok(linha: dict) -> bool:
+        if not busca_norm:
+            return True
+        return busca_norm in _normalizar_chave(str(linha.get("Professor") or ""))
+
+    detalhe_filtrado = [
+        linha
+        for linha in linhas_detalhe
+        if professor_ok(linha) and (not somente_pendentes or str(linha.get("Status") or "") == "Pendente")
+    ]
+
+    professores_visiveis = {_normalizar_chave(str(linha.get("Professor") or "")) for linha in detalhe_filtrado}
+    resumo_filtrado = [
+        linha
+        for linha in linhas_resumo
+        if professor_ok(linha) and (
+            not professores_visiveis
+            or _normalizar_chave(str(linha.get("Professor") or "")) in professores_visiveis
+            or (not somente_pendentes and int(linha.get("Cadastros") or 0) == 0 and int(linha.get("Gerados") or 0) == 0)
+        )
+    ]
+
+    return resumo_filtrado, detalhe_filtrado
+
+
+def _renderizar_acompanhamento_planos() -> None:
+    st.markdown('<div class="section-title">Acompanhamento dos planos</div>', unsafe_allow_html=True)
+    st.caption("Veja por professor o que já foi gerado em cada bimestre e o que ainda está pendente.")
+
+    col_bim, col_busca, col_pendente, col_refresh = st.columns([1.2, 1.5, 1.1, 0.8])
+    with col_bim:
+        bimestre = st.selectbox(
+            "Bimestre",
+            ["Todos"] + list(BIMESTRES),
+            index=0,
+            key="painel_bimestre",
+        )
+    with col_busca:
+        busca_professor = st.text_input(
+            "Filtrar professor",
+            key="painel_busca_professor",
+            placeholder="Digite parte do nome",
+        ).strip()
+    with col_pendente:
+        somente_pendentes = st.checkbox(
+            "Mostrar só pendentes",
+            key="painel_somente_pendentes",
+            value=False,
+        )
+    with col_refresh:
+        st.write("")
+        st.write("")
+        if st.button("Atualizar", key="painel_atualizar"):
+            st.rerun()
+
+    linhas_resumo, linhas_detalhe = _montar_linhas_acompanhamento(bimestre)
+    linhas_resumo, linhas_detalhe = _filtrar_linhas(
+        linhas_resumo,
+        linhas_detalhe,
+        busca_professor,
+        somente_pendentes,
+    )
+
+    total_professores = len(linhas_resumo)
+    total_planos = len(linhas_detalhe)
+    total_gerados = sum(1 for linha in linhas_detalhe if str(linha.get("Status") or "") == "Gerado")
+    total_pendentes = sum(1 for linha in linhas_detalhe if str(linha.get("Status") or "") == "Pendente")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Professores visíveis", total_professores)
+    col2.metric("Planos no painel", total_planos)
+    col3.metric("Gerados", total_gerados)
+    col4.metric("Pendentes", total_pendentes)
+
+    if not linhas_resumo and not linhas_detalhe:
+        st.info("Ainda não há dados suficientes para montar o acompanhamento.")
+        return
+
+    abas = st.tabs(["Resumo por professor", "Detalhamento"])
+
+    with abas[0]:
+        df_resumo = pd.DataFrame(linhas_resumo)
+        if df_resumo.empty:
+            st.info("Nenhum professor encontrado com os filtros informados.")
+        else:
+            st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+
+    with abas[1]:
+        df_detalhe = pd.DataFrame(linhas_detalhe)
+        if df_detalhe.empty:
+            st.info("Nenhum plano encontrado com os filtros informados.")
+        else:
+            st.download_button(
+                "Exportar acompanhamento (CSV)",
+                data=_csv_bytes(df_detalhe),
+                file_name="acompanhamento_planos.csv",
+                mime="text/csv",
+                key="baixar_csv_acompanhamento",
+            )
+            st.dataframe(df_detalhe, use_container_width=True, hide_index=True)
+
+
+==================================================
+ARQUIVO: ui/cadastro.py
+==================================================
+import streamlit as st
+import re
+import unicodedata
+from datetime import date
+from pathlib import Path
+
+from core.database import (
+    listar_vinculos_professores,
+    atualizar_vinculo_professor,
+    salvar_professor_turma,
+    duplicar_vinculo_professor,
+    excluir_vinculo_professor,
+    obter_dados_administrativos_professor,
+    salvar_dados_administrativos_professor,
+    listar_todos_dados_administrativos,
+)
+from core.modelos_docx import (
+    resolver_template_id_geracao,
+    caminho_template_central,
+)
+from core.disciplinas import componentes_curriculares_por_disciplina, nomes_disciplinas
+from ui.shared import (
+    _chave_cadastro,
+    _eh_cadastro_cdp_eja,
+    _arquivo_existe,
+    _diagnosticar_modelos_professores_cache,
+    _carregar_professores_dos_planos_cache,
+    _ler_bytes_arquivo_cache,
+    _rotulo_cadastro,
+    _slug_key,
+    _selecionar_turma,
+    _selecionar_aulas_semana,
+    _rotulo_horario,
+    _serializar_horarios_padronizados,
+    _turno_e_aulas_de_horario,
+    _montar_horario_flexivel,
+    _aulas_disponiveis_turno,
+    _numeros_aulas_de_texto,
+    DIAS_SEMANA_CADASTRO,
+    TURNOS_HORARIOS,
+    TURNOS_AULAS_ESPECIAIS,
+    TURNO_HORARIO_PERSONALIZADO,
+    _normalizar_texto_simples,
+    _defaults_grade_horarios,
+)
+
+
+def extrair_valor_float(valor_str: str) -> float:
+    if not valor_str:
+        return 0.0
+    limpo = re.sub(r"[^\d,\.]", "", str(valor_str)).strip()
+    if not limpo:
+        return 0.0
+    if "," in limpo and "." in limpo:
+        limpo = limpo.replace(".", "").replace(",", ".")
+    elif "," in limpo:
+        limpo = limpo.replace(",", ".")
+    try:
+        return float(limpo)
+    except ValueError:
+        return 0.0
+
+
+def formatar_moeda_br(valor: float) -> str:
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _normalizar_nome_dados_professor(nome: str = "") -> str:
+    texto = unicodedata.normalize("NFKD", str(nome or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"\s+", " ", texto).strip().upper()
+    return texto
+
+
+def _eh_professor_dados_piloto(nome: str = "") -> bool:
+    return bool(str(nome or "").strip())
+
+
+def _opcoes_componente_curricular(disciplina_atual: str = "", componente_atual: str = "") -> list[str]:
+    opcoes = [disc for disc in nomes_disciplinas() if disc != "Outra"]
+    opcoes.extend(
+        componente
+        for componente in componentes_curriculares_por_disciplina(disciplina_atual)
+        if componente not in opcoes
+    )
+    extras = []
+    for valor in (disciplina_atual, componente_atual):
+        valor_limpo = str(valor or "").strip()
+        if valor_limpo and valor_limpo not in opcoes and valor_limpo not in extras:
+            extras.append(valor_limpo)
+    return opcoes + extras
+
+
+def _selecionar_componente_curricular(
+    label: str,
+    key: str,
+    disciplina_atual: str = "",
+    componente_atual: str = "",
+) -> str:
+    opcoes = _opcoes_componente_curricular(disciplina_atual, componente_atual)
+    valor_atual = str(componente_atual or disciplina_atual or "").strip()
+    if valor_atual and valor_atual in opcoes:
+        indice = opcoes.index(valor_atual)
+    elif str(disciplina_atual or "").strip() in opcoes:
+        indice = opcoes.index(str(disciplina_atual).strip())
+    else:
+        indice = 0
+    return st.selectbox(label, opcoes, index=indice, key=key)
+
+
+def _cadastros_para_gestao() -> list[dict]:
+    cadastros = []
+    chaves_banco = {}
+
+    for item in listar_vinculos_professores():
+        cadastro = dict(item)
+        cadastro["id_cadastro"] = f"banco:{cadastro.get('id')}"
+        cadastro["origem"] = "Banco"
+        cadastro["editavel_banco"] = True
+        template_path = caminho_template_central(
+            resolver_template_id_geracao(
+                template_id=cadastro.get("template_id") or "",
+                disciplina=cadastro.get("disciplina", ""),
+                componente_curricular=cadastro.get("componente_curricular", ""),
+                arquivo_modelo=cadastro.get("arquivo") or "",
+            )
+        )
+        cadastro["template_central"] = str(template_path)
+        cadastro["sem_modelo"] = not template_path.exists()
+        chave = _chave_cadastro(
+            cadastro.get("professor", ""),
+            cadastro.get("disciplina", ""),
+            cadastro.get("turma", ""),
+            cadastro.get("componente_curricular", ""),
+        )
+        chaves_banco.setdefault(chave, cadastro)
+        cadastros.append(cadastro)
+
+    # Nota: A pasta dos professores não está sendo iterada aqui (conforme estrutura original simplificada)
+    for professor, dados in _carregar_professores_dos_planos_cache().items():
+        for indice, item in enumerate(dados.get("disciplinas", [])):
+            chave = _chave_cadastro(
+                professor,
+                item.get("disciplina", ""),
+                item.get("turma", ""),
+                item.get("componente_curricular", ""),
+            )
+            modelo = {
+                "id": None,
+                "professor": professor,
+                "disciplina": item.get("disciplina", ""),
+                "turma": item.get("turma", ""),
+                "dia_semana": item.get("dia_semana", ""),
+                "horario": item.get("horario", ""),
+                "aulas_semana": item.get("aulas_semana", ""),
+                "arquivo": item.get("arquivo", ""),
+                "arquivo_modelo": item.get("arquivo", ""),
+                "componente_curricular": item.get("componente_curricular", ""),
+                "datas_horarios": item.get("datas_horarios") or [],
+                "origem": "Pasta DOCX",
+                "editavel_banco": False,
+                "sem_modelo": not _arquivo_existe(item.get("arquivo", "")),
+            }
+
+            existente = chaves_banco.get(chave)
+            if existente:
+                for campo in ["arquivo", "arquivo_modelo", "componente_curricular", "dia_semana", "horario", "aulas_semana", "datas_horarios"]:
+                    if not existente.get(campo) and modelo.get(campo):
+                        existente[campo] = modelo[campo]
+                if modelo.get("arquivo"):
+                    existente["origem"] = "Banco + DOCX"
+                    existente["sem_modelo"] = False
+                continue
+
+            modelo["id_cadastro"] = f"modelo:{indice}:{modelo['arquivo']}"
+            cadastros.append(modelo)
+
+    return sorted(
+        cadastros,
+        key=lambda item: (
+            item.get("professor", ""),
+            item.get("disciplina", ""),
+            item.get("turma", ""),
+            item.get("componente_curricular", ""),
+            item.get("id") or 0,
+        ),
+    )
+
+def _limpar_cache_cadastro() -> None:
+    _carregar_professores_dos_planos_cache.clear()
+    _diagnosticar_modelos_professores_cache.clear()
+    _ler_bytes_arquivo_cache.clear()
+
+def _preparar_modelo_cadastro(
+    professor: str,
+    disciplina: str,
+    turma: str,
+    aulas_semana: str,
+    arquivo_modelo: str = "",
+    componente_curricular: str = "",
+) -> tuple[str, str]:
+    template_id = resolver_template_id_geracao(
+        disciplina=disciplina,
+        componente_curricular=componente_curricular,
+        arquivo_modelo=arquivo_modelo,
+    )
+    template_path = caminho_template_central(template_id)
+    if template_path.exists():
+        return arquivo_modelo or "", ""
+    return (
+        arquivo_modelo or "",
+        f"Cadastro salvado, mas o modelo central {template_path.name} nao foi encontrado em templates.",
+    )
+
+def _salvar_cadastro_gerenciado(
+    cadastro_id,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    dia_semana: str,
+    horario: str,
+    aulas_semana: str,
+    arquivo_modelo: str,
+    componente_curricular: str,
+) -> tuple[str, str]:
+    arquivo_corrigido, aviso = _preparar_modelo_cadastro(
+        professor,
+        disciplina,
+        turma,
+        aulas_semana,
+        arquivo_modelo,
+        componente_curricular,
+    )
+    template_id = resolver_template_id_geracao(
+        disciplina=disciplina,
+        componente_curricular=componente_curricular,
+        arquivo_modelo=arquivo_corrigido or arquivo_modelo,
+    )
+    if cadastro_id:
+        atualizar_vinculo_professor(
+            cadastro_id,
+            professor,
+            disciplina,
+            turma,
+            dia_semana,
+            horario,
+            aulas_semana,
+            arquivo_corrigido,
+            componente_curricular,
+            template_id,
+        )
+    else:
+        salvar_professor_turma(
+            professor,
+            disciplina,
+            turma,
+            dia_semana,
+            horario,
+            aulas_semana,
+            arquivo_corrigido,
+            componente_curricular,
+            template_id,
+        )
+    return arquivo_corrigido, aviso
+
+def _renderizar_grade_horarios(prefixo: str, dia_texto: str = "", horario_texto: str = "", contexto: str = "") -> tuple[str, str, int]:
+    st.markdown("**Grade semanal de horários**")
+    st.caption("Selecione o turno e as aulas de cada dia. Deixe vazio o dia em que não há aula.")
+    st.caption("Para corrigir ou incluir outro horário, selecione Personalizado. Para remover, desmarque as aulas ou apague o texto.")
+    defaults = _defaults_grade_horarios(dia_texto, horario_texto, contexto)
+    selecionados = []
+    turnos = (
+        list(TURNOS_HORARIOS.keys())
+        + list(TURNOS_AULAS_ESPECIAIS.keys())
+        + [TURNO_HORARIO_PERSONALIZADO]
+    )
+
+    for indice, dia in enumerate(DIAS_SEMANA_CADASTRO):
+        default_dia = defaults.get(dia, {})
+        turno_padrao_contexto = "CDP - Manhã" if (_eh_cadastro_cdp_eja(contexto) or "CDP" in _normalizar_texto_simples(contexto)) else "Manhã"
+        turno_default = str(default_dia.get("turno") or turno_padrao_contexto)
+        horario_personalizado_default = str(default_dia.get("horario_personalizado") or "")
+        aulas_opcoes_default = [f"{numero}ª" for numero in _aulas_disponiveis_turno(turno_default)]
+        aulas_default = [aula for aula in default_dia.get("aulas", []) if aula in aulas_opcoes_default]
+
+        col_dia, col_turno, col_aulas, col_previa = st.columns([1.1, 1.1, 2.2, 2.1])
+        with col_dia:
+            st.markdown(f"**{dia}**")
+        with col_turno:
+            turno = st.selectbox(
+                "Turno",
+                turnos,
+                index=turnos.index(turno_default) if turno_default in turnos else 0,
+                key=f"{prefixo}_turno_{indice}",
+                label_visibility="collapsed",
+            )
+        if turno == TURNO_HORARIO_PERSONALIZADO:
+            with col_aulas:
+                horario_personalizado = st.text_input(
+                    "Horário personalizado",
+                    value=horario_personalizado_default,
+                    key=f"{prefixo}_horario_personalizado_{indice}",
+                    placeholder="Ex.: 6ª aula - 12:25 a 13:15",
+                    label_visibility="collapsed",
+                ).strip()
+            numeros_aulas = _numeros_aulas_de_texto(horario_personalizado)
+            aulas = [f"{numero}ª" for numero in numeros_aulas]
+            if horario_personalizado and not aulas:
+                aulas = ["Personalizada"]
+            horario = (
+                f"{PREFIXO_HORARIO_PERSONALIZADO} {horario_personalizado}"
+                if horario_personalizado
+                else None
+            )
+        else:
+            aulas_opcoes = [f"{numero}ª" for numero in _aulas_disponiveis_turno(turno)]
+            aulas_default = [aula for aula in aulas_default if aula in aulas_opcoes]
+            with col_aulas:
+                aulas = st.multiselect(
+                    "Aulas",
+                    aulas_opcoes,
+                    default=aulas_default,
+                    key=f"{prefixo}_aulas_{indice}",
+                    label_visibility="collapsed",
+                )
+            horario = _montar_horario_flexivel(turno, aulas)
+        with col_previa:
+            if turno == TURNO_HORARIO_PERSONALIZADO and horario_personalizado:
+                st.caption(horario_personalizado)
+            else:
+                st.caption(_rotulo_horario(horario) if horario else "Sem aula neste dia")
+        if horario:
+            selecionados.append({"dia": dia, "horario": horario, "aulas": aulas})
+
+    dia_serializado = " - ".join(item["dia"] for item in selecionados)
+    horario_serializado = _serializar_horarios_padronizados([item["horario"] for item in selecionados])
+    total_aulas = sum(len(item["aulas"]) for item in selecionados)
+    if total_aulas:
+        st.caption(f"Total selecionado na semana: {total_aulas} aula(s).")
+    return dia_serializado, horario_serializado, total_aulas
+
+def _renderizar_metricas_cadastro(cadastros: list[dict], diagnostico: dict) -> None:
+    professores = {cad.get("professor") for cad in cadastros if cad.get("professor")}
+    sem_modelo = [cad for cad in cadastros if cad.get("sem_modelo")]
+    duplicidades = diagnostico.get("duplicidades", []) if diagnostico else []
+    col_prof, col_vinc, col_sem_modelo, col_dup = st.columns(4)
+    col_prof.metric("Professores", len(professores))
+    col_vinc.metric("Cadastros", len(cadastros))
+    col_sem_modelo.metric("Sem DOCX", len(sem_modelo))
+    col_dup.metric("Duplicidades", len(duplicidades))
+
+
+def _disciplinas_por_professor(cadastros: list[dict], professor: str = "Todos") -> list[str]:
+    """Retorna apenas as disciplinas vinculadas ao professor selecionado."""
+    return sorted(
+        {
+            cadastro.get("disciplina", "")
+            for cadastro in cadastros
+            if cadastro.get("disciplina")
+            and (professor == "Todos" or cadastro.get("professor") == professor)
+        }
+    )
+
+
+def _filtrar_cadastros(cadastros: list[dict]) -> list[dict]:
+    professores = ["Todos"] + sorted({cad.get("professor", "") for cad in cadastros if cad.get("professor")})
+    turmas = ["Todas"] + sorted({cad.get("turma", "") for cad in cadastros if cad.get("turma")})
+    origens = ["Todas"] + sorted({cad.get("origem", "") for cad in cadastros if cad.get("origem")})
+    if st.session_state.get("cadastro_filtro_professor") not in professores:
+        st.session_state["cadastro_filtro_professor"] = "Todos"
+    if st.session_state.get("cadastro_filtro_turma") not in turmas:
+        st.session_state["cadastro_filtro_turma"] = "Todas"
+    if st.session_state.get("cadastro_filtro_origem") not in origens:
+        st.session_state["cadastro_filtro_origem"] = "Todas"
+
+    col_prof, col_disc, col_turma, col_origem, col_sem = st.columns([2, 1.5, 1.5, 1.5, 1])
+    with col_prof:
+        filtro_prof = st.selectbox("Professor", professores, key="cadastro_filtro_professor")
+    with col_disc:
+        disciplinas = ["Todas"] + _disciplinas_por_professor(cadastros, filtro_prof)
+        if st.session_state.get("cadastro_filtro_disciplina") not in disciplinas:
+            st.session_state["cadastro_filtro_disciplina"] = "Todas"
+        filtro_disc = st.selectbox("Disciplina", disciplinas, key="cadastro_filtro_disciplina")
+    with col_turma:
+        filtro_turma = st.selectbox("Turma", turmas, key="cadastro_filtro_turma")
+    with col_origem:
+        filtro_origem = st.selectbox("Origem", origens, key="cadastro_filtro_origem")
+    with col_sem:
+        apenas_sem_modelo = st.checkbox("Sem DOCX", key="cadastro_filtro_sem_modelo")
+
+    busca = st.text_input("Buscar por professor, disciplina, turma ou horario", key="cadastro_busca")
+    busca_norm = _chave_cadastro(busca, "", "", "")[0] if busca else ""
+
+    filtrados = []
+    for cadastro in cadastros:
+        if filtro_prof != "Todos" and cadastro.get("professor") != filtro_prof:
+            continue
+        if filtro_disc != "Todas" and cadastro.get("disciplina") != filtro_disc:
+            continue
+        if filtro_turma != "Todas" and cadastro.get("turma") != filtro_turma:
+            continue
+        if filtro_origem != "Todas" and cadastro.get("origem") != filtro_origem:
+            continue
+        if apenas_sem_modelo and not cadastro.get("sem_modelo"):
+            continue
+        if busca_norm:
+            texto = _chave_cadastro(
+                cadastro.get("professor", ""),
+                cadastro.get("disciplina", ""),
+                f"{cadastro.get('turma', '')} {cadastro.get('horario', '')}",
+                cadastro.get("componente_curricular", ""),
+            )
+            if busca_norm not in " ".join(texto):
+                continue
+        filtrados.append(cadastro)
+    return filtrados
+
+def _renderizar_tabela_cadastros(cadastros: list[dict]) -> None:
+    linhas = [
+        {
+            "Professor": cad.get("professor", ""),
+            "Disciplina": cad.get("disciplina", ""),
+            "Componente": cad.get("componente_curricular", ""),
+            "Turma": cad.get("turma", ""),
+            "Aulas": cad.get("aulas_semana", ""),
+            "Origem": cad.get("origem", ""),
+            "DOCX": "ok" if not cad.get("sem_modelo") else "sem modelo",
+        }
+        for cad in cadastros
+    ]
+    st.dataframe(linhas, use_container_width=True, hide_index=True)
+
+def _renderizar_editor_cadastro(cadastros: list[dict]) -> None:
+    st.markdown("**Consultar e editar cadastros**")
+    filtrados = _filtrar_cadastros(cadastros)
+    if not filtrados:
+        st.info("Nenhum cadastro encontrado com estes filtros.")
+        return
+
+    _renderizar_tabela_cadastros(filtrados)
+    opcoes = {cad["id_cadastro"]: cad for cad in filtrados}
+    if st.session_state.get("cadastro_selecionado") not in opcoes:
+        st.session_state["cadastro_selecionado"] = next(iter(opcoes))
+    escolha = st.selectbox(
+        "Cadastro para editar",
+        list(opcoes.keys()),
+        format_func=lambda chave: _rotulo_cadastro(opcoes[chave]),
+        key="cadastro_selecionado",
+    )
+    cadastro = opcoes[escolha]
+    chave_ui = _slug_key(escolha)
+    if not cadastro.get("editavel_banco"):
+        st.info("Este cadastro veio somente da pasta de DOCX. Ao salvar, ele sera registrado no banco.")
+
+    with st.form(f"form_editar_cadastro_{chave_ui}"):
+        col_prof, col_disc = st.columns(2)
+        with col_prof:
+            professor_edit = st.text_input("Professor", value=str(cadastro.get("professor") or ""), key=f"edit_prof_{chave_ui}").strip().upper()
+        with col_disc:
+            disciplina_edit = st.text_input("Disciplina", value=str(cadastro.get("disciplina") or ""), key=f"edit_disc_{chave_ui}").strip()
+
+        col_turma, col_aulas = st.columns([2, 1])
+        with col_turma:
+            turma_edit = st.text_input("Turma", value=str(cadastro.get("turma") or ""), key=f"edit_turma_{chave_ui}").strip()
+        with col_aulas:
+            aulas_edit = st.text_input("Aulas por semana", value=str(cadastro.get("aulas_semana") or ""), key=f"edit_aulas_{chave_ui}").strip()
+
+        componente_edit = _selecionar_componente_curricular(
+            "Componente curricular",
+            key=f"edit_comp_{chave_ui}",
+            disciplina_atual=str(cadastro.get("disciplina") or ""),
+            componente_atual=str(cadastro.get("componente_curricular") or cadastro.get("disciplina") or ""),
+        ).strip()
+        arquivo_edit = ""
+
+        dia_edit, horario_edit, total_grade = _renderizar_grade_horarios(
+            f"edit_grade_{chave_ui}",
+            str(cadastro.get("dia_semana") or ""),
+            str(cadastro.get("horario") or ""),
+            f"{disciplina_edit} {turma_edit}",
+        )
+
+        salvar_edicao = st.form_submit_button("Salvar alteracoes", type="primary")
+        if salvar_edicao:
+            try:
+                if not professor_edit or not disciplina_edit or not turma_edit:
+                    st.error("Preencha professor, disciplina e turma.")
+                else:
+                    aulas_final = aulas_edit or (str(total_grade) if total_grade else "")
+                    _, aviso = _salvar_cadastro_gerenciado(
+                        cadastro.get("id"),
+                        professor_edit,
+                        disciplina_edit,
+                        turma_edit,
+                        dia_edit,
+                        horario_edit,
+                        aulas_final,
+                        arquivo_edit,
+                        componente_edit,
+                    )
+                    _limpar_cache_cadastro()
+                    if aviso:
+                        st.warning(aviso)
+                    st.success("Cadastro atualizado.")
+                    st.rerun()
+            except Exception as exc:
+                st.error("Nao foi possivel salvar o cadastro.")
+                with st.expander("Ver detalhe tecnico"):
+                    st.exception(exc)
+
+    col_dup, col_del = st.columns(2)
+    with col_dup:
+        with st.expander("Duplicar cadastro"):
+            dup_prof = st.text_input("Professor da copia", value=str(cadastro.get("professor") or ""), key=f"dup_prof_{chave_ui}").strip().upper()
+            dup_disc = st.text_input("Disciplina da copia", value=str(cadastro.get("disciplina") or ""), key=f"dup_disc_{chave_ui}").strip()
+            dup_turma = _selecionar_turma("Turma da copia", f"dup_turma_select_{chave_ui}", f"dup_turma_text_{chave_ui}")
+            if st.button("Criar copia", key=f"btn_dup_{chave_ui}"):
+                try:
+                    if not dup_prof or not dup_disc or not dup_turma:
+                        st.error("Informe professor, disciplina e turma para duplicar.")
+                    else:
+                        componente_dup = str(cadastro.get("componente_curricular") or dup_disc)
+                        arquivo_corrigido, aviso = _preparar_modelo_cadastro(
+                            dup_prof,
+                            dup_disc,
+                            dup_turma,
+                            str(cadastro.get("aulas_semana") or ""),
+                            str(cadastro.get("arquivo") or ""),
+                            componente_dup,
+                        )
+                        if cadastro.get("id"):
+                            duplicar_vinculo_professor(
+                                cadastro.get("id"),
+                                nome=dup_prof,
+                                disciplina=dup_disc,
+                                turma=dup_turma,
+                                arquivo_modelo=arquivo_corrigido,
+                                componente_curricular=componente_dup,
+                                template_id=resolver_template_id_geracao(
+                                    disciplina=dup_disc,
+                                    componente_curricular=componente_dup,
+                                    arquivo_modelo=arquivo_corrigido,
+                                ),
+                            )
+                        else:
+                            salvar_professor_turma(
+                                dup_prof,
+                                dup_disc,
+                                dup_turma,
+                                str(cadastro.get("dia_semana") or ""),
+                                str(cadastro.get("horario") or ""),
+                                str(cadastro.get("aulas_semana") or ""),
+                                arquivo_corrigido,
+                                componente_dup,
+                                resolver_template_id_geracao(
+                                    disciplina=dup_disc,
+                                    componente_curricular=componente_dup,
+                                    arquivo_modelo=arquivo_corrigido,
+                                ),
+                            )
+                        _limpar_cache_cadastro()
+                        if aviso:
+                            st.warning(aviso)
+                        st.success("Cadastro duplicado.")
+                        st.rerun()
+                except Exception as exc:
+                    st.error("Nao foi possivel duplicar o cadastro.")
+                    with st.expander("Ver detalhe tecnico da duplicacao"):
+                        st.exception(exc)
+
+    with col_del:
+        with st.expander("Excluir cadastro"):
+            if not cadastro.get("id"):
+                st.info("Este item veio apenas da pasta DOCX. Nao ha vinculo no banco para excluir.")
+            else:
+                confirmar = st.checkbox("Confirmo que quero remover apenas o cadastro do sistema", key=f"confirm_del_{chave_ui}")
+                if st.button("Excluir cadastro", key=f"btn_del_{chave_ui}", disabled=not confirmar):
+                    if excluir_vinculo_professor(cadastro.get("id")):
+                        _limpar_cache_cadastro()
+                        st.success("Cadastro removido. O DOCX nao foi apagado.")
+                        st.rerun()
+                    else:
+                        st.warning("Cadastro nao encontrado no banco.")
+
+def _renderizar_novo_cadastro(professores_db) -> None:
+    st.markdown("**Novo cadastro**")
+    with st.form("form_cadastro_prof", clear_on_submit=True):
+        col_prof_cad, col_disc_cad = st.columns(2)
+        with col_prof_cad:
+            professor_cadastro = st.selectbox(
+                "Professor",
+                ["Novo professor"] + sorted(professores_db.keys()),
+                key="professor_cadastro_select",
+            )
+            if professor_cadastro == "Novo professor":
+                novo_nome = st.text_input("Nome do Professor").strip().upper()
+            else:
+                novo_nome = professor_cadastro
+        with col_disc_cad:
+            nova_disc_op = st.selectbox("Disciplina", nomes_disciplinas())
+            nova_disc_outra = st.text_input("Qual disciplina?") if nova_disc_op == "Outra" else ""
+
+        col_turma_cad, col_aulas_cad = st.columns([2, 1])
+        with col_turma_cad:
+            nova_turma = _selecionar_turma("Turma", "nova_turma_select", "nova_turma_digitada")
+        with col_aulas_cad:
+            novas_aulas_semana = _selecionar_aulas_semana(
+                "Qtd. aulas na semana",
+                "novas_aulas_semana_select",
+                "novas_aulas_semana",
+            )
+
+        novo_componente_curricular = _selecionar_componente_curricular(
+            "Componente curricular (como aparecera no plano)",
+            key="novo_componente_curricular",
+            disciplina_atual=nova_disc_outra if nova_disc_op == "Outra" else nova_disc_op,
+            componente_atual=nova_disc_outra if nova_disc_op == "Outra" else nova_disc_op,
+        )
+        novo_arquivo_modelo = ""
+
+        novo_dia, novo_horario, total_grade = _renderizar_grade_horarios(
+            "cadastro_grade",
+            contexto=f"{nova_disc_op} {nova_turma}",
+        )
+
+        submitted = st.form_submit_button("Salvar cadastro", type="primary")
+        if submitted:
+            disc_final = nova_disc_outra if nova_disc_op == "Outra" else nova_disc_op
+            aulas_semana_final = novas_aulas_semana or (str(total_grade) if total_grade else "")
+            if novo_nome and disc_final and nova_turma:
+                try:
+                    _, aviso = _salvar_cadastro_gerenciado(
+                        None,
+                        novo_nome,
+                        disc_final,
+                        nova_turma,
+                        novo_dia,
+                        novo_horario,
+                        aulas_semana_final,
+                        novo_arquivo_modelo.strip(),
+                        novo_componente_curricular.strip(),
+                    )
+                    _limpar_cache_cadastro()
+                    if aviso:
+                        st.warning(aviso)
+                    st.success(f"Cadastro de {novo_nome} salvo.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error("Nao foi possivel salvar o cadastro.")
+                    with st.expander("Ver detalhe tecnico"):
+                        st.exception(exc)
+            else:
+                st.error("Preencha ao menos nome, disciplina e turma.")
+
+def _renderizar_organizacao_cadastro(cadastros: list[dict], diagnostico: dict) -> None:
+    st.markdown("**Organizacao dos cadastros**")
+    sem_modelo = [cad for cad in cadastros if cad.get("sem_modelo")]
+    somente_pasta = [cad for cad in cadastros if cad.get("origem") == "Pasta DOCX"]
+    duplicidades = diagnostico.get("duplicidades", []) if diagnostico else []
+
+    with st.expander("Cadastros sem DOCX vinculado", expanded=bool(sem_modelo)):
+        if sem_modelo:
+            _renderizar_tabela_cadastros(sem_modelo)
+        else:
+            st.info("Todos os cadastros listados tem DOCX vinculado.")
+
+    with st.expander("Modelos encontrados na pasta, ainda sem registro no banco", expanded=bool(somente_pasta)):
+        if somente_pasta:
+            _renderizar_tabela_cadastros(somente_pasta)
+        else:
+            st.info("Nenhum modelo pendente de importacao.")
+
+    with st.expander("Duplicidades detectadas nos DOCX", expanded=bool(duplicidades)):
+        if duplicidades:
+            linhas_dup = [
+                {
+                    "Professor": item.get("professor", ""),
+                    "Disciplina": item.get("disciplina", ""),
+                    "Turma": item.get("turma", ""),
+                    "Arquivos": "\n".join(item.get("arquivos", [])),
+                }
+                for item in duplicidades
+            ]
+            st.dataframe(linhas_dup, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma duplicidade foi encontrada.")
+
+
+def _renderizar_dados_administrativos_professor(cadastros: list[dict], professores_db) -> None:
+    st.markdown("**Dados do professor**")
+    st.caption("Consulte e gerencie os dados de contato e o valor mensal cobrado de cada professor.")
+
+    nomes = {
+        str(nome or "").strip().upper()
+        for nome in professores_db.keys()
+        if str(nome or "").strip()
+    }
+    nomes.update(
+        str(cadastro.get("professor") or "").strip().upper()
+        for cadastro in cadastros
+        if str(cadastro.get("professor") or "").strip()
+    )
+    for admin_item in listar_todos_dados_administrativos():
+        nome_admin = str(admin_item.get("professor") or "").strip().upper()
+        if nome_admin:
+            nomes.add(nome_admin)
+
+    opcoes = sorted(nome for nome in nomes if nome)
+
+    if not opcoes:
+        st.info("Nenhum professor encontrado nos cadastros.")
+        return
+
+    professor = st.selectbox(
+        "Professor",
+        opcoes,
+        key="dados_admin_professor_selecionado",
+    )
+    dados = obter_dados_administrativos_professor(professor)
+
+    prof_slug = re.sub(r"\W+", "_", professor.lower()).strip("_")
+    with st.form(f"form_dados_administrativos_{prof_slug}"):
+        col_cpf, col_email = st.columns(2)
+        with col_cpf:
+            cpf = st.text_input("CPF", value=dados.get("cpf", ""), key=f"dados_admin_cpf_{prof_slug}").strip()
+        with col_email:
+            email = st.text_input("Email", value=dados.get("email", ""), key=f"dados_admin_email_{prof_slug}").strip()
+
+        col_valor, col_tel = st.columns(2)
+        with col_valor:
+            valor_mensal = st.text_input(
+                "Valor mensal",
+                value=dados.get("valor_mensal", ""),
+                key=f"dados_admin_valor_mensal_{prof_slug}",
+                placeholder="Ex.: R$ 1.500,00",
+            ).strip()
+        with col_tel:
+            telefone = st.text_input("Telefone", value=dados.get("telefone", ""), key=f"dados_admin_telefone_{prof_slug}").strip()
+
+        observacoes = st.text_area(
+            "Observacoes",
+            value=dados.get("observacoes", ""),
+            key=f"dados_admin_observacoes_{prof_slug}",
+            height=140,
+        ).strip()
+
+        salvar = st.form_submit_button("Salvar dados do professor", type="primary")
+        if salvar:
+            try:
+                salvar_dados_administrativos_professor(
+                    professor,
+                    cpf=cpf,
+                    email=email,
+                    valor_mensal=valor_mensal,
+                    telefone=telefone,
+                    observacoes=observacoes,
+                )
+                st.success(f"Dados do professor {professor} salvos com sucesso.")
+                st.rerun()
+            except Exception as exc:
+                st.error("Nao foi possivel salvar os dados do professor.")
+                with st.expander("Ver detalhe tecnico"):
+                    st.exception(exc)
+
+
+def _renderizar_faturamento_professores(cadastros: list[dict], professores_db) -> None:
+    st.markdown("**Faturamento total do mês**")
+    st.caption("Visão consolidada da receita mensal com base nos valores cobrados de cada professor.")
+
+    admin_dados = listar_todos_dados_administrativos()
+    admin_by_prof = {item["professor"].upper(): item for item in admin_dados}
+
+    professores_todos = set(professores_db.keys())
+    professores_todos.update(
+        str(cadastro.get("professor") or "").strip().upper()
+        for cadastro in cadastros
+        if str(cadastro.get("professor") or "").strip()
+    )
+    professores_todos.update(admin_by_prof.keys())
+    lista_professores = sorted(list(professores_todos))
+
+    if not lista_professores:
+        st.info("Nenhum professor cadastrado no momento.")
+        return
+
+    vinculos_por_prof = {}
+    for c in cadastros:
+        p_nome = str(c.get("professor") or "").strip().upper()
+        if p_nome:
+            vinculos_por_prof[p_nome] = vinculos_por_prof.get(p_nome, 0) + 1
+
+    tabela_linhas = []
+    total_faturamento = 0.0
+    pagantes_count = 0
+
+    for prof in lista_professores:
+        info_admin = admin_by_prof.get(prof, {})
+        val_str = info_admin.get("valor_mensal", "")
+        val_float = extrair_valor_float(val_str)
+        if val_float > 0:
+            total_faturamento += val_float
+            pagantes_count += 1
+
+        tabela_linhas.append({
+            "Professor": prof,
+            "Valor mensal": formatar_moeda_br(val_float) if val_float > 0 else (val_str if val_str else "Não cadastrado"),
+            "Valor (R$)": val_float,
+            "Telefone": info_admin.get("telefone", "") or "-",
+            "Email": info_admin.get("email", "") or "-",
+            "Vínculos / Turmas": vinculos_por_prof.get(prof, 0),
+            "Status": "Pagante" if val_float > 0 else "Sem valor definido",
+            "Observações": info_admin.get("observacoes", "") or "-",
+        })
+
+    total_professores = len(lista_professores)
+    ticket_medio = (total_faturamento / pagantes_count) if pagantes_count > 0 else 0.0
+
+    col_tot, col_pag, col_avg, col_prof = st.columns(4)
+    with col_tot:
+        st.metric("Faturamento Mensal Total", formatar_moeda_br(total_faturamento))
+    with col_pag:
+        st.metric("Professores Pagantes", f"{pagantes_count} de {total_professores}")
+    with col_avg:
+        st.metric("Ticket Médio (Pagantes)", formatar_moeda_br(ticket_medio))
+    with col_prof:
+        st.metric("Professores Cadastrados", str(total_professores))
+
+    st.markdown("---")
+    st.markdown("##### Detalhamento por professor")
+
+    busca = st.text_input("Filtrar por nome do professor", key="busca_faturamento_prof").strip().upper()
+    if busca:
+        tabela_linhas = [l for l in tabela_linhas if busca in l["Professor"]]
+
+    if tabela_linhas:
+        df_exibicao = [
+            {
+                "Professor": row["Professor"],
+                "Valor Mensal": row["Valor mensal"],
+                "Status": row["Status"],
+                "Vínculos": row["Vínculos / Turmas"],
+                "Telefone": row["Telefone"],
+                "Email": row["Email"],
+                "Observações": row["Observações"],
+            }
+            for row in tabela_linhas
+        ]
+        st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum professor encontrado com os critérios de busca.")
+
+
+def _renderizar_cadastro_professor(professores_db) -> None:
+    st.markdown('<div class="section-title">Cadastro de professor</div>', unsafe_allow_html=True)
+    st.caption("Consulte, edite, duplique ou exclua vinculos de professor, disciplina, turma e horarios.")
+
+    cadastros = _cadastros_para_gestao()
+    diagnostico = _diagnosticar_modelos_professores_cache()
+    _renderizar_metricas_cadastro(cadastros, diagnostico)
+
+    aba_editar, aba_novo, aba_dados, aba_faturamento, aba_organizacao = st.tabs(
+        ["Consultar e editar", "Novo cadastro", "Dados do professor", "Faturamento", "Organizacao"]
+    )
+    with aba_editar:
+        _renderizar_editor_cadastro(cadastros)
+    with aba_novo:
+        _renderizar_novo_cadastro(professores_db)
+    with aba_dados:
+        _renderizar_dados_administrativos_professor(cadastros, professores_db)
+    with aba_faturamento:
+        _renderizar_faturamento_professores(cadastros, professores_db)
+    with aba_organizacao:
+        _renderizar_organizacao_cadastro(cadastros, diagnostico)
+
+
+==================================================
+ARQUIVO: ui/conferencia_mensal.py
+==================================================
+import streamlit as st
+from datetime import datetime
+
+from core.database import (
+    obter_arquivo_historico,
+    obter_conferencia_mensal,
+    obter_meses_conferencia,
+    sincronizar_historico_planos_com_planos_feitos,
+)
+from ui.historico import _formatar_data, _formatar_mes_plano, _formatar_turma
+
+
+def _opcoes_meses() -> list[str]:
+    meses = set(obter_meses_conferencia())
+    meses.add(datetime.now().strftime("%Y-%m"))
+    return sorted((m for m in meses if _formatar_mes_plano(m)), reverse=True)
+
+
+def _renderizar_conferencia_mensal(professores_db):
+    st.markdown(
+        "<h2 class='section-header' style='margin-bottom: 24px;'>Conferência Mensal de Planos</h2>",
+        unsafe_allow_html=True,
+    )
+
+    if not st.session_state.get("conf_indexado"):
+        with st.spinner("Verificando planos novos..."):
+            sincronizar_historico_planos_com_planos_feitos()
+        st.session_state["conf_indexado"] = True
+
+    if st.button("Atualizar índice de arquivos", key="conf_sync"):
+        inseridos = sincronizar_historico_planos_com_planos_feitos()
+        if inseridos:
+            st.success(f"{inseridos} arquivo(s) indexado(s).")
+            st.rerun()
+        else:
+            st.info("Histórico já estava atualizado.")
+
+    professores = sorted(professores_db.keys())
+    meses = _opcoes_meses()
+    col1, col2 = st.columns([2, 1])
+    professor = col1.selectbox("Professor", professores, index=None, placeholder="Selecione o professor", key="conf_prof")
+    mes = col2.selectbox("Mês do plano", meses, format_func=_formatar_mes_plano, key="conf_mes")
+
+    if not professor or not mes:
+        st.info("Selecione o professor e o mês para conferir os planos.")
+        return
+
+    itens = obter_conferencia_mensal(professor, mes)
+    if not itens:
+        st.warning("Este professor não possui turmas cadastradas.")
+        return
+
+    feitos = sum(1 for i in itens if i["feito"])
+    st.progress(feitos / len(itens), text=f"{feitos} de {len(itens)} planos prontos em {_formatar_mes_plano(mes)}")
+    somente_pendentes = st.checkbox("Mostrar somente pendentes", key="conf_pend")
+
+    for n, item in enumerate(itens):
+        if somente_pendentes and item["feito"]:
+            continue
+        c1, c2, c3 = st.columns([3, 2, 1.5])
+        icone = "✅" if item["feito"] else "⬜"
+        c1.markdown(f"{icone} **{item['disciplina']}**")
+        c1.caption(f"Turma: {_formatar_turma(item['turma'])}")
+        if item["feito"]:
+            c2.caption(f"Gerado em {_formatar_data(item['data_geracao'])}")
+            dados = obter_arquivo_historico(item["plano_id"])
+            if dados and dados[1]:
+                c3.download_button(
+                    "Baixar",
+                    data=dados[1],
+                    file_name=dados[0] or "plano.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key=f"conf_dl_{n}",
+                )
+        elif item["registro_sem_arquivo"]:
+            c2.caption("⚠️ Registrado, mas o arquivo .docx não foi encontrado")
+        else:
+            c2.caption("Pendente")
+
+
+==================================================
+ARQUIVO: ui/diagnostico.py
+==================================================
+import streamlit as st
+from pathlib import Path
+
+from config import PASTA_BACKUP, PASTA_PLANOS_PROFESSORES, PLANOS_FINALIZADOS_DIR, BASE_DIR
+from core.database import obter_professores_db
+from ui.shared import (
+    _diagnosticar_modelos_professores_cache,
+    _carregar_professores_dos_planos_cache,
+)
+
+def _renderizar_diagnostico_modelos() -> None:
+    st.markdown('<div class="section-title">Diagnóstico dos modelos</div>', unsafe_allow_html=True)
+    st.caption("Confira se os modelos dos professores estão prontos para preenchimento automático.")
+
+    col_atualizar, _ = st.columns([1, 4])
+    with col_atualizar:
+        if st.button("Atualizar diagnóstico"):
+            _diagnosticar_modelos_professores_cache.clear()
+            _carregar_professores_dos_planos_cache.clear()
+            st.rerun()
+
+    diagnostico = _diagnosticar_modelos_professores_cache()
+    if diagnostico.get("erro_base"):
+        st.error(str(diagnostico["erro_base"]))
+        return
+
+    professores_banco = obter_professores_db()
+    professores_pasta = _carregar_professores_dos_planos_cache()
+
+    col_total, col_ok, col_sem_hora, col_dup, col_banco = st.columns(5)
+    col_total.metric("Modelos DOCX", int(diagnostico.get("total_docx", 0)))
+    col_ok.metric("Lidos sem erro", int(diagnostico.get("lidos_ok", 0)))
+    col_sem_hora.metric("Sem data/horário", len(diagnostico.get("sem_datas_horarios", [])))
+    col_dup.metric("Duplicidades", len(diagnostico.get("duplicidades", [])))
+    col_banco.metric("Banco / pastas", f"{len(professores_banco)} / {len(professores_pasta)}")
+
+    erros = diagnostico.get("erros_leitura", [])
+    sem_disciplina_turma = diagnostico.get("sem_disciplina_turma", [])
+    sem_datas_horarios = diagnostico.get("sem_datas_horarios", [])
+    duplicidades = diagnostico.get("duplicidades", [])
+
+    if not erros and not sem_disciplina_turma and not duplicidades:
+        st.success("Estrutura principal dos modelos lida sem erros.")
+
+    with st.expander("Modelos sem data/horário detectável", expanded=bool(sem_datas_horarios)):
+        if sem_datas_horarios:
+            st.dataframe(sem_datas_horarios, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum modelo sem data/horário foi encontrado.")
+
+    with st.expander("Duplicidades por professor, disciplina e turma", expanded=bool(duplicidades)):
+        if duplicidades:
+            linhas_dup = [
+                {
+                    "professor": item.get("professor", ""),
+                    "disciplina": item.get("disciplina", ""),
+                    "turma": item.get("turma", ""),
+                    "arquivos": "\n".join(item.get("arquivos", [])),
+                }
+                for item in duplicidades
+            ]
+            st.dataframe(linhas_dup, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma duplicidade foi encontrada.")
+
+    with st.expander("Arquivos sem disciplina/turma ou com erro de leitura", expanded=bool(erros or sem_disciplina_turma)):
+        if sem_disciplina_turma:
+            st.markdown("**Sem disciplina ou turma**")
+            st.dataframe(sem_disciplina_turma, use_container_width=True, hide_index=True)
+        if erros:
+            st.markdown("**Erro de leitura**")
+            st.dataframe(erros, use_container_width=True, hide_index=True)
+        if not erros and not sem_disciplina_turma:
+            st.info("Nenhum problema de leitura foi encontrado.")
+
+    with st.expander("Backup e restauração"):
+        st.caption("Use estes comandos quando quiser fazer uma cópia completa fora do sistema.")
+        st.code(
+            "\n".join(
+                [
+                    "$Data = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'",
+                    f"$Backup = \"{PASTA_BACKUP}\\BACKUP_$Data\"",
+                    f"Copy-Item -LiteralPath \"{BASE_DIR}\" -Destination \"$Backup\\PLANOS_LUAN\" -Recurse -Force",
+                    f"Copy-Item -LiteralPath \"{PASTA_PLANOS_PROFESSORES}\" -Destination \"$Backup\\{PASTA_PLANOS_PROFESSORES.name}\" -Recurse -Force",
+                    f"Copy-Item -LiteralPath \"{PLANOS_FINALIZADOS_DIR}\" -Destination \"$Backup\\PLANOS-FINALIZADOS\" -Recurse -Force",
+                    "Compress-Archive -Path \"$Backup\\*\" -DestinationPath \"$Backup.zip\" -Force",
+                ]
+            ),
+            language="powershell",
+        )
+
+
+==================================================
+ARQUIVO: ui/painel_pdfs.py
+==================================================
+"""
+Módulo de renderização do painel de PDFs e organização das aulas.
+"""
+from __future__ import annotations
+
+import html
+from pathlib import Path
+import streamlit as st
+
+
+def _nome_pdf_para_tela(arquivo) -> str:
+    return html.escape(str(getattr(arquivo, "name", None) or Path(str(arquivo)).name))
+
+
+def _render_painel_pdfs(
+    *,
+    modo: str,
+    necessarios: int,
+    carregados: int,
+    total_aulas: int = 0,
+    dividir_metodologia: bool = False,
+    encontrados: int = 0,
+    pasta: str = "",
+    selecionados=None,
+    faltantes_ae=None,
+) -> None:
+    selecionados = list(selecionados or [])
+    faltantes_ae = list(faltantes_ae or [])
+    necessarios = max(0, int(necessarios or 0))
+    carregados = max(0, int(carregados or 0))
+    total_aulas = max(0, int(total_aulas or 0))
+    encontrados = max(0, int(encontrados or 0))
+    modo_texto = str(modo or "-").strip()
+    if modo_texto != "Automatico":
+        pasta = ""
+        encontrados = 0
+        faltantes_ae = []
+    faltam = max(necessarios - carregados, 0)
+    excedentes = max(carregados - necessarios, 0)
+    progresso = 0 if necessarios <= 0 else min(100, int(round((carregados / necessarios) * 100)))
+
+    if necessarios <= 0:
+        status_texto = "Aguardando modelo"
+        status_classe = "neutral"
+        orientacao = "Selecione professor, turma e modelo para o sistema calcular quantos PDFs serao usados."
+    elif faltam > 0:
+        status_texto = f"Faltam {faltam}"
+        status_classe = "warning"
+        orientacao = f"Adicione mais {faltam} PDF(s) para completar o plano."
+    elif excedentes > 0:
+        status_texto = f"{excedentes} a mais"
+        status_classe = "warning"
+        orientacao = "Revise a selecao: ha mais PDFs do que a organizacao atual exige."
+    else:
+        status_texto = "Completo"
+        status_classe = "success"
+        orientacao = "Tudo certo: a quantidade de PDFs bate com a organizacao escolhida."
+
+    criterio_pdfs = "1 PDF para cada par de aulas marcado" if dividir_metodologia else "1 PDF por aula"
+    aulas_rotulo = total_aulas or necessarios
+
+    html_code = (
+        f'<div class="pdf-dashboard">'
+        f'<div class="pdf-dashboard__header">'
+        f'<div>'
+        f'<span class="pdf-dashboard__eyebrow">Painel dos PDFs</span>'
+        f'<div class="pdf-dashboard__title">Organização das aulas</div>'
+        f'<div class="pdf-dashboard__subtitle">{orientacao}</div>'
+        f'</div>'
+        f'<div class="pdf-dashboard__status pdf-dashboard__status--{status_classe}">{status_texto}</div>'
+        f'</div>'
+        f'<div class="pdf-dashboard__stats">'
+        f'<div class="pdf-stat"><span>Modo</span><strong>{modo_texto}</strong></div>'
+        f'<div class="pdf-stat"><span>Necessários</span><strong>{necessarios}</strong></div>'
+        f'<div class="pdf-stat"><span>Agendados</span><strong>{carregados}</strong></div>'
+        f'<div class="pdf-stat"><span>Encontrados</span><strong>{encontrados}</strong></div>'
+        f'</div>'
+        f'<div class="pdf-progress"><div class="pdf-progress__bar" style="width: {progresso}%;"></div></div>'
+        f'</div>'
+    )
+    st.markdown(html_code, unsafe_allow_html=True)
+
+    st.caption(f"{carregados}/{necessarios or 0} PDF(s) prontos para processamento | {criterio_pdfs}")
+
+    if pasta:
+        st.caption(f"Pasta automatica: {pasta}")
+
+    if faltantes_ae:
+        faltantes_txt = ", ".join(f"AULA {int(numero)}" for numero in faltantes_ae)
+        st.warning(f"PDFs AE nao encontrados: {faltantes_txt}")
+
+    st.markdown("**Ordem que sera processada**")
+    if selecionados:
+        for indice, item in enumerate(selecionados, start=1):
+            st.write(f"{indice}. {_nome_pdf_para_tela(item)}")
+    else:
+        st.caption("Nenhum PDF selecionado ainda.")
+
+
+==================================================
+ARQUIVO: ui/reescrita_cdp.py
+==================================================
+import streamlit as st
+from pathlib import Path
+
+from core.cdp_em_docx import reescrever_docx_cdp_contextual_matematica
+
+def _renderizar_reescrita_cdp_em() -> None:
+    st.markdown('<div class="section-title">Reescrita de Plano CDP Contextual</div>', unsafe_allow_html=True)
+    st.caption(
+        "Envie um plano em DOCX do CDP contextual de Matemática para reescrever o título do material, "
+        "o desenvolvimento, o acompanhamento e a acessibilidade no padrão EJA/CDP."
+    )
+
+    arquivo = st.file_uploader(
+        "Plano em DOCX",
+        type=["docx"],
+        key="arquivo_reescrita_cdp_em",
+    )
+
+    if arquivo is not None:
+        st.info(f"Arquivo carregado: {arquivo.name}")
+
+    if st.button("Reescrever plano CDP E.M.", type="primary", disabled=arquivo is None, key="btn_reescrever_cdp_em"):
+        try:
+            corrigido_bytes, relatorio = reescrever_docx_cdp_contextual_matematica(arquivo.getvalue())
+            nome_base = Path(arquivo.name).stem
+            nome_saida = f"{nome_base}_metodologia_reescrita.docx"
+            st.success(f"Plano reescrito com sucesso. Linhas ajustadas: {relatorio.get('linhas_reescritas', 0)}")
+            temas = relatorio.get("temas") or []
+            if temas:
+                st.caption("Temas identificados: " + " | ".join(str(t) for t in temas[:8]))
+            st.download_button(
+                "Baixar DOCX reescrito",
+                data=corrigido_bytes,
+                file_name=nome_saida,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="download_reescrita_cdp_em",
+            )
+        except Exception as exc:
+            st.error(f"Não foi possível reescrever o plano: {exc}")
+
+
+==================================================
+ARQUIVO: ui/relatorio_conferencia.py
+==================================================
+"""
+Módulo de geração de relatórios técnicos e de conferência de planos de aula.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime
+from pathlib import Path
+import streamlit as st
+
+from config import BASE_DIR
+from core.helpers import normalizar_para_pasta
+from ui.shared import _texto_metodologia_app
+
+
+def _texto_lista_conferencia(itens) -> str:
+    linhas = []
+    for item in itens or []:
+        texto = str(item or "").strip()
+        if texto:
+            linhas.append(texto)
+    return "\n".join(linhas)
+
+
+def _texto_metodologia_conferencia(aula: dict) -> str:
+    return _texto_metodologia_app(aula)
+
+
+def _linhas_relatorio_tecnico_conferencia(aula: dict) -> list[str]:
+    return [
+        "Relatório Técnico da Geração",
+        f"Provedor da IA: {aula.get('ia_provedor') or 'Sem IA'}",
+        f"Cache Reutilizado: {'Sim' if aula.get('cache_reutilizado') else 'Não'}",
+        f"Versão do Gerador: {aula.get('versao_gerador') or '1.2.9'}",
+        f"Origem da Metodologia: {aula.get('origem_metodologia') or 'Desconhecida'}",
+        f"Score de Confiança: {aula.get('confidence_score', 100)}%",
+    ]
+
+
+def _texto_diagnostico_conferencia(aula: dict) -> str:
+    diag = aula.get("diagnostico_geracao") or {}
+    if not diag:
+        return "Sem diagnóstico técnico detalhado."
+
+    secoes = [
+        ("1. Rascunho Local Heurístico", diag.get("metodologia_local") or []),
+        ("2. Resposta IA Crua", diag.get("metodologia_ia_crua") or []),
+        ("3. Higienização/Polimento", diag.get("metodologia_higienizada") or []),
+        ("4. Metodologia Final", diag.get("metodologia_final") or []),
+    ]
+    partes = []
+    for titulo, valor in secoes:
+        partes.append(titulo)
+        if isinstance(valor, str):
+            partes.append(valor.strip() or "Nenhum conteúdo registrado.")
+        elif valor:
+            partes.append(_texto_metodologia_app({"metodologia": valor}))
+        else:
+            partes.append("Nenhum conteúdo registrado.")
+        partes.append("")
+    return "\n".join(partes).strip()
+
+
+def _montar_texto_conferencia_aula(aula: dict, numero_aula: int, frases_redundantes=None) -> str:
+    frases_redundantes = [str(frase).strip() for frase in (frases_redundantes or []) if str(frase).strip()]
+    avisos_val = [str(aviso).strip() for aviso in (aula.get("avisos_validacao") or []) if str(aviso).strip()]
+    score = aula.get("confidence_score")
+    linhas = [
+        f"Aula {numero_aula} - {aula.get('tema', '')}",
+        "",
+    ]
+
+    if score is not None and score < 70:
+        linhas.extend(
+            [
+                f"Baixo Score de Confiança ({score}%): Este plano de aula pode necessitar de ajustes manuais significativos.",
+                "",
+            ]
+        )
+
+    if avisos_val:
+        linhas.append("Alertas de Qualidade Pedagógica:")
+        linhas.extend(f"- {aviso}" for aviso in avisos_val)
+        linhas.append("")
+
+    if frases_redundantes:
+        linhas.append("Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):")
+        linhas.extend(f'- "{frase}"' for frase in frases_redundantes)
+        linhas.append("")
+
+    linhas.extend(
+        [
+            "Tema",
+            str(aula.get("tema", "") or ""),
+            "",
+            "Aprendizagem",
+            str(aula.get("aprendizagem", "") or ""),
+            "",
+            "Acompanhamento",
+            _texto_lista_conferencia(aula.get("acompanhamento") or []),
+            "",
+            "Acessibilidade",
+            _texto_lista_conferencia(aula.get("acessibilidade") or []),
+            "",
+            "Metodologia",
+            _texto_metodologia_conferencia(aula),
+            "",
+        ]
+    )
+    linhas.extend(_linhas_relatorio_tecnico_conferencia(aula))
+    linhas.extend(["", "Transformação da Metodologia (Pipeline)", _texto_diagnostico_conferencia(aula), ""])
+    return "\n".join(linhas).strip() + "\n"
+
+
+def _resolver_pasta_base_conferencia(pasta_pdfs_auto: str = "", pdfs_selecionados=None) -> Path:
+    if pasta_pdfs_auto:
+        pasta = Path(pasta_pdfs_auto)
+        if pasta.exists():
+            return pasta
+
+    for arquivo in pdfs_selecionados or []:
+        caminho = getattr(arquivo, "path", None)
+        if caminho:
+            caminho = Path(caminho)
+            if caminho.exists():
+                return caminho.parent
+
+    return BASE_DIR
+
+
+def _salvar_relatorios_conferencia(
+    *,
+    turmas_processadas,
+    duplicadas_por_aula,
+    professor: str,
+    disciplina: str,
+    turma: str,
+    mes: str,
+    bimestre: str,
+    modo_ia: str,
+    modo_upload_pdf: str,
+    pasta_pdfs_auto: str = "",
+    pdfs_selecionados=None,
+):
+    token = st.session_state.get("revisao_token", 0)
+    resumo_chave = {
+        "token": token,
+        "professor": professor,
+        "disciplina": disciplina,
+        "turma": turma,
+        "mes": mes,
+        "bimestre": bimestre,
+        "modo_ia": modo_ia,
+        "modo_upload_pdf": modo_upload_pdf,
+        "aulas": [
+            [aula.get("tema", ""), aula.get("confidence_score"), aula.get("avisos_validacao") or []]
+            for bloco in (turmas_processadas or [])
+            for aula in (bloco.get("aulas") or [])
+        ],
+    }
+    chave = hashlib.md5(json.dumps(resumo_chave, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    if st.session_state.get("relatorio_conferencia_chave") == chave:
+        paths_salvos = st.session_state.get("relatorio_conferencia_paths") or []
+        if paths_salvos and all(Path(caminho).exists() for caminho in paths_salvos):
+            return paths_salvos
+
+    pasta_base = _resolver_pasta_base_conferencia(pasta_pdfs_auto, pdfs_selecionados)
+    pasta_relatorios = pasta_base / "RELATORIOS_CONFERENCIA_PLANOS"
+    carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nome_execucao = "_".join(
+        parte
+        for parte in [
+            carimbo,
+            normalizar_para_pasta(disciplina) or "DISCIPLINA",
+            normalizar_para_pasta(turma) or "TURMA",
+            normalizar_para_pasta(modo_ia) or "MODO",
+        ]
+        if parte
+    )
+    pasta_execucao = pasta_relatorios / nome_execucao
+    pasta_execucao.mkdir(parents=True, exist_ok=True)
+
+    cabecalho = [
+        "RELATÓRIO DE CONFERÊNCIA DO PLANO",
+        f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+        f"Professor: {professor}",
+        f"Disciplina: {disciplina}",
+        f"Turma selecionada: {turma}",
+        f"Mês: {mes}",
+        f"Bimestre: {bimestre}",
+        f"Modo IA: {modo_ia}",
+        f"Modo de envio dos PDFs: {modo_upload_pdf}",
+        f"Pasta dos relatórios: {pasta_execucao}",
+        "Observação: esta pasta é apenas para conferência e pode ser apagada depois sem afetar o sistema.",
+        "",
+    ]
+
+    relatorio_lote = list(cabecalho)
+    arquivos_salvos = []
+    for t_idx, bloco in enumerate(turmas_processadas or []):
+        turma_bloco = str(bloco.get("turma") or "").strip() or turma
+        relatorio_lote.extend([f"TURMA: {turma_bloco}", ""])
+        for a_idx, aula in enumerate(bloco.get("aulas") or [], start=1):
+            texto_aula = _montar_texto_conferencia_aula(
+                aula,
+                a_idx,
+                duplicadas_por_aula.get((t_idx, a_idx - 1), []),
+            )
+            relatorio_lote.append(texto_aula)
+            nome_aula = f"aula_{a_idx:02d}_{normalizar_para_pasta(aula.get('tema') or 'sem_tema')[:60]}.txt"
+            caminho_aula = pasta_execucao / nome_aula
+            caminho_aula.write_text("\n".join(cabecalho) + f"TURMA: {turma_bloco}\n\n" + texto_aula, encoding="utf-8")
+            arquivos_salvos.append(str(caminho_aula))
+
+    caminho_lote = pasta_execucao / "relatorio_conferencia_lote.md"
+    caminho_lote.write_text("\n".join(relatorio_lote), encoding="utf-8")
+    paths = [str(caminho_lote)] + arquivos_salvos
+    st.session_state["relatorio_conferencia_chave"] = chave
+    st.session_state["relatorio_conferencia_paths"] = paths
+    return paths
+
+
+==================================================
+ARQUIVO: ui/revisao_aulas.py
+==================================================
+"""
+Módulo de renderização da revisão pedagógica e finalização de planos de aula.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+import hashlib
+import os
+from pathlib import Path
+import re
+import streamlit as st
+
+from docx import Document
+
+from core.normalizacao import normalizar as normalizar_texto_aux
+from core.operacao import detectar_alteracoes_planos_revisados
+from core.revisao_final import calcular_sha256, gravar_sidecar_json
+from core.validador_plano import validar_aderencia_palavras_chave
+from ui.relatorio_conferencia import _salvar_relatorios_conferencia
+from ui.shared import _metodologia_app_para_blocos, _texto_metodologia_app
+
+
+def renderizar_passo_revisao(
+    *,
+    professor: str,
+    disciplina: str,
+    disciplina_saida: str,
+    turma: str,
+    mes: str,
+    bimestre: str,
+    modo_ia: str,
+    modo_upload_pdf: str,
+    pasta_pdfs_auto: str,
+    pdfs_selecionados_tela,
+    modelo_bytes: bytes,
+    escola: str,
+    componente_curricular: str,
+    semana: str,
+    observacao: str,
+    aulas_previstas_manual,
+    fn_gerar_docx_final,
+    fn_salvar_planos_na_pasta_finalizados,
+    fn_salvar_planos_gerados_se_configurado,
+    fn_registrar_mensagem_memoria_plano,
+) -> tuple[list[dict], bool]:
+    """
+    Renderiza o Passo 2: Revisão pedagógica interativa, validação de palavras-chave,
+    salvamento de referências e geração dos documentos Word finais.
+    """
+    turmas_processadas = st.session_state.get("turmas_processadas")
+    if not turmas_processadas:
+        return [], False
+
+    avisos_processamento = st.session_state.get("avisos_processamento") or []
+    for bloco in avisos_processamento:
+        turma_aviso = str(bloco.get("turma") or "").strip()
+        avisos_turma = [str(aviso).strip() for aviso in bloco.get("avisos", []) if str(aviso).strip()]
+        if avisos_turma:
+            prefixo = f"{turma_aviso}: " if turma_aviso else ""
+            st.warning(prefixo + " | ".join(avisos_turma))
+
+    st.markdown('<div class="section-title">✏️ Passo 2: Revisão</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Ajuste tema, aprendizagem, metodologia, acompanhamento e acessibilidade antes de montar o arquivo final.</div>',
+        unsafe_allow_html=True,
+    )
+
+    total_turmas_revisao = len(turmas_processadas)
+    total_aulas_revisao = sum(len(td.get("aulas", [])) for td in turmas_processadas)
+    st.markdown(
+        f"""
+        <div class="review-shell">
+            <div class="panel-title">Revisão pedagógica centralizada</div>
+            <div class="panel-text">Você está revisando <strong>{total_aulas_revisao}</strong> aula(s) distribuídas em <strong>{total_turmas_revisao}</strong> turma(s). Abra apenas os blocos que quiser ajustar.</div>
+            <div class="panel-pills">
+                <span class="panel-pill">Tema</span>
+                <span class="panel-pill">Metodologia</span>
+                <span class="panel-pill">Acompanhamento</span>
+                <span class="panel-pill">Acessibilidade</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    turmas_revisadas = []
+    rev_tok = st.session_state.get("revisao_token", 0)
+
+    # Detecção de Frases Repetidas
+    contagem_sentencas = defaultdict(list)
+    for t_idx_dup, td_dup in enumerate(turmas_processadas):
+        for a_idx_dup, aula_dup in enumerate(td_dup.get("aulas", [])):
+            metodologia_dup = aula_dup.get("metodologia") or []
+            textos_etapas = []
+            for item in metodologia_dup:
+                if isinstance(item, dict):
+                    textos_etapas.append(item.get("texto", ""))
+                else:
+                    textos_etapas.append(str(item))
+            texto_completo = " ".join(textos_etapas)
+            sentencas = re.split(r"[.!?\n]", texto_completo)
+            vistas_nesta_aula = set()
+            for s in sentencas:
+                s_limpa = re.sub(r"\s+", " ", s).strip()
+                palavras = s_limpa.split()
+                if len(palavras) > 8:
+                    s_norm = normalizar_texto_aux(s_limpa)
+                    if s_norm not in vistas_nesta_aula:
+                        vistas_nesta_aula.add(s_norm)
+                        contagem_sentencas[s_norm].append((t_idx_dup, a_idx_dup, s_limpa))
+
+    duplicadas_por_aula = defaultdict(list)
+    for frase_norm, ocorrencias in contagem_sentencas.items():
+        if len(ocorrencias) > 2:
+            for t_i, a_i, original_txt in ocorrencias:
+                duplicadas_por_aula[(t_i, a_i)].append(original_txt)
+
+    try:
+        caminhos_relatorio = _salvar_relatorios_conferencia(
+            turmas_processadas=turmas_processadas,
+            duplicadas_por_aula=duplicadas_por_aula,
+            professor=professor,
+            disciplina=disciplina,
+            turma=turma,
+            mes=mes,
+            bimestre=bimestre,
+            modo_ia=modo_ia,
+            modo_upload_pdf=modo_upload_pdf,
+            pasta_pdfs_auto=pasta_pdfs_auto,
+            pdfs_selecionados=pdfs_selecionados_tela,
+        )
+        if caminhos_relatorio:
+            pasta_relatorio = Path(caminhos_relatorio[0]).parent
+            st.info(
+                "Relatórios de conferência salvos em: "
+                f"{pasta_relatorio}. Esta pasta é só para análise e pode ser apagada depois sem afetar o sistema."
+            )
+    except Exception as err:
+        st.warning(f"Não consegui salvar os relatórios de conferência automaticamente: {err}")
+
+    for t_idx, td in enumerate(turmas_processadas):
+        total_aulas_turma = len(td.get("aulas", []))
+        st.markdown(f'<div class="review-class-title">{td["turma"]}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="review-class-meta">{total_aulas_turma} aula(s) prontas para conferência nesta turma.</div>',
+            unsafe_allow_html=True,
+        )
+        aulas_edit = []
+        for a_idx, aula in enumerate(td["aulas"]):
+            score = aula.get("confidence_score", 100)
+            if score >= 80:
+                status_emoji = "🟢"
+            elif score >= 60:
+                status_emoji = "🟡"
+            else:
+                status_emoji = "🔴"
+
+            with st.expander(f"{status_emoji} Aula {a_idx+1} - {aula.get('tema','')}", expanded=False):
+                if score < 60:
+                    st.error(f"🔴 **Qualidade Crítica ({score}%)**: Este plano possui baixíssima aderência ao PDF ou problemas pedagógicos graves.")
+                elif score < 80:
+                    st.warning(f"🟡 **Qualidade Aceitável ({score}%)**: O plano possui ressalvas ou desvios menores em relação ao PDF.")
+                else:
+                    st.success(f"🟢 **Alta Qualidade ({score}%)**: Plano totalmente aderente e validado.")
+
+                avisos_val = aula.get("avisos_validacao") or []
+                if avisos_val:
+                    st.warning("**Alertas de Qualidade Pedagógica:**\n" + "\n".join([f"- {aviso}" for aviso in avisos_val]))
+
+                frases_dupl = duplicadas_por_aula.get((t_idx, a_idx))
+                if frases_dupl:
+                    st.warning("**Aviso de Redundância (frases repetidas em mais de 2 aulas do lote):**\n" + "\n".join([f'- "{frase}"' for frase in frases_dupl]))
+
+                t_val = st.session_state.get(f"tema_{rev_tok}_{t_idx}_{a_idx}")
+                a_val = st.session_state.get(f"apr_{rev_tok}_{t_idx}_{a_idx}")
+                acomp_val = st.session_state.get(f"acomp_{rev_tok}_{t_idx}_{a_idx}")
+                aces_val = st.session_state.get(f"acess_{rev_tok}_{t_idx}_{a_idx}")
+                m_val = st.session_state.get(f"met_{rev_tok}_{t_idx}_{a_idx}")
+
+                if t_val is None:
+                    t_val = aula.get("tema", "")
+                if a_val is None:
+                    a_val = aula.get("aprendizagem", "")
+                if acomp_val is None:
+                    acomp_val = "\n".join(aula.get("acompanhamento", []))
+                if aces_val is None:
+                    aces_val = "\n".join(aula.get("acessibilidade", []))
+                if m_val is None:
+                    m_val = _texto_metodologia_app(aula)
+
+                palavras_chave_esperadas = aula.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    aula_temp = {
+                        "metodologia": _metodologia_app_para_blocos(m_val),
+                        "acompanhamento": [x.strip() for x in acomp_val.split("\n") if x.strip()],
+                        "acessibilidade": [x.strip() for x in aces_val.split("\n") if x.strip()],
+                    }
+
+                    hash_content = f"{m_val}||{acomp_val}||{aces_val}||{','.join(palavras_chave_esperadas)}"
+                    current_hash = hashlib.md5(hash_content.encode("utf-8")).hexdigest()
+
+                    cache_key = f"pc_cache_{rev_tok}_{t_idx}_{a_idx}"
+                    cache_data = st.session_state.get(cache_key)
+
+                    if cache_data and cache_data.get("hash") == current_hash:
+                        resultado_pc = cache_data["resultado"]
+                    else:
+                        resultado_pc = validar_aderencia_palavras_chave(aula_temp, palavras_chave_esperadas)
+                        st.session_state[cache_key] = {
+                            "hash": current_hash,
+                            "resultado": resultado_pc,
+                        }
+
+                    cobertura_atual = resultado_pc["cobertura"]
+                    valido_atual = resultado_pc["valido"]
+                    palavras_ausentes_atuais = resultado_pc["palavras_ausentes"]
+
+                    if valido_atual:
+                        st.success(f"🎯 **Aderência de Palavras-Chave Validada ({cobertura_atual:.1f}%)**: Pelo menos 85% das palavras-chave obrigatórias estão presentes.")
+                    else:
+                        st.error(f"❌ **Plano Não Confiável - Aderência de Palavras-Chave Baixa ({cobertura_atual:.1f}%)**: O plano gerado não possui pelo menos 85% das palavras-chave obrigatórias.")
+                        st.markdown("**Palavras-chave ausentes que devem ser incluídas no texto:**")
+                        termos_ausentes_html = " ".join([f'<span style="background-color: #ffe6e6; color: #cc0000; padding: 2px 6px; border: 1px solid #ffcccc; border-radius: 4px; margin-right: 6px; font-family: monospace; font-size: 0.9em; display: inline-block; margin-bottom: 4px;">{palavra}</span>' for palavra in palavras_ausentes_atuais])
+                        st.markdown(termos_ausentes_html, unsafe_allow_html=True)
+                        st.caption("Dica: Edite os campos de Metodologia, Acompanhamento ou Acessibilidade abaixo e reinsira estes termos. O validador será atualizado instantaneamente.")
+                else:
+                    st.info("ℹ️ **Validação de Palavras-Chave**: Desativada no momento.")
+
+                motivo_referencia_docx = str(
+                    aula.get("motivo_referencia_docx") or ""
+                ).strip()
+                if motivo_referencia_docx:
+                    st.warning("Referência DOCX desta aula: " + motivo_referencia_docx)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    t = st.text_input("Tema", value=aula.get("tema", ""), key=f"tema_{rev_tok}_{t_idx}_{a_idx}")
+                    a = st.text_area("Aprendizagem", value=aula.get("aprendizagem", ""), key=f"apr_{rev_tok}_{t_idx}_{a_idx}")
+                with col2:
+                    acomp = st.text_area("Acompanhamento", value="\n".join(aula.get("acompanhamento", [])), key=f"acomp_{rev_tok}_{t_idx}_{a_idx}")
+                    aces = st.text_area("Acessibilidade", value="\n".join(aula.get("acessibilidade", [])), key=f"acess_{rev_tok}_{t_idx}_{a_idx}")
+                m = st.text_area("Metodologia", value=_texto_metodologia_app(aula), height=150, key=f"met_{rev_tok}_{t_idx}_{a_idx}")
+
+                # Relatório Técnico
+                if st.checkbox("🛠️ Exibir Relatório Técnico da Geração", value=False, key=f"tech_rep_{rev_tok}_{t_idx}_{a_idx}"):
+                    st.markdown(
+                        f"""
+                        | Parâmetro | Valor |
+                        |---|---|
+                        | **Provedor da IA** | {aula.get("ia_provedor") or "Sem IA"} |
+                        | **Cache Reutilizado** | {"Sim" if aula.get("cache_reutilizado") else "Não"} |
+                        | **Versão do Gerador** | {aula.get("versao_gerador") or "1.2.9"} |
+                        | **Origem da Metodologia** | {aula.get("origem_metodologia") or "Desconhecida"} |
+                        | **Score de Confiança** | {aula.get('confidence_score', 100)}% |
+                        """
+                    )
+
+                    diag = aula.get("diagnostico_geracao") or {}
+                    if diag:
+                        st.markdown("#### Transformação da Metodologia (Pipeline)")
+                        tabs = st.tabs(["1. Rascunho Local Heurístico", "2. Resposta IA Crua", "3. Higienização/Polimento", "4. Metodologia Final"])
+                        with tabs[0]:
+                            met_local = diag.get("metodologia_local") or []
+                            if met_local:
+                                st.write(_texto_metodologia_app({"metodologia": met_local}))
+                            else:
+                                st.info("Nenhuma etapa heurística local gerada.")
+                        with tabs[1]:
+                            met_ia = diag.get("metodologia_ia_crua") or []
+                            if isinstance(met_ia, str):
+                                st.text(met_ia)
+                            elif met_ia:
+                                st.write(_texto_metodologia_app({"metodologia": met_ia}))
+                            else:
+                                st.info("Sem resposta direta de IA (gerado localmente ou cached).")
+                        with tabs[2]:
+                            met_hig = diag.get("metodologia_higienizada") or []
+                            if met_hig:
+                                st.write(_texto_metodologia_app({"metodologia": met_hig}))
+                            else:
+                                st.info("Nenhum estágio higienizado intermediário.")
+                        with tabs[3]:
+                            met_fin = diag.get("metodologia_final") or []
+                            if met_fin:
+                                st.write(_texto_metodologia_app({"metodologia": met_fin}))
+                            else:
+                                st.info("Nenhuma metodologia final.")
+
+                ae = aula.copy()
+                ae.update({
+                    "tema": t,
+                    "aprendizagem": a,
+                    "acompanhamento": [x.strip() for x in acomp.split("\n") if x.strip()],
+                    "acessibilidade": [x.strip() for x in aces.split("\n") if x.strip()],
+                    "metodologia": _metodologia_app_para_blocos(m),
+                })
+                palavras_chave_esperadas = ae.get("palavras_chave_esperadas") or []
+                if palavras_chave_esperadas:
+                    resultado_pc_final = validar_aderencia_palavras_chave(ae, palavras_chave_esperadas)
+                    ae.update({
+                        "valido_palavras_chave": resultado_pc_final["valido"],
+                        "cobertura_palavras_chave": resultado_pc_final["cobertura"],
+                        "palavras_chave_encontradas": resultado_pc_final["palavras_encontradas"],
+                        "palavras_chave_ausentes": resultado_pc_final["palavras_ausentes"],
+                    })
+                aulas_edit.append(ae)
+        turmas_revisadas.append({"turma": td["turma"], "aulas": aulas_edit})
+
+    # Atualizar Arquivos de Referência DOCX
+    referencias_para_atualizar = {}
+    for tr in turmas_revisadas:
+        for aula in tr["aulas"]:
+            ref_path = aula.get("fonte_referencia_metodologia")
+            if ref_path and os.path.exists(ref_path):
+                referencias_para_atualizar.setdefault(ref_path, []).append(aula)
+
+    if referencias_para_atualizar:
+        st.markdown('<div class="section-card"></div><div class="section-title">💾 Atualizar Arquivos de Referência</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Grave os ajustes e correções feitos nesta tela diretamente no arquivo DOCX de referência original.</div>', unsafe_allow_html=True)
+
+        for ref_path, aulas_ref in referencias_para_atualizar.items():
+            nome_ref_simpl = os.path.basename(ref_path)
+            aulas_ref_unicas = {}
+            for a in aulas_ref:
+                num = a.get("numero_aula") or a.get("numero") or 0
+                aulas_ref_unicas[num] = a
+
+            btn_key = f"save_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
+            confirmar_ref_key = f"confirm_ref_{hashlib.md5(ref_path.encode('utf-8', errors='ignore')).hexdigest()[:8]}"
+            confirmar_ref = st.checkbox(
+                f"Confirmo que desejo sobrescrever o DOCX de referência '{nome_ref_simpl}'.",
+                key=confirmar_ref_key,
+            )
+            if st.button(
+                f"Atualizar '{nome_ref_simpl}' com os ajustes desta tela",
+                key=btn_key,
+                type="secondary",
+                disabled=not confirmar_ref,
+            ):
+                try:
+                    doc = Document()
+                    aulas_ordenadas = sorted(aulas_ref_unicas.values(), key=lambda x: int(x.get("numero_aula") or x.get("numero") or 0))
+                    for aula in aulas_ordenadas:
+                        num = aula.get("numero_aula") or aula.get("numero") or 0
+                        tit = aula.get("tema") or ""
+                        doc.add_paragraph(f"AULA {num} - {tit}")
+                        doc.add_paragraph()
+                        doc.add_paragraph("METODOLOGIA")
+                        for etapa in (aula.get("metodologia") or []):
+                            if isinstance(etapa, dict):
+                                doc.add_paragraph(f"{etapa.get('titulo', '')}: {etapa.get('texto', '')}")
+                            else:
+                                doc.add_paragraph(str(etapa))
+                        doc.add_paragraph()
+                        doc.add_paragraph("ACOMPANHAMENTO DA APRENDIZAGEM")
+                        for item in (aula.get("acompanhamento") or []):
+                            item_limpo = str(item).replace("☑", "").strip()
+                            if item_limpo:
+                                doc.add_paragraph(f"☑ {item_limpo}")
+                        doc.add_paragraph()
+                        doc.add_paragraph("ACESSIBILIDADE")
+                        for item in (aula.get("acessibilidade") or []):
+                            item_limpo = str(item).replace("☑", "").strip()
+                            if item_limpo:
+                                doc.add_paragraph(f"☑ {item_limpo}")
+                        doc.add_paragraph()
+
+                    doc.save(ref_path)
+                    st.success(f"✓ O arquivo '{nome_ref_simpl}' foi atualizado e agora contém as versões corrigidas dos planos!")
+                except Exception as err:
+                    st.error(f"Erro ao salvar arquivo de referência: {err}")
+
+    # Atualizar o cache de metodologia base do PDF original (sidecar JSON)
+    planos_com_pdf = []
+    for tr in turmas_revisadas:
+        for aula in tr["aulas"]:
+            caminho_pdf_original = aula.get("caminho_pdf")
+            if caminho_pdf_original and os.path.exists(caminho_pdf_original):
+                planos_com_pdf.append(aula)
+
+    if planos_com_pdf:
+        st.markdown('<div class="section-card"></div><div class="section-title">🔄 Salvar no Cache de Metodologia Base (PDF)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Grave os ajustes feitos nesta tela no cache de metodologia base da aula original. As próximas gerações desta aula usarão esta versão corrigida automaticamente.</div>', unsafe_allow_html=True)
+
+        confirmar_cache = st.checkbox(
+            "Confirmo que desejo salvar as edições no cache de metodologia base permanente para estes PDFs.",
+            key="confirmar_salvar_cache_base",
+        )
+        if st.button(
+            "Salvar Alterações no Cache Base de Metodologias",
+            key="btn_salvar_cache_base",
+            type="secondary",
+            disabled=not confirmar_cache,
+        ):
+            try:
+                for aula in planos_com_pdf:
+                    caminho_pdf_original = aula.get("caminho_pdf")
+                    hash_pdf = aula.get("hash_pdf") or calcular_sha256(caminho_pdf_original)
+                    gravar_sidecar_json(caminho_pdf_original, aula, hash_pdf)
+                st.success("✓ O cache de metodologia base permanente foi atualizado com sucesso para todos os PDFs editados nesta tela!")
+            except Exception as err:
+                st.error(f"Erro ao salvar cache de metodologia base: {err}")
+
+    st.markdown(
+        """
+        <div class="download-panel">
+            <div class="panel-title">Última conferência antes do arquivo final</div>
+            <div class="panel-text">Se estiver tudo certo na revisão, gere o documento final para liberar os botões de download logo abaixo.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.checkbox(
+        "Salvar este plano no histórico",
+        key="salvar_historico_geracao",
+        value=bool(st.session_state.get("salvar_historico_geracao", True)),
+        help="Mantenha marcado para salvar este plano no histórico e habilitar a continuidade da sequência de PDFs na próxima geração.",
+    )
+    if st.button("GERAR DOCX", type="primary"):
+        planos_gerados = []
+        for tr in turmas_revisadas:
+            planos_gerados.append(
+                fn_gerar_docx_final(
+                    modelo_bytes,
+                    tr["aulas"],
+                    escola,
+                    professor,
+                    disciplina,
+                    componente_curricular,
+                    tr["turma"],
+                    mes,
+                    bimestre,
+                    semana,
+                    observacao,
+                    aulas_previstas_manual,
+                )
+            )
+        st.session_state["planos_gerados"] = planos_gerados
+
+        # Salva fisicamente na pasta do professor/disciplina
+        fn_salvar_planos_na_pasta_finalizados(planos_gerados, disciplina_saida, professor, mes=mes)
+
+        salvou_historico = fn_salvar_planos_gerados_se_configurado(
+            planos_gerados,
+            professor,
+            disciplina_saida,
+            bimestre,
+            mes,
+        )
+        fn_registrar_mensagem_memoria_plano(salvou_historico)
+        st.success("Planos gerados!")
+
+    alteracoes_detectadas = detectar_alteracoes_planos_revisados(
+        st.session_state.get("planos_gerados") or [],
+        turmas_revisadas,
+    )
+
+    return turmas_revisadas, alteracoes_detectadas
+
+
+==================================================
+ARQUIVO: ui/tela_inicial_moderna.py
+==================================================
+# tela_inicial_moderna.py
+# Constantes de modernizacao visual — Tema Verde Educacional + Roxo Índigo
+# Identidade: PLANOS DE AULA — SEDUC
+
+HERO_CSS = """
+<meta name="google" content="notranslate">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+    :root {
+        --app-bg-dark:    #0F1A12;
+        --app-bg-mid:     #162518;
+        --app-bg-deep:    #0A1510;
+        --ink-light:      #F1FDF4;
+        --ink-muted:      #86EFAC;
+        --ink-dim:        #4ADE80;
+        --brand-accent:   #7C3AED;
+        --brand-purple:   #A78BFA;
+        --brand-green:    #22C55E;
+        --brand-lime:     #86EFAC;
+        --font-main:      'Inter', sans-serif;
+    }
+
+    /* ── Fundo da aplicação ─────────────────────────────── */
+    .stApp {
+        background: linear-gradient(180deg, var(--app-bg-dark) 0%, var(--app-bg-mid) 50%, var(--app-bg-deep) 100%);
+        color: var(--ink-light);
+        font-family: var(--font-main);
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(10, 21, 16, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.45); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(124, 58, 237, 0.75); }
+
+    /* ── Hero section ───────────────────────────────────── */
+    .app-hero {
+        position: relative;
+        background: linear-gradient(135deg, #162518 0%, #1A2F1D 55%, #1B2540 100%);
+        padding: 36px 40px;
+        border-radius: 18px;
+        margin-bottom: 22px;
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5),
+                    inset 0 0 40px rgba(124, 58, 237, 0.04);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        animation: fadeInUp 0.7s ease-out forwards;
+    }
+
+    /* Brilho radial roxo no canto direito */
+    .app-hero::before {
+        content: '';
+        position: absolute;
+        top: -40%;
+        right: -15%;
+        width: 55%;
+        height: 150%;
+        background: radial-gradient(ellipse, rgba(124, 58, 237, 0.12), transparent 65%);
+        pointer-events: none;
+    }
+
+    /* Brilho verde no canto inferior esquerdo */
+    .app-hero::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -5%;
+        width: 45%;
+        height: 90%;
+        background: radial-gradient(ellipse, rgba(34, 197, 94, 0.08), transparent 60%);
+        pointer-events: none;
+    }
+
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Eyebrow + ponto pulsante ───────────────────────── */
+    .app-hero__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.80rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: var(--brand-green);
+        text-transform: uppercase;
+        margin-bottom: 14px;
+        background: rgba(34, 197, 94, 0.10);
+        padding: 5px 14px;
+        border-radius: 20px;
+        border: 1px solid rgba(34, 197, 94, 0.22);
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        background-color: var(--brand-green);
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--brand-green);
+        animation: pulse 2s infinite;
+        flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+        0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70%  { transform: scale(1);    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    /* ── Título com gradiente ───────────────────────────── */
+    .app-title {
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 0 0 4px 0;
+        line-height: 1.08;
+        background: linear-gradient(90deg, #FFFFFF 0%, #86EFAC 42%, #C4B5FD 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.02em;
+    }
+
+    /* ── Subtítulo institucional ────────────────────────── */
+    .app-title-sub {
+        font-size: 1.0rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--brand-purple);
+        margin: 0 0 16px 0;
+        opacity: 0.9;
+    }
+
+    .app-subtitle {
+        font-size: 1.0rem;
+        color: var(--ink-muted);
+        max-width: 780px;
+        line-height: 1.65;
+        margin-bottom: 26px;
+    }
+
+    /* ── Pills de features ──────────────────────────────── */
+    .hero-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .hero-pill {
+        background: rgba(26, 47, 29, 0.75);
+        color: var(--brand-purple);
+        padding: 7px 15px;
+        border-radius: 24px;
+        font-size: 0.87rem;
+        font-weight: 600;
+        border: 1px solid rgba(124, 58, 237, 0.22);
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        cursor: default;
+    }
+
+    .hero-pill:hover {
+        background: rgba(124, 58, 237, 0.15);
+        border-color: var(--brand-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
+    }
+
+    /* ── Stats Bar ──────────────────────────────────────── */
+    .stats-bar {
+        display: flex;
+        justify-content: space-between;
+        background: rgba(26, 47, 29, 0.55);
+        border: 1px solid rgba(45, 74, 48, 0.7);
+        border-radius: 12px;
+        padding: 18px 28px;
+        margin-bottom: 28px;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .stat-item {
+        text-align: center;
+        flex: 1;
+        border-right: 1px solid rgba(45, 74, 48, 0.5);
+        padding: 0 8px;
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-number {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: var(--ink-light);
+        margin-bottom: 3px;
+        line-height: 1;
+    }
+
+    .stat-number.accent { color: var(--brand-purple); }
+
+    .stat-label {
+        font-size: 0.76rem;
+        color: var(--ink-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+    }
+
+    /* ── Section header ─────────────────────────────────── */
+    .section-header-modern {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 28px 0 20px 0;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(45, 74, 48, 0.55);
+    }
+
+    .section-title-modern {
+        font-size: 1.42rem;
+        font-weight: 700;
+        color: var(--ink-light);
+        margin: 0;
+    }
+
+    .section-badge {
+        background: rgba(124, 58, 237, 0.15);
+        color: var(--brand-purple);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.70rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        border: 1px solid rgba(124, 58, 237, 0.28);
+        letter-spacing: 0.08em;
+    }
+
+    /* ── Botões Streamlit ───────────────────────────────── */
+    .stButton > button[kind="primary"],
+    .stDownloadButton > button[kind="primary"],
+    button[kind="primary"] {
+        background: linear-gradient(135deg, #6D28D9 0%, #7C3AED 100%) !important;
+        border-color: transparent !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4) !important;
+        transition: all 0.22s ease !important;
+    }
+
+    .stButton > button[kind="primary"]:hover,
+    .stDownloadButton > button[kind="primary"]:hover,
+    button[kind="primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 22px rgba(124, 58, 237, 0.55) !important;
+        background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%) !important;
+    }
+
+    .stButton > button[kind="secondary"] {
+        background: rgba(26, 47, 29, 0.65) !important;
+        border: 1px solid rgba(45, 74, 48, 0.8) !important;
+        color: var(--ink-light) !important;
+        backdrop-filter: blur(4px) !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .stButton > button[kind="secondary"]:hover {
+        background: rgba(124, 58, 237, 0.12) !important;
+        border-color: var(--brand-accent) !important;
+        color: var(--brand-purple) !important;
+    }
+
+    /* ── Checkboxes, Radios ─────────────────────────────── */
+    [data-testid="stRadio"] label p,
+    [data-testid="stCheckbox"] label p,
+    [data-testid="stRadio"] label,
+    [data-testid="stCheckbox"] label {
+        color: #F1FDF4 !important;
+    }
+
+    [data-testid="stRadio"] [aria-checked="true"] p,
+    [data-testid="stCheckbox"] [aria-checked="true"] p {
+        color: #A78BFA !important;
+        font-weight: 600 !important;
+    }
+
+    /* ── Inputs nativos ─────────────────────────────────── */
+    [data-baseweb="select"] > div,
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background-color: rgba(15, 26, 18, 0.85) !important;
+        color: var(--ink-light) !important;
+        border: 1px solid rgba(45, 74, 48, 0.8) !important;
+        border-radius: 6px !important;
+    }
+
+    /* Glow roxo no foco */
+    [data-baseweb="select"] div:focus-within,
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stNumberInput"] input:focus,
+    [data-testid="stTextArea"] textarea:focus {
+        border-color: var(--brand-accent) !important;
+        box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25), 0 0 10px rgba(124, 58, 237, 0.15) !important;
+    }
+
+    /* ── Textos dos labels ──────────────────────────────── */
+    /* Nota: 'p' removido — evita sobrescrever cores inline de alertas HTML */
+    .stMarkdown, .stText, label {
+        color: var(--ink-light) !important;
+    }
+
+
+    /* ── Sidebar ────────────────────────────────────────── */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0A1510 0%, #162518 100%) !important;
+        border-right: 1px solid rgba(45, 74, 48, 0.6) !important;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: var(--ink-light);
+    }
+
+    /* ── Divisores de seção ─────────────────────────────── */
+    hr {
+        border: none !important;
+        border-top: 1px solid rgba(45, 74, 48, 0.5) !important;
+        margin: 20px 0 !important;
+    }
+</style>
+"""
+
+HERO_HTML = """
+<div class="app-hero">
+    <div class="app-hero__eyebrow">
+        <div class="status-dot"></div>
+        SISTEMA ATIVO — SEDUC
+    </div>
+    <div class="app-title">Planos de Aula</div>
+    <div class="app-title-sub">Secretaria de Educação — SEDUC</div>
+    <div class="app-subtitle">
+        Geração automatizada de planejamento escolar com integração IA,
+        processamento de guias pedagógicos e formatação Word padronizada pela SEDUC.
+    </div>
+    <div class="hero-pills">
+        <span class="hero-pill">📘 Leitura automática de PDFs</span>
+        <span class="hero-pill">📎 Processamento em lote</span>
+        <span class="hero-pill">✏️ Revisão e convalidação</span>
+        <span class="hero-pill">📄 Saída DOCX padronizada</span>
+        <span class="hero-pill">🤖 IA Integrada</span>
+    </div>
+</div>
+"""
+
+STATS_HTML = """
+<div class="stats-bar">
+    <div class="stat-item">
+        <div class="stat-number accent">23</div>
+        <div class="stat-label">Disciplinas</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">3</div>
+        <div class="stat-label">Modelos DOCX</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number accent">2</div>
+        <div class="stat-label">Motores IA</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">5</div>
+        <div class="stat-label">Modos de Uso</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number accent">+3K</div>
+        <div class="stat-label">Aulas Mapeadas</div>
+    </div>
+</div>
+"""
+
+SECTION_HEADER_HTML = """
+<div class="section-header-modern">
+    <h2 class="section-title-modern">Área de Trabalho</h2>
+    <span class="section-badge">Configuração</span>
+</div>
+"""
+
+OPTION_MENU_STYLES = {
+    "container": {
+        "padding": "5px !important",
+        "background-color": "rgba(26, 47, 29, 0.7)",
+        "border-radius": "12px",
+        "border": "1px solid rgba(45, 74, 48, 0.6)",
+        "backdrop-filter": "blur(10px)",
+    },
+    "icon": {"color": "#86EFAC", "font-size": "16px"},
+    "nav-link": {
+        "font-size": "14px",
+        "text-align": "center",
+        "margin": "0px 4px",
+        "font-weight": "600",
+        "color": "#86EFAC",
+        "--hover-color": "rgba(124, 58, 237, 0.15)",
+        "border-radius": "8px",
+        "transition": "all 0.2s ease",
+    },
+    "nav-link-selected": {
+        "background": "linear-gradient(135deg, #6D28D9 0%, #7C3AED 100%)",
+        "color": "#ffffff",
+        "font-weight": "700",
+        "box-shadow": "0 4px 14px rgba(124, 58, 237, 0.35)",
+    },
+}
+
+
+==================================================
+ARQUIVO: ui/ui_components.py
+==================================================
+import streamlit as st
+
+# Importamos as funções do banco de dados que a sidebar precisa usar
+# (Se o caminho para o teu database.py for diferente, avisa-me para ajustarmos)
+from core.database import listar_historico_planos, obter_arquivo_historico
+
+def render_sidebar():
+    """
+    Desenha a barra lateral do sistema, incluindo o Histórico de Planos.
+    """
+    with st.sidebar:
+        st.markdown("### Histórico de Planos")
+        historico = listar_historico_planos()
+        
+        if not historico:
+            st.info("Nenhum plano gerado ainda.")
+        else:
+            # Pega apenas os 5 mais recentes para não poluir
+            for plano_id, prof, disc, t, data_gen, arq_nome in historico[:5]:
+                with st.expander(f"{t} - {data_gen[:10]}"):
+                    st.caption(f"Prof: {prof}")
+                    st.caption(f"Arquivo: {arq_nome}")
+                    
+                    # Quando o usuário clicar, carrega o blob
+                    if st.button("Preparar Download", key=f"prep_{plano_id}"):
+                        arq_info = obter_arquivo_historico(plano_id)
+                        if arq_info:
+                            st.session_state[f"download_bytes_{plano_id}"] = arq_info[1]
+                            
+                    if f"download_bytes_{plano_id}" in st.session_state:
+                        st.download_button(
+                            label="📥 Baixar DOCX",
+                            data=st.session_state[f"download_bytes_{plano_id}"],
+                            file_name=arq_nome,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key=f"dl_hist_{plano_id}"
+                        )
+
+
+==================================================
+ARQUIVO: ui/__init__.py
+==================================================
+# Pacote de componentes de interface do PLANOS_LUAN
