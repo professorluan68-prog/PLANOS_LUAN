@@ -364,21 +364,36 @@ def _is_aula_dupla(aula_dict) -> bool:
 
 def _divisao_pdf_padrao(idx: int, total_aulas: int, lista_aulas: list = None) -> bool:
     if lista_aulas and idx < len(lista_aulas):
-        if _is_aula_dupla(lista_aulas[idx]):
+        item_atual = lista_aulas[idx]
+        eh_sem_pdf = bool(item_atual.get("bloco_sem_pdf") if isinstance(item_atual, dict) else False)
+        if _is_aula_dupla(item_atual) or eh_sem_pdf:
             return False
             
         single_class_count = 0
         for i in range(idx):
-            if not _is_aula_dupla(lista_aulas[i]):
+            item_ant = lista_aulas[i]
+            ant_sem_pdf = bool(item_ant.get("bloco_sem_pdf") if isinstance(item_ant, dict) else False)
+            if not _is_aula_dupla(item_ant) and not ant_sem_pdf:
                 single_class_count += 1
                 
-        if idx + 1 < len(lista_aulas):
-            if not _is_aula_dupla(lista_aulas[idx+1]) and single_class_count % 2 == 0:
-                return True
+        # Procurar a próxima aula válida (não dupla e com PDF)
+        tem_proxima_valida = False
+        for j in range(idx + 1, len(lista_aulas)):
+            item_prox = lista_aulas[j]
+            prox_sem_pdf = bool(item_prox.get("bloco_sem_pdf") if isinstance(item_prox, dict) else False)
+            if prox_sem_pdf:
+                continue
+            if not _is_aula_dupla(item_prox):
+                tem_proxima_valida = True
+            break
+            
+        if tem_proxima_valida and single_class_count % 2 == 0:
+            return True
                 
         return False
 
     return bool(idx % 2 == 0 and idx < total_aulas - 1)
+
 
 def _sincronizar_divisao_pdf_padrao(
     num_rows: int,

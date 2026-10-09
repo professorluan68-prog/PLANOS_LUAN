@@ -119,7 +119,7 @@ class DivisorMetodologia:
     def _compilar_padrao(self) -> None:
         """Compila o padrão regex uma vez para evitar recompilação."""
         padrao_str = "(" + "|".join(re.escape(m) for m in self.marcadores) + ")"
-        self.padrao_compilado = re.compile(padrao_str)
+        self.padrao_compilado = re.compile(padrao_str, flags=re.IGNORECASE)
 
     def extrair_secoes(self, texto: str) -> List[SecaoMetodologia]:
         """
@@ -146,11 +146,15 @@ class DivisorMetodologia:
                 secoes.append(SecaoMetodologia(nome, conteudo))
             i += 2
 
-        # Fallback: se não encontrou nenhuma seção, divide por parágrafos
+        # Fallback: se não encontrou nenhuma seção, divide por parágrafos sem rótulos espúrios
         if not secoes:
             blocos = [b.strip() for b in texto.split("\n\n") if b.strip()]
-            for idx, bloco in enumerate(blocos, start=1):
-                secoes.append(SecaoMetodologia(f"Parte {idx}:", bloco))
+            for bloco in blocos:
+                match = re.match(r"^([^:\n]{2,90}:)\s*(.*)$", bloco, re.DOTALL)
+                if match:
+                    secoes.append(SecaoMetodologia(match.group(1).strip(), match.group(2).strip()))
+                else:
+                    secoes.append(SecaoMetodologia("", bloco))
 
         return secoes
 
@@ -235,7 +239,10 @@ class DivisorMetodologia:
         """
         texto = ""
         for secao in secoes:
-            texto += f"{secao.nome}\n{secao.conteudo}\n\n"
+            if secao.nome:
+                texto += f"{secao.nome}\n{secao.conteudo}\n\n"
+            else:
+                texto += f"{secao.conteudo}\n\n"
 
         texto = texto.strip()
 

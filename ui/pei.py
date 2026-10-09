@@ -2,7 +2,12 @@ import streamlit as st
 import pandas as pd
 from core.leitor_lista_pei import ler_lista_alunos_pei
 from core.gerador_pei import gerar_docx_pei
-from core.database import connection_scope
+from core.database import (
+    connection_scope,
+    obter_disciplinas_historico_por_professor,
+    obter_turmas_historico_por_professor_disciplina_bimestre,
+    obter_caminho_plano_historico_exato
+)
 import config
 from pathlib import Path
 import re
@@ -33,13 +38,7 @@ def _renderizar_pei(professores_db):
     
     opcoes_disciplinas = []
     if professor:
-        with connection_scope() as conn:
-            df_disc = pd.read_sql('''
-                SELECT DISTINCT disciplina 
-                FROM historico_planos 
-                WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ? 
-            ''', conn, params=(professor.replace('_', ' ').upper(),))
-            opcoes_disciplinas = sorted(df_disc['disciplina'].tolist())
+        opcoes_disciplinas = obter_disciplinas_historico_por_professor(professor)
             
         # Merge with registered ones
         dados_prof = professores_db.get(professor, {})
@@ -56,20 +55,7 @@ def _renderizar_pei(professores_db):
     # Buscar as turmas que esse professor gerou plano
     opcoes_turmas = []
     if professor and disciplina and bimestre:
-        with connection_scope() as conn:
-            # Tolerancia a diferentes formas de escrever "4º Bimestre"
-            df_turmas = pd.read_sql('''
-                SELECT DISTINCT turma 
-                FROM historico_planos 
-                WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ? 
-                  AND UPPER(disciplina) = ? 
-                  AND UPPER(bimestre) LIKE ?
-            ''', conn, params=(
-                professor.replace('_', ' ').upper(), 
-                disciplina.upper(), 
-                f"%{bimestre}%BIMESTRE%"
-            ))
-            opcoes_turmas = sorted(df_turmas['turma'].tolist())
+        opcoes_turmas = obter_turmas_historico_por_professor_disciplina_bimestre(professor, disciplina, bimestre)
             
     turma_selecionada = st.selectbox("Turma/Sala", opcoes_turmas, index=None, placeholder="Selecione a Turma (apenas turmas com plano pronto)")
     
@@ -94,20 +80,15 @@ def _renderizar_pei(professores_db):
     if not alunos_escola:
         st.error("Não foi possível extrair a lista de alunos. Verifique o formato do documento.")
         return
-        
-    def _limpar_turma(t_str):
-        import re
-        t = str(t_str).upper()
-        t = re.sub(r'(\d)[ºO]', r'\1', t) # Troca 6º ou 6O por 6
-        t = t.replace('ANO', '').replace('SÉRIE', '').replace('SERIE', '').replace(' ', '')
-        return t
+
+    from core.turma_matcher import limpar_turma_nome
 
     # FILTRO MÁGICO: Mostrar apenas alunos da turma selecionada
-    t_selecionada_norm = _limpar_turma(turma_selecionada)
+    t_selecionada_norm = limpar_turma_nome(turma_selecionada)
     
     alunos_filtrados = []
     for a in alunos_escola:
-        t_doc_norm = _limpar_turma(a['turma_doc'])
+        t_doc_norm = limpar_turma_nome(a['turma_doc'])
         if t_doc_norm == t_selecionada_norm:
             alunos_filtrados.append(a)
             
@@ -115,30 +96,15 @@ def _renderizar_pei(professores_db):
         st.warning(f"Não encontramos nenhum aluno de inclusão na lista para a turma '{turma_selecionada}'.")
         return
         
-    with connection_scope() as conn:
-        df_planos = pd.read_sql('''
-            SELECT turma, arquivo_path 
-            FROM historico_planos 
-            WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ? 
-              AND UPPER(disciplina) = ? 
-              AND UPPER(bimestre) LIKE ? 
-              AND UPPER(turma) = ?
-        ''', conn, params=(
-            professor.replace('_', ' ').upper(), 
-            disciplina.upper(), 
-            f"%{bimestre}%BIMESTRE%", 
-            turma_selecionada.upper()
-        ))
-
-        
-    caminho_plano_regular = df_planos['arquivo_path'].iloc[0] if not df_planos.empty else None
+    caminho_plano_regular = obter_caminho_plano_historico_exato(professor, disciplina, bimestre, turma_selecionada)
         
     resultados = []
     for aluno in alunos_filtrados:
         if caminho_plano_regular:
-            md_path = encontrar_md_adaptado(disciplina, aluno['Segmento'], aluno['Turma'])
+            md_path = encontrar_md_adaptado(disciplina, aluno['segmento'], aluno['turma_doc'])
             if md_path:
                 status = "✅ Pronto (Plano e Textos OK)"
+
                 pode_gerar = True
             else:
                 status = "⚠️ Faltam Textos_Adaptados.md"

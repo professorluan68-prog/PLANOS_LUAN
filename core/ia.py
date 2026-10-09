@@ -1116,6 +1116,37 @@ def _chamar_gemini_com_retry(client, modelo, prompt, config, max_tentativas=3):
     raise RuntimeError("Falha apos todas as tentativas de chamada Gemini.")
 
 
+def _separar_system_do_user_prompt(texto_pdf: str, disciplina: str, turma: str, provedor: str, modelo: str, modalidade_eja: bool = False, permitir_tecnicas_explicitamente: bool = True, rascunho_base: dict | None = None, contexto_geracao: dict | None = None, palavras_chave_esperadas: list[str] | None = None, esboco_pdf: list[str] | None = None, contexto_cdp: bool = False) -> tuple[str, str]:
+    diagnostico_referencia = diagnosticar_referencia_metodologica(disciplina, turma)
+    perfil = perfil_disciplina(f"{disciplina} {turma}")
+    
+    # SYSTEM INSTRUCTION NATIVA E LIMPEZA DE CONFLITOS (SPRINT 3)
+    system_prompt = get_system_prompt(disciplina, turma)
+    
+    # Remover "PAUSE E RESPONDA" das técnicas sugeridas se for História
+    if perfil == "historia":
+        system_prompt += "\n\nCRÍTICO: A técnica 'Pause e responda' é estritamente PROIBIDA para a disciplina de História."
+
+    prompt_user = _montar_prompt(
+        texto_pdf,
+        disciplina,
+        turma,
+        modalidade_eja=modalidade_eja,
+        contexto_cdp=contexto_cdp,
+        permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
+        rascunho_base=rascunho_base,
+        contexto_geracao=contexto_geracao,
+        palavras_chave_esperadas=palavras_chave_esperadas,
+        esboco_pdf=esboco_pdf,
+        referencia_metodologica=diagnostico_referencia.texto,
+    )
+    
+    if perfil == "historia":
+        prompt_user = prompt_user.replace('"PAUSE E RESPONDA"', '').replace("PAUSE E RESPONDA", "")
+        
+    return system_prompt, prompt_user, diagnostico_referencia
+
+
 def processar_plano_ia(
     texto_pdf: str,
     disciplina: str,
@@ -1131,21 +1162,10 @@ def processar_plano_ia(
     contexto_cdp: bool = False,
     _eh_fallback: bool = False,
 ) -> dict:
-    diagnostico_referencia = diagnosticar_referencia_metodologica(disciplina, turma)
-    prompt = _montar_prompt(
-        texto_pdf,
-        disciplina,
-        turma,
-        modalidade_eja=modalidade_eja,
-        contexto_cdp=contexto_cdp,
-        permitir_tecnicas_explicitamente=permitir_tecnicas_explicitamente,
-        rascunho_base=rascunho_base,
-        contexto_geracao=contexto_geracao,
-        palavras_chave_esperadas=palavras_chave_esperadas,
-        esboco_pdf=esboco_pdf,
-        referencia_metodologica=diagnostico_referencia.texto,
+    
+    system_prompt, prompt_user, diagnostico_referencia = _separar_system_do_user_prompt(
+        texto_pdf, disciplina, turma, provedor, modelo, modalidade_eja, permitir_tecnicas_explicitamente, rascunho_base, contexto_geracao, palavras_chave_esperadas, esboco_pdf, contexto_cdp
     )
-    system_prompt = get_system_prompt(disciplina, turma)
 
     if provedor.lower() == "openai":
         try:
@@ -1160,12 +1180,16 @@ def processar_plano_ia(
                 modelo or MODELO_OPENAI_PADRAO,
                 [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": prompt_user},
                 ],
                 PlanoAulaIA,
             )
             data = _extrair_json_openai(response)
-            saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            try:
+                saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            except Exception as e:
+                logger.error(f"Pydantic Validation Error (OpenAI): {e} | Dados: {data}")
+                raise
             return _registrar_aviso_referencia_metodologica_na_saida(
                 saida,
                 diagnostico_referencia.aviso,
@@ -1206,23 +1230,33 @@ def processar_plano_ia(
                 api_key=os.getenv("GEMINI_API_KEY"),
                 http_options=types.HttpOptions(timeout=timeout_milisegundos),
             )
-            prompt_json = system_prompt + "\n\n" + prompt
+            
+            # SPRINT 3: Context Caching and Native System Instruction
+            config_gemini = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                response_schema=PlanoAulaIA,
+                http_options=types.HttpOptions(timeout=timeout_milisegundos),
+            )
 
             response = _chamar_gemini_com_retry(
                 client,
                 modelo or MODELO_GEMINI_PADRAO,
-                prompt_json,
-                types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=PlanoAulaIA,
-                    http_options=types.HttpOptions(timeout=timeout_milisegundos),
-                ),
+                prompt_user,
+                config_gemini,
             )
 
             text = response.text.strip()
             text = _limpar_json_markdown(text)
             data = json.loads(text or "{}")
-            saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            
+            # SPRINT 3: Pydantic Validation Logging
+            try:
+                saida = _normalizar_saida_ia(data, texto_pdf, disciplina, turma)
+            except Exception as validation_error:
+                logger.error(f"Pydantic Validation Error (Gemini): {validation_error} | Dados: {data}")
+                raise
+                
             return _registrar_aviso_referencia_metodologica_na_saida(
                 saida,
                 diagnostico_referencia.aviso,
@@ -1254,3 +1288,4 @@ def processar_plano_ia(
             raise
 
     raise Exception(f"Provedor {provedor} desconhecido.")
+

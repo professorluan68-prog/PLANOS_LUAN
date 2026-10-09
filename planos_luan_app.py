@@ -1122,20 +1122,26 @@ def validar_aulas_secundarias(gerar_turma_espelho: bool, turma_espelho: str, aul
 def _grupos_pdf_por_aula(aulas_envio: list[dict]) -> list[dict]:
     grupos = []
     idx = 0
-    while idx < len(aulas_envio):
+    total = len(aulas_envio)
+    while idx < total:
         aula = aulas_envio[idx]
         if _eh_bloco_sem_pdf(aula):
             idx += 1
             continue
-        proxima_aula_valida = idx + 1 < len(aulas_envio) and not _eh_bloco_sem_pdf(aulas_envio[idx + 1])
-        dividir = bool(aula.get("dividir_pdf")) and proxima_aula_valida
-        if dividir and idx + 1 < len(aulas_envio):
-            grupos.append({"indices": [idx, idx + 1], "dividir": True})
-            idx += 2
+        proximo_idx_valido = None
+        for j in range(idx + 1, total):
+            if not _eh_bloco_sem_pdf(aulas_envio[j]):
+                proximo_idx_valido = j
+                break
+        dividir = bool(aula.get("dividir_pdf")) and (proximo_idx_valido is not None)
+        if dividir and proximo_idx_valido is not None:
+            grupos.append({"indices": [idx, proximo_idx_valido], "dividir": True})
+            idx = proximo_idx_valido + 1
             continue
         grupos.append({"indices": [idx], "dividir": False})
         idx += 1
     return grupos
+
 
 def _aplicar_pdfs_a_grupos(aulas_envio: list[dict], pdfs_aulas_files, replicar_pdf_unico: bool = False) -> tuple[list[dict], int]:
     grupos = _grupos_pdf_por_aula(aulas_envio)
@@ -1267,7 +1273,29 @@ def _coletar_aulas_envio(
         
         horario_padrao_item = st.session_state.get(chave_horario, horario_fallback)
         bloqueado = (not preservar_datas_sincronizadas) and auto_repetir_semana and idx >= bloco_semana
-        continuidade_anterior = bool(dividir_metodologia and idx > 0 and st.session_state.get(f"{key_prefix}dividir_pdf_aula_{idx - 1}", False))
+        continuidade_anterior = False
+        if dividir_metodologia and idx > 0:
+            for prev in range(idx - 1, -1, -1):
+                prev_data = st.session_state.get(f"{key_prefix}data_aula_{prev}", data_fallback)
+                prev_horario = st.session_state.get(f"{key_prefix}horario_aula_{prev}")
+                prev_eh_sem_pdf = bool(
+                    permitir_um_dia_sem_pdf
+                    and dia_sem_pdf_semana is not None
+                    and isinstance(prev_data, date)
+                    and _eh_aula_sem_pdf(
+                        prev,
+                        prev_data,
+                        dia_sem_pdf_semana,
+                        datas_agenda=datas_cache,
+                        frequencia=frequencia_dia_sem_pdf,
+                        modo_aula_dupla=modo_aula_dupla,
+                        eh_horario_duplo=_eh_horario_duplo(prev_horario),
+                    )
+                )
+                if prev_eh_sem_pdf:
+                    continue
+                continuidade_anterior = bool(st.session_state.get(f"{key_prefix}dividir_pdf_aula_{prev}", False))
+                break
         dividir_pdf_ativo = bool(dividir_metodologia and st.session_state.get(chave_dividir, False))
         card_class, status_titulo, status_texto, badges = _status_visual_aula(idx, num_rows, bloqueado, continuidade_anterior, dividir_pdf_ativo)
         
@@ -1474,17 +1502,22 @@ def _coletar_aulas_envio(
                     "bloco_sem_pdf": eh_bloco_sem_pdf,
                 })
 
-    if modo_upload_individual:
-        # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior)
+        # Propagar PDF para aulas de continuação (mesmo PDF da aula anterior válida)
         for i in range(1, len(aulas_envio)):
             if deixar_antecipacao_vazia and _eh_data_antecipacao(aulas_envio[i]["data"], mes, antecipacao_mes):
                 continue
-            if _eh_bloco_sem_pdf(aulas_envio[i]) or _eh_bloco_sem_pdf(aulas_envio[i - 1]):
+            if _eh_bloco_sem_pdf(aulas_envio[i]):
                 continue
-            if aulas_envio[i - 1].get("dividir_pdf") and aulas_envio[i].get("pdf") is None:
-                aulas_envio[i]["pdf"] = aulas_envio[i - 1]["pdf"]
-                aulas_envio[i]["grupo_pdf"] = aulas_envio[i - 1].get("grupo_pdf")
+            anterior_idx_valido = None
+            for prev in range(i - 1, -1, -1):
+                if not _eh_bloco_sem_pdf(aulas_envio[prev]):
+                    anterior_idx_valido = prev
+                    break
+            if anterior_idx_valido is not None and aulas_envio[anterior_idx_valido].get("dividir_pdf") and aulas_envio[i].get("pdf") is None:
+                aulas_envio[i]["pdf"] = aulas_envio[anterior_idx_valido]["pdf"]
+                aulas_envio[i]["grupo_pdf"] = aulas_envio[anterior_idx_valido].get("grupo_pdf")
                 aulas_envio[i]["dividir_pdf"] = False
+
     else:
         # Organizar automaticamente os PDFs do upload em lote pela numeração da aula,
         # para que arquivos com prefixos como "TRILHA" não fiquem no final devido à ordem alfabética do navegador.
@@ -2469,6 +2502,38 @@ else:
                         help="Escolha se apenas 1 das aulas duplas fica sem PDF ou se ambas ficam sem PDF.",
                     )
                     modo_aula_dupla = "uma_aula" if "1 aula" in str(dupla_selecionada) else "ambas"
+    datas_modelo_base = [a.get("data") for a in aulas_oficiais_modelo if isinstance(a.get("data"), date)]
+    for idx_a, aula_item in enumerate(aulas_oficiais_modelo):
+        eh_sem_pdf_item = bool(
+            usar_dia_sem_pdf_portugues
+            and dia_sem_pdf_portugues is not None
+            and isinstance(aula_item.get("data"), date)
+            and _eh_aula_sem_pdf(
+                idx_a,
+                aula_item["data"],
+                dia_sem_pdf_portugues,
+                datas_agenda=datas_modelo_base,
+                frequencia=frequencia_dia_sem_pdf,
+                modo_aula_dupla=modo_aula_dupla,
+                eh_horario_duplo=_eh_horario_duplo(aula_item.get("horario")),
+            )
+        )
+        aula_item["bloco_sem_pdf"] = eh_sem_pdf_item
+
+    contexto_divisao_pdf = "|".join(
+        str(valor or "")
+        for valor in [
+            professor,
+            disciplina,
+            turma,
+            mes,
+            bimestre,
+            usar_dia_sem_pdf_portugues,
+            dia_sem_pdf_portugues,
+            frequencia_dia_sem_pdf,
+            modo_aula_dupla,
+        ]
+    )
     _sincronizar_divisao_pdf_padrao(linhas_modelo, dividir_metodologia, contexto=contexto_divisao_pdf, lista_aulas=aulas_oficiais_modelo)
 
     opcoes_modo_upload = ["Automatico", "Todos de uma vez", "Um por aula"]
@@ -2730,8 +2795,8 @@ else:
                     help="A ordem abaixo ja e a ordem que o sistema vai usar. No modo AE, ela segue a sequencia do guia priorizado.",
                 )
                 selecionados = ordenar_pdfs_por_numero(selecionados)
-                pdfs_selecionados_tela = list(selecionados)
                 pdfs_aulas_files = [LocalFileWrapper(p) for p in selecionados]
+                qtd_aulas = len(pdfs_aulas_files)
         else:
             if est_necessarios > 0:
                 st.markdown(
@@ -2819,6 +2884,25 @@ else:
             linhas_modelo_espelho = len(datas_horarios_mes_espelho)
             if linhas_modelo_espelho > 0:
                 num_rows_espelho = linhas_modelo_espelho
+
+        if datas_horarios_mes_espelho:
+            datas_modelo_espelho_base = [a.get("data") for a in aulas_oficiais_modelo_espelho if isinstance(a.get("data"), date)]
+            for idx_a, aula_item in enumerate(aulas_oficiais_modelo_espelho):
+                eh_sem_pdf_item = bool(
+                    usar_dia_sem_pdf_portugues
+                    and dia_sem_pdf_portugues is not None
+                    and isinstance(aula_item.get("data"), date)
+                    and _eh_aula_sem_pdf(
+                        idx_a,
+                        aula_item["data"],
+                        dia_sem_pdf_portugues,
+                        datas_agenda=datas_modelo_espelho_base,
+                        frequencia=frequencia_dia_sem_pdf,
+                        modo_aula_dupla=modo_aula_dupla,
+                        eh_horario_duplo=_eh_horario_duplo(aula_item.get("horario")),
+                    )
+                )
+                aula_item["bloco_sem_pdf"] = eh_sem_pdf_item
 
         contexto_divisao_pdf_espelho = f"{contexto_divisao_pdf}|{turma_espelho}"
         _sincronizar_divisao_pdf_padrao(num_rows_espelho, dividir_metodologia, key_prefix="turma2_", contexto=contexto_divisao_pdf_espelho, lista_aulas=aulas_oficiais_modelo_espelho)

@@ -1672,6 +1672,65 @@ def obter_vinculo_professor(vinculo_id):
             "origem": "banco",
         }
 
+# ==========================================
+# QUERIES ESPECÍFICAS PARA A ABA P. INCLUSÃO (PEI)
+# ==========================================
+
+def obter_disciplinas_historico_por_professor(professor_nome: str) -> list[str]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT disciplina 
+            FROM historico_planos 
+            WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ?
+            """,
+            (professor_nome.replace('_', ' ').upper(),)
+        )
+        return sorted([row[0] for row in cursor.fetchall() if row[0]])
+
+def obter_turmas_historico_por_professor_disciplina_bimestre(professor_nome: str, disciplina: str, bimestre: str) -> list[str]:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT turma 
+            FROM historico_planos 
+            WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ? 
+              AND UPPER(disciplina) = ? 
+              AND UPPER(bimestre) LIKE ?
+            """,
+            (
+                professor_nome.replace('_', ' ').upper(),
+                disciplina.upper(),
+                f"%{bimestre}%BIMESTRE%"
+            )
+        )
+        return sorted([row[0] for row in cursor.fetchall() if row[0]])
+
+def obter_caminho_plano_historico_exato(professor_nome: str, disciplina: str, bimestre: str, turma: str) -> str | None:
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT arquivo_path 
+            FROM historico_planos 
+            WHERE REPLACE(UPPER(professor_nome), '_', ' ') = ? 
+              AND UPPER(disciplina) = ? 
+              AND UPPER(bimestre) LIKE ? 
+              AND UPPER(turma) = ?
+            LIMIT 1
+            """,
+            (
+                professor_nome.replace('_', ' ').upper(),
+                disciplina.upper(),
+                f"%{bimestre}%BIMESTRE%",
+                turma.upper()
+            )
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+
 
 def atualizar_vinculo_professor(
     vinculo_id,
